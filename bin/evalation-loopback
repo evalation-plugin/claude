@@ -1,0 +1,80 @@
+#!/usr/bin/env node
+// evalation-loopback - catches the one redirect the provider sends back.
+//
+// Binds an ephemeral port on 127.0.0.1, prints `port=<n>`, then waits for the single GET the
+// browser is redirected to and prints `code=<c>&state=<s>`. evalation-activate threads
+// http://127.0.0.1:<port>/callback as the redirect, so the authorisation code is caught on this
+// machine, with nothing to paste and nothing travelling anywhere it did not have to.
+//
+// Loopback needs no certificate, because browsers permit plain http to 127.0.0.1 and nothing
+// outside this machine can reach it. It takes one request and stops: a listener that stayed open
+// would be a way in that outlived the reason for it.
+//
+// The query is read as data and never evaluated. It carries an authorisation code that came from a
+// browser, which is to say from wherever that browser has been.
+//
+// No dependencies beyond what the runtime already has, so it runs wherever the carrier does. Fails
+// closed on a bind error or a timeout: no port, no sign-in, rather than a sign-in that quietly
+// redirects somewhere else.
+'use strict';
+const http = require('http');
+
+const TIMEOUT_MS = Number(process.env.EVALATION_LOOPBACK_TIMEOUT_MS || 300000);
+const HOST = '127.0.0.1';
+
+const server = http.createServer((req, res) => {
+  let u = null;
+  try {
+    u = new URL(req.url || '/', 'http://127.0.0.1');
+  } catch {
+    u = null;
+  }
+  if (!u || u.pathname !== '/callback') {
+    res.writeHead(404, { 'content-type': 'text/plain' });
+    res.end('not found');
+    return;
+  }
+  const code = u.searchParams.get('code') || '';
+  const state = u.searchParams.get('state') || '';
+  // A provider that refuses redirects here too, with a reason and no code. Passed on rather than
+  // dropped: without it a person who declines the consent screen sees nothing until the timeout
+  // five minutes later, and the reason they would have needed was in the redirect all along.
+  const error = u.searchParams.get('error') || '';
+  const said = error
+    ? `Sign-in was not completed: ${error}. You can close this tab and return to your terminal.`
+    : 'Sign-in received. You can close this tab and return to your terminal.';
+  res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+  res.end(
+    '<!doctype html><html><head><meta charset="utf-8"><title>Evalation</title></head>' +
+      '<body style="font-family:system-ui,sans-serif;padding:3rem;text-align:center;color:#222">' +
+      '<h2>Evalation</h2><p>' +
+      said.replace(/[&<>]/g, (one) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[one]) +
+      '</p></body></html>',
+  );
+  // One stdout line, url-encoded, then a clean shutdown.
+  process.stdout.write(
+    `code=${encodeURIComponent(code)}&state=${encodeURIComponent(state)}&error=${encodeURIComponent(error)}\n`,
+  );
+  server.close(() => process.exit(0));
+});
+
+server.on('error', (e) => {
+  process.stderr.write(`evalation-loopback: ${e && e.message ? e.message : 'listen error'}\n`);
+  process.exit(2);
+});
+
+server.listen(0, HOST, () => {
+  const addr = server.address();
+  const port = addr && typeof addr === 'object' ? addr.port : 0;
+  if (!port) {
+    process.stderr.write('evalation-loopback: no port assigned\n');
+    process.exit(2);
+    return;
+  }
+  process.stdout.write(`port=${port}\n`);
+});
+
+setTimeout(() => {
+  process.stderr.write('evalation-loopback: timed out waiting for the sign-in callback\n');
+  process.exit(3);
+}, TIMEOUT_MS).unref();

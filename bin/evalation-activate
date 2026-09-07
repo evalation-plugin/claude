@@ -1,0 +1,220 @@
+#!/usr/bin/env node
+// evalation-activate - the one call made before this installation holds anything to sign with.
+//
+// Every other ask proves itself with a key. At activation there is none, which is what activation is
+// for, so a person signs in with their own provider instead and what comes back is enough to create
+// an installation against their account.
+//
+// The order is the whole of it, because the failure this must not have is a person who signed in and
+// got nothing, or an installation whose private halves nobody holds:
+//
+//   generate both pairs, so the private halves exist here and have been nowhere else
+//   bind a loopback port, and tell the server where the browser comes back to
+//   open the provider's own page, and wait for the one redirect
+//   send the code, the verifier and both public halves, and take the name that comes back
+//   keep the private halves, and write the settings that name where they are
+//
+// The private halves never travel and nothing bearing is minted, so there is nothing in the middle
+// worth taking, and the name that comes back is not a secret. Interrupted before the last step,
+// nothing was created and signing in again costs nothing.
+"use strict";
+
+const { generateKeyPairSync, randomBytes, createHash } = require("node:crypto");
+const { execFileSync, spawn } = require("node:child_process");
+const { existsSync, mkdirSync, writeFileSync } = require("node:fs");
+const { join, dirname } = require("node:path");
+const { homedir, hostname, userInfo } = require("node:os");
+
+const here = __dirname;
+const SERVICE = "evalation";
+const SERVER = "https://api.evalation.ai";
+const base = process.env.EVALATION_SERVER || SERVER;
+const SETTINGS = process.env.EVALATION_LOCAL || join(homedir(), ".evalation", "evalation.local");
+
+function fail(reason) {
+  process.stderr.write(reason + "\n");
+  process.exit(1);
+}
+
+function b64url(held) {
+  return held.toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+// Unsigned, and it has to be: this is the call that exists to get us a key. What it can reach is
+// bounded on the server side to a row that expires and is spent once.
+async function ask(path, body) {
+  let answer;
+  try {
+    answer = await fetch(`${base}${path}`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+    });
+  } catch (thrown) {
+    fail(`unreachable: ${base}${path} (${thrown.message})`);
+  }
+
+  const text = await answer.text();
+  if (!answer.ok) {
+    let said = text.trim();
+    try {
+      const read = JSON.parse(text);
+      const refusals = (read.refusals || [])
+        .map((one) => [one.observed, one.required].filter(Boolean).join(" | "))
+        .join("; ");
+      if (refusals) said = refusals;
+    } catch {
+      // Not structured. What came back stands as the reason, which beats replacing it with nothing.
+    }
+    fail(`refused ${answer.status}: ${said}`);
+  }
+  try {
+    return JSON.parse(text);
+  } catch (thrown) {
+    fail(`unreadable answer from ${path}: ${thrown.message}`);
+  }
+}
+
+// The raw thirty-two bytes are the tail of each encoding, and raw is what the server records.
+function keypair(kind) {
+  const { privateKey, publicKey } = generateKeyPairSync(kind);
+  const priv = privateKey.export({ type: "pkcs8", format: "der" });
+  const pub = publicKey.export({ type: "spki", format: "der" });
+  return { priv: priv.subarray(priv.length - 32), pub: pub.subarray(pub.length - 32) };
+}
+
+function keep(account, value) {
+  execFileSync("security", ["add-generic-password", "-U", "-s", SERVICE, "-a", account, "-w", value], {
+    stdio: ["ignore", "ignore", "ignore"],
+  });
+}
+
+// One line out of the listener while it keeps running, since the port has to be usable before the
+// redirect it is waiting for arrives.
+function awaited(listener, pattern, whenGone) {
+  return new Promise((resolve, reject) => {
+    let seen = "";
+    const read = (chunk) => {
+      seen += chunk.toString();
+      const found = seen.match(pattern);
+      if (found) {
+        listener.stdout.off("data", read);
+        resolve(found);
+      }
+    };
+    listener.stdout.on("data", read);
+    listener.on("exit", () => reject(new Error(whenGone)));
+  });
+}
+
+async function main() {
+  const provider = process.argv[2] || "google";
+  const wanted = process.argv[3];
+
+  if (existsSync(SETTINGS)) {
+    fail(
+      `already-activated: ${SETTINGS} exists, and a second installation on one machine is a second ` +
+        "thing to be billed for. Remove it and its keys to activate again.",
+    );
+  }
+
+  // Generated before anything is asked of anybody, so the private halves are ours from the start.
+  const signing = keypair("ed25519");
+  const receiving = keypair("x25519");
+
+  // What this machine is, digested here. It tells two machines apart and describes neither, which is
+  // the difference between counting installations and collecting hardware.
+  const device = createHash("sha256")
+    .update(`${hostname()} ${userInfo().username} ${process.platform}`)
+    .digest();
+
+  // The verifier stays here and only its digest goes out, so a code taken in flight is worth nothing.
+  const verifier = b64url(randomBytes(32));
+  const challenge = b64url(createHash("sha256").update(verifier, "ascii").digest());
+
+  const listener = spawn(join(here, "evalation-loopback"), { stdio: ["ignore", "pipe", "inherit"] });
+  const bound = await awaited(listener, /port=(\d+)/, "the listener stopped before it bound a port")
+    .catch((thrown) => fail(thrown.message));
+
+  const started = await ask("/activate/start", {
+    code_challenge: challenge,
+    redirect_uri: `http://127.0.0.1:${Number(bound[1])}/callback`,
+    provider,
+  });
+
+  process.stderr.write(`signing in with ${provider}\n`);
+  try {
+    execFileSync(process.platform === "darwin" ? "open" : "xdg-open", [started.authorization_url], {
+      stdio: ["ignore", "ignore", "ignore"],
+    });
+  } catch {
+    process.stderr.write(`could not open a browser. Sign in here:\n${started.authorization_url}\n`);
+  }
+
+  // Matched on the whole line rather than on the code, because a provider that refuses redirects
+  // here too, with a reason and an empty code. Waiting for a code that is never coming would hold a
+  // person for the listener's whole timeout and then tell them nothing.
+  const back = await awaited(
+    listener,
+    /code=([^&\s]*)&state=([^&\s]*)&error=([^&\s]*)/,
+    "the sign-in was not completed",
+  ).catch((thrown) => fail(thrown.message));
+
+  const refused = decodeURIComponent(back[3]);
+  if (refused) {
+    fail(`sign-in-refused: ${provider} answered ${refused}, so nothing was activated`);
+  }
+
+  const state = decodeURIComponent(back[2]);
+  if (state !== started.state) {
+    fail("wrong-sign-in: what came back is not the sign-in that went out, so nothing was activated");
+  }
+  if (!decodeURIComponent(back[1])) {
+    fail("no-code: the sign-in came back carrying nothing to exchange, so nothing was activated");
+  }
+
+  const done = await ask("/activate/complete", {
+    code: decodeURIComponent(back[1]),
+    state,
+    code_verifier: verifier,
+    signing_key: [...signing.pub],
+    receiving_key: [...receiving.pub],
+    device_sha256: [...device],
+    installation: wanted || `install-${randomBytes(5).toString("hex")}`,
+  });
+
+  // Last, and only once the server has said the installation exists. Keys kept for an installation
+  // that was refused would be an activation that looks done and answers nothing.
+  keep("installation-key", signing.priv.toString("base64"));
+  keep("receiving-key", receiving.priv.toString("base64"));
+
+  // The settings name where each key is and hold neither, so this file can be read out or pasted
+  // into a ticket without carrying anything worth having.
+  mkdirSync(dirname(SETTINGS), { recursive: true });
+  writeFileSync(
+    SETTINGS,
+    JSON.stringify(
+      {
+        schema: "evalation.local.v1",
+        installation: done.installation,
+        secrets: {
+          installation_key: `keychain:${SERVICE}/installation-key`,
+          receiving_key: `keychain:${SERVICE}/receiving-key`,
+        },
+      },
+      null,
+      2,
+    ) + "\n",
+  );
+
+  process.stdout.write(
+    JSON.stringify({
+      activated: true,
+      installation: done.installation,
+      signed_in_as: done.email || null,
+      settings: SETTINGS,
+    }) + "\n",
+  );
+}
+
+main();

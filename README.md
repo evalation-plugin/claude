@@ -35,9 +35,28 @@ refused without one.
 ## Getting started
 
 1. Install the plugin.
-2. `/ev-account` to check the seat is live.
-3. `/ev-packs` to choose what to assess against.
-4. `/ev-rotate` whenever you want to replace the key, which needs no reason and causes no downtime.
+2. `/ev-activate` to sign in. Nothing else works until this runs, because everything else proves
+   itself with a key this installation does not hold until then.
+3. `/ev-account` to check the seat is live.
+4. `/ev-packs` to choose what to assess against.
+5. `/ev-rotate` whenever you want to replace the key, which needs no reason and causes no downtime.
+
+## Signing in, once
+
+Activation is the one call that cannot be signed, because it is the call that gets you a key. So a
+person signs in with their own provider instead, in their own browser, and what comes back is enough
+to create an installation against their account. Every call after that is signed and nothing is
+presented again.
+
+Both keys are generated on your machine before the sign-in starts, and only the public halves are
+sent. Nothing bearing is minted anywhere in the flow, so there is no token in the middle to steal.
+
+The authorisation code comes back to a port on your own machine. There is no page of ours anywhere
+in the sign-in, which means nothing of ours to be phished by and nothing that needs inbound access to
+the machine you are working on.
+
+A second machine is a second installation and takes its own activation. One account holds as many as
+it needs, and what is billed is usage rather than seats.
 
 ## What is encrypted, and what is not
 

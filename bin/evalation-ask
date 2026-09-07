@@ -58,7 +58,10 @@ function settings() {
       }
     }
   }
-  fail(`no-settings: looked in ${places.join(", ")}, and one of them has to name this installation`);
+  fail(
+    `no-settings: looked in ${places.join(", ")}, and one of them has to name this installation. ` +
+      "Run /ev-activate to sign in, since nothing here can ask anything until this installation holds a key.",
+  );
 }
 
 // Settings never hold a secret. They name one, and this finds it in the operating system's own store.
