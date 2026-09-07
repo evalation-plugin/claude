@@ -27,7 +27,7 @@ founder claims of it. Any number may be selected, and selecting several is the o
    ${CLAUDE_PLUGIN_ROOT}/bin/evalation-packs list
    ```
 
-   `not-entitled` means the seat is not active: tell them to run `/ev-login` and stop. `unavailable`
+   `not-entitled` means the seat is not active: tell them to run `/ev-activate` and stop. `unavailable`
    means the server could not be reached: say so plainly and stop. Never invent a catalogue, and
    never offer a pack the fetch did not return.
 
