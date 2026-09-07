@@ -1,0 +1,108 @@
+#!/usr/bin/env node
+// evalation-hostnames [--resolves] - every host this plugin may reach is one we declared.
+//
+// Two things this catches, both of which have already happened here. A transport shipped pointing at
+// a gateway host that no longer exists, and nothing said so until an ask was tried. Before that it
+// read the hosting provider's own address out of settings, which put our hosting arrangements into
+// every customer's configuration and would have broken all of them at once the day we moved.
+// Neither was caught by anything, because nothing was looking.
+//
+// This comment names neither host, and that is the rule holding rather than an omission: a dead
+// address written down anywhere is one somebody later copies back into a call.
+//
+// So the rule is that a hostname appearing in the source is one hostnames.json declares. Declared
+// rather than discovered: a check that learned the allowed set from the source would agree with
+// whatever the source said, which is the failure it exists to prevent.
+//
+// --resolves additionally asks DNS whether each declared name is really there. A name we declared
+// and never created is the same outage as a name we mistyped, and it is better found here than by
+// a customer whose first run cannot reach us. It is separate from the default because a build check
+// that must always run cannot depend on the network.
+"use strict";
+
+const { readFileSync, readdirSync, statSync } = require("node:fs");
+const { join, dirname } = require("node:path");
+const { resolve: resolveDns } = require("node:dns/promises");
+
+const root = dirname(__dirname);
+const declared = JSON.parse(readFileSync(join(root, "hostnames.json"), "utf8"));
+const allowed = new Set(declared.hosts.map((one) => one.host));
+
+// Hostname-shaped, and deliberately loose: it is better to ask about something harmless than to
+// miss the one that matters. A bare word with a dot is not enough on its own, so this wants a name
+// under a public suffix or a provider domain, which is what an address in source actually looks like.
+const SHAPED = /\b(?:[a-z0-9][a-z0-9-]*\.)+(?:ai|com|net|org|io|dev|app|sh|co)\b/gi;
+
+// Named because each is a name in prose or an example rather than somewhere anything connects.
+const NOT_A_HOST = new Set(["evalation.ai", "json-schema.org", "genai.owasp.org", "example.com"]);
+
+function sources(from) {
+  const held = [];
+  for (const entry of readdirSync(from)) {
+    if (entry === ".git" || entry === "node_modules") continue;
+    const path = join(from, entry);
+    if (statSync(path).isDirectory()) held.push(...sources(path));
+    else if (/\.(js|mjs|cjs|sh|json|md)$/.test(entry) || !entry.includes(".")) held.push(path);
+  }
+  return held;
+}
+
+const offences = [];
+for (const path of sources(root)) {
+  const here = path.slice(root.length + 1);
+  if (here === "hostnames.json") continue;
+  const text = readFileSync(path, "utf8");
+  text.split("\n").forEach((line, index) => {
+    for (const found of line.matchAll(SHAPED)) {
+      const host = found[0].toLowerCase();
+      if (allowed.has(host) || NOT_A_HOST.has(host)) continue;
+      offences.push({ here, line: index + 1, host, said: line.trim().slice(0, 110) });
+    }
+  });
+}
+
+if (offences.length > 0) {
+  console.error("observed: this plugin names a host nothing declared");
+  for (const one of offences) {
+    console.error(`  ${one.here}:${one.line} names ${one.host}`);
+    console.error(`    ${one.said}`);
+  }
+  console.error(
+    "required: declare it in hostnames.json with what it serves and what reaches it, or take it out, " +
+      "since a host nobody declared is one nobody is keeping alive and the first thing to notice is a " +
+      "customer whose run cannot reach us",
+  );
+  process.exit(1);
+}
+
+async function main() {
+  if (!process.argv.includes("--resolves")) {
+    console.log(`hostnames hold: ${allowed.size} declared under ${declared.zone}, and the source names no other`);
+    return;
+  }
+
+  const missing = [];
+  for (const one of declared.hosts) {
+    try {
+      await resolveDns(one.host);
+    } catch {
+      missing.push(one);
+    }
+  }
+
+  if (missing.length > 0) {
+    console.error("observed: a declared host does not resolve, so nothing can reach it");
+    for (const one of missing) {
+      console.error(`  ${one.host} serves ${one.serves}`);
+    }
+    console.error(
+      `required: create the record under ${declared.zone} and attach the hostname to the app that ` +
+        "answers for it, since a name we declared and never created is the same outage as one we mistyped",
+    );
+    process.exit(1);
+  }
+
+  console.log(`hostnames hold: ${allowed.size} declared under ${declared.zone}, each resolving, and the source names no other`);
+}
+
+main();

@@ -1,0 +1,11 @@
+{
+  "description": "Every host this plugin may reach, declared rather than discovered. A hostname that appears in the source and not here is refused by bin/evalation-hostnames, which is what keeps a raw provider address out of a customer's install: the transport once shipped pointed at a gateway that no longer exists, and before that at the hosting provider directly, and neither was caught by anything. These are static names under a zone we hold, so moving hosts is a DNS change rather than a release, and a name here that does not resolve is a gap this check reports rather than something a customer discovers.",
+  "zone": "evalation.ai",
+  "hosts": [
+    {
+      "host": "api.evalation.ai",
+      "serves": "the payload server: the pin, the pack catalogue, the served rules and the reports",
+      "reached_by": "bin/evalation-ask"
+    }
+  ]
+}
