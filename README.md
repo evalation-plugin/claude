@@ -49,7 +49,9 @@ something else finds it, which is what makes the settings safe to read out, past
 keep in a repository.
 
 Settings are read from `EVALATION_LOCAL` if it is set, then `~/.evalation/evalation.local`, then
-`evalation.local` beside you. They name the installation, the server and where the key is kept.
+`evalation.local` beside you. They name the installation and where its key is kept, and nothing
+else is required. Where our server is, is ours to know: it is built into the plugin, so moving hosts
+never breaks an installation and no customer configuration carries our hosting arrangements.
 
 ## What leaves your machine
 

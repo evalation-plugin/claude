@@ -29,6 +29,16 @@ const PKCS8_ED25519 = Buffer.from("302e020100300506032b657004220420", "hex");
 // the same number. Named here so a refusal on a skewed clock is recognisable rather than a mystery.
 const WINDOW_SECONDS = 300;
 
+// Where our server is, which is ours to know and never something a customer configures. A settings
+// file that had to name it would make every installation carry our hosting arrangements, so moving
+// hosts would break all of them at once and the address of the provider we happen to use would sit
+// in every customer's configuration.
+//
+// Overridable, because we point our own installations at a dev deployment and at a machine on the
+// bench. An override is for us: a customer who never sets one is served by the name below and needs
+// to know nothing about where it points.
+const SERVER = "https://api.evalation.ai";
+
 function fail(reason) {
   process.stderr.write(reason + "\n");
   process.exit(1);
@@ -48,7 +58,7 @@ function settings() {
       }
     }
   }
-  fail(`no-settings: looked in ${places.join(", ")}, and one of them has to name the installation and its server`);
+  fail(`no-settings: looked in ${places.join(", ")}, and one of them has to name this installation`);
 }
 
 // Settings never hold a secret. They name one, and this finds it in the operating system's own store.
@@ -74,10 +84,13 @@ if (!path || !path.startsWith("/")) {
 
 const local = settings();
 const installation = local.installation;
-const base = local.server;
-if (typeof installation !== "string" || typeof base !== "string") {
-  fail("no-installation: the settings name no installation or no server to ask");
+if (typeof installation !== "string") {
+  fail("no-installation: the settings name no installation, and an ask says which one is making it");
 }
+
+// Ours first where we set one, then an installation pointed somewhere deliberately, then the name
+// above. A customer sets none of these.
+const base = process.env.EVALATION_SERVER || local.server || SERVER;
 
 const seed = Buffer.from(secret(local.secrets && local.secrets.installation_key), "base64");
 if (seed.length !== 32) {
