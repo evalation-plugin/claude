@@ -1,0 +1,126 @@
+#!/usr/bin/env node
+// evalation-open - opens what the server sealed to this installation.
+//
+// What we are served crosses encrypted, so everything between us and the server reads ciphertext:
+// an edge, a proxy on their network, whatever inspects traffic on the way. This is the only place
+// that undoes it, and the private half it uses never leaves the operating system's own store.
+//
+// Three stages of one operation, and the server does the same three in reverse. The throwaway key
+// it sent and our private key agree a shared secret. That secret is derived into a key. The key
+// opens the payload and, in the same pass, says whether anything was altered.
+//
+// The ask is built here rather than taken from the answer. That is the whole of what binds a
+// response to the request it answered: a payload served for one ask cannot be opened as the answer
+// to another, and it can only be checked that way if this side computes the binding itself.
+//
+// Fails closed. Anything that does not open prints one reason and exits non-zero with empty stdout,
+// because a payload that will not open must never be reported as one that did.
+"use strict";
+
+const { createHash, createPrivateKey, createPublicKey, diffieHellman, hkdfSync, createDecipheriv } =
+  require("node:crypto");
+const { execFileSync } = require("node:child_process");
+
+// The scheme, matching what the server names in the envelope. Both ends carry it separately, so a
+// change to one and not the other refuses everything rather than quietly covering less.
+const VERSION = "evalation.sealed.v1";
+
+// The fixed prefixes that turn thirty-two raw bytes into a key this runtime will hold.
+const PKCS8_X25519 = Buffer.from("302e020100300506032b656e04220420", "hex");
+const SPKI_X25519 = Buffer.from("302a300506032b656e032100", "hex");
+
+function fail(reason) {
+  process.stderr.write(reason + "\n");
+  process.exit(1);
+}
+
+/** What is authenticated alongside the payload. Built from the ask this side made, never from the answer. */
+function context(path, at, digest) {
+  return `${VERSION} ${path} ${at} ${digest}`;
+}
+
+/** The private half, from the operating system's own store. Settings name it and never hold it. */
+function receiving(named) {
+  const held = (named ?? "keychain:evalation/receiving-key").match(/^keychain:([^/]+)\/(.+)$/);
+  if (!held) fail(`unreadable-key-reference: ${named}`);
+  try {
+    return Buffer.from(
+      execFileSync("security", ["find-generic-password", "-s", held[1], "-a", held[2], "-w"], {
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "ignore"],
+      }).trim(),
+      "base64",
+    );
+  } catch {
+    fail(
+      `no-receiving-key: nothing in the keychain under ${held[1]}/${held[2]}, and what is served is sealed to it`,
+    );
+  }
+}
+
+/**
+ * Opens one sealed envelope.
+ *
+ * Returns the payload, or throws. Never returns something partly opened: the tag is checked in the
+ * same pass as the decryption, so what comes back is either exactly what was sealed or nothing.
+ */
+function open(sealed, said, seed) {
+  if (sealed?.v !== VERSION) {
+    throw new Error(`sealed under ${sealed?.v ?? "nothing"}, and this reads ${VERSION}`);
+  }
+  if (seed.length !== 32) {
+    throw new Error(`the receiving key is ${seed.length} bytes where one is 32`);
+  }
+
+  const epk = Buffer.from(sealed.epk, "base64");
+  if (epk.length !== 32) throw new Error("the throwaway key is not the size one is");
+
+  const ours = createPrivateKey({
+    key: Buffer.concat([PKCS8_X25519, seed]),
+    format: "der",
+    type: "pkcs8",
+  });
+  const theirs = createPublicKey({
+    key: Buffer.concat([SPKI_X25519, epk]),
+    format: "der",
+    type: "spki",
+  });
+
+  // The throwaway key is the salt, matching the server, so two answers to one installation derive
+  // different keys even before the number used once.
+  const shared = diffieHellman({ privateKey: ours, publicKey: theirs });
+  const derived = Buffer.from(hkdfSync("sha256", shared, epk, Buffer.from(VERSION, "utf8"), 32));
+
+  const body = Buffer.from(sealed.c, "base64");
+  if (body.length < 17) throw new Error("the sealed payload is too short to hold a tag");
+  const tag = body.subarray(body.length - 16);
+  const cipher = body.subarray(0, body.length - 16);
+
+  const opening = createDecipheriv("aes-256-gcm", derived, Buffer.from(sealed.n, "base64"));
+  opening.setAAD(Buffer.from(said, "utf8"));
+  opening.setAuthTag(tag);
+  return Buffer.concat([opening.update(cipher), opening.final()]);
+}
+
+module.exports = { open, context, receiving, VERSION };
+
+// Run directly, it opens one envelope given on standard input, for proving this against the server's
+// own sealing without a whole run in between.
+if (require.main === module) {
+  const [path, at, digest] = process.argv.slice(2);
+  if (!path || !at || !digest) {
+    process.stderr.write("usage: evalation-open <path> <at> <digest>  (envelope on stdin)\n");
+    process.exit(2);
+  }
+  let sealed;
+  try {
+    sealed = JSON.parse(require("node:fs").readFileSync(0, "utf8"));
+  } catch (thrown) {
+    fail(`not-an-envelope: ${thrown.message}`);
+  }
+  try {
+    process.stdout.write(open(sealed, context(path, Number(at), digest), receiving()));
+  } catch (thrown) {
+    fail(`will-not-open: ${thrown.message}`);
+  }
+}

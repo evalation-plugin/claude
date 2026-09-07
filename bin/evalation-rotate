@@ -1,0 +1,110 @@
+#!/usr/bin/env node
+// evalation-rotate - replaces this installation's receiving key.
+//
+// A key that cannot be changed is one nobody may ever suspect, so this is a thing the customer does
+// rather than a support request. One command, no coordination, no downtime.
+//
+// The order matters more than the cryptography here, because the failure this must never have is a
+// customer left holding a key the server does not know or a key the server knows and they cannot
+// use. So the old private half is kept until the new one has been shown to open something real, and
+// the server is told to retire the old one only after that.
+//
+//   generate, keeping the private half out of sight
+//   send the public half, unconfirmed, so the server keeps the old key readable for a window
+//   put the new private half in the store, keeping the old beside it
+//   fetch something and open it, which is the only proof that any of this worked
+//   tell the server it may retire the old key, and drop our copy of it
+//
+// Interrupted anywhere before the fourth step, the old key still works and the window closes on its
+// own. Interrupted after it, the new key works and the old one expires unused.
+"use strict";
+
+const { generateKeyPairSync } = require("node:crypto");
+const { execFileSync } = require("node:child_process");
+const { join } = require("node:path");
+
+const here = __dirname;
+const SERVICE = "evalation";
+const CURRENT = "receiving-key";
+const PREVIOUS = "receiving-key-previous";
+
+function fail(reason) {
+  process.stderr.write(reason + "\n");
+  process.exit(1);
+}
+
+function ask(path, body) {
+  try {
+    return JSON.parse(execFileSync(join(here, "evalation-ask"), [path, JSON.stringify(body)], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+    }));
+  } catch (thrown) {
+    fail(`the server refused: ${(thrown.stderr || thrown.message).toString().trim()}`);
+  }
+}
+
+function keep(account, value) {
+  execFileSync("security", ["add-generic-password", "-U", "-s", SERVICE, "-a", account, "-w", value], {
+    stdio: ["ignore", "ignore", "ignore"],
+  });
+}
+
+function held(account) {
+  try {
+    return execFileSync("security", ["find-generic-password", "-s", SERVICE, "-a", account, "-w"], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    }).trim();
+  } catch {
+    return null;
+  }
+}
+
+const { privateKey, publicKey } = generateKeyPairSync("x25519");
+const priv = privateKey.export({ type: "pkcs8", format: "der" });
+const pub = publicKey.export({ type: "spki", format: "der" });
+// The raw thirty-two bytes are the tail of each encoding, and raw is what a key is.
+const fresh = priv.subarray(priv.length - 32).toString("base64");
+const offered = [...pub.subarray(pub.length - 32)];
+
+const standing = held(CURRENT);
+
+process.stderr.write("offering the new key\n");
+const answered = ask("/rotate", { receiving_key: offered, confirmed: false });
+
+// Kept before the swap, so an interruption between the two leaves something to go back to.
+if (standing) keep(PREVIOUS, standing);
+keep(CURRENT, fresh);
+
+process.stderr.write("checking the new key opens what is served\n");
+try {
+  const packs = ask("/packs", {});
+  if (!Array.isArray(packs.packs)) throw new Error("what came back is not a catalogue");
+  process.stderr.write(`opened ${packs.packs.length} pack(s) at revision ${packs.revision}\n`);
+} catch (thrown) {
+  // Put back exactly what was there. The server still accepts the old key for its window, so this
+  // is a recovery rather than an outage.
+  if (standing) keep(CURRENT, standing);
+  fail(
+    `the new key did not open what is served, so the old one is back in place: ${thrown.message}\n` +
+      "nothing was lost, and the key the server holds returns to the old one when its window closes",
+  );
+}
+
+ask("/rotate", { receiving_key: offered, confirmed: true });
+try {
+  execFileSync("security", ["delete-generic-password", "-s", SERVICE, "-a", PREVIOUS], {
+    stdio: ["ignore", "ignore", "ignore"],
+  });
+} catch {
+  // Nothing to drop, which is the ordinary case on a first rotation.
+}
+
+process.stdout.write(
+  JSON.stringify({
+    rotated: true,
+    previous_accepted_until: answered.previous_until ?? null,
+    previous_retired: true,
+  }) + "\n",
+);

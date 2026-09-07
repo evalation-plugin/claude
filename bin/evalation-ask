@@ -82,6 +82,36 @@ if (!path || !path.startsWith("/")) {
   process.exit(2);
 }
 
+const { open, context, receiving } = require(join(__dirname, "evalation-open"));
+
+/**
+ * Opens every sealed envelope in an answer, wherever it sits.
+ *
+ * Walked rather than named per field, because which fields are sealed is the server's to decide and
+ * a list here would be a second copy of that decision, wrong the day it changes. An envelope is
+ * recognised by carrying the four fields one has and nothing else.
+ */
+function opened(held, said, seed) {
+  if (Array.isArray(held)) return held.map((one) => opened(one, said, seed));
+  if (held === null || typeof held !== "object") return held;
+
+  const keys = Object.keys(held).sort().join(",");
+  if (keys === "c,epk,n,v") {
+    // Parsed back where it parses, so a sealed document arrives as the document it was rather than
+    // as a string the caller has to know to read again.
+    const plain = open(held, said, seed).toString("utf8");
+    try {
+      return JSON.parse(plain);
+    } catch {
+      return plain;
+    }
+  }
+
+  const out = {};
+  for (const [name, value] of Object.entries(held)) out[name] = opened(value, said, seed);
+  return out;
+}
+
 const local = settings();
 const installation = local.installation;
 if (typeof installation !== "string") {
@@ -146,7 +176,20 @@ fetch(`${base}${path}`, {
       }
       fail(`refused ${answer.status}: ${said}`);
     }
-    process.stdout.write(text);
+    // Opened here so nothing downstream has to know the answer was ever sealed, and so the one
+    // place that holds the private half is the one place that uses it.
+    let said;
+    try {
+      said = JSON.parse(text);
+    } catch {
+      process.stdout.write(text);
+      return;
+    }
+    try {
+      process.stdout.write(JSON.stringify(opened(said, context(path, at, digest), receiving(local.secrets && local.secrets.receiving_key))));
+    } catch (thrown) {
+      fail(`will-not-open: ${thrown.message}`);
+    }
   })
   .catch((thrown) => {
     clearTimeout(bell);
