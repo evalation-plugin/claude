@@ -43,6 +43,10 @@ founder claims of it. Any number may be selected, and selecting several is the o
 
 6. **Say where it landed** and that it is theirs to read and to keep beside their findings.
 
+7. **Say what is next.** Reading a repository against the selected packs is not in this version yet,
+   so say that plainly rather than leaving them waiting for something to happen. `/ev-account` shows
+   where the seat stands, and `/ev-packs` changes the selection whenever they like.
+
 ## What this never does
 
 It reads nothing in the repository and writes nothing into it. The selection lives in the customer's

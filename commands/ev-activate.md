@@ -1,19 +1,22 @@
 ---
-description: Activate this installation by signing in, so it holds the keys everything after this proves itself with.
+description: Sign in, so this machine holds the keys everything else proves itself with.
 ---
 
-# Activate this installation
+# Sign in
 
 Nothing else here works until this runs. Every other command proves itself with a key this
-installation holds, and it holds none until it has one, which is what activating is.
+installation holds, and it holds none until it has one, which is what signing in is for.
 
-Signing in is what stands in for the key that does not exist yet. The person signs in with their own
-provider, in their own browser, and what comes back is enough to create an installation against their
-account. From then on every call is signed and nothing is presented again.
+The person may know none of that. Tell them what is about to happen before it happens: a browser
+window opens on their own provider's sign-in page, they sign in there, and the window closes itself.
+No password comes near us. Their machine makes two keys and keeps both private halves, so nothing
+that could impersonate them ever leaves it.
 
 ## What to do
 
-1. **Run it**, naming the provider. `google` where none is named.
+1. **Ask which provider**, unless they have already said. Google and Microsoft are the two.
+
+2. **Tell them a browser is about to open**, then run it with the provider they named.
 
    ```
    ${CLAUDE_PLUGIN_ROOT}/bin/evalation-activate google
@@ -23,32 +26,47 @@ account. From then on every call is signed and nothing is presented again.
    ${CLAUDE_PLUGIN_ROOT}/bin/evalation-activate microsoft
    ```
 
-   A browser opens on the provider's own sign-in page. Where it cannot open one, the command prints
-   the address to visit instead.
+   It waits up to five minutes for them to finish. That is not a hang, so do not interrupt it and do
+   not run it a second time alongside the first.
 
-2. **Wait for it.** It prints the installation it created and the account it was signed in as.
+3. **Read what it printed and say it in their words.** On success it names the installation it
+   created and the account it signed in as. Tell them this machine is now set up, and that a second
+   machine is a second installation with its own sign-in.
 
-3. **If it fails**, say what it said and stop. Nothing was created, so signing in again costs
-   nothing, but running it a second time on the assumption it will work is how a real refusal gets
-   read as a glitch.
+4. **Say what is next**: `/ev-packs` to choose what to be assessed against, or `/ev-start` to be
+   walked through the rest.
 
-## What to know
+## When it does not work
 
-**A second machine is a second installation**, and it takes its own activation. What is billed is
-usage against an account, and one account holds as many installations as it needs.
+Read the reason it printed rather than guessing, and tell the person the one thing that would change
+it.
 
-**Already activated refuses rather than replacing.** Activating twice on one machine would create a
-second installation to be billed for while the first still exists. Removing the settings file and the
-keys beside it is what makes activating again possible, and it is deliberate work rather than a flag.
+- **`could not open a browser`** is not a failure. It prints the address instead. Give them the
+  address and tell them to open it themselves. It carries on waiting.
+- **`sign-in-refused`** means they declined at the provider's page, or the provider did. Nothing was
+  created. Ask whether they meant to, and offer to run it again.
+- **`already-activated`** means this machine is set up already. Do not remove anything to get past
+  it: run `/ev-account` and tell them where the seat stands. A second installation on one machine is
+  a second thing to be billed for, which is why it refuses rather than replacing.
+- **`the provider would not exchange the code`** carries the provider's own words after it. If those
+  words name a redirect or a reply URL, the fault is our registration rather than anything they did:
+  say so, say it needs us, and stop. Do not have them try again, because that will fail the same way.
+- **`unreachable`** is our server or their network. Say which it looks like and stop.
+- **`wrong-sign-in`** means what came back was not the sign-in that went out. Nothing was created.
+  Run it again, and if it happens twice, stop and say so, because it should not happen twice.
 
-## What it never does
+Whatever the failure, **nothing was created and nothing needs undoing.** Say that, because a person
+who thinks a half-made account is sitting somewhere will go looking for it.
 
-The two private keys are generated on this machine and never leave it. What crosses is the public
-halves, so there is nothing in transit worth taking and nothing on our side that could impersonate
-this installation.
+## What this never does
 
-The code the provider issues comes back to a port on this machine and nowhere else. There is no page
-of ours anywhere in the sign-in, so there is nothing of ours to be phished by.
+The two private keys are made on their machine and never leave it. What crosses is the public halves.
+Nothing bearing is minted anywhere in the flow, so there is no token in the middle to steal.
 
-No password reaches us and none is asked for. The provider answers who the person is, and what we
-keep is a name to invoice.
+The code from the provider comes back to a port on their own machine and nowhere else. There is no
+page of ours anywhere in the sign-in, so there is nothing of ours for anybody to be phished by, and
+it needs no inbound access to the machine they are sitting at.
+
+Never print a key, and never write the settings file by hand to make something work. A settings file
+nothing signed in to create names an installation the server has never heard of, and every ask it
+makes will be refused for a reason that looks like something else.

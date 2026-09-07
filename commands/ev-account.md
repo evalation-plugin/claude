@@ -25,10 +25,15 @@ description: Evalation seat status. Shows whether the seat is live, what is sele
 
 3. **Say what is next, in one line.**
 
-   - Seat not live: report the reason the status gave. A clock more than five minutes out refuses
-     every ask on its own, so say that where the reason points at the proof.
-   - Live with no packs selected: run `/ev-packs`.
-   - Live with packs selected: name them and say a run reads this repository against them.
+   - `no-settings` in the reason: this machine is not set up yet, which is the ordinary state for
+     somebody who has just installed the plugin rather than a fault. Say so and offer `/ev-start`,
+     which walks them through it.
+   - Seat not live for any other reason: report the reason the status gave. A clock more than five
+     minutes out refuses every ask on its own, so say that where the reason points at the proof.
+   - Live with no packs selected: say what a pack is in one line and offer `/ev-packs`.
+   - Live with packs selected: name them, and say plainly that reading a repository against them is
+     not in this version yet, so nothing runs today. Do not imply otherwise and do not offer to do
+     it by hand.
 
 ## What this never does
 

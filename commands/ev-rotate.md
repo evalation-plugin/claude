@@ -1,5 +1,5 @@
 ---
-description: Replace this installation's receiving key, the one what we serve is encrypted to.
+description: Replace the key that opens what we serve. Needs no reason and causes no downtime.
 ---
 
 # Replace the receiving key

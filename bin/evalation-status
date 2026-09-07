@@ -11,12 +11,18 @@ set -euo pipefail
 
 DIR="$(cd "$(dirname "$0")" && pwd)"
 
-if ANSWER="$("$DIR/evalation-ask" /pin '{}' 2>/tmp/evalation-status-said)"; then
+# A file of its own each time. A fixed name under a shared temporary directory is one any other
+# account on the machine can read or plant, and two people running this at once would each read the
+# other's reason.
+SAID="$(mktemp)"
+trap 'rm -f "$SAID"' EXIT
+
+if ANSWER="$("$DIR/evalation-ask" /pin '{}' 2>"$SAID")"; then
   printf 'seat: live\n'
   printf 'released revision: %s\n' "$(printf '%s' "$ANSWER" | /usr/bin/python3 -c 'import json,sys; print(json.load(sys.stdin)["revision"])')"
   exit 0
 fi
 
 printf 'seat: not live\n'
-printf 'reason: %s\n' "$(cat /tmp/evalation-status-said)"
+printf 'reason: %s\n' "$(cat "$SAID")"
 exit 1
