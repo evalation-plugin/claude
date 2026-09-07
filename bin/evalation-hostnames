@@ -22,7 +22,7 @@
 
 const { readFileSync, readdirSync, statSync } = require("node:fs");
 const { join, dirname } = require("node:path");
-const { resolve: resolveDns } = require("node:dns/promises");
+const { resolve4, resolve6 } = require("node:dns/promises");
 
 const root = dirname(__dirname);
 const declared = JSON.parse(readFileSync(join(root, "hostnames.json"), "utf8"));
@@ -81,13 +81,13 @@ async function main() {
     return;
   }
 
+  // Either family answers. A host with a dedicated IPv6 and a shared IPv4 is the ordinary case where
+  // we run, so asking only for an address record would report a reachable host as missing, and this
+  // check reported exactly that against a name that was already live.
   const missing = [];
   for (const one of declared.hosts) {
-    try {
-      await resolveDns(one.host);
-    } catch {
-      missing.push(one);
-    }
+    const found = await Promise.allSettled([resolve4(one.host), resolve6(one.host)]);
+    if (found.every((answer) => answer.status === "rejected")) missing.push(one);
   }
 
   if (missing.length > 0) {
