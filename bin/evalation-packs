@@ -1,0 +1,67 @@
+#!/usr/bin/env bash
+# evalation-packs - what this installation assesses against, and where that choice is kept.
+#
+# A pack is one subject a run is pointed at: a published standard, a set of concerns of ours, or a
+# composition of either authored for one use. Which packs exist is served against an entitled seat
+# and never shipped here, so the catalogue is a fetch and this file carries none of it.
+#
+# The selection is the customer's and is kept where they can read it, paste it into a ticket and
+# keep it beside the findings, because what was assessed against is evidence in its own right. It is
+# deliberately not in the repository being assessed: that repository is the subject, and writing our
+# configuration into it would change the thing we are here not to touch.
+#
+# Fails closed like everything else on this side. An inactive seat prints a reason and exits
+# non-zero with empty stdout, never a fabricated catalogue.
+set -euo pipefail
+
+DIR="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck source=../hooks/_lib.sh
+. "$DIR/../hooks/_lib.sh"
+
+EV_HOME="${EVALATION_HOME:-$HOME/.evalation}"
+SELECTION="$EV_HOME/packs.json"
+
+usage() {
+  echo "usage: evalation-packs [show|list|set <pack> [<pack>...]]" >&2
+  exit 2
+}
+
+show() {
+  if [ -f "$SELECTION" ]; then
+    cat "$SELECTION"
+  else
+    printf '{"packs":[]}\n'
+  fi
+}
+
+list() {
+  if ! ev_is_active "$(ev_validate_cached)"; then
+    echo "not-entitled" >&2
+    exit 1
+  fi
+  if BODY="$(ev_payload packs)"; then
+    printf '%s' "$BODY"
+  else
+    echo "unavailable" >&2
+    exit 1
+  fi
+}
+
+# The selection is composed whole before anything is written, so a malformed argument fails with the
+# previous selection still standing rather than half of a new one on disk. It is the selection rather
+# than a history of it: what was assessed against on a given day rides with that day's findings.
+set_packs() {
+  [ "$#" -gt 0 ] || usage
+  ev_have jq || { echo "missing-jq" >&2; exit 1; }
+  BODY="$(printf '%s\n' "$@" | jq -R . | jq -s '{packs: ., chosen: (now | todate)}')"
+  mkdir -p "$EV_HOME"
+  printf '%s\n' "$BODY" > "$SELECTION"
+  printf '%s\n' "$BODY"
+}
+
+case "${1:-show}" in
+  show) show ;;
+  list) list ;;
+  set) shift; set_packs "$@" ;;
+  *) usage ;;
+esac

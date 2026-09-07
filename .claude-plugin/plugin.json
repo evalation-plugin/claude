@@ -1,42 +1,12 @@
 {
   "name": "evalation-plugin",
-  "version": "0.1.6",
-  "description": "The thin client for Evalation, an autonomous software engineering engine. Entitlement, server-injected operating instructions, and auth glue only; all methodology runs server-side.",
+  "version": "0.2.0",
+  "description": "Evalation: read a repository against compliance, regulation and hardening packs, and report what it evidences. Read-only. Findings stay on your machine, and the methodology is served rather than shipped.",
   "author": {
     "name": "Evalation",
     "url": "https://evalation.ai"
   },
   "homepage": "https://evalation.ai",
   "license": "SEE LICENSE IN README.md",
-  "commands": "./commands",
-  "hooks": {
-    "SessionStart": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/session-start.sh"
-          }
-        ]
-      }
-    ],
-    "UserPromptSubmit": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/user-prompt-submit.sh"
-          }
-        ]
-      },
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/session-guidance.sh"
-          }
-        ]
-      }
-    ]
-  }
+  "commands": "./commands"
 }

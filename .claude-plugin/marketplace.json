@@ -4,14 +4,14 @@
     "name": "Evalation",
     "url": "https://evalation.ai"
   },
-  "description": "Official Evalation marketplace - the thin client for Evalation, an autonomous software engineering engine. All methodology runs server-side; this plugin is entitlement, injection, and auth glue only.",
+  "description": "Official Evalation marketplace. Read a repository against compliance, regulation and hardening packs and report what it evidences, without changing anything.",
   "plugins": [
     {
       "name": "evalation-plugin",
       "source": "./",
-      "description": "The thin client for Evalation, an autonomous software engineering engine: activates an entitled seat (login, server-injected operating instructions). Zero methodology or secrets on disk. Restart Claude Code from your target repo after installing to activate.",
-      "keywords": ["evalation", "autonomous-software-engineering", "code-review", "orchestration", "engine"],
-      "category": "workflow"
+      "description": "Reads a repository against the packs you select, compliance, regulation and hardening, and reports what it evidences with a citation for every claim. It changes nothing, findings are written locally and never leave the machine, and the methodology is served against an entitled seat rather than shipped. Run /ev-login to activate, then /ev-packs to choose what to assess against.",
+      "keywords": ["evalation", "compliance", "soc2", "iso27001", "gdpr", "hardening", "security-review", "audit", "owasp"],
+      "category": "security"
     }
   ]
 }
