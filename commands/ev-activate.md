@@ -14,7 +14,10 @@ that could impersonate them ever leaves it.
 
 ## What to do
 
-1. **Ask which provider**, unless they have already said. Google and Microsoft are the two.
+1. **Ask which provider.** Google and Microsoft are the two. Ask even where one was named earlier in
+   this conversation: an attempt that already failed is a reason to ask again rather than a reason to
+   assume, because the provider is the most likely thing to have been wrong. Where one has already
+   failed, say which and what it said, and offer the other first.
 
 2. **Tell them a browser is about to open**, then run it with the provider they named.
 

@@ -50,8 +50,14 @@ sequence silently and announce it afterwards.
    near us. Their machine makes two keys and keeps both private halves, so from then on it proves
    itself by signing rather than by holding anything worth stealing.
 
-   Ask which provider they want, offering Google and Microsoft. Then run `/ev-activate`, which does
-   the rest and knows what to do when it goes wrong.
+   **Ask which provider they want every single time, and never carry one forward.** Offer Google and
+   Microsoft as a question, even where they named one earlier in this conversation. An attempt that
+   failed is the strongest reason to ask again rather than the weakest: the provider is the thing most
+   likely to have been what was wrong, and answering it for them from a previous turn sends them
+   straight back into the failure they just came out of. Where an attempt has already failed, say
+   which provider it was and what it said, and offer the other one first.
+
+   Then run `/ev-activate`, which does the rest and knows what to do when it goes wrong.
 
    When it finishes, say the account it signed in as and that this machine is now set up. Then go to
    step 4.
