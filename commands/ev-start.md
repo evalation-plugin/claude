@@ -20,23 +20,30 @@ sequence silently and announce it afterwards.
 
 ## What to do
 
-1. **Find out whether this installation is set up at all.**
+1. **Say hello before you run anything.** A sentence or two: what Evalation is, and that you are
+   about to check where this machine stands. A person whose first sight of a new product is a command
+   running has been given no reason to trust it.
+
+2. **Find out where they are.**
 
    ```
    ${CLAUDE_PLUGIN_ROOT}/bin/evalation-status
    ```
 
-   Read the answer rather than inferring it:
+   It always succeeds and names a state on its first line. Read that line rather than the prose under
+   it, which may be reworded, and report none of these as an error:
 
-   - **`no-settings`** in the reason means nothing is set up yet. Go to step 2.
-   - **`seat: live`** means it is set up and paid up. Go to step 3.
-   - **`seat: not live`** for any other reason means it is set up but the server will not serve it.
-     Report the reason in their words and stop. A clock more than five minutes out refuses every ask
-     on its own, so where the reason points at the proof, tell them to check the machine's clock.
-   - **Cannot reach the server** means our end or their network. Say so plainly and stop, and do not
-     tell them to try again in a loop.
+   - **`state: not-set-up`** is where everybody starts. It is the expected answer on a fresh install
+     and nothing is wrong. Say so in as many words, because somebody who has just installed a thing
+     and is told about settings that do not exist will think they broke it. Go to step 3.
+   - **`state: live`** means set up and paid up. Go to step 4.
+   - **`state: not-live`** means set up, but the server will not serve it. Report the reason in their
+     words. A clock more than five minutes out refuses every ask on its own, so where the reason
+     points at the proof, tell them to check the machine's clock. Then stop.
+   - **`state: unreachable`** is our end or their network. Say so plainly and stop, and do not tell
+     them to try again in a loop.
 
-2. **Take them through signing in**, which is the whole of setting up.
+3. **Take them through signing in**, which is the whole of setting up.
 
    Tell them first, in about this much detail and in your own words: Evalation needs to know whose
    account to bill, so they sign in with Google or Microsoft in their own browser. No password comes
@@ -47,9 +54,9 @@ sequence silently and announce it afterwards.
    the rest and knows what to do when it goes wrong.
 
    When it finishes, say the account it signed in as and that this machine is now set up. Then go to
-   step 3.
+   step 4.
 
-3. **Find out what they have chosen to be assessed against.**
+4. **Find out what they have chosen to be assessed against.**
 
    ```
    ${CLAUDE_PLUGIN_ROOT}/bin/evalation-packs show
@@ -58,7 +65,7 @@ sequence silently and announce it afterwards.
    Nothing selected is the ordinary state for someone who has just arrived, and it is not a problem.
    Say so rather than reporting it as an error.
 
-4. **Take them through choosing**, if nothing is selected.
+5. **Take them through choosing**, if nothing is selected.
 
    Tell them what a pack is before offering a list: one subject a run reads their repository against.
    A published standard such as SOC 2, ISO 27001, GDPR or the EU AI Act. A set of concerns of ours
@@ -68,7 +75,7 @@ sequence silently and announce it afterwards.
 
    Then run `/ev-packs`, which fetches the real catalogue and records what they choose.
 
-5. **Tell them where they have got to, and what this version does next.**
+6. **Tell them where they have got to, and what this version does next.**
 
    Name what is set up and what is selected. Then say plainly that reading a repository against the
    selected packs is not in this version yet, so this is as far as it goes today. Do not imply a run

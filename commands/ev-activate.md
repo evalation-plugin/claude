@@ -26,8 +26,13 @@ that could impersonate them ever leaves it.
    ${CLAUDE_PLUGIN_ROOT}/bin/evalation-activate microsoft
    ```
 
-   It waits up to five minutes for them to finish. That is not a hang, so do not interrupt it and do
-   not run it a second time alongside the first.
+   It waits up to five minutes for them to finish. That is not a hang, so do not run it a second time
+   alongside the first.
+
+   **Tell them to watch the browser and speak up.** Whatever the provider does happens in a browser
+   this command cannot see, so a refusal there never reaches it and the wait runs its full length with
+   nothing to report. Say plainly: if the browser shows an error rather than a sign-in page, stop this
+   and say what it said. Then act on what they tell you rather than waiting the clock out.
 
 3. **Read what it printed and say it in their words.** On success it names the installation it
    created and the account it signed in as. Tell them this machine is now set up, and that a second

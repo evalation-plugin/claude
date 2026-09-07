@@ -151,6 +151,16 @@ async function main() {
     process.stderr.write(`could not open a browser. Sign in here:\n${started.authorization_url}\n`);
   }
 
+  // Said before the wait rather than after it. Whatever the provider does with the sign-in happens in
+  // a browser this cannot see, so a refusal there never reaches the listener: the wait then runs its
+  // full length and ends with a timeout that names none of what the person was looking at. They are
+  // the only one who knows, so ask them.
+  process.stderr.write(
+    "waiting for you to finish in the browser, up to five minutes.\n" +
+      "If the browser shows an error rather than a sign-in page, stop this and say what it said. " +
+      "That error never reaches this command, so otherwise it waits out the whole five minutes.\n",
+  );
+
   // Matched on the whole line rather than on the code, because a provider that refuses redirects
   // here too, with a reason and an empty code. Waiting for a code that is never coming would hold a
   // person for the listener's whole timeout and then tell them nothing.

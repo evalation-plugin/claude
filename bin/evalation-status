@@ -1,13 +1,19 @@
 #!/usr/bin/env bash
-# evalation-status - whether this installation's seat is live, asked rather than assumed.
+# evalation-status - where this installation stands, asked rather than assumed.
 #
-# There is no local answer to this. The seat is proven by the server verifying a signature it holds
-# the public half of, so the only honest way to report it is to sign an ask and see what comes back.
-# Reading a cached answer would report a seat that lapsed an hour ago as live.
+# There is no local answer to whether a seat is live. It is proven by the server verifying a
+# signature it holds the public half of, so the only honest way to report it is to sign an ask and
+# see what comes back. Reading a cached answer would report a seat that lapsed an hour ago as live.
 #
 # It asks what this installation would pin, because that is the cheapest call that proves all three
 # things at once: the key is right, the seat is live, and the server is reachable.
-set -euo pipefail
+#
+# It names a state on the first line and exits 0 whenever it worked out which one. Having established
+# that nothing is set up yet is this command doing its job rather than failing at it, and exiting
+# non-zero for it put a red error in front of every person who had just installed the plugin and done
+# nothing wrong. The state is what a caller reads, so nothing has to match on prose that may be
+# reworded.
+set -uo pipefail
 
 DIR="$(cd "$(dirname "$0")" && pwd)"
 
@@ -18,11 +24,32 @@ SAID="$(mktemp)"
 trap 'rm -f "$SAID"' EXIT
 
 if ANSWER="$("$DIR/evalation-ask" /pin '{}' 2>"$SAID")"; then
+  printf 'state: live\n'
   printf 'seat: live\n'
-  printf 'released revision: %s\n' "$(printf '%s' "$ANSWER" | /usr/bin/python3 -c 'import json,sys; print(json.load(sys.stdin)["revision"])')"
+  printf 'released revision: %s\n' \
+    "$(printf '%s' "$ANSWER" | /usr/bin/python3 -c 'import json,sys; print(json.load(sys.stdin)["revision"])')"
   exit 0
 fi
 
-printf 'seat: not live\n'
-printf 'reason: %s\n' "$(cat "$SAID")"
-exit 1
+REASON="$(cat "$SAID")"
+
+# Told apart because a person needs opposite things said to them. Nothing set up is where everybody
+# starts and the answer is to sign in. Anything else is a seat that exists and will not serve.
+case "$REASON" in
+  *no-settings:*|*no-installation:*|*no-key:*|*unreadable-key-reference:*)
+    printf 'state: not-set-up\n'
+    printf 'seat: not set up on this machine yet\n'
+    printf 'detail: %s\n' "$REASON"
+    ;;
+  *unreachable:*)
+    printf 'state: unreachable\n'
+    printf 'seat: unknown, because the server could not be reached\n'
+    printf 'detail: %s\n' "$REASON"
+    ;;
+  *)
+    printf 'state: not-live\n'
+    printf 'seat: not live\n'
+    printf 'reason: %s\n' "$REASON"
+    ;;
+esac
+exit 0
