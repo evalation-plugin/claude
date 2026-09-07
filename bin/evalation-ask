@@ -1,0 +1,141 @@
+#!/usr/bin/env node
+// evalation-ask <path> [json-body] - the one place this plugin reaches the server.
+//
+// An installation proves itself by signing rather than by presenting a secret. It holds a private
+// key and the server holds the public half, so what is stored on our side verifies an installation
+// and cannot impersonate one. The proof travels in headers rather than in the body, so what is
+// signed is the body exactly as it was sent: putting a signature inside the thing it covers means
+// deciding what to exclude, and every such decision is somewhere the two ends can quietly disagree.
+//
+// What the signature covers is the path, so a proof made for one call cannot answer another; the
+// time, so a captured proof stops working; and the body, so what was asked cannot be changed on the
+// way. Both ends build that string separately, which is deliberate: a change to one and not the
+// other shows up as every ask being refused rather than as a proof that quietly covers less.
+//
+// Fails closed. No settings, no key, a refused ask or an unreadable answer each print one reason to
+// stderr and exit non-zero with empty stdout, never an invented body.
+"use strict";
+
+const { createHash, createPrivateKey, sign } = require("node:crypto");
+const { execFileSync } = require("node:child_process");
+const { readFileSync, existsSync } = require("node:fs");
+const { join } = require("node:path");
+const { homedir } = require("node:os");
+
+// The fixed prefix that turns a 32-byte seed into an ed25519 private key.
+const PKCS8_ED25519 = Buffer.from("302e020100300506032b657004220420", "hex");
+
+// Wide enough that an ordinary machine with no time discipline still works, and the server holds
+// the same number. Named here so a refusal on a skewed clock is recognisable rather than a mystery.
+const WINDOW_SECONDS = 300;
+
+function fail(reason) {
+  process.stderr.write(reason + "\n");
+  process.exit(1);
+}
+
+// The settings belong to the installation rather than to the repository being assessed: that tree is
+// the subject, and reading our configuration out of it would make the subject decide how it is read.
+function settings() {
+  const named = process.env.EVALATION_LOCAL;
+  const places = named ? [named] : [join(homedir(), ".evalation", "evalation.local"), "evalation.local"];
+  for (const place of places) {
+    if (existsSync(place)) {
+      try {
+        return JSON.parse(readFileSync(place, "utf8"));
+      } catch (thrown) {
+        fail(`settings-unreadable: ${place} is not JSON (${thrown.message})`);
+      }
+    }
+  }
+  fail(`no-settings: looked in ${places.join(", ")}, and one of them has to name the installation and its server`);
+}
+
+// Settings never hold a secret. They name one, and this finds it in the operating system's own store.
+function secret(named) {
+  if (typeof named !== "string") fail("no-key: the settings name no installation key");
+  const held = named.match(/^keychain:([^/]+)\/(.+)$/);
+  if (!held) fail(`unreadable-key-reference: ${named}, which is not keychain:<service>/<account>`);
+  try {
+    return execFileSync("security", ["find-generic-password", "-s", held[1], "-a", held[2], "-w"], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    }).trim();
+  } catch {
+    fail(`no-key: nothing in the keychain under ${held[1]}/${held[2]}, and nothing else proves this installation is itself`);
+  }
+}
+
+const path = process.argv[2];
+if (!path || !path.startsWith("/")) {
+  process.stderr.write("usage: evalation-ask <path> [json-body]\n");
+  process.exit(2);
+}
+
+const local = settings();
+const installation = local.installation;
+const base = local.server;
+if (typeof installation !== "string" || typeof base !== "string") {
+  fail("no-installation: the settings name no installation or no server to ask");
+}
+
+const seed = Buffer.from(secret(local.secrets && local.secrets.installation_key), "base64");
+if (seed.length !== 32) {
+  fail(`key-wrong-size: the installation key is ${seed.length} bytes where an ed25519 key is 32`);
+}
+
+const body = process.argv[3] ?? "{}";
+try {
+  JSON.parse(body);
+} catch (thrown) {
+  fail(`body-not-json: ${thrown.message}`);
+}
+
+const at = Math.floor(Date.now() / 1000);
+const digest = createHash("sha256").update(body, "utf8").digest("base64url");
+const asked = `evalation.ask.v1 ${path} ${at} ${digest}`;
+
+const signature = sign(
+  null,
+  Buffer.from(asked, "utf8"),
+  createPrivateKey({ key: Buffer.concat([PKCS8_ED25519, seed]), format: "der", type: "pkcs8" }),
+).toString("base64");
+
+const controller = new AbortController();
+const bell = setTimeout(() => controller.abort(), 30_000);
+
+fetch(`${base}${path}`, {
+  method: "POST",
+  headers: {
+    "content-type": "application/json",
+    "x-evalation-installation": installation,
+    "x-evalation-at": String(at),
+    "x-evalation-signature": signature,
+  },
+  body,
+  signal: controller.signal,
+})
+  .then(async (answer) => {
+    clearTimeout(bell);
+    const text = await answer.text();
+    if (!answer.ok) {
+      // The server says what it refused and what to do, so that is what a person is shown rather
+      // than a status code they then have to look up.
+      let said = text.trim();
+      try {
+        const read = JSON.parse(text);
+        said = [read.observed, read.required].filter(Boolean).join(" | ") || said;
+      } catch {
+        // Not JSON. The body stands as the reason, which is better than replacing it with nothing.
+      }
+      if (answer.status === 401 || answer.status === 403) {
+        said += ` | if the clock on this machine is more than ${WINDOW_SECONDS} seconds out, that alone refuses every ask`;
+      }
+      fail(`refused ${answer.status}: ${said}`);
+    }
+    process.stdout.write(text);
+  })
+  .catch((thrown) => {
+    clearTimeout(bell);
+    fail(`unreachable: ${base}${path} (${thrown.message})`);
+  });

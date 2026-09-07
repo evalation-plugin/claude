@@ -35,9 +35,21 @@ refused without one.
 ## Getting started
 
 1. Install the plugin.
-2. `/ev-login` to activate your seat.
+2. `/ev-account` to check the seat is live.
 3. `/ev-packs` to choose what to assess against.
-4. `/ev-account` at any time to see where the seat stands.
+
+## How an installation proves it is itself
+
+It signs, and never presents a secret. It holds a private key, we hold the public half, and every
+ask carries a signature over the call, the time and the body. So what we store verifies an
+installation and cannot impersonate one, and a captured proof stops working within five minutes.
+
+The key lives in the operating system's own store and never in a file. The settings name it and
+something else finds it, which is what makes the settings safe to read out, paste into a ticket or
+keep in a repository.
+
+Settings are read from `EVALATION_LOCAL` if it is set, then `~/.evalation/evalation.local`, then
+`evalation.local` beside you. They name the installation, the server and where the key is kept.
 
 ## What leaves your machine
 

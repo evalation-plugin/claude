@@ -15,8 +15,6 @@
 set -euo pipefail
 
 DIR="$(cd "$(dirname "$0")" && pwd)"
-# shellcheck source=../hooks/_lib.sh
-. "$DIR/../hooks/_lib.sh"
 
 EV_HOME="${EVALATION_HOME:-$HOME/.evalation}"
 SELECTION="$EV_HOME/packs.json"
@@ -34,17 +32,11 @@ show() {
   fi
 }
 
+# The catalogue is served against an entitled seat and never shipped here, so this is a fetch and
+# this file carries none of it. The ask is signed like every other, and what comes back is what the
+# revision this installation is served holds.
 list() {
-  if ! ev_is_active "$(ev_validate_cached)"; then
-    echo "not-entitled" >&2
-    exit 1
-  fi
-  if BODY="$(ev_payload packs)"; then
-    printf '%s' "$BODY"
-  else
-    echo "unavailable" >&2
-    exit 1
-  fi
+  "$DIR/evalation-ask" /packs '{}'
 }
 
 # The selection is composed whole before anything is written, so a malformed argument fails with the
@@ -52,7 +44,7 @@ list() {
 # than a history of it: what was assessed against on a given day rides with that day's findings.
 set_packs() {
   [ "$#" -gt 0 ] || usage
-  ev_have jq || { echo "missing-jq" >&2; exit 1; }
+  command -v jq >/dev/null 2>&1 || { echo "missing-jq" >&2; exit 1; }
   BODY="$(printf '%s\n' "$@" | jq -R . | jq -s '{packs: ., chosen: (now | todate)}')"
   mkdir -p "$EV_HOME"
   printf '%s\n' "$BODY" > "$SELECTION"
