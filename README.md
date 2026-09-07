@@ -37,6 +37,22 @@ refused without one.
 1. Install the plugin.
 2. `/ev-account` to check the seat is live.
 3. `/ev-packs` to choose what to assess against.
+4. `/ev-rotate` whenever you want to replace the key, which needs no reason and causes no downtime.
+
+## What is encrypted, and what is not
+
+What we serve is encrypted to your installation, so nothing between us and you can read it: not an
+edge, not a proxy on your network, not anything inspecting traffic on the way. The pack's name, kind
+and entry count stay readable, because those are what you choose between and none of them is the
+thing being protected. The entries are the work, and those are sealed.
+
+Your installation holds two keys with one job each. One proves an ask came from you. The other opens
+what comes back. Neither leaves the operating system's own store, and we hold only the public halves,
+so our own records being read gives an attacker nothing they could use.
+
+Losing the second one is recoverable rather than terminal: `/ev-rotate` is authenticated by the
+first, so the key that proves who is asking still works when the key that reads what comes back is
+gone.
 
 ## How an installation proves it is itself
 
@@ -49,8 +65,8 @@ something else finds it, which is what makes the settings safe to read out, past
 keep in a repository.
 
 Settings are read from `EVALATION_LOCAL` if it is set, then `~/.evalation/evalation.local`, then
-`evalation.local` beside you. They name the installation and where its key is kept, and nothing
-else is required. Where our server is, is ours to know: it is built into the plugin, so moving hosts
+`evalation.local` beside you. They name the installation and where its two keys are kept, and
+nothing else is required. Where our server is, is ours to know: it is built into the plugin, so moving hosts
 never breaks an installation and no customer configuration carries our hosting arrangements.
 
 ## What leaves your machine
