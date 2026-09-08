@@ -1,0 +1,225 @@
+#!/usr/bin/env node
+// evalation-inventory - what the tree is, measured rather than described.
+//
+// A board pack opens by saying what was assessed, and "a repository" is not an answer. How large it
+// is, what it is written in, and how long it has been worked on are what let somebody weigh
+// everything that follows: ten findings in four thousand files and ten in forty are different
+// reports.
+//
+// Measured, so it is the same on every run over the same tree and owes nothing to anybody's account
+// of the codebase. Languages are apportioned by bytes, which is what a host's own language bar does,
+// so the split reads the way a person already expects it to.
+//
+// It reads sizes, counts lines and asks git for its history. It opens no file for its content and
+// writes nothing.
+"use strict";
+
+const { execFileSync } = require("node:child_process");
+const { readdirSync, readFileSync, statSync } = require("node:fs");
+const { extname, join } = require("node:path");
+
+// What a file extension is written in. A list rather than a guess from content, because a guess is
+// wrong quietly and a list is wrong loudly: an extension nothing here names is counted as other and
+// says so, rather than being attributed to whatever it most resembles.
+const LANGUAGES = {
+  ".ts": "TypeScript", ".tsx": "TypeScript", ".js": "JavaScript", ".jsx": "JavaScript",
+  ".mjs": "JavaScript", ".cjs": "JavaScript", ".py": "Python", ".rs": "Rust", ".go": "Go",
+  ".java": "Java", ".kt": "Kotlin", ".swift": "Swift", ".rb": "Ruby", ".php": "PHP",
+  ".cs": "C#", ".c": "C", ".h": "C", ".cpp": "C++", ".cc": "C++", ".hpp": "C++",
+  ".scala": "Scala", ".ex": "Elixir", ".exs": "Elixir", ".erl": "Erlang", ".clj": "Clojure",
+  ".sh": "Shell", ".bash": "Shell", ".zsh": "Shell", ".ps1": "PowerShell",
+  ".sql": "SQL", ".html": "HTML", ".css": "CSS", ".scss": "CSS", ".vue": "Vue", ".svelte": "Svelte",
+  ".tf": "Terraform", ".yml": "YAML", ".yaml": "YAML", ".json": "JSON", ".toml": "TOML",
+  ".md": "Markdown", ".dart": "Dart", ".lua": "Lua", ".r": "R", ".m": "Objective-C",
+};
+
+// What the language split leaves out, which is what the host a customer already reads leaves out: a
+// repository is not 16% Markdown and 6% JSON to anybody looking at what it is written in. Data and
+// prose are counted as files and as lines, because they are part of the tree, and they are kept out
+// of the split, because the split answers a different question.
+//
+// It is the host's own rule rather than one of ours, so the bar in the pack and the bar the customer
+// already knows agree. Markup stays in: a repository of templates and stylesheets is written in them.
+const NOT_A_LANGUAGE = new Set(["JSON", "YAML", "TOML", "Markdown"]);
+
+// Not the work. A vendored dependency, a build output and a lockfile are all in the tree and none of
+// them is what somebody wrote, so counting them makes a small project read as a large one.
+const SKIP = new Set([
+  ".git", "node_modules", "vendor", "target", "dist", "build", "out", ".next", ".nuxt",
+  "__pycache__", ".venv", "venv", ".tox", "coverage", ".cache", ".terraform", "Pods",
+]);
+
+function quietly(command, args, where) {
+  try {
+    return execFileSync(command, args, {
+      cwd: where,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    }).trim();
+  } catch {
+    return null;
+  }
+}
+
+function walk(from, at, held) {
+  let entries;
+  try {
+    entries = readdirSync(from, { withFileTypes: true });
+  } catch {
+    return;
+  }
+  for (const entry of entries) {
+    if (SKIP.has(entry.name)) continue;
+    const path = join(from, entry.name);
+    if (entry.isDirectory()) {
+      walk(path, at + 1, held);
+      continue;
+    }
+    if (!entry.isFile()) continue;
+
+    let size = 0;
+    try {
+      size = statSync(path).size;
+    } catch {
+      continue;
+    }
+    held.files += 1;
+    held.bytes += size;
+    held.paths.push(path.slice(held.root.length + 1));
+
+    // Counted as other and carried on with. Returning here abandons the whole walk at the first file
+    // in an extension nothing names, which measured one repository as a single file in no language.
+    const named = LANGUAGES[extname(entry.name).toLowerCase()];
+    if (!named) {
+      held.other += size;
+      continue;
+    }
+
+    held.byLanguage[named] = (held.byLanguage[named] ?? 0) + size;
+
+    // Lines are counted only for what is small enough to be somebody's writing. A generated file of
+    // a hundred thousand lines is in the tree and is not what anybody wrote, and counting it makes
+    // the number say something nobody meant.
+    if (size < 2_000_000) {
+      try {
+        held.lines += readFileSync(path, "utf8").split("\n").length;
+      } catch {
+        // Binary, or unreadable. It counted as a file and contributes no lines, which is right.
+      }
+    }
+  }
+}
+
+// What a repository holds that any repository could hold, recognised by where a file sits and what it
+// is called. Anything needing to understand the code is not here: a count that is wrong is worse than
+// a count that is absent, because a reader cannot tell the difference.
+//
+// Each is keyed by the label the pack prints, so nothing downstream has to translate, and a label
+// with no rule here is simply not measured and not shown. A grid of real numbers reads as a
+// measurement; the same grid padded with zeros reads as a repository holding nothing.
+const OBJECTS = {
+  "DOCS PAGES": (path) => /\.(md|mdx|rst|adoc)$/i.test(path) && !/\/(node_modules|vendor)\//.test(path),
+  TESTS: (path) => /(^|\/)(tests?|__tests__|spec)\//i.test(path)
+    || /\.(test|spec)\.[a-z]+$/i.test(path),
+  DOCKERFILES: (path) => /(^|\/)Dockerfile[^/]*$/.test(path) || /\.dockerfile$/i.test(path),
+  "SQL / MIGRATIONS": (path) => /\.sql$/i.test(path) || /(^|\/)migrations?\//i.test(path),
+  "IAC (TERRAFORM)": (path) => /\.tf$/i.test(path),
+  "CONTRACTS / SCHEMAS": (path) => /\.schema\.json$/i.test(path)
+    || /(^|\/)(openapi|swagger)[^/]*\.(ya?ml|json)$/i.test(path),
+  "PROTOBUF DEFS": (path) => /\.proto$/i.test(path),
+  "GRAPHQL APIS": (path) => /\.(graphql|gql)$/i.test(path),
+  "WEB UI COMPONENTS": (path) => /\.(tsx|jsx|vue|svelte)$/i.test(path),
+  "CI JOBS": (path) => /(^|\/)\.github\/workflows\/[^/]+\.ya?ml$/i.test(path)
+    || /(^|\/)\.(gitlab-ci|circleci)/i.test(path),
+  "DECISIONS (ADRS)": (path) => /(^|\/)(adrs?|decisions)\//i.test(path) && /\.(md|adoc)$/i.test(path),
+  HOOKS: (path) => /(^|\/)\.(githooks|husky)\//i.test(path) || /(^|\/)hooks\/[^/]+$/i.test(path),
+  SERVICES: (path) => /(^|\/)(services|apps|packages)\/[^/]+\/(package\.json|Cargo\.toml|go\.mod|pyproject\.toml)$/i.test(path),
+  GATES: (path) => /(^|\/)(checks|gates)\/[^/]+\.(ts|js|sh|py)$/i.test(path),
+  "LOOP SCRIPTS": (path) => /(^|\/)scripts\/[^/]+\.(sh|bash)$/i.test(path),
+  SKILLS: (path) => /(^|\/)skills\/[^/]+/i.test(path),
+  "MOBILE SCREENS": (path) => /(^|\/)(screens|views)\/[^/]+\.(tsx|jsx|swift|kt|dart)$/i.test(path),
+};
+
+// Declared dependencies, read as structured data rather than matched out of text, per section 13.
+const MANIFESTS = {
+  "package.json": (held) => Object.keys(held.dependencies ?? {}).length
+    + Object.keys(held.devDependencies ?? {}).length,
+};
+
+function dependencies(where) {
+  let count = 0;
+  for (const [name, read] of Object.entries(MANIFESTS)) {
+    const path = join(where, name);
+    try {
+      count += read(JSON.parse(readFileSync(path, "utf8")));
+    } catch {
+      // Absent, or not the shape its name promises. Either way it contributes nothing rather than
+      // failing the whole measurement.
+    }
+  }
+  return count;
+}
+
+function inventory(where) {
+  const held = { files: 0, bytes: 0, lines: 0, other: 0, byLanguage: {}, paths: [], root: where };
+  walk(where, 0, held);
+
+  // The split is over what the tree is written in, so the share is of those bytes and not of every
+  // byte in the tree. Taking the percentage over everything and then hiding the rows nobody counts
+  // leaves a bar whose segments do not reach the end.
+  const written = Object.entries(held.byLanguage).filter(([name]) => !NOT_A_LANGUAGE.has(name));
+  const total = written.reduce((sum, [, bytes]) => sum + bytes, 0);
+  const languages = written
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .slice(0, 6)
+    .map(([name, bytes]) => ({
+      name,
+      share: total > 0 ? Math.round((bytes / total) * 1000) / 10 : 0,
+    }));
+
+  const commits = quietly("git", ["rev-list", "--count", "HEAD"], where);
+  const since = quietly("git", ["log", "--reverse", "--format=%as", "--max-count=1"], where);
+  const contributors = quietly("git", ["shortlog", "-sn", "--all", "--no-merges"], where);
+
+  // Keyed by the label the pack prints. A label whose rule found nothing is left out rather than
+  // shown as zero, because a repository with no Terraform and a repository nobody measured for
+  // Terraform are different claims and a zero cannot tell them apart.
+  const counts = {
+    FILES: held.files,
+    "LINES OF CODE": held.lines,
+    // The same set the split is over, so the count beside the bar and the bar agree. Counting data
+    // and prose here says six against a bar showing three.
+    LANGUAGES: written.length,
+  };
+  if (commits) counts.COMMITS = Number(commits);
+
+  const declared = dependencies(where);
+  if (declared) counts.DEPENDENCIES = declared;
+
+  for (const [label, holds] of Object.entries(OBJECTS)) {
+    const found = held.paths.filter((path) => holds(path)).length;
+    if (found) counts[label] = found;
+  }
+
+  return {
+    files: held.files,
+    lines: held.lines,
+    languages,
+    languages_counted: Object.keys(held.byLanguage).length,
+    commits: commits ? Number(commits) : null,
+    first_commit: since || null,
+    contributors: contributors ? contributors.split("\n").filter(Boolean).length : null,
+    // The shape the board pack's repository slide reads: a language split and a count per label.
+    overview: {
+      languages: languages.map((one) => ({ name: one.name, pct: Math.round(one.share) })),
+      inventory: counts,
+    },
+  };
+}
+
+module.exports = { inventory };
+
+if (require.main === module) {
+  const where = process.argv[2] || process.cwd();
+  process.stdout.write(JSON.stringify(inventory(where), null, 2) + "\n");
+}

@@ -34,7 +34,30 @@ const allowed = new Set(declared.hosts.map((one) => one.host));
 const SHAPED = /\b(?:[a-z0-9][a-z0-9-]*\.)+(?:ai|com|net|org|io|dev|app|sh|co)\b/gi;
 
 // Named because each is a name in prose or an example rather than somewhere anything connects.
-const NOT_A_HOST = new Set(["evalation.ai", "json-schema.org", "genai.owasp.org", "example.com"]);
+// Named because each is a name in prose, an example, or an identifier that happens to be spelled as
+// a URL. A namespace names a vocabulary and nothing fetches it: the deck template's own parts cite
+// theirs in every relationship they declare, and a customer's install reaches none of them.
+const NOT_A_HOST = new Set([
+  "evalation.ai", "json-schema.org", "genai.owasp.org", "example.com",
+  "schemas.openxmlformats.org", "purl.org", "www.w3.org",
+]);
+
+// A filesystem path is not an address, and one holds names this shape: an application bundle on a
+// Mac ends in .app, and the browser a deliverable prints with is found by its path. What separates
+// them is where the token starts, since a path starts at a root and an address starts at a scheme or
+// at the name itself. Deciding by the token rather than by the name keeps the rule general: it does
+// not have to know which applications exist.
+function isPath(line, at) {
+  // An address is introduced by its scheme or sits on its own. A path has directories before it, and
+  // the directories are what give it away, so the test is whether anything separates this name from
+  // the start of its quoted string with a slash. A path may hold spaces, which is why the boundary is
+  // the quote rather than the space.
+  const before = line.slice(0, at);
+  if (/:\/\/$|@$/.test(before)) return false;
+
+  const from = Math.max(before.lastIndexOf('"'), before.lastIndexOf("'")) + 1;
+  return before.slice(from).includes("/") || /[A-Za-z]:\\/.test(before.slice(from));
+}
 
 function sources(from) {
   const held = [];
@@ -56,6 +79,7 @@ for (const path of sources(root)) {
     for (const found of line.matchAll(SHAPED)) {
       const host = found[0].toLowerCase();
       if (allowed.has(host) || NOT_A_HOST.has(host)) continue;
+      if (isPath(line, found.index)) continue;
       offences.push({ here, line: index + 1, host, said: line.trim().slice(0, 110) });
     }
   });

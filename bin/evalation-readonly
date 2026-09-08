@@ -1,201 +1,114 @@
 #!/usr/bin/env node
 // evalation-readonly - whether this run may read the tree in front of it, decided before it reads.
 //
-// A findings run reads code it does not trust: a client's repository, its issues, its logs. Hold a
-// credential that can write and an injection planted in what it reads becomes a change to what it
-// reads. So the bound is on repository write, and it is answered before anything is opened rather
-// than after something has gone wrong.
+// A findings run reads code it does not trust: a client's repository, its comments, its
+// documentation. What must not be possible is for something planted in what it reads to become a
+// change to what it reads.
 //
-// Two signals, because they answer different questions. What a token could do anywhere, which is its
-// granted scopes, and what it can do here, which is the effective permission on this repository.
-// Either one carrying write is a refusal: a token scoped for write is dangerous where it currently
-// has only read, because it can be pointed somewhere else.
+// **That is answered by what the reading holds, not by what the machine has.** The reading is granted
+// one command, `evalation-read`, and nothing else: no file writing, no general shell, no network. A
+// reading that cannot invoke anything cannot write, cannot reach a credential store and cannot be
+// talked into either, so the question of what this machine is signed in as does not arise.
 //
-// A tree with no host is checked differently and refused the same way. A folder somebody handed over
-// has no scopes to read and no permission to query, so there is nothing to prove read-only against.
-// The absence of a host is the absence of proof, and it is admitted only where the run was pointed at
-// a plain directory explicitly and no credential is loaded at all. Refusing to guess is the whole
-// rule: an unprovable permission is never a passing one.
+// This replaced asking the host what a token could do. That check refused on the machine holding a
+// login rather than on the run holding one, which is permanently true of any developer machine with
+// the host's own tool installed, and it asked a network to answer a question the grant settles
+// locally. Worse, it proved nothing about the reading: a token merely unused is a token an injection
+// can still reach for, and only taking the shell away makes it unreachable.
 //
-// **What is judged is the run, not the machine.** A token in the environment shadows a stored login,
-// so where one is set that is the credential every call this run makes will carry and the stored one
-// is unreachable from here. Judging both refused a run holding only read because of something in a
-// keyring it could never have used. Where nothing is in the environment the stored login is what the
-// run would use and it counts, which is not caution but the truth: the reading happens in this
-// session and the session holds what it holds. Bounding it further than that would mean running the
-// reading somewhere this cannot reach, and a plugin cannot scrub the environment of the agent doing
-// the reading.
-//
-// The friction is real and intended. A customer whose only credential can write cannot run findings
-// until they issue a read-only one, which is the correct trade for a product sold on not touching
-// what it inspects.
+// **So what is checked here is that the grant is really there.** The engine writes each dispatch's
+// permission rules and reads them back before the child exists, because a grant nobody verified is a
+// grant the backend may have quietly declined: a mis-spelled one once left three rounds asking for a
+// shell and being refused while believing they had one. The same reasoning applies to a grant carried
+// in a shipped file, so the file is read and the grant confirmed rather than assumed.
 "use strict";
 
 const { execFileSync } = require("node:child_process");
-const { existsSync } = require("node:fs");
-const { join } = require("node:path");
+const { existsSync, readFileSync } = require("node:fs");
+const { basename, join, resolve } = require("node:path");
 
-/** Where a credential would be, so its absence can be established rather than assumed. */
-const CARRIERS = ["GITHUB_TOKEN", "GH_TOKEN", "GITHUB_PAT", "GITLAB_TOKEN"];
+// The one command the reading is granted. Named here and in the command's own frontmatter, and the
+// two are compared, so a change to either without the other is caught rather than shipped.
+const GRANTED = "evalation-read";
 
-function run(command, args, where) {
-  return execFileSync(command, args, {
-    encoding: "utf8",
-    cwd: where,
-    stdio: ["ignore", "pipe", "ignore"],
-  }).trim();
-}
+// What no reading may hold. A reading with any of these can open a file outside the fence, change
+// the tree it is judging, or reach whatever the machine is signed in as.
+const REFUSED = ["Write", "Edit", "MultiEdit", "NotebookEdit", "Read", "Grep", "Glob", "WebFetch"];
 
 function quietly(command, args, where) {
   try {
-    return run(command, args, where);
+    return execFileSync(command, args, {
+      cwd: where,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    }).trim();
   } catch {
     return null;
   }
 }
 
 /**
- * What the tree is, and what can be proven about reaching it.
- *
- * A checkout with a remote at a host is a repository and is asked about. Anything else is a plain
- * directory, which is admissible only with no credential anywhere near it.
+ * What is being read. A checkout with a remote at a host names itself; anything else is a plain
+ * directory, which is an ordinary target rather than a lesser one now that nothing here depends on
+ * a host being reachable.
  */
 function target(where) {
+  const remote = quietly("git", ["remote", "get-url", "origin"], where);
+  const head = quietly("git", ["rev-parse", "HEAD"], where);
   const inside = quietly("git", ["rev-parse", "--is-inside-work-tree"], where) === "true";
-  const remote = inside ? quietly("git", ["remote", "get-url", "origin"], where) : null;
-  const head = inside ? quietly("git", ["rev-parse", "HEAD"], where) : null;
 
-  // The name a person would recognise, taken from the remote where there is one and from the folder
-  // otherwise, because a report naming a path nobody recognises is a report nobody can file.
   const named = remote
-    ? remote.replace(/\.git$/, "").split(/[/:]/).slice(-2).join("/")
-    : where.split("/").filter(Boolean).pop();
+    ? remote.replace(/^.*[:/]{1}([^/:]+\/[^/]+?)(?:\.git)?$/, "$1")
+    : basename(resolve(where));
 
   return { kind: remote ? "repository" : "directory", repository: named, head, remote, inside };
 }
 
 /**
- * The credential this run would actually use, which is not the same as what the machine holds.
+ * The grant, read from the file the host will load rather than taken on trust.
  *
- * A token in the environment shadows a stored login: the host's own tool prefers it, so that token is
- * what every call this run makes will carry and the stored one is not reachable from here. Reading
- * both and refusing on either was the wrong bound, because it refused a run that genuinely held only
- * read for something sitting in a keyring that the run could not have used.
- *
- * Where nothing is in the environment, the stored login is what the run would use, so it counts. That
- * is not caution, it is the truth about this run: the reading happens in this session and the session
- * holds what it holds.
+ * A grant that names the tool and narrows it is two things to the backend: it switches the tool on by
+ * bare name and takes the narrowing as a permission. So this looks for the command inside the grant
+ * and for the absence of everything a reading must not hold, rather than matching one exact string
+ * that a harmless reformatting would break.
  */
-function carried() {
-  const named = CARRIERS.filter((one) => (process.env[one] ?? "").trim() !== "");
-  if (named.length > 0) return { held: named, shadowing: true };
-
-  // Nothing named, so whatever the host's tool is signed in as is what the run would use.
-  if (quietly("gh", ["auth", "token"], process.cwd())) {
-    return { held: ["the signed-in gh login"], shadowing: false };
+function granted(root) {
+  const at = join(root, "commands", "ev-run.md");
+  if (!existsSync(at)) {
+    return { held: false, why: `there is no command file at ${at} to carry the grant` };
   }
-  return { held: [], shadowing: false };
-}
 
-/**
- * What the token may do, asked of the host rather than inferred.
- *
- * Both answers matter and neither substitutes for the other, so both are read and either one carrying
- * write refuses. Where the host cannot be asked at all, that is an absence of proof rather than a
- * pass.
- */
-function permitted(named) {
-  const scopes = quietly("gh", ["api", "-i", "-X", "HEAD", "/"], process.cwd());
-  const granted = scopes?.match(/x-oauth-scopes:\s*([^\r\n]*)/i)?.[1]?.trim() ?? null;
-
-  const said = quietly("gh", ["api", `repos/${named}`, "--jq", ".permissions"], process.cwd());
-  let here = null;
-  if (said) {
-    try {
-      here = JSON.parse(said);
-    } catch {
-      here = null;
-    }
+  const said = readFileSync(at, "utf8").split("\n").find((one) => /^allowed-tools:/.test(one.trim()));
+  if (!said) {
+    return { held: false, why: "the run command declares no allowed-tools, so the reading holds whatever the host allows" };
   }
-  return { granted, here };
+  if (!said.includes(GRANTED)) {
+    return { held: false, why: `the run command's grant does not name ${GRANTED}, so the reading has no way to read` };
+  }
+
+  const wrong = REFUSED.filter((one) => new RegExp(`\\b${one}\\b`).test(said));
+  if (wrong.length > 0) {
+    return {
+      held: false,
+      why: `the run command's grant also holds ${wrong.join(", ")}, so the reading can reach content outside the fence`,
+    };
+  }
+  return { held: true, grant: said.trim() };
 }
 
 /** The whole decision, as data, so the caller reports it rather than reconstructing it. */
-function decide(where) {
+function decide(where, root) {
   const what = target(where);
-  const { held: credentials, shadowing } = carried();
+  const bound = granted(root ?? resolve(__dirname, ".."));
 
-  if (what.kind === "directory") {
-    if (credentials.length > 0) {
-      return {
-        admitted: false,
-        target: what,
-        observed:
-          `this is a plain directory with no host to ask about permissions, and this run carries ` +
-          `${credentials.join(", ")}, so nothing here can prove it holds no write`,
-        required:
-          "point the run at a checkout whose host can be asked, or clear the credential from this " +
-          "session, since an unprovable permission is never a passing one",
-      };
-    }
-    return {
-      admitted: true,
-      target: what,
-      because: "a plain directory pointed at explicitly, with no credential loaded at all",
-    };
-  }
-
-  if (credentials.length === 0) {
-    return {
-      admitted: true,
-      target: what,
-      because: "a checkout with no credential loaded, so this run holds nothing that could write",
-    };
-  }
-
-  const { granted, here } = permitted(what.repository);
-
-  if (granted === null && here === null) {
+  if (!bound.held) {
     return {
       admitted: false,
       target: what,
-      observed:
-        `this run carries ${credentials.join(", ")} and the host could not be asked what it may do, ` +
-        "so what it holds is unknown",
+      observed: bound.why,
       required:
-        "make the host reachable so its answer can be read, or clear the credential, since an " +
-        "unprovable permission is never a passing one",
-    };
-  }
-
-  // What it could do anywhere. A write scope refuses even where this repository grants only read,
-  // because a token can be pointed at another repository.
-  const writes = (granted ?? "")
-    .split(",")
-    .map((one) => one.trim())
-    .filter((one) => one !== "" && !/^(read|public_repo:read)/.test(one) && /repo|write|admin|delete/.test(one));
-
-  if (writes.length > 0) {
-    return {
-      admitted: false,
-      target: what,
-      observed: `the credential this run would use is granted ${writes.join(", ")}, which can write`,
-      required:
-        "run findings under an identity granted read and never more, since a token scoped for write " +
-        "is dangerous even where it currently has only read",
-    };
-  }
-
-  // What it can do here.
-  if (here && (here.push === true || here.admin === true || here.maintain === true)) {
-    const which = ["push", "admin", "maintain"].filter((one) => here[one] === true);
-    return {
-      admitted: false,
-      target: what,
-      observed: `the credential this run would use holds ${which.join(", ")} on ${what.repository}`,
-      required:
-        "run findings under a read-only identity, separate from the one the engine uses, since a run " +
-        "that can write has already changed what it was only meant to inspect",
+        `grant the run ${GRANTED} and nothing else, since a reading bounded to one command cannot ` +
+        "write, cannot reach a credential and cannot be talked into either",
     };
   }
 
@@ -203,8 +116,9 @@ function decide(where) {
     admitted: true,
     target: what,
     because:
-      `the credential this run would use holds read and no more on ${what.repository}` +
-      (shadowing ? ", and it shadows whatever else this machine is signed in as" : ""),
+      `the reading is granted ${GRANTED} and nothing else, so it holds nothing that could write and ` +
+      "reaches the repository only through the perimeter",
+    grant: bound.grant,
   };
 }
 
@@ -217,6 +131,6 @@ if (require.main === module) {
     process.exit(2);
   }
   const answer = decide(where);
-  process.stdout.write(JSON.stringify(answer, null, 2) + "\n");
+  process.stdout.write(`${JSON.stringify(answer, null, 2)}\n`);
   process.exit(answer.admitted ? 0 : 1);
 }

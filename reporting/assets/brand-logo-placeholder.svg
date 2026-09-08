@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="200" height="90" viewBox="0 0 200 90" role="img" aria-label="Brand logo placeholder">
+  <!-- PLACEHOLDER - replace with brand logo. One canonical, owner-replaceable asset (AC4); swap this
+       single file to rebrand, no code change. Until a real logo is present the pack renders this
+       dashed box plus the "logo is a placeholder until certified" note. -->
+  <rect x="2" y="2" width="196" height="86" rx="6" fill="#FFFFFF" stroke="#D9DEEA" stroke-width="1.5" stroke-dasharray="4 3"/>
+  <text x="100" y="42" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="14" font-weight="bold" fill="#5E6B7E">LOGO PLACEHOLDER</text>
+  <text x="100" y="60" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="8" fill="#5E6B7E">replace with brand logo</text>
+</svg>

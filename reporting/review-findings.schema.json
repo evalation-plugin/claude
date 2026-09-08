@@ -1,0 +1,101 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "evalation.review-detail.v1",
+  "title": "Evalation 18-lens review findings (input to build-review-detail.py)",
+  "type": "object",
+  "required": ["title", "categories"],
+  "properties": {
+    "eyebrow": {"type": "string", "description": "mono uppercase masthead line, e.g. 'EVALATION · <TENANT> · FINDINGS DETAIL'"},
+    "title": {"type": "string"},
+    "subtitle": {"type": "string"},
+    "tenant": {"type": "string", "description": "used only for the output filename"},
+    "generated_at": {"type": "string", "description": "YYYYMMDD stamp for the filename"},
+    "meta": {
+      "type": "object",
+      "properties": {
+        "intro": {"type": "string"},
+        "finding_count": {"type": "integer"},
+        "models": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "hardness": {
+      "type": "object",
+      "description": "deterministic score is computed by the private rubric; only score+grade are rendered",
+      "properties": {"score": {"type": "integer", "minimum": 0, "maximum": 100}, "grade": {"type": "string"}}
+    },
+    "exec_summary": {
+      "type": "object",
+      "description": "narrative for the title verdict + executive-summary slide; synthesized deterministically by hardening-synthesize.py (#2055) when absent",
+      "properties": {"build_quality": {"type": "string"}, "where_risk": {"type": "string"}, "what_it_takes": {"type": "string"}, "bottom_line": {"type": "string"}}
+    },
+    "commentary": {
+      "type": "object",
+      "description": "build-commentary slide narrative (#2055); {headline, body}. Synthesized deterministically when absent.",
+      "properties": {"headline": {"type": "string"}, "body": {"type": "string"}}
+    },
+    "convergent_themes": {
+      "type": "array",
+      "description": "convergent-themes slide (#2055): the lenses carrying the most severity-weighted risk, each with a few finding ids",
+      "items": {"type": "object", "properties": {"theme": {"type": "string"}, "finding_ids": {"type": "array", "items": {"type": "string"}}}}
+    },
+    "risk_path": {
+      "type": "object",
+      "description": "key-risk-path slide (#2055): the single most material risk chain",
+      "properties": {"headline": {"type": "string"}, "steps": {"type": "array", "items": {"type": "object", "properties": {"title": {"type": "string"}, "detail": {"type": "string"}}}}, "fix": {"type": "string"}}
+    },
+    "strengths": {
+      "type": "array",
+      "description": "strengths-to-preserve slide (#2055): the positive controls, as short lines",
+      "items": {"type": "string"}
+    },
+    "roadmap": {
+      "type": "object",
+      "description": "remediation-roadmap slide (#2055): findings grouped into P0-P3 tiers ({id, title})",
+      "properties": {"p0": {"type": "array"}, "p1": {"type": "array"}, "p2": {"type": "array"}, "p3": {"type": "array"}}
+    },
+    "repo_overview": {
+      "type": "object",
+      "description": "repo-at-a-glance slide (#2116): target-repo inventory. Emitted by hardening-synthesize.py --target (needs the repo, not derivable from findings). {languages:[{name,pct}], inventory:{<LABEL>:<count>}} keyed to the deck's metric labels.",
+      "properties": {
+        "languages": {"type": "array", "items": {"type": "object", "properties": {"name": {"type": "string"}, "pct": {"type": "integer"}}}},
+        "inventory": {"type": "object"}
+      }
+    },
+    "legend": {
+      "type": "object",
+      "properties": {"priority": {"type": "string"}, "result": {"type": "string"}}
+    },
+    "categories": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "findings"],
+        "properties": {
+          "name": {"type": "string", "description": "the lens/category name"},
+          "count": {"type": "integer"},
+          "C": {"type": "integer"}, "H": {"type": "integer"}, "M": {"type": "integer"},
+          "L": {"type": "integer"}, "I": {"type": "integer"},
+          "positive": {"type": "boolean", "description": "true for the Positive-controls section (strengths to preserve, no findings to fix)"},
+          "blurb": {"type": "string"},
+          "findings": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["pr", "id", "sev", "finding", "remediation"],
+              "properties": {
+                "pr": {"type": "string", "enum": ["P0", "P1", "P2", "P3", ""]},
+                "id": {"type": "string"},
+                "sev": {"type": "string", "enum": ["Critical", "High", "Medium", "Low", "Info", "Positive"]},
+                "model": {"type": "string"},
+                "finding": {"type": "string"},
+                "remediation": {"type": "string"},
+                "result": {"type": "string", "description": "Scanner-verified | Cross-validated | Agent-asserted"},
+                "location": {"type": "string", "description": "path:line - the finding's stable locator, carried through consolidation for the auto-filer's dedup key (#2089)"}
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

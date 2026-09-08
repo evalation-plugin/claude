@@ -1,321 +1,1007 @@
 #!/usr/bin/env node
-// evalation-deck - the board-level pack: where a codebase stands, in five slides.
+// evalation-deck - the board pack.
 //
-// **No individual findings.** They are in the detail deliverable, which is the document somebody
-// works from. This is the one somebody presents, and a slide carrying fifty findings is a slide
-// nobody reads and a document nobody can work from either: it fails at both jobs to avoid choosing
-// one. What is here is the score, the grade, where the weakness is, and what to do about it.
+// **The design is not here.** It is in reporting/assets/review-deck-template.pptx, which holds the
+// slides, the palette, the fonts and every measurement on them. This pours one run's numbers into
+// that template's {{tokens}}, repeats a row where the run has more rows than the template drew, and
+// repeats the findings slide once per category. Change how the pack looks by editing the template.
 //
-// Slide geometry rather than page geometry: 13.333 by 7.5 inches, which is sixteen by nine, so a
-// printed PDF drops straight into a deck rather than arriving as a portrait document somebody has to
-// reformat. Each slide is one page and nothing flows between them, because a board slide that
-// continues overleaf is two slides pretending to be one.
+// Everything below is therefore about data and never about appearance. Where a number is written, it
+// is the run's own. Where a sentence is written, it came from the findings. Nothing is invented to
+// fill a slot, and a slot the run has nothing for is dropped rather than shipped blank, because a
+// slide reading "{{ a genuine strength to keep }}" is worse than no slide.
 //
-// **Nothing here is invented.** Every number comes from the findings file and every sentence is
-// composed from those numbers, so two runs that found the same things produce the same deck. There is
-// no commentary written for the occasion, because a sentence a person did not write and a number did
-// not produce is the one thing on a board slide nobody can check.
-//
-// The rubric is not read here. The score arrived on the findings file already computed, so the deck
-// shows what was decided and never decides anything, and the methodology stays where it is served.
+// Three orderings are the deck's rather than the template's. The executive summary leads, because the
+// person this is built for reads the first two slides and delegates the rest. A slide whose data is
+// absent is dropped. And the footer ordinals are renumbered afterwards, since dropping and repeating
+// slides makes every number the template baked in wrong.
 "use strict";
 
-const { existsSync, readFileSync, writeFileSync } = require("node:fs");
-const { basename, dirname, join, resolve } = require("node:path");
+const { readFileSync, writeFileSync } = require("node:fs");
+const { join, resolve } = require("node:path");
 
-const SEVERITY = [
-  ["critical", "Critical", "#FB3B4E"],
-  ["high", "High", "#F9581E"],
-  ["medium", "Medium", "#FFB020"],
-  ["low", "Low", "#6F82AB"],
-  ["info", "Info", "#6F82AB"],
-  ["positive", "Positive", "#35C46A"],
+const pptx = require("../lib/pptx.js");
+const { render } = require("../lib/slides.js");
+const { print } = require("../lib/print.js");
+const { assure } = require("../lib/assure.js");
+
+const ASSETS = resolve(__dirname, "..", "reporting", "assets");
+const TEMPLATE = join(ASSETS, "review-deck-template.pptx");
+const INCH = 914400;
+
+// What the template drew room for. A category with more findings than this runs onto a second slide
+// carrying the same heading, which is what the reader expects a long section to do.
+const PER_SLIDE = 16;
+
+// Where the findings rows stop. The template's own last row sits here, so a chunk of any length lays
+// out on the same grid rather than stretching to fill the slide.
+const ROWS_END = 6.78 * INCH;
+
+// Where the running foot sits. Nothing a run writes goes below it, and the ordinal in it is the one
+// number renumbered after the deck's order settles.
+const FOOT = 6.3 * INCH;
+
+const SEVERITIES = ["Critical", "High", "Medium", "Low", "Info"];
+
+// A count a person can read at a glance. Ninety-three thousand lines printed as 93206 is a number a
+// reader has to count the digits of.
+// The opening sentence of a passage, for the slots that hold one line. A decimal is not a full stop,
+// so a version number does not end a sentence.
+function firstSentence(text) {
+  const whole = String(text ?? "").trim();
+  if (!whole) return "";
+  const [first] = whole.split(/(?<=[^0-9]\.)\s+(?=[A-Z(])/);
+  return first ?? whole;
+}
+
+function counting(value) {
+  return typeof value === "number" ? value.toLocaleString("en-NZ") : String(value ?? "");
+}
+
+function boxWidth(shape) {
+  return Number(/<a:ext cx="(\d+)" cy="(\d+)"\/>/.exec(shape.body)?.[1] ?? 0);
+}
+
+function boxHeight(shape) {
+  return Number(/<a:ext cx="(\d+)" cy="(\d+)"\/>/.exec(shape.body)?.[2] ?? 0);
+}
+
+// A score's colour is its grade band, so the bar, the number and the grade on the card all say the
+// same thing. The bands are the rubric's own, which is what keeps a colour from being a second
+// opinion about a number the rubric already decided.
+const BANDS = [
+  [85, "2FD07A"],
+  [70, "35C46A"],
+  [55, "FFB020"],
+  [40, "F9581E"],
+  [0, "FB3B4E"],
 ];
 
-function fail(reason) {
-  process.stderr.write(reason + "\n");
-  process.exit(1);
+function banded(score) {
+  return BANDS.find(([floor]) => score >= floor)?.[1] ?? "6F82AB";
 }
 
-function safe(text) {
-  return String(text ?? "").replace(
-    /[&<>"']/g,
-    (one) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[one],
-  );
-}
-
-function mark() {
-  const here = join(__dirname, "..", "templates", "assets", "ev-mark.svg");
-  return existsSync(here) ? readFileSync(here, "utf8").trim() : "";
-}
-
-/** The colour a score reads in. The bands are the rubric's and arrive already applied as a grade. */
-function toneOf(score) {
-  if (score >= 85) return "#35C46A";
-  if (score >= 70) return "#7BD16A";
-  if (score >= 55) return "#FFB020";
-  if (score >= 40) return "#F9581E";
-  return "#FB3B4E";
-}
-
-function styles() {
-  return `
-  @page { size: 13.333in 7.5in; margin: 0; }
-  :root{
-    --blue-300:#6B8FFF; --blue-500:#0F52FF; --ember-500:#F9581E;
-    --ink-950:#070C18; --ink-850:#0E1730; --ink-700:#1B2748;
-    --ink-500:#45557C; --ink-400:#6F82AB; --ink-300:#93A4C6; --ink-50:#EAF0FB;
-    --hair:rgba(130,160,230,0.16);
-    --font:'Hanken Grotesk',system-ui,-apple-system,'Segoe UI',sans-serif;
-    --mono:'JetBrains Mono',ui-monospace,'SF Mono',Menlo,monospace;
+function counted(findings) {
+  const held = { Critical: 0, High: 0, Medium: 0, Low: 0, Info: 0 };
+  for (const one of findings) {
+    if (held[one.sev] !== undefined) held[one.sev] += 1;
   }
-  *{box-sizing:border-box}
-  html,body{margin:0;background:#05080F;color:var(--ink-50);font-family:var(--font);
-    -webkit-font-smoothing:antialiased}
-  .slide{width:13.333in;height:7.5in;padding:0.62in 0.78in;background:var(--ink-950);
-    display:flex;flex-direction:column;position:relative;overflow:hidden;
-    break-after:page;page-break-after:always;margin:0 auto 18px}
-  .slide:last-child{break-after:auto;page-break-after:auto;margin-bottom:0}
-  .slide::after{content:"";position:absolute;left:0;right:0;bottom:0;height:5px;
-    background:linear-gradient(90deg,var(--blue-500),var(--ember-500))}
-  .rail{display:flex;align-items:center;gap:12px;margin-bottom:26px;flex:none}
-  .rail svg{width:34px;height:29px;flex:none}
-  .rail .who{font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-400)}
-  .rail .at{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--ink-500)}
-  h1{font-size:52px;line-height:1.03;margin:0 0 14px;font-weight:800;letter-spacing:-.02em}
-  h2{font-size:26px;line-height:1.15;margin:0 0 6px;font-weight:700;letter-spacing:-.01em}
-  .sub{color:var(--ink-300);font-size:16px;margin:0;max-width:9in}
-  .mid{flex:1;display:flex;flex-direction:column;justify-content:center}
-  .cover{display:flex;align-items:center;gap:0.9in}
-  .cover .said{flex:1}
-  .dial{flex:none;text-align:center;border:1px solid var(--hair);border-radius:18px;
-    padding:30px 40px;background:var(--ink-850)}
-  .dial .n{font-family:var(--mono);font-size:104px;font-weight:800;line-height:.9}
-  .dial .n small{font-size:26px;color:var(--ink-400);font-weight:400}
-  .dial .g{margin-top:12px;font-size:13px;letter-spacing:.16em;text-transform:uppercase;
-    color:var(--ink-400)}
-  .dial .g b{display:block;font-family:var(--mono);font-size:34px;color:var(--ink-50);margin-top:3px}
-  .tiles{display:flex;gap:14px;margin-top:8px}
-  .tiles div{flex:1;border:1px solid var(--hair);border-radius:12px;padding:18px 20px;
-    background:var(--ink-850)}
-  .tiles .n{font-family:var(--mono);font-size:38px;font-weight:800;line-height:1}
-  .tiles .l{font-size:13px;color:var(--ink-400);margin-top:6px}
-  table{width:100%;border-collapse:collapse;margin-top:4px}
-  td{padding:7px 0;vertical-align:middle;font-size:15px}
-  td.cat{width:2.4in;color:var(--ink-50);font-weight:600}
-  td.bar{padding-right:18px}
-  td.val{width:1.5in;text-align:right;font-family:var(--mono);font-size:15px}
-  .track{height:12px;border-radius:6px;background:var(--ink-700);overflow:hidden}
-  .track span{display:block;height:100%;border-radius:6px}
-  ol{margin:10px 0 0;padding:0;list-style:none;counter-reset:point}
-  ol li{counter-increment:point;padding:14px 0 14px 54px;border-top:1px solid var(--hair);
-    position:relative;font-size:17px;line-height:1.45;color:var(--ink-300)}
-  ol li:first-child{border-top:none}
-  ol li::before{content:counter(point);position:absolute;left:0;top:12px;width:32px;height:32px;
-    border-radius:50%;background:var(--ink-700);color:var(--ink-50);font-family:var(--mono);
-    font-size:14px;font-weight:700;display:flex;align-items:center;justify-content:center}
-  ol li b{color:var(--ink-50);font-weight:700}
-  .foot{margin-top:auto;padding-top:14px;font-size:12px;color:var(--ink-500);flex:none}
-  @media print{
-    html,body{background:#fff}
-    .slide{margin:0}
-  }`;
+  return held;
 }
 
-function slide(inner) {
-  return `<section class="slide">${inner}</section>`;
+// A finding's own line, cut to what the template's box holds. Cutting at a word keeps the sentence
+// readable where cutting at a character would end it mid-word.
+function oneLine(text, limit) {
+  const value = String(text ?? "").replace(/\s+/g, " ").trim();
+  if (value.length <= limit) return value;
+  const cut = value.slice(0, limit - 1);
+  const at = cut.lastIndexOf(" ");
+  return `${(at > limit * 0.6 ? cut.slice(0, at) : cut).trimEnd()}…`;
 }
 
-function rail(document, said) {
-  const when = new Date(document.at ?? Date.now()).toISOString().slice(0, 10);
-  return `<div class="rail">${mark()}<span class="who">${safe(said)}</span><span class="at">${safe(
-    document.target?.repository ?? "",
-  )} · ${safe(when)}</span></div>`;
+function model(document) {
+  const cats = document.categories ?? [];
+  const findings = cats.flatMap((one) => one.findings ?? []);
+  const totals = counted(findings);
+  const hardness = document.hardness ?? {};
+
+  // One row per lens. The positive-controls section is the strengths gathered from every lens rather
+  // than a lens of its own, so it is not a row here even though it renders as its own findings slide.
+  const rows = cats
+    .filter((one) => !one.positive)
+    .map((one) => {
+      const held = counted(one.findings ?? []);
+      return {
+        finder: one.name ?? "",
+        model: (one.findings ?? []).find((f) => f.model)?.model ?? "",
+        ...held,
+      };
+    });
+
+  return {
+    title: document.title ?? "Platform hardening review",
+    subtitle: document.subtitle ?? "",
+    tenant: document.tenant ?? "",
+    auditType: "Platform Hardening Review",
+    findings: findings.length,
+    critical: totals.Critical,
+    high: totals.High,
+    score: hardness.score,
+    grade: hardness.grade,
+    bars: hardness.lenses ?? hardness.bars ?? [],
+    exec: document.exec_summary ?? {},
+    commentary: document.commentary ?? {},
+    risk: document.risk_path ?? {},
+    strengths: document.strengths ?? [],
+    roadmap: document.roadmap ?? {},
+    overview: document.repo_overview ?? null,
+    categories: cats,
+    criticals: findings.filter((one) => one.sev === "Critical"),
+    rows,
+  };
 }
 
-function main() {
+// Fills a set of repeated slots in the order they sit on the slide, which is how the template says
+// which slot is first. A slot past the end of the data is left for the blanking pass.
+function fillInOrder(slide, token, values) {
+  let xml = slide.xml;
+  let at = 0;
+  for (;;) {
+    const found = pptx.shapes(xml).find((shape) => shape.text.includes(token));
+    if (!found || at >= values.length) break;
+    const done = pptx.filled(found.body, { [token]: values[at] });
+    xml = xml.slice(0, found.from) + done.body + xml.slice(found.to);
+    at += 1;
+  }
+  slide.xml = xml;
+  return at;
+}
+
+// A table the template drew banding for, once its rows have moved. The bands were drawn at the pitch
+// the template used and a run with more rows than that is on a tighter one, so a band no longer sits
+// behind the row it was drawn for. They are dropped rather than re-laid, since a band behind the
+// wrong row reads as an error and the table is legible without them, and the rule around the table is
+// stretched to hold what is now inside it.
+function refit(slide, was, foot) {
+  let xml = slide.xml;
+  const all = pptx.shapes(xml);
+  const measured = (shape) => {
+    const ext = /<a:ext cx="(\d+)" cy="(\d+)"\/>/.exec(shape.body);
+    return ext ? { width: Number(ext[1]), height: Number(ext[2]) } : { width: 0, height: 0 };
+  };
+
+  // The rule around the whole table is the tallest thing drawn with no fill of its own.
+  const frame = all
+    .filter((one) => !one.text.trim() && /<a:noFill\/>/.test(one.body.split("<a:ln")[0]))
+    .sort((a, b) => measured(b).height - measured(a).height)[0];
+  if (!frame) return;
+
+  const now = all.find((one) => one.text.trim() === foot)?.top ?? was;
+  const moved = now - was;
+
+  const bands = all.filter((one) => !one.text.trim() && one !== frame
+    && measured(one).width > 10_000_000 && measured(one).height < 400_000
+    && one.top > frame.top);
+
+  // A band drawn behind the row the table ends with follows that row. A band drawn behind a data row
+  // is at the pitch the template used and no longer sits behind anything, so it goes.
+  let out = xml;
+  for (const band of [...bands].sort((a, b) => b.from - a.from)) {
+    out = band.top >= was
+      ? pptx.moveTo(out, band, band.top + moved)
+      : out.slice(0, band.from) + out.slice(band.to);
+  }
+
+  // The rule follows what the table now holds.
+  const settled = pptx.shapes(out)
+    .filter((one) => !one.text.trim() && /<a:noFill\/>/.test(one.body.split("<a:ln")[0]))
+    .sort((a, b) => measured(b).height - measured(a).height)[0];
+  if (settled) {
+    const body = settled.body.replace(/<a:ext cx="(\d+)" cy="\d+"\/>/,
+      (whole, cx) => `<a:ext cx="${cx}" cy="${Math.round(now - settled.top + 310_896)}"/>`);
+    out = out.slice(0, settled.from) + body + out.slice(settled.to);
+  }
+  slide.xml = out;
+}
+
+// A block the run had no data for, taken out along with whatever the template drew beside it. An
+// accent bar left of a block and level with it is part of that block, so removing the text and
+// leaving the bar is what produces a slide of coloured marks against nothing.
+function trimUnused(slide, token) {
+  let xml = slide.xml;
+  const all = pptx.shapes(xml);
+  // A block is unused when any of its slots is still a slot, so a step with a heading and no detail
+  // goes rather than printing a numbered heading against nothing.
+  const empty = all.filter((one) => (token ? one.text.includes(token) : one.text.includes("{{")));
+  const height = (shape) => {
+    const ext = /<a:ext cx="(\d+)" cy="(\d+)"\/>/.exec(shape.body);
+    return ext ? Number(ext[2]) : 0;
+  };
+
+  const width = (shape) => {
+    const ext = /<a:ext cx="(\d+)" cy="(\d+)"\/>/.exec(shape.body);
+    return ext ? Number(ext[1]) : 0;
+  };
+
+  const level = (a, b) => a.top < b.top + height(b) && a.top + height(a) > b.top;
+
+  // What survives. A panel that still has something written on it is holding the section rather than
+  // belonging to a block that has gone, so it stays: that is what separates the frame around a list
+  // from the panel behind one entry of it.
+  const kept = all.filter((one) => one.text.trim() && !empty.includes(one));
+
+  const going = new Set(empty.map((one) => one.from));
+  for (const block of empty) {
+    for (const one of all) {
+      if (one.from === block.from || one.text.trim()) continue;
+      const beside = one.left <= block.left + width(block);
+      if (!level(one, block) || !beside) continue;
+      if (kept.some((survivor) => level(one, survivor))) continue;
+      going.add(one.from);
+    }
+  }
+
+  for (const one of [...all].filter((x) => going.has(x.from)).sort((a, b) => b.from - a.from)) {
+    xml = xml.slice(0, one.from) + xml.slice(one.to);
+  }
+  slide.xml = xml;
+}
+
+// Blocks laid out over the space they actually have. The template draws room for five and a run with
+// four leaves a band of nothing at the foot while the four are squashed into the top: the same
+// content spread over the same page reads as considered rather than as a page that ran out.
+//
+// Each block keeps its own drawing and moves as a whole, so the accent bar beside a block travels
+// with it and nothing has to know which piece is which.
+function spread(slide) {
+  let xml = slide.xml;
+  const all = pptx.shapes(xml);
+  const height = (shape) => {
+    const ext = /<a:ext cx="(\d+)" cy="(\d+)"\/>/.exec(shape.body);
+    return ext ? Number(ext[2]) : 0;
+  };
+
+  // Below the title and above the running foot, which is where a slide's own blocks sit.
+  const tops = [...new Set(all.filter((one) => one.text.trim() && one.top > 1_600_000
+    && one.top < FOOT).map((one) => one.top))].sort((a, b) => a - b);
+  if (tops.length < 2) return;
+
+  // The blocks are the groups of shapes sharing a top, from the first written block down.
+  const groups = tops.map((top) => all.filter((one) => Math.abs(one.top - top) < 120_000));
+  if (groups.length < 2) return;
+
+  const from = groups[0][0].top;
+
+  // What each block actually needs, from the words in it rather than from the box the template drew.
+  // A block of three sentences and a block of one were given the same height, so the short one left a
+  // hole and the long one ran into the block below it with no gap between them.
+  const needed = groups.map((group) => {
+    let lines = 0;
+    for (const one of group.filter((shape) => shape.text.trim())) {
+      const size = Number(/<a:rPr[^>]*sz="(\d+)"/.exec(one.body)?.[1] ?? 1100) / 100;
+      const across = Math.max(1, Math.floor(boxWidth(one) / (size * 12700 * 0.52)));
+      lines += Math.max(1, Math.ceil(one.text.trim().length / across));
+    }
+    // A line's height at the size it is set, plus the space a block's own heading asks for. Erring
+    // high: a block given more room than it needs leaves a gap, and one given less runs into the
+    // block below it, and only one of those is a defect.
+    return Math.max(300_000, Math.round(lines * 11 * 12700 * 1.55) + 130_000);
+  });
+
+  // One height for every block, taken from the one that needs the most. Sized individually the gaps
+  // come out different: a block whose estimate ran high gets a visible space and one whose estimate
+  // ran short gets none, which reads as an accident rather than as a rhythm.
+  const room = FOOT - from;
+  const tallest = Math.max(...needed);
+  const gap = Math.max(140_000,
+    Math.floor((room - tallest * groups.length) / Math.max(1, groups.length - 1)));
+
+  const step = tallest + gap;
+  const at = groups.map((one, n) => from + step * n);
+
+  // Nothing is moved where the blocks would not fit: the template's own pitch is better than a page
+  // whose last block sits under the running foot.
+  if (from + step * (groups.length - 1) + tallest > FOOT + 200_000) return;
+  needed.fill(tallest);
+
+  // Each shape's new position and height are worked out together, then written once, from the end of
+  // the file backwards. Writing a shape twice, or writing as we go, moves the offsets of everything
+  // after it and lands the rest of the page a little further out each time.
+  //
+  // A block's accent bar takes the block's own height as well, or a bar drawn for the template's
+  // taller box reaches down into the gap this exists to create.
+  const edits = [];
+  groups.forEach((group, n) => {
+    for (const shape of group) {
+      const settled = at[n] + (shape.top - group[0].top);
+      edits.push({
+        shape,
+        body: shape.body
+          .replace(/<a:ext cx="(\d+)" cy="\d+"\/>/, (whole, cx) => `<a:ext cx="${cx}" cy="${needed[n]}"/>`)
+          .replace(/<a:off x="(-?\d+)" y="(-?\d+)"\/>/, (whole, x) => `<a:off x="${x}" y="${settled}"/>`),
+      });
+    }
+  });
+
+  slide.xml = pptx.rewrite(xml, edits);
+}
+
+// Puts what sits beside a marker level with it. The template drew the tier boxes and their text at
+// their own heights, and once the text is a sentence rather than a token the two no longer line up:
+// a reader then has to work out which line belongs to which box, which is work the page should do.
+function align(slide, marker) {
+  let xml = slide.xml;
+  const all = pptx.shapes(xml);
+  const boxes = all.filter((one) => marker.test(one.text.trim()));
+
+  // Every move is worked out first and written once, from the end of the file backwards. Writing as
+  // we go changes the length of the coordinate being written, which moves every offset still to be
+  // used: each row then lands a little further out than the one before it, which is how the tiers
+  // ended up stepping down the page away from their own boxes.
+  // What sits beside each label, paired up before anything is measured.
+  const pairs = [];
+  for (const box of boxes) {
+    const beside = all
+      .filter((one) => one.left > box.left + boxWidth(box) && one.text.trim()
+        && Math.abs(one.top - box.top) < boxHeight(box) * 3)
+      .sort((a, b) => Math.abs(a.top - box.top) - Math.abs(b.top - box.top))[0];
+    if (beside && !pairs.some((one) => one.beside.from === beside.from)) pairs.push({ box, beside });
+  }
+
+  // One line count for the whole set, taken from the longest.
+  //
+  // How many lines a passage wraps to can only be estimated here, and the estimate turns over on a
+  // single character: two blocks of 205 and 208 characters render identically and estimate as three
+  // lines and four. Measured one at a time, the one that tipped over sat half a line off its label
+  // while its neighbours sat right, which reads as one row being wrong rather than as an estimate
+  // being approximate. Sharing the measure makes any error the same error everywhere, and a set of
+  // rows offset alike reads as deliberate.
+  const measured = pairs.map(({ beside }) => {
+    const size = Number(/<a:rPr[^>]*sz="(\d+)"/.exec(beside.body)?.[1] ?? 900) / 100;
+    const across = Math.max(1, Math.floor(boxWidth(beside) / (size * 12700 * 0.52)));
+    return Math.max(1, Math.ceil(beside.text.trim().length / across));
+  });
+  const shared = measured.length ? Math.max(...measured) : 1;
+
+  const moves = [];
+  for (const { box, beside } of pairs) {
+
+    // The block of words is centred on its label, not its first line: placing the first line on the
+    // label's centre leaves a three-line block hanging below the box it belongs to.
+    //
+    // The block is anchored to the top of its own box and the box is cut to the words, because these
+    // boxes are drawn far taller than what is written in them and centring one of those lifts it
+    // clear over whatever sits above.
+    const size = Number(/<a:rPr[^>]*sz="(\d+)"/.exec(beside.body)?.[1] ?? 900) / 100;
+    const inset = Number(/<a:bodyPr[^>]*tIns="(\d+)"/.exec(beside.body)?.[1] ?? 45720);
+    const line = size * 1.25 * 12700;
+    const lines = shared;
+    const top = Math.round(box.top + boxHeight(box) / 2 - (lines * line) / 2 - inset);
+
+    // The box is cut to what it holds as well as moved. Left at the height the template drew, a box
+    // moved up to centre its words reaches down into the block below it, which is an overlap rather
+    // than an alignment.
+    const tall = Math.round(lines * line + inset * 2);
+
+    moves.push({
+      shape: beside,
+      body: beside.body
+        .replace(/(<a:bodyPr[^>]*?)\sanchor="[a-z]+"/, "$1")
+        .replace(/<a:bodyPr/, '<a:bodyPr anchor="t"')
+        .replace(/<a:ext cx="(\d+)" cy="\d+"\/>/, (whole, cx) => `<a:ext cx="${cx}" cy="${tall}"/>`)
+        .replace(/<a:off x="(-?\d+)" y="(-?\d+)"\/>/, (whole, x) => `<a:off x="${x}" y="${top}"/>`),
+    });
+  }
+
+  slide.xml = pptx.rewrite(xml, moves);
+
+  // Checked against the slide as written, not against the sum that produced it. This alignment was
+  // reported fixed twice on arithmetic that was correct and output that was not, because the sum
+  // assumed the text sat at the top of its own box when the box centred it. A calculation cannot
+  // catch a wrong assumption about what it is calculating; reading the result back can.
+  const written = pptx.shapes(slide.xml);
+  for (const box of written.filter((one) => marker.test(one.text.trim()))) {
+    const beside = written
+      .filter((one) => one.left > box.left + boxWidth(box) && one.text.trim())
+      .sort((a, b) => Math.abs(a.top - box.top) - Math.abs(b.top - box.top))[0];
+    if (!beside) continue;
+
+    const size = Number(/<a:rPr[^>]*sz="(\d+)"/.exec(beside.body)?.[1] ?? 900) / 100;
+    const inset = Number(/<a:bodyPr[^>]*tIns="(\d+)"/.exec(beside.body)?.[1] ?? 45720);
+    const line = size * 1.25 * 12700;
+
+    // Measured the way the placement measured, and every row against the same count. Checking each
+    // row against its own estimate would pass exactly the drift this exists to catch, since the
+    // placement and the check would make the same mistake in the same place.
+    const says = beside.top + inset + (shared * line) / 2;
+    const middle = box.top + boxHeight(box) / 2;
+
+    if (Math.abs(says - middle) > 40_000) {
+      throw new Error(
+        `${JSON.stringify(box.text.trim())} and the text beside it are ` +
+        `${Math.round(Math.abs(says - middle) / 914.4) / 100}in apart, so they are not aligned`,
+      );
+    }
+  }
+}
+
+// The rows a template drew, found by their shared top edge. A row is the shapes at one height, and
+// the columns are where each of them sits, which is what lets a row be repeated without any of those
+// measurements being written down here.
+// A row is the shapes at one height, starting where its marker starts. The left bound is what keeps
+// something else drawn at the same height out of the row: the score card sits level with the first
+// dimension, and a row that swallowed it would repeat the card once per dimension.
+//
+// A row's parts are not all drawn at exactly the marker's height either, since a bar is centred
+// against the label beside it, so the band is a row's own pitch rather than an exact match.
+function rowsOf(xml, marker, margin = 0) {
+  const all = pptx.shapes(xml);
+  const found = all.filter((one) => one.text.includes(marker));
+  const tops = [...new Set(found.map((one) => one.top))].sort((a, b) => a - b);
+  if (!tops.length) return [];
+
+  // The margin is for a row whose own drawing starts before its marker: a findings row opens with a
+  // severity bar and a panel sitting just left of the identifier. It stays small, because what it
+  // must not reach is something drawn level with the row and nothing to do with it.
+  const left = Math.min(...found.map((one) => one.left)) - margin;
+  const band = tops.length > 1 ? (tops[1] - tops[0]) / 2 : 60_000;
+
+  return tops.map((top) => all
+    .filter((one) => one.left >= left && one.top >= top && one.top < top + band)
+    .sort((a, b) => a.left - b.left));
+}
+
+// A findings row is drawn from its severity bar rather than from its identifier, so its row reaches
+// back to the bar. Half an inch, which is wider than the bar and narrower than a column.
+const ROW_MARGIN = Math.round(0.5 * INCH);
+
+// A table the run has more rows than the template drew. The template's own pitch is what a short
+// table uses, and a long one is tightened just enough to reach the foot of the space it has, so the
+// rows stay on one slide rather than running off the bottom of it.
+//
+// `below` is what has to stay below the table, a totals row, and it moves down to sit under the last
+// row rather than being written over.
+function fillTable(slide, marker, columns, values, below, decorate, margin = 0) {
+  let xml = slide.xml;
+  const rows = rowsOf(xml, marker, margin);
+  if (!rows.length) return;
+  const prototype = rows[0];
+  const drawn = rows.length > 1 ? rows[1][0].top - rows[0][0].top : 0;
+
+  // A run with more rows than the template drew tightens the pitch to fit the space it has. One row's
+  // worth is kept back for whatever sits below, so a totals row has somewhere to go.
+  let step = drawn;
+  if (values.length > rows.length && drawn > 0) {
+    const room = FOOT - prototype[0].top;
+    step = Math.min(drawn, Math.floor(room / (values.length + (below ? 1.6 : 0))));
+  }
+
+  // Every example row past the first goes before anything is cloned. Cloning around them leaves the
+  // template's own pitch interleaved with the run's, which reads as rows written over each other.
+  for (const row of rows.slice(1).reverse()) {
+    for (const shape of [...row].sort((a, b) => b.from - a.from)) {
+      xml = xml.slice(0, shape.from) + xml.slice(shape.to);
+    }
+  }
+
+  let id = pptx.highest(xml);
+  const first = rowsOf(xml, marker, margin)[0];
+  // Cloned from the bottom up so an insertion never moves a shape this loop has still to read.
+  for (let n = values.length - 1; n >= 1; n -= 1) {
+    if (step === 0) break;
+    const done = pptx.cloneRow(xml, first, step * n, id);
+    xml = done.xml;
+    id = done.id;
+  }
+
+  slide.xml = xml;
+
+  // Re-read, because cloning and removing moved every offset the first read recorded.
+  const laid = rowsOf(slide.xml, marker, margin).slice(0, values.length);
+  let out = slide.xml;
+  // Written from the end of the document backwards. A replacement is rarely the length of the token
+  // it replaces, so filling forwards moves every offset still to be used and rows drift into each
+  // other's shapes.
+  for (let n = laid.length - 1; n >= 0; n -= 1) {
+    const mapping = {};
+    columns.forEach((token, at) => {
+      mapping[token] = values[n][at] ?? "";
+    });
+    for (const shape of [...laid[n]].sort((a, b) => b.from - a.from)) {
+      // Anything the row needs beyond its words happens here, in the same descending pass, because a
+      // second pass afterwards has no rows left to find: the marker it would look for has just been
+      // replaced by the run's own text.
+      let body = decorate ? decorate(shape, n, laid[n]) ?? shape.body : shape.body;
+
+      // A row laid on a tighter pitch is a shorter row. Left at the height the template drew, each
+      // row's box reaches into the one below it, which is a real overlap even where the words inside
+      // happen not to touch.
+      if (step > 0 && step < drawn) {
+        body = body.replace(/<a:ext cx="(\d+)" cy="(\d+)"\/>/, (whole, cx, cy) =>
+          `<a:ext cx="${cx}" cy="${Math.min(Number(cy), step)}"/>`);
+      }
+
+      const done = pptx.filled(body, mapping);
+      out = out.slice(0, shape.from) + done.body + out.slice(shape.to);
+    }
+  }
+
+  // What sits under the table follows the table rather than staying where the template drew it.
+  if (below && laid.length) {
+    const last = Math.max(...laid[laid.length - 1].map((one) => one.top));
+    const tail = pptx.shapes(out).filter((one) => one.text.includes(below) || one.text.trim() === "TOTAL");
+    const settled = last + Math.round(step * 1.5);
+    for (const shape of [...tail].sort((a, b) => b.from - a.from)) {
+      out = pptx.moveTo(out, shape, settled);
+    }
+  }
+  slide.xml = out;
+}
+
+function deck(document, into, options = {}) {
+  const held = model(document);
+  const file = pptx.open(readFileSync(TEMPLATE));
+  const slides = file.slides;
+  const type = { "{{AUDIT TYPE}}": held.auditType };
+
+  // 1 - the cover. Four numbers and one sentence, which is the whole of what a board reads first.
+  const cover = slides[0];
+  cover.xml = pptx.fill(cover.xml, {
+    "{{ PRODUCT / REPOSITORY }}": (held.tenant || "EVALATION").toUpperCase(),
+    "{{ Audit title }}": held.title,
+    "{{ Read-only multi-agent review · N lenses · models used · trunk <sha> }}": held.subtitle,
+    // The cover's own sentence, which is written to sit beside four numbers. The summary panels are
+    // paragraphs and do not fit here: one of them on the cover overruns the space it was given.
+    "{{ one honest, top-line sentence: what the system is and the headline judgment }}":
+      held.exec.verdict ?? firstSentence(held.exec.lead) ?? firstSentence(held.exec.bottom_line) ?? "",
+  });
+  fillInOrder(cover, "{{N}}", [
+    String(held.findings),
+    String(held.critical),
+    String(held.high),
+    held.score === undefined || held.score === null ? "-" : String(held.score),
+  ]);
+
+  // 2 - what the tree is. Measured, so it owes nothing to anybody's account of the codebase.
+  const glance = slides[1];
+  glance.xml = pptx.fill(glance.xml, type);
+  if (held.overview) {
+    let xml = glance.xml;
+    const languages = held.overview.languages ?? [];
+
+    // The bar is the split, so each segment is its own language's share. Drawn at the template's own
+    // fixed widths it is decoration that contradicts the percentages printed under it.
+    let band = pptx.shapes(xml)
+      .filter((one) => !one.text.trim() && boxHeight(one) < 300_000 && boxWidth(one) > 400_000
+        && one.top > 1_600_000 && one.top < 2_600_000)
+      .sort((a, b) => a.left - b.left);
+
+    // The track the segments sit on is not a segment. It spans the whole bar, so it is the one
+    // materially wider than the rest, and counting it shifts every language onto the colour of the
+    // one before it.
+    if (band.length > 1) {
+      const widest = Math.max(...band.map(boxWidth));
+      const rest = band.filter((one) => boxWidth(one) < widest).map(boxWidth);
+      const next = rest.length ? Math.max(...rest) : 0;
+      if (next && widest > next * 1.5) band = band.filter((one) => boxWidth(one) < widest);
+    }
+    if (band.length && languages.length) {
+      const from = band[0].left;
+      const full = band[band.length - 1].left + boxWidth(band[band.length - 1]) - from;
+      const cut = languages.slice(0, band.length);
+      const whole = cut.reduce((sum, one) => sum + one.pct, 0) || 100;
+
+      // Each segment's new geometry is worked out first, against the band as the template drew it,
+      // and only then written. Writing as we go would move the offsets of the segments still to be
+      // read, because the order they sit across the slide is not the order they sit in the file.
+      const settled = band.map((shape, n) => {
+        const one = cut[n];
+        if (!one) return { shape, body: "" };
+        const left = cut.slice(0, n)
+          .reduce((sum, x) => sum + Math.round((full * x.pct) / whole), from);
+        return {
+          shape,
+          body: shape.body
+            .replace(/<a:off x="(-?\d+)"/, `<a:off x="${left}"`)
+            .replace(/<a:ext cx="\d+"/, `<a:ext cx="${Math.max(1, Math.round((full * one.pct) / whole))}"`),
+        };
+      });
+
+      xml = pptx.rewrite(xml, settled);
+    }
+
+    const marked = pptx.shapes(xml);
+    const slots = marked.filter((one) => one.text.includes("{{Lang}}"))
+      .sort((a, b) => a.left - b.left);
+
+    // Worked out across every slot first and written once, from the end of the file backwards. The
+    // slots are read in the order they sit across the slide, which is not the order they sit in the
+    // file, so writing them in that order moves offsets still to be used.
+    const written = [];
+    slots.forEach((slot, n) => {
+      const one = languages[n];
+
+      // A slot with no language behind it goes, and its dot goes with it. A coloured dot against
+      // nothing reads as a language whose name failed to print.
+      if (!one) {
+        const dot = marked.find((shape) => !shape.text.trim()
+          && Math.abs(shape.top - slot.top) < 60_000
+          && Math.abs(shape.left - slot.left) < INCH * 0.3
+          && boxWidth(shape) < INCH * 0.3);
+        for (const shape of [slot, dot].filter(Boolean)) written.push({ shape, body: "" });
+        return;
+      }
+
+      // The dot marking the language sits at the label's own left edge, so the words start after it
+      // rather than under it.
+      written.push({
+        shape: slot,
+        body: pptx.filled(slot.body, { "{{Lang}}": one.name, "{{%}}": `${one.pct}%` }).body
+          .replace(/<a:off x="(-?\d+)"/, (whole, x) =>
+            `<a:off x="${Number(x) + Math.round(INCH * 0.16)}"`),
+      });
+    });
+
+    xml = pptx.rewrite(xml, written);
+    glance.xml = xml;
+
+    // Each count sits directly above the label naming it, so the label is what says which count goes
+    // where rather than a position written down here.
+    // The grid is filled from the start rather than in the template's own label order, so what was
+    // measured sits together and the cells nothing measured all fall off the end. A measured cell in
+    // the fourth row under three rows of holes reads as a page that failed to load.
+    const inventory = held.overview.inventory ?? {};
+    let out = glance.xml;
+    const shapes = pptx.shapes(out);
+    const values = shapes.filter((one) => one.text.trim() === "{{n}}");
+    const labelled = values.map((value) => ({
+      value,
+      label: shapes
+        .filter((one) => one.top > value.top && Math.abs(one.left - value.left) < INCH / 4)
+        .sort((a, b) => a.top - b.top)[0],
+    }));
+
+    // Cells run left to right, top to bottom, which is the order a reader takes them in. What was
+    // measured comes first, and every other object type the template names follows it at zero: the
+    // grid's job is to say what was looked for as much as what was found, and a short grid reads as a
+    // shallower assessment than the one that happened.
+    const cells = [...labelled].sort((a, b) =>
+      a.value.top - b.value.top || a.value.left - b.value.left);
+
+    const named = cells.map((cell) => cell.label?.text.trim().toUpperCase()).filter(Boolean);
+    const measured = Object.entries(inventory);
+    const rest = named
+      .filter((label) => !(label in inventory))
+      .map((label) => [label, 0]);
+
+    [...measured, ...rest].forEach(([label, count], at) => {
+      if (cells[at]) cells[at].holds = { label, count };
+    });
+
+    // A cell nothing measured is taken out, value and label together, rather than printed as zero.
+    // A repository with no Terraform and a repository nobody measured for Terraform are different
+    // claims, and a zero cannot tell a reader which one they are looking at.
+    // Written from the end of the file backwards, so replacing or removing one cell never moves
+    // another this pass has still to reach.
+    const edits = [];
+    for (const cell of cells) {
+      if (!cell.holds) {
+        // The cell's own panel goes with its two lines. Left behind, it is an empty box in a grid,
+        // which reads as a measurement that came back blank rather than one nobody took.
+        const panel = shapes.filter((one) => !one.text.trim()
+          && one.left <= cell.value.left && one.top <= cell.value.top
+          && one.left + boxWidth(one) >= cell.value.left
+          && one.top + boxHeight(one) >= cell.value.top
+          && boxWidth(one) < INCH * 2.5);
+        for (const one of [cell.value, cell.label, ...panel].filter(Boolean)) {
+          edits.push({ shape: one, body: "" });
+        }
+        continue;
+      }
+      edits.push({
+        shape: cell.value,
+        body: pptx.filled(cell.value.body, { "{{n}}": counting(cell.holds.count) }).body,
+      });
+      if (cell.label) {
+        edits.push({
+          shape: cell.label,
+          body: cell.label.body.replace(/<a:t>[^<]*<\/a:t>/, `<a:t>${pptx.escaped(cell.holds.label)}</a:t>`),
+        });
+      }
+    }
+
+    out = pptx.rewrite(out, edits);
+    glance.xml = out;
+  }
+
+  // 3 - who read what, and what each found. The reader's answer to "how do you know".
+  const manifest = slides[2];
+  manifest.xml = pptx.fill(manifest.xml, type);
+  // Where the totals row sits before anything moves, so the banding drawn behind it can follow it.
+  const totalWas = pptx.shapes(manifest.xml).find((one) => one.text.trim() === "TOTAL")?.top ?? 0;
+  fillTable(
+    manifest,
+    "{{ Discipline }}",
+    ["{{ Discipline }}", "{{model}}", "{{C}}", "{{H}}", "{{M}}", "{{L}}", "{{I}}"],
+    held.rows.map((row) => [
+      row.finder, row.model,
+      String(row.Critical), String(row.High), String(row.Medium), String(row.Low), String(row.Info),
+    ]),
+    "{{Σ}}",
+  );
+  const sums = counted(held.categories.flatMap((one) => one.findings ?? []));
+  fillInOrder(manifest, "{{Σ}}", SEVERITIES.map((one) => String(sums[one])));
+  refit(manifest, totalWas, "TOTAL");
+
+  // 4 - the honest read on how it is built.
+  const commentary = slides[3];
+  commentary.xml = pptx.fill(commentary.xml, type);
+  // One block, or several. A single headline and body is what the synthesis writes when it has one
+  // thing to say, and reading that as a block per field prints the field names at a reader.
+  const paragraphs = Array.isArray(held.commentary)
+    ? held.commentary
+    : (held.commentary.headline || held.commentary.body ? [held.commentary] : []);
+  fillInOrder(commentary, "{{ Strength or risk headline }}", paragraphs.map((one) => one.headline ?? ""));
+  fillInOrder(
+    commentary,
+    "{{ 2-3 sentence honest assessment; concrete and specific, not pitched. }}",
+    paragraphs.map((one) => one.body ?? ""),
+  );
+  trimUnused(commentary, "{{ Strength or risk headline }}");
+  spread(commentary);
+
+  // 5 - one number, its grade, and where it came from.
+  const score = slides[4];
+  score.xml = pptx.fill(score.xml, {
+    ...type,
+    "{{NN}}": held.score === undefined || held.score === null ? "-" : String(held.score),
+    "{{X}}": held.grade ?? "-",
+    // One line, as the slot says. The caption under a score is not the place for the paragraph the
+    // executive summary already carries.
+    "{{ one-line synthesis of the score }}": firstSentence(held.exec.bottom_line) ?? "",
+  });
+  const bars = held.bars.map((bar) => ({
+    name: bar.name ?? bar.category ?? "",
+    score: Number(bar.score ?? 0),
+  }));
+  // The template drew every bar at one length and one colour. A bar that does not agree with the
+  // number beside it is worse than no bar at all, so each is cut to its own score against the track it
+  // sits in and takes its grade band's colour, and the number takes the same colour.
+  fillTable(
+    score,
+    "{{ Dimension }}",
+    ["{{ Dimension }}", "{{n}}"],
+    bars.map((bar) => [bar.name, String(bar.score)]),
+    null,
+    (shape, at, row) => {
+      const one = bars[at];
+      if (!one) return null;
+      const colour = banded(one.score);
+
+      if (shape.text.trim() === "{{n}}") {
+        return shape.body.replace(/(<a:rPr[^>]*>[\s\S]*?<a:srgbClr val=")[0-9A-Fa-f]{6}/, `$1${colour}`);
+      }
+      if (shape.text.trim()) return null;
+
+      // The track and the bar are the two filled shapes in the row. The track is the wider, so the
+      // bar is the other one, whatever either happens to measure in the template.
+      const filled = row.filter((other) => !other.text.trim()
+        && /<a:solidFill>/.test(other.body.split("<a:ln")[0]));
+      if (filled.length < 2) return null;
+      const width = (other) => Number(/<a:ext cx="(\d+)"/.exec(other.body)?.[1] ?? 0);
+      const track = Math.max(...filled.map(width));
+      if (width(shape) >= track) return null;
+
+      const cut = Math.max(1, Math.round((track * Math.min(100, Math.max(0, one.score))) / 100));
+      return shape.body
+        .replace(/<a:ext cx="\d+"/, `<a:ext cx="${cut}"`)
+        .replace(/(<a:solidFill><a:srgbClr val=")[0-9A-Fa-f]{6}/, `$1${colour}`);
+    },
+  );
+
+  // 6 - the one chain worth reading, step by step.
+  const risk = slides[5];
+  risk.xml = pptx.fill(risk.xml, {
+    ...type,
+    "{{ Fix: the small, forced-by-construction changes that break the chain }}": held.risk.fix ?? "",
+  });
+  (held.risk.steps ?? []).slice(0, 4).forEach((step, n) => {
+    risk.xml = pptx.fill(risk.xml, { [`{{ Step ${n + 1} }}`]: step.title ?? "" });
+  });
+  fillInOrder(
+    risk,
+    "{{ what happens at this step, and the control that fails }}",
+    (held.risk.steps ?? []).map((one) => one.detail ?? ""),
+  );
+  trimUnused(risk, null);
+
+  // 8 - the criticals on their own, because a critical finding is not a row in a list.
+  // Every critical, whole. A critical finding cut off at a hundred characters is the one row on the
+  // slide a reader cannot act on, and the template drew room for five where a run may find more, so
+  // the rows are repeated rather than the list being quietly shortened.
+  //
+  // The model that found it is not here: which reading produced a critical finding does not change
+  // what a board does about it, and the findings detail records it for anyone who wants it.
+  const criticals = slides[7];
+  criticals.xml = pptx.fill(criticals.xml, { ...type, "{{n}}": String(held.criticals.length) });
+  fillTable(
+    criticals,
+    "{{ID}}",
+    ["{{ID}}", "{{ critical finding title }}"],
+    held.criticals.map((one) => [one.id ?? "", one.finding ?? ""]),
+    null,
+    null,
+    ROW_MARGIN,
+  );
+
+  // The per-category findings slides the template carries are deliberately not built. A board
+  // pack carries the shape of the risk and the criticals by name; every finding with its evidence
+  // and its remedy is the findings detail's job, and a pack that reprints them is the document
+  // nobody reads.
+
+  // 10 - what to keep, and what to do next.
+  const closing = slides[9];
+  closing.xml = pptx.fill(closing.xml, type);
+  // A run that recorded no strengths says so. An empty panel under a heading promising invariants
+  // reads as a run that did not look, which is the opposite of what happened.
+  fillInOrder(
+    closing,
+    "{{ a genuine strength to keep }}",
+    held.strengths.length
+      ? held.strengths.map((one) => oneLine(one, 120))
+      : ["No positive controls were recorded in this run, so nothing here is credited as holding."],
+  );
+  trimUnused(closing, "{{ a genuine strength to keep }}");
+  // What each tier is worth to a reader: how much work it is, which parts of the system it lands in,
+  // and what the tier means. Not the findings themselves, which are the detail's, and not a list of
+  // identifiers, which is neither: an identifier a reader cannot look up here tells them nothing.
+  const MEANS = {
+    p0: "do first: these change what the system guarantees",
+    p1: "near-term: bounded fixes that close the material risk",
+    p2: "should-fix: depth that raises the floor",
+    p3: "cleanup: low-cost tidying, no risk carried",
+  };
+
+  fillInOrder(
+    closing,
+    "{{ the items in this priority tier }}",
+    ["p0", "p1", "p2", "p3"].map((tier) => {
+      const items = held.roadmap[tier] ?? [];
+      if (!items.length) return "Nothing in this tier.";
+
+      const where = new Map();
+      for (const one of items) {
+        if (one.where) where.set(one.where, (where.get(one.where) ?? 0) + 1);
+      }
+      const spread = [...where.entries()]
+        .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+        .slice(0, 4)
+        .map(([name, count]) => `${name} (${count})`);
+
+      return `${items.length} ${items.length === 1 ? "finding" : "findings"}, ${MEANS[tier]}.` +
+        (spread.length
+          ? ` Concentrated in ${spread.join(", ")}${where.size > spread.length
+            ? `, and ${where.size - spread.length} other ${where.size - spread.length === 1 ? "discipline" : "disciplines"}` : ""}.`
+          : "");
+    }),
+  );
+
+  // The tier's own words sit level with the box naming it. Left where the template drew them they
+  // hang below their box, so a reader has to work out which line belongs to which priority.
+  align(closing, /^P[0-3]$/);
+
+  // 11 - the executive summary, which leads rather than closes.
+  const summary = slides[10];
+  summary.xml = pptx.fill(summary.xml, {
+    "{{ Lead: what the system is, and the one-line overall finding. Written for a diligence reader, honest, not pitched. }}":
+      held.exec.lead ?? held.exec.build_quality ?? "",
+    "{{ N findings · N critical · N high · N lenses · read-only · hardness NN/100 · detail in the report + findings file }}":
+      `${held.findings} findings · ${held.critical} critical · ${held.high} high · ` +
+      `${held.rows.length} lenses · read-only · hardness ${held.score ?? "-"}/100`,
+  });
+  fillInOrder(summary, "{{ 3-4 sentences for this section: honest, specific, balanced. }}", [
+    held.exec.build_quality ?? "",
+    held.exec.where_risk ?? "",
+    held.exec.what_it_takes ?? "",
+    held.exec.bottom_line ?? "",
+  ]);
+
+  // A narrative slide the run has nothing for is dropped rather than shipped saying nothing. Named by
+  // the slide itself rather than by where it sits, because repeating the findings slide has already
+  // moved everything after it.
+  order(file, [
+    // Measured content, not merely a block where measurements would go. A tree nobody counted
+    // produces a slide of zeros, which reads as a repository holding nothing.
+    [slides[1], Boolean(held.overview?.languages?.length
+      || Object.keys(held.overview?.inventory ?? {}).length)],
+    [slides[3], paragraphs.length > 0],
+    // The risk path is never built. Its point is a chain, where several findings compose into one
+    // exploitable path, and nothing here can establish that a chain exists: numbering the heaviest
+    // findings from one discipline is a list wearing a chain's clothes, and asserting a causal link
+    // the run never found is exactly the invention this deck refuses everywhere else.
+    [slides[5], false],
+    [slides[6], false],
+    [slides[7], held.criticals.length > 0],
+    [slides[8], false],
+    [slides[9], held.strengths.length > 0 || Object.values(held.roadmap).some((one) => one?.length)],
+  ], slides[10]);
+
+  // Every slide part, not only the ones the template opened with, since repeating the findings slide
+  // added parts that carry the same notes and the same empty slots.
+  const parts = file.entries.filter((one) => /^ppt\/slides\/slide\d+\.xml$/.test(one.name));
+  for (const part of parts) {
+    part.content = Buffer.from(
+      pptx.blank(pptx.stripNotes(part.content.toString("utf8"))), "utf8",
+    );
+  }
+
+  // Checked before it is rendered, so a pack carrying any of the defects that have reached a reader
+  // before stops here rather than being found by whoever opens it.
+  assure(file, held);
+
+  // Stopping here is what lets a check exercise the whole fill without a browser. Everything a check
+  // can answer is answered above this line: what is printed is the drawing, unchanged.
+  if (options.render === false) return { file, held, printed: false };
+
+  // Delivered as a document rather than as the template it was filled from, so what a reader is
+  // handed prints the same everywhere and cannot be edited into something the run never said.
+  const page = render(file, ASSETS);
+  const done = print(page, `${into.replace(/\.pdf$/, "")}.html`, into);
+  return { slides: file.slides.length, findings: held.findings, ...done };
+}
+
+// Dropping and moving are the slide order, which lives in one list in the presentation. Every fill
+// above ran against the template's own numbering, so this happens once, at the end.
+function order(file, drop, summary) {
+  const presentation = file.entries.find((one) => one.name === "ppt/presentation.xml");
+  let xml = presentation.content.toString("utf8");
+  let items = (/<p:sldIdLst>([\s\S]*?)<\/p:sldIdLst>/.exec(xml)[1].match(/<p:sldId [^>]*\/>/g)) ?? [];
+
+  // A slide is named by the relationship pointing at its part, so dropping one is unaffected by how
+  // many slides have been repeated ahead of it.
+  const rels = file.entries.find((one) => one.name === "ppt/_rels/presentation.xml.rels")
+    .content.toString("utf8");
+  const byRelationship = new Map([...rels.matchAll(/Id="(rId\d+)"[^>]*Target="slides\/slide(\d+)\.xml"/g)]
+    .map((m) => [m[1], Number(m[2])]));
+  const numberOf = (item) => byRelationship.get(/r:id="(rId\d+)"/.exec(item)[1]);
+
+  const dropped = new Set(drop.filter(([, keep]) => !keep).map(([slide]) => slide.number));
+  items = items.filter((item) => !dropped.has(numberOf(item)));
+
+  // The executive summary leads, because the reader this is built for reads the first two slides.
+  const at = items.findIndex((item) => numberOf(item) === summary.number);
+  if (at > 1) items.splice(1, 0, items.splice(at, 1)[0]);
+
+  xml = xml.replace(/<p:sldIdLst>[\s\S]*?<\/p:sldIdLst>/, `<p:sldIdLst>${items.join("")}</p:sldIdLst>`);
+  presentation.content = Buffer.from(xml, "utf8");
+
+  // The ordinals the template baked in are wrong once slides are dropped, repeated and moved, so each
+  // is set to where its slide actually sits. Only the one in the running foot, because a two-digit
+  // number anywhere else on the slide is a count the run produced.
+  items.forEach((item, position) => {
+    const entry = file.entries.find((one) => one.name === `ppt/slides/slide${numberOf(item)}.xml`);
+    if (!entry) return;
+    let slide = entry.content.toString("utf8");
+    for (const shape of pptx.shapes(slide).reverse()) {
+      if (shape.top < FOOT || !/^\d{2}$/.test(shape.text.trim())) continue;
+      const done = shape.body.replace(/<a:t>\d{2}<\/a:t>/,
+        `<a:t>${String(position + 1).padStart(2, "0")}</a:t>`);
+      slide = slide.slice(0, shape.from) + done + slide.slice(shape.to);
+    }
+    entry.content = Buffer.from(slide, "utf8");
+  });
+}
+
+module.exports = { deck };
+
+if (require.main === module) {
   const [source, into] = process.argv.slice(2);
-  if (!source) {
-    process.stderr.write("usage: evalation-deck <findings.json> [out.html]\n");
+  if (!source || !into) {
+    process.stderr.write("usage: evalation-deck <review-findings.json> <out.pdf>\n");
     process.exit(2);
   }
-
-  let document;
-  try {
-    document = JSON.parse(readFileSync(resolve(source), "utf8"));
-  } catch (thrown) {
-    fail(`unreadable-findings: ${thrown.message}`);
-  }
-  if (document.schema !== "evalation.findings.v1") {
-    fail(`not-a-findings-file: ${source} says it is ${document.schema ?? "nothing"}`);
-  }
-  if (!document.hardness) {
-    fail(
-      "no-score: this findings file has not been scored, and a board pack is the score.\n" +
-        "Run evalation-score against the rubric the run was served, then build the deck.",
-    );
-  }
-
-  const { score, grade, bars = [] } = document.hardness;
-  const findings = document.findings ?? [];
-
-  const counted = Object.fromEntries(SEVERITY.map(([one]) => [one, 0]));
-  for (const one of findings) {
-    const named = String(one.severity ?? "info").toLowerCase();
-    if (named in counted) counted[named] += 1;
-  }
-
-  const ranked = [...bars].sort((a, b) => a.score - b.score);
-  const weakest = ranked[0];
-  const strongest = ranked[ranked.length - 1];
-  const serious = counted.critical + counted.high;
-
-  // Composed from the numbers rather than written for the occasion, so two runs that found the same
-  // things say the same thing. A sentence nobody wrote and no number produced is the one thing on a
-  // board slide that cannot be checked.
-  const points = [];
-  points.push(
-    `<b>${score} out of 100, grade ${safe(grade)}.</b> The score falls as unresolved findings ` +
-      `accumulate, weighted by severity and by how much each area costs in production.`,
-  );
-  if (serious > 0) {
-    points.push(
-      `<b>${serious} finding${serious === 1 ? "" : "s"} at critical or high.</b> These are what move ` +
-        `the score most and what an attacker reaches first.`,
-    );
-  } else {
-    points.push(
-      `<b>Nothing at critical or high.</b> What remains is medium and below, which is a matter of ` +
-        `debt rather than exposure.`,
-    );
-  }
-  if (weakest) {
-    points.push(
-      `<b>${safe(weakest.category)} is weakest, at ${weakest.score}.</b> ` +
-        `${weakest.findings} finding${weakest.findings === 1 ? "" : "s"} in that area, and it is ` +
-        `where the next hour of work returns most.`,
-    );
-  }
-  if (strongest && strongest !== weakest) {
-    points.push(
-      `<b>${safe(strongest.category)} is strongest, at ${strongest.score}.</b> Worth knowing what ` +
-        `holds it up, because that is what the weaker areas need.`,
-    );
-  }
-  if (counted.positive > 0) {
-    points.push(
-      `<b>${counted.positive} control${counted.positive === 1 ? "" : "s"} worth keeping.</b> ` +
-        `Recorded as strengths so a later change does not quietly remove one.`,
-    );
-  }
-
-  const tiles = [
-    ["critical", counted.critical],
-    ["high", counted.high],
-    ["medium", counted.medium],
-    ["low", counted.low + counted.info],
-  ]
-    .map(([named, n]) => {
-      const [, label, hex] = SEVERITY.find((one) => one[0] === named);
-      return `<div><div class="n" style="color:${hex}">${n}</div><div class="l">${
-        named === "low" ? "Low and info" : label
-      }</div></div>`;
-    })
-    .join("");
-
-  const rows = ranked
-    .map(
-      (one) =>
-        `<tr><td class="cat">${safe(one.category)}</td><td class="bar"><div class="track"><span style="width:${
-          one.score
-        }%;background:${toneOf(one.score)}"></span></div></td><td class="val" style="color:${toneOf(
-          one.score,
-        )}">${one.score}<span style="color:var(--ink-500)"> / ${safe(one.grade)}</span></td></tr>`,
-    )
-    .join("");
-
-  const worst = ranked.slice(0, 3);
-
-  const deck = [
-    slide(
-      rail(document, "Hardening review") +
-        `<div class="mid cover">
-  <div class="said">
-    <h1>${safe(document.target?.repository ?? "Repository")}</h1>
-    <p class="sub">Assessed against ${bars.length} areas of hardening, with every finding carrying the
-    file and lines it rests on.</p>
-  </div>
-  <div class="dial">
-    <div class="n" style="color:${toneOf(score)}">${score}<small>/100</small></div>
-    <div class="g">Grade<b>${safe(grade)}</b></div>
-  </div>
-</div>` +
-        `<div class="foot">Evalation · deterministic score, the same findings always producing the same number</div>`,
-    ),
-    slide(
-      rail(document, "What was found") +
-        `<h2>${findings.length} finding${findings.length === 1 ? "" : "s"} across ${
-          bars.length
-        } areas</h2>
-<p class="sub">Severity is what a finding costs the score. Positive entries are controls worth keeping
-and never count against it.</p>
-<div class="mid"><div class="tiles">${tiles}</div></div>
-<div class="foot">Every finding is listed with its remediation in the findings detail document</div>`,
-    ),
-    slide(
-      rail(document, "Where it stands") +
-        `<h2>Score by area</h2>
-<p class="sub">Weakest first. Each area is scored on its own findings, and the overall is weighted by
-what each area costs in production.</p>
-<div class="mid"><table>${rows}</table></div>`,
-    ),
-    slide(
-      rail(document, "What this says") +
-        `<h2>The picture</h2>
-<div class="mid"><ol>${points.map((one) => `<li>${one}</li>`).join("")}</ol></div>`,
-    ),
-    slide(
-      rail(document, "What to do next") +
-        `<h2>Where the next hour returns most</h2>
-<p class="sub">The three weakest areas, in order. The findings detail names every one of them with a
-concrete remediation.</p>
-<div class="mid"><ol>${worst
-          .map(
-            (one) =>
-              `<li><b>${safe(one.category)}, scoring ${one.score}.</b> ${one.findings} finding${
-                one.findings === 1 ? "" : "s"
-              } to work through.</li>`,
-          )
-          .join("")}</ol></div>
-<div class="foot">Nothing in this assessment left the machine it ran on</div>`,
-    ),
-  ].join("\n");
-
-  const page = `<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Evalation hardening review: ${safe(document.target?.repository ?? "a repository")}</title>
-<style>${styles()}</style>
-</head>
-<body>
-${deck}
-</body>
-</html>
-`;
-
-  const out = into
-    ? resolve(into)
-    : join(dirname(resolve(source)), basename(source).replace(/\.json$/, "") + "-deck.html");
-  writeFileSync(out, page);
-  process.stdout.write(
-    JSON.stringify(
-      { written: out, slides: 5, score, grade, areas: bars.length, findings: findings.length },
-      null,
-      2,
-    ) + "\n",
-  );
+  const done = deck(JSON.parse(readFileSync(resolve(source), "utf8")), resolve(into));
+  process.stdout.write(done.printed
+    ? `wrote ${done.slides} slides carrying ${done.findings} findings\n`
+    : `no browser to print with. The page is at ${done.page}: open it and print to PDF.\n`);
 }
-
-main();

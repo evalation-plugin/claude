@@ -1,0 +1,5 @@
+{
+  "_comment": "SINGLE brand token for the engine/platform's own chrome on the evidence packs (AC4, rebrand-readiness, jointly owned with #566). The generator reads name + logo from HERE - it never hardcodes a brand literal - so an eventual rebrand is a one-token + one-file swap. This is the ENGINE's own branding only; the tenant's product + framework set resolve from tenant context, not from this file.",
+  "name": "Evalation",
+  "logo": "assets/ev-mark.svg"
+}

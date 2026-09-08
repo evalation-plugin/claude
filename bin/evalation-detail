@@ -1,415 +1,443 @@
 #!/usr/bin/env node
-// evalation-detail - the findings detail deliverable, laid out to print.
+// evalation-detail - every finding, in the document somebody actually works from.
 //
-// The board-level pack carries the score, the grade and the shape of the thing. This carries every
-// finding, and it is the document somebody actually works from: a landscape page per category, seven
-// columns, one row per finding.
+// The board pack carries the score and the shape of the thing. This carries the findings themselves,
+// one row each, grouped by the lens that found them and ordered by severity. It is the artefact a
+// reader checks a claim against, so it is a PDF: fixed, printable, and not quietly editable into
+// something the run never said.
 //
-// **The layout is the one that was already settled**, and it is reproduced rather than reinvented.
-// Landscape letter, a narrow margin, and column widths sized to their longest real content so the
-// width reclaimed from the fixed columns goes to Finding and Remediation, split evenly. Those are the
-// two columns anybody reads, and every inch taken by a column that never fills is an inch taken from
-// them.
+// **The measurements are the ones that were settled** and they are reproduced rather than reinvented.
+// Landscape letter, a 0.35in margin, and seven columns sized to their longest real content so that
+// every inch reclaimed from a fixed column goes to Finding and Remediation, split evenly:
 //
-//   Pr 0.30  ID 0.78  Sev 0.82  Model 1.02  Finding flex  Remediation flex  Result 1.20
+//   Pr 0.30  ID 0.78  Sev 0.82  Model 0.88  Finding 3.16  Remediation 3.16  Result 1.20
 //
-// The numbers are inches and they sum to the body width exactly. Print CSS holds them rather than a
-// PDF library, so this needs nothing installed and prints to PDF from any browser.
+// They sum to the body width exactly. A column wider than it needs to be is width taken from the two
+// columns anybody reads.
 //
-// **The column key gets its own page.** A key that shares a page with findings is read as a finding,
-// which is why the original broke the page after it, and this does the same.
-//
-// **A category nothing assessed is said aloud.** A lens that did not run is a gap in the coverage
-// rather than a clean pass, so it appears with what happened to it rather than being dropped, which
-// would make a report that assessed less read as a report that found less.
+// **The page paginates itself in the browser.** Row heights depend on how text wraps, which nothing
+// here can know, and a page number cannot be written by the stylesheet. So the page measures its own
+// rows before it prints, breaks where a row would cross the foot, and stamps each page. Guessing a
+// row height instead is what produces a table split through the middle of a sentence.
 "use strict";
 
-const { existsSync, readFileSync, writeFileSync } = require("node:fs");
-const { basename, dirname, join, resolve } = require("node:path");
+const { readFileSync } = require("node:fs");
+const { join, resolve } = require("node:path");
 
-// Severity, and what each is worth to the eye. Positive is a strength to keep rather than a defect,
-// so it reads green and never red.
-const SEVERITY = {
-  critical: { label: "Critical", hex: "#FB3B4E", rank: 0, priority: "P0" },
-  high: { label: "High", hex: "#F9581E", rank: 1, priority: "P1" },
-  medium: { label: "Medium", hex: "#FFB020", rank: 2, priority: "P2" },
-  low: { label: "Low", hex: "#6F82AB", rank: 3, priority: "P3" },
-  info: { label: "Info", hex: "#6F82AB", rank: 4, priority: "P3" },
-  positive: { label: "Positive", hex: "#35C46A", rank: 5, priority: "" },
+const { print } = require("../lib/print.js");
+
+const ASSETS = resolve(__dirname, "..", "reporting", "assets");
+
+// The house chrome, as the shared source holds it. Severity is this report's own: the evidence pack
+// owns coverage colours and this owns severity, and neither writes into the other.
+const CHROME = {
+  page: "#070C18",
+  panel: "#0E1730",
+  hairline: "rgba(130,160,230,0.13)",
+  ember: "#F9581E",
+  text: "#E6ECF7",
+  muted: "#9DAAC6",
+  faint: "#6F82AB",
 };
 
-// Inches. The fixed ones are sized to their longest real content and no wider: Pr holds two
-// characters, ID a short identity, Sev the word Critical and its dot, Model two labelled model names
-// stacked, Result its longest tag. Everything left over is split between the two columns that carry
-// prose.
-const MARGIN_IN = 0.35;
-const PAGE_IN = 11.0;
-const FIXED = { pr: 0.3, id: 0.78, sev: 0.82, model: 1.02, result: 1.2 };
-const BODY_IN = PAGE_IN - 2 * MARGIN_IN;
-const FLEX_IN =
-  (BODY_IN - Object.values(FIXED).reduce((sum, one) => sum + one, 0)) / 2;
+const SEVERITY = {
+  Critical: "#FB3B4E",
+  High: "#F9581E",
+  Medium: "#FFB020",
+  Low: "#6F82AB",
+  Info: "#6F82AB",
+  Positive: "#35C46A",
+};
 
-function fail(reason) {
-  process.stderr.write(reason + "\n");
-  process.exit(1);
+const ORDER = ["Critical", "High", "Medium", "Low", "Info", "Positive"];
+
+// Inches. The fixed columns are their content's width and no more.
+const FIXED = { pr: 0.30, id: 0.78, sev: 0.82, model: 0.88, result: 1.20 };
+const MARGIN = 0.35;
+const BODY = 11.0 - 2 * MARGIN;
+const FLEX = (BODY - Object.values(FIXED).reduce((sum, one) => sum + one, 0)) / 2;
+
+const FONTS = [
+  ["Hanken Grotesk", "HankenGrotesk-Regular.ttf", 400],
+  ["Hanken Grotesk", "HankenGrotesk-Bold.ttf", 700],
+  ["JetBrains Mono", "JetBrainsMono-Regular.ttf", 400],
+  ["JetBrains Mono", "JetBrainsMono-Bold.ttf", 700],
+];
+
+function escaped(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }
 
-function safe(text) {
-  return String(text ?? "").replace(
-    /[&<>"']/g,
-    (one) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[one],
-  );
+function faces() {
+  return FONTS.map(([family, file, weight]) => {
+    const data = readFileSync(join(ASSETS, "fonts", file)).toString("base64");
+    return `@font-face{font-family:'${family}';font-weight:${weight};font-style:normal;` +
+      `src:url(data:font/ttf;base64,${data}) format('truetype')}`;
+  }).join("");
 }
 
 function mark() {
-  const here = join(__dirname, "..", "templates", "assets", "ev-mark.svg");
-  return existsSync(here) ? readFileSync(here, "utf8").trim() : "";
+  return readFileSync(join(ASSETS, "ev-mark.svg")).toString("base64");
 }
 
-/**
- * The model, without the vendor in front of it.
- *
- * A column two names wide has no room for a word that is the same on every row and tells a reader
- * nothing: "Claude Opus 5" and "Claude Sonnet 5" differ in the part after the vendor, and that is the
- * part worth the width.
- *
- * A short list rather than a pattern, because a rule that strips a leading word would turn GPT-4 into
- * 4 and Llama 3 into 3. What is dropped is a vendor whose name is not part of the model's, and that
- * is a fact about each vendor rather than something a shape can decide.
- */
-function withoutVendor(name) {
-  return String(name ?? "").replace(/^(?:Claude|Anthropic)\s+/i, "").trim() || String(name ?? "");
-}
-
-/**
- * A verifier's name, from the command that ran it.
- *
- * It is configured as a command, so what arrives is a path and its arguments. A reader wants the
- * model rather than the invocation, so the model named after a --model flag is preferred and the
- * command's own name is the fallback.
- */
-function shortened(command) {
-  const named = String(command).match(/--model[= ]+([^\s]+)/);
-  if (named) return named[1];
-  return String(command).trim().split(/\s+/)[0].split("/").pop();
-}
-
-function severity(one) {
-  return SEVERITY[String(one ?? "info").toLowerCase()] ?? SEVERITY.info;
-}
-
-/**
- * Corroboration, in the reader's terms rather than ours.
- *
- * Every finding here has already had its citation checked against the file, so what varies is whether
- * a second reading stood behind it. Said plainly, because "asserted" beside a finding is the honest
- * statement that one reading found it and nothing else has looked.
- */
-function result(finding) {
-  if (finding.confirmed === "verified") return "Verified";
-  if (finding.verification?.verdict === "cannot-tell") return "Undetermined";
-  return "Asserted";
-}
-
-function styles() {
-  return `
-  @page { size: letter landscape; margin: ${MARGIN_IN}in; }
-  :root{
-    --blue-300:#6B8FFF; --ember-500:#F9581E;
-    --ink-950:#070C18; --ink-850:#0E1730; --ink-700:#1B2748;
-    --ink-500:#45557C; --ink-400:#6F82AB; --ink-300:#93A4C6; --ink-50:#EAF0FB;
-    --hair:rgba(130,160,230,0.13);
-    --font:'Hanken Grotesk',system-ui,-apple-system,'Segoe UI',sans-serif;
-    --mono:'JetBrains Mono',ui-monospace,'SF Mono',Menlo,monospace;
+function counted(findings) {
+  const held = { Critical: 0, High: 0, Medium: 0, Low: 0, Info: 0 };
+  for (const one of findings) {
+    if (held[one.sev] !== undefined) held[one.sev] += 1;
   }
-  *{box-sizing:border-box}
-  html,body{margin:0;background:var(--ink-950);color:var(--ink-50);font-family:var(--font);
-    font-size:12px;line-height:1.45;-webkit-font-smoothing:antialiased}
-  .page{width:${BODY_IN}in;margin:0 auto;padding:24px 0 40px}
-  .break{break-after:page;page-break-after:always}
-  header{display:flex;align-items:flex-start;gap:18px;padding-bottom:20px;
-    border-bottom:1px solid var(--hair);margin-bottom:22px}
-  header svg{width:48px;height:41px;flex:none}
-  .eyebrow{font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-400);margin:0 0 5px}
-  h1{font-size:23px;line-height:1.2;margin:0 0 6px;font-weight:700}
-  .subtitle{color:var(--ink-300);margin:0;font-size:12.5px}
-  h2{font-size:14px;margin:22px 0 6px;font-weight:700}
-  h2:first-of-type{margin-top:0}
-  p.muted{color:var(--ink-300);margin:0 0 8px;font-size:12px}
-  .facts{display:flex;flex-wrap:wrap;gap:8px 26px;margin:0 0 18px;padding:0;list-style:none;
-    font-size:11px;color:var(--ink-400)}
-  .facts b{display:block;color:var(--ink-50);font-family:var(--mono);font-size:11px;margin-top:2px}
-  .chip{display:inline-flex;align-items:center;gap:14px;border:1px solid var(--hair);border-radius:9px;
-    padding:11px 16px;background:var(--ink-850);margin:6px 0 4px}
-  .chip .k{font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-400)}
-  .chip .v{font-family:var(--mono);font-size:24px;font-weight:700;line-height:1}
-  .chip .v small{font-size:11px;color:var(--ink-400);font-weight:400}
-  .chip .g{font-family:var(--mono);font-size:24px;font-weight:700;line-height:1}
-  .key b{color:var(--ink-50)}
-  .key p{margin:0 0 3px;color:var(--ink-300);font-size:12px}
-  table{width:100%;border-collapse:collapse;table-layout:fixed;margin:6px 0 0}
-  th{font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-400);
-    text-align:left;padding:6px 7px;border-bottom:1px solid var(--hair);font-weight:700}
-  td{padding:7px;border-bottom:1px solid var(--hair);vertical-align:top;font-size:11.5px;
-    word-wrap:break-word;overflow-wrap:anywhere}
-  tr{break-inside:avoid;page-break-inside:avoid}
-  /* A row past about four lines gets a line of space beneath it, so a long remediation does not run
-     into the next finding's. Short rows separate themselves and pay nothing for this. */
-  tr.tall td{padding-bottom:calc(7px + 1.3em)}
-  td.pr,td.id,td.res{font-family:var(--mono);font-size:10.5px;color:var(--ink-300)}
-  td.id{color:var(--blue-300)}
-  .dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:5px;
-    vertical-align:middle}
-  .sev{font-size:11px;white-space:nowrap}
-  .where{font-family:var(--mono);font-size:10px;color:var(--ink-400);display:block;margin-top:3px}
-  td.models{font-size:10.5px;line-height:1.35}
-  .who{display:block;font-size:8px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-400);
-    margin-top:6px;line-height:1.2}
-  .models .who:first-child{margin-top:0}
-  .m{display:block;font-size:10.5px;line-height:1.3;word-break:break-word}
-  .quote{font-family:var(--mono);font-size:10px;color:var(--ink-300);display:block;margin-top:3px;
-    padding-left:7px;border-left:2px solid var(--hair);white-space:pre-wrap}
-  .none{color:var(--ink-400);font-style:italic;font-size:12px;margin:6px 0 0}
-  @media print{
-    html,body{background:#fff;color:#111;font-size:9.5pt}
-    .page{width:auto;padding:0}
-    header{border-color:#ccc}
-    .chip{background:#f6f7fa;border-color:#ccc}
-    .eyebrow,.subtitle,p.muted,.facts,.key p{color:#444}
-    th{color:#444;border-color:#bbb}
-    td{border-color:#ddd}
-    td.pr,td.id,td.res,.where,.quote{color:#333}
-    .who{color:#666}
-    h2{page-break-after:avoid}
-  }`;
+  return held;
 }
 
-/**
- * Roughly how many lines a cell will take, so a tall row can be given room to breathe.
- *
- * Estimated from the character count against the column width rather than measured, because nothing
- * here renders the page: the layout happens in a browser or a print engine and this only writes the
- * markup. An estimate is enough for the decision being made, which is whether two rows are about to
- * run together, and being a line out either way changes nothing.
- */
-function lines(text, inches) {
-  // About fifteen characters to the inch at the size this prints, which is the width the columns were
-  // sized against in the first place.
-  const perLine = Math.max(1, Math.floor(inches * 15));
-  return Math.ceil(String(text ?? "").length / perLine);
+// A category's heading carries its own severity split, so a reader knows what a section holds before
+// reading a row of it.
+function heading(category) {
+  const findings = category.findings ?? [];
+  const held = counted(findings);
+  return `${category.name} (${findings.length}): ` +
+    `C ${held.Critical} | H ${held.High} | M ${held.Medium} | L ${held.Low} | I ${held.Info}`;
 }
 
-/**
- * Whether a row is tall enough to need a gap after it.
- *
- * Short rows read as a list and separate themselves. Past about four lines the eye loses which
- * remediation belongs to which finding, because the rule between them is a hairline and the text
- * either side of it is the same weight. So a tall row gets a line of space beneath it, which is the
- * cheapest thing that fixes it and costs nothing on a page of short ones.
- */
-function tall(one, flexIn) {
-  const found = lines(one.observed, flexIn) + (one.at ? 2 + lines(one.at.quote, flexIn) : 0);
-  const fixed = lines(one.required, flexIn);
-  return Math.max(found, fixed) > 4;
-}
-
-function rows(findings, readBy) {
-  return findings
-    .map((one) => {
-      const sev = severity(one.severity);
-      const at = one.at
-        ? `<span class="where">${safe(one.at.path)}:${safe(one.at.from)}-${safe(one.at.to)}</span>` +
-          `<span class="quote">${safe(one.at.quote)}</span>`
-        : "";
-      return `<tr${tall(one, FLEX_IN) ? ' class="tall"' : ""}>
-  <td class="pr">${safe(sev.priority)}</td>
-  <td class="id">${safe(one.concern || one.id || "")}</td>
-  <td class="sev"><span class="dot" style="background:${sev.hex}"></span>${sev.label}</td>
-  <td class="models">
-    <span class="who">Identified by</span>
-    <span class="m">${safe(withoutVendor(one.model || readBy) || "not recorded")}</span>${
-      one.verification?.by
-        ? `
-    <span class="who">Verified by</span>
-    <span class="m">${safe(withoutVendor(shortened(one.verification.by)))}</span>`
-        : ""
-    }
-  </td>
-  <td>${safe(one.observed)}${at}</td>
-  <td>${safe(one.required)}</td>
-  <td class="res">${safe(result(one))}</td>
+function row(one) {
+  const colour = SEVERITY[one.sev] ?? CHROME.faint;
+  return `<tr>
+<td class="m">${escaped(one.pr)}</td>
+<td class="m id">${escaped(one.id)}</td>
+<td class="sev"><span class="dot" style="background:${colour}"></span><span style="color:${colour}">${escaped(one.sev)}</span></td>
+<td class="m">${escaped(one.model)}</td>
+<td>${escaped(one.finding)}</td>
+<td>${escaped(one.remediation)}</td>
+<td class="m res">${escaped(one.result)}</td>
 </tr>`;
-    })
-    .join("\n");
 }
 
-function main() {
+function table(category) {
+  // Priority first, because the column is the work order and a reader following it down the page is
+  // reading the order the work should be done in. Severity breaks a tie inside a tier, and the id
+  // breaks that, so the same findings always print in the same order.
+  const findings = [...(category.findings ?? [])]
+    .sort((a, b) => String(a.pr ?? "P9").localeCompare(String(b.pr ?? "P9"))
+      || ORDER.indexOf(a.sev) - ORDER.indexOf(b.sev)
+      || String(a.id).localeCompare(String(b.id)));
+
+  // A section with nothing in it is said aloud. A lens that read and found nothing is not the same
+  // claim as a lens that never ran, and a report that drops the section makes them look identical.
+  if (!findings.length) {
+    return `<section class="block"><h2>${escaped(heading(category))}</h2>` +
+      `<p class="blurb">${escaped(category.blurb ?? "")}</p>` +
+      `<p class="none">Read, with nothing to report.</p></section>`;
+  }
+
+  return `<section class="block"><h2>${escaped(heading(category))}</h2>` +
+    `<p class="blurb">${escaped(category.blurb ?? "")}</p>` +
+    `<table><thead><tr>` +
+    ["Pr", "ID", "Severity", "Model", "Finding", "Remediation", "Result"]
+      .map((one) => `<th>${one}</th>`).join("") +
+    `</tr></thead><tbody>${findings.map(row).join("")}</tbody></table></section>`;
+}
+
+// The opening page: what was done, what it came to, and how to read what follows.
+//
+// It is laid out across the page rather than down it, because the page is landscape and prose set to
+// the full width of a landscape page runs to a hundred and thirty characters a line, which nobody
+// reads comfortably. Three sections stacked full-width with no rule between them was the version
+// that looked like three slabs.
+//
+// **The key is drawn as the table it explains.** Seven sentences in a list make a reader map words to
+// columns themselves; the same seven under the real column headings, at the real column widths, is
+// read once and understood.
+function opening(document) {
+  const meta = document.meta ?? {};
+  const summary = document.exec_summary ?? {};
+  const hardness = document.hardness ?? {};
+  const legend = document.legend ?? {};
+
+  const said = [
+    ["Where the risk is", summary.where_risk],
+    ["What it takes to close", summary.what_it_takes],
+    ["The bottom line", summary.bottom_line],
+  ].filter(([, value]) => value)
+    .map(([label, value]) =>
+      `<div class="column"><h3>${label}</h3><p>${escaped(value)}</p></div>`).join("");
+
+  const score = hardness.score === undefined || hardness.score === null
+    ? ""
+    : `<div class="chip"><span class="chip-label">DETERMINISTIC HARDNESS</span>
+<span class="chip-score">${escaped(hardness.score)}</span><span class="chip-of">/100</span>
+<span class="chip-grade"> · grade ${escaped(hardness.grade ?? "")}</span></div>`;
+
+  // Each column of the findings table, said in its own column, at its own width.
+  const columns = [
+    ["Pr", legend.priority ?? "P0 first through P3 last."],
+    ["ID", "The stable id: the discipline's prefix and a number."],
+    ["Severity", "Critical through Info, with a coloured dot."],
+    ["Model", "What produced the finding."],
+    ["Finding", "One line saying what the issue is."],
+    ["Remediation", "The fix, stated concretely enough to act on."],
+    ["Result", legend.result ?? "How far a second reading stood behind it."],
+  ];
+
+  return `<section class="block">
+<h2>The work done</h2>
+<p class="intro">${escaped(meta.intro ?? "")}</p>
+</section>
+${score ? `<section class="block settle">${score}</section>` : ""}
+<section class="block">
+<h2>Executive summary</h2>
+<div class="columns">${said}</div>
+</section>
+<section class="block last">
+<h2>Reading the columns</h2>
+<p class="lede">Every findings table that follows uses these seven columns, in this order. This is a
+key, not a finding.</p>
+<table class="key">
+<thead><tr>${columns.map(([name]) => `<th>${name}</th>`).join("")}</tr></thead>
+<tbody><tr>${columns.map(([, said_]) => `<td>${escaped(said_)}</td>`).join("")}</tr></tbody>
+</table>
+</section>`;
+}
+
+function page(document) {
+  const eyebrow = document.eyebrow
+    ?? `EVALATION · ${(document.tenant ?? "").toUpperCase()} · FINDINGS DETAIL`;
+  const foot = `${document.title ?? "Platform hardening review"}. Engineering / SDLC findings.`;
+
+  const blocks = opening(document) +
+    (document.categories ?? []).map(table).join("");
+
+  return `<!doctype html><meta charset="utf-8"><title>${escaped(document.title ?? "")}</title>
+<style>
+${faces()}
+@page{size:11in 8.5in;margin:0}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;background:${CHROME.page};color:${CHROME.text};
+  font-family:'Hanken Grotesk',system-ui,sans-serif;
+  -webkit-print-color-adjust:exact;print-color-adjust:exact}
+
+.sheet{position:relative;width:11in;height:8.5in;overflow:hidden;background:${CHROME.page};
+  page-break-after:always;break-after:page;padding:${MARGIN}in}
+.sheet:last-child{page-break-after:auto;break-after:auto}
+
+.masthead{position:absolute;left:${MARGIN}in;right:${MARGIN}in;top:0.34in;height:0.95in}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:8pt;letter-spacing:0.16em;
+  color:${CHROME.faint};margin:0}
+.title{font-size:18pt;font-weight:700;color:${CHROME.text};margin:0.10in 0 0}
+.subtitle{font-size:9.5pt;color:${CHROME.muted};margin:0.05in 0 0}
+.mark{position:absolute;right:0;top:0.02in;height:0.42in}
+
+.flow{position:absolute;left:${MARGIN}in;right:${MARGIN}in;top:1.30in;bottom:0.52in;overflow:hidden}
+
+.foot{position:absolute;left:${MARGIN}in;right:${MARGIN}in;bottom:0.34in;
+  display:flex;justify-content:space-between;
+  font-family:'JetBrains Mono',monospace;font-size:7pt;letter-spacing:0.05em;color:${CHROME.faint};
+  border-top:1px solid ${CHROME.hairline};padding-top:5px}
+
+h2{font-size:13pt;font-weight:700;color:${CHROME.text};margin:0 0 0.06in}
+/* Set open. At eight point with tight tracking the mono W runs into the H beside it and "WHERE"
+   reads as "#HERE", which is the kind of thing a reader notices and cannot explain. */
+h3{font-family:'JetBrains Mono',monospace;font-size:8.5pt;font-weight:400;letter-spacing:0.16em;
+  text-transform:uppercase;color:${CHROME.faint};margin:0 0 0.06in}
+p{font-size:9pt;line-height:12.5pt;color:${CHROME.text};margin:0 0 0.05in}
+.blurb{color:${CHROME.muted}}
+.lede{color:${CHROME.muted};margin:0 0 0.07in}
+.none{color:${CHROME.faint};font-style:italic}
+.block{margin:0 0 0.16in}
+
+/* Across the page rather than down it. Prose set to the full width of a landscape page runs to a
+   hundred and thirty characters a line, which is past what anybody reads comfortably. */
+/* One block, running the width of the page. Set in two columns the passage reads across the gutter
+   mid-sentence, and a reader finishing "how far a second" has to jump the page to find "reading
+   stood behind it", which costs more than a long line does. */
+p.intro{max-width:none}
+.columns{display:flex;gap:0.34in;align-items:flex-start}
+.columns .column{flex:1 1 0;min-width:0}
+.columns .column p{color:${CHROME.muted}}
+
+/* The key names the seven columns in the order a reader meets them, each with room to be explained.
+   It deliberately does not copy the table's own widths: a column three tenths of an inch wide holds
+   two characters of a sentence, so a key drawn to those widths is a column of single letters and
+   half a page tall. Order is what carries here; proportion is what the table itself shows. */
+table.key{margin:0;table-layout:fixed}
+table.key col{width:${100 / 7}%}
+table.key td{color:${CHROME.muted};border-bottom:none;font-size:8pt;line-height:11pt;
+  padding:6px 10px 0 0}
+table.key th{background:transparent;border-bottom:1px solid ${CHROME.hairline};padding-left:0}
+/* The last block on a sheet must not push its own margin into the measurement that decides whether
+   it fits, or every sheet stops one section early. */
+.flow > .block:last-child{margin-bottom:0}
+
+.chip{background:${CHROME.panel};border-left:3px solid ${CHROME.ember};
+  padding:0.12in 0.22in;margin:0;display:inline-flex;align-items:baseline;gap:0.10in;
+  white-space:nowrap}
+
+/* The score sits at the foot of the page it lands on, centred: it is the one number a reader takes
+   away, and it reads as a conclusion there rather than as a box beside a paragraph. It is placed
+   after the page has been laid out, because until then nothing knows which page it lands on. */
+.settle{position:absolute;left:0;right:0;bottom:0.28in;margin:0;text-align:center}
+.chip-label{font-family:'JetBrains Mono',monospace;font-size:7.5pt;letter-spacing:0.10em;
+  color:${CHROME.faint}}
+.chip-score{font-size:20pt;font-weight:700;color:${CHROME.text}}
+.chip-of{font-size:9pt;color:${CHROME.muted}}
+.chip-grade{font-size:11pt;color:${CHROME.text}}
+
+table{width:100%;border-collapse:collapse;table-layout:fixed;margin:0.04in 0 0}
+th{font-family:'JetBrains Mono',monospace;font-size:7.2pt;font-weight:400;text-align:left;
+  color:${CHROME.faint};padding:4px 6px;background:${CHROME.panel};
+  border-bottom:1px solid ${CHROME.hairline}}
+td{font-size:7.6pt;line-height:9.6pt;color:${CHROME.text};padding:5px 6px;vertical-align:top;
+  border-bottom:1px solid ${CHROME.hairline};overflow-wrap:anywhere}
+td.m{font-family:'JetBrains Mono',monospace;font-size:7.2pt;line-height:9.2pt;color:${CHROME.muted}}
+td.id{color:${CHROME.muted}}
+td.res{color:${CHROME.muted}}
+td.sev{font-size:7.6pt;white-space:nowrap}
+.dot{display:inline-block;width:5px;height:5px;margin-right:4px;vertical-align:middle}
+tbody tr:nth-child(even){background:rgba(14,23,48,0.5)}
+
+col.pr{width:${FIXED.pr}in}col.id{width:${FIXED.id}in}col.sev{width:${FIXED.sev}in}
+col.model{width:${FIXED.model}in}col.flex{width:${FLEX}in}col.result{width:${FIXED.result}in}
+</style>
+<div id="source">${blocks}</div>
+<div id="out"></div>
+<script>
+// The page lays itself out before it prints. Row heights depend on how the text wraps, which only the
+// browser knows, so blocks and rows are measured and moved onto a fresh sheet the moment one would
+// cross the foot of the page. A table continued on the next sheet takes its heading and its column
+// headers with it, because a column of text under no headings is unreadable.
+(function () {
+  var COLS = '<colgroup><col class="pr"><col class="id"><col class="sev"><col class="model">' +
+             '<col class="flex"><col class="flex"><col class="result"></colgroup>';
+  var source = document.getElementById('source');
+  var out = document.getElementById('out');
+  var eyebrow = ${JSON.stringify(eyebrow)};
+  var title = ${JSON.stringify(document.title ?? "")};
+  var subtitle = ${JSON.stringify(document.subtitle ?? "")};
+  var foot = ${JSON.stringify(foot)};
+  var mark = "data:image/svg+xml;base64,${mark()}";
+  var sheet = null, flow = null;
+
+  function open() {
+    sheet = document.createElement('div');
+    sheet.className = 'sheet';
+    sheet.innerHTML =
+      '<div class="masthead"><p class="eyebrow"></p><p class="title"></p>' +
+      '<p class="subtitle"></p><img class="mark"></div>' +
+      '<div class="flow"></div>' +
+      '<div class="foot"><span class="foot-left"></span><span class="foot-right"></span></div>';
+    sheet.querySelector('.eyebrow').textContent = eyebrow;
+    sheet.querySelector('.title').textContent = title;
+    sheet.querySelector('.subtitle').textContent = subtitle;
+    sheet.querySelector('.mark').src = mark;
+    sheet.querySelector('.foot-left').textContent = foot;
+    out.appendChild(sheet);
+    flow = sheet.querySelector('.flow');
+    return flow;
+  }
+
+  // Measured from the boxes themselves rather than from scrollHeight, which counts a trailing margin
+  // as content and so ends every sheet a section early.
+  function overflows() {
+    // The score is anchored to the foot of its page and takes no space in the flow, so it is never
+    // what decides whether the page is full. Measured as the last block it would report every page
+    // as overflowing, since it sits at the bottom by definition.
+    var kept = [];
+    for (var k = 0; k < flow.children.length; k++) {
+      if (!flow.children[k].classList.contains('settle')) kept.push(flow.children[k]);
+    }
+    var last = kept[kept.length - 1];
+    if (!last) return false;
+    var rows = last.querySelectorAll('tbody tr');
+    var edge = rows.length
+      ? rows[rows.length - 1].getBoundingClientRect().bottom
+      : last.getBoundingClientRect().bottom;
+    return edge > flow.getBoundingClientRect().bottom + 0.5;
+  }
+
+  // Column widths go on before anything is measured. Measured without them the columns are equal, the
+  // two prose columns are half the width they print at, every row wraps taller than it will, and each
+  // sheet ends a section early against a height that was never real.
+  var early = source.querySelectorAll('table');
+  for (var e = 0; e < early.length; e++) early[e].insertAdjacentHTML('afterbegin', COLS);
+
+  open();
+  var blocks = Array.prototype.slice.call(source.children);
+  for (var i = 0; i < blocks.length; i++) {
+    var block = blocks[i];
+    flow.appendChild(block);
+    if (!overflows()) continue;
+
+    // The block does not fit where it is. On a sheet that already holds something it moves to a
+    // fresh one; on an empty sheet it stays, because taking it off and only putting it back when
+    // there was something else there drops any block bigger than a page.
+    if (flow.children.length > 1) {
+      flow.removeChild(block);
+      open();
+      flow.appendChild(block);
+    }
+    if (!overflows()) continue;
+
+    // Still too tall, so it is a table that has to be split row by row.
+    var table = block.querySelector('table');
+    if (!table) continue;
+
+    // The section's own heading, taken once. Read from the block each time round, a continuation
+    // takes the heading that already says so and says it again, and a long section ends up headed
+    // "(cont.) (cont.) (cont.)" with its own name pushed off the page.
+    var heading = block.querySelector('h2').textContent;
+
+    var body = table.querySelector('tbody');
+    var rows = Array.prototype.slice.call(body.children);
+    for (var r = 0; r < rows.length; r++) body.removeChild(rows[r]);
+
+    for (var r2 = 0; r2 < rows.length; r2++) {
+      body.appendChild(rows[r2]);
+      if (!overflows()) continue;
+      body.removeChild(rows[r2]);
+
+      open();
+      var carried = document.createElement('section');
+      carried.className = 'block';
+      carried.innerHTML = '<h2></h2><table>' + COLS + table.querySelector('thead').outerHTML +
+        '<tbody></tbody></table>';
+      carried.querySelector('h2').textContent = heading + '  (cont.)';
+      flow.appendChild(carried);
+      block = carried;
+      body = carried.querySelector('tbody');
+      body.appendChild(rows[r2]);
+    }
+  }
+
+  source.remove();
+  var sheets = out.querySelectorAll('.sheet');
+  for (var s = 0; s < sheets.length; s++) {
+    sheets[s].querySelector('.foot-right').textContent = 'Page ' + (s + 1) + ' of ' + sheets.length;
+  }
+  // Column widths are set on every table, including the ones split above.
+  var tables = out.querySelectorAll('table');
+  for (var t = 0; t < tables.length; t++) {
+    if (!tables[t].querySelector('colgroup')) tables[t].insertAdjacentHTML('afterbegin', COLS);
+  }
+})();
+</script>`;
+}
+
+function detail(document, into) {
+  const html = page(document);
+  return print(html, `${into.replace(/\.pdf$/, "")}.html`, into);
+}
+
+module.exports = { detail };
+
+if (require.main === module) {
   const [source, into] = process.argv.slice(2);
-  if (!source) {
-    process.stderr.write("usage: evalation-detail <findings.json> [out.html]\n");
+  if (!source || !into) {
+    process.stderr.write("usage: evalation-detail <review-findings.json> <out.pdf>\n");
     process.exit(2);
   }
-
-  let document;
-  try {
-    document = JSON.parse(readFileSync(source, "utf8"));
-  } catch (thrown) {
-    fail(`unreadable-findings: ${thrown.message}`);
-  }
-  if (document.schema !== "evalation.findings.v1") {
-    fail(`not-a-findings-file: ${source} says it is ${document.schema ?? "nothing"}`);
-  }
-
-  // Grouped by the concern's own prefix, which is what a category is in a concern set: SEC, ARCH, DR.
-  // Sorted by severity within a category so the worst is read first, and by identity after that so two
-  // runs that found the same things order them the same way.
-  const byCategory = new Map();
-  for (const one of document.findings ?? []) {
-    const category = String(one.concern ?? "").match(/^[A-Z]+/)?.[0] ?? "Other";
-    if (!byCategory.has(category)) byCategory.set(category, []);
-    byCategory.get(category).push(one);
-  }
-  for (const held of byCategory.values()) {
-    held.sort(
-      (a, b) =>
-        severity(a.severity).rank - severity(b.severity).rank ||
-        String(a.id).localeCompare(String(b.id)),
-    );
-  }
-
-  const counted = {};
-  for (const one of document.findings ?? []) {
-    const label = severity(one.severity).label;
-    counted[label] = (counted[label] ?? 0) + 1;
-  }
-  const summary =
-    Object.entries(counted)
-      .map(([name, n]) => `${n} ${name.toLowerCase()}`)
-      .join(", ") || "no findings";
-
-  const hardness = document.hardness
-    ? `<div class="chip">
-  <div><div class="k">Deterministic hardness</div>
-  <div class="v" style="color:${
-    document.hardness.score >= 70 ? "#35C46A" : document.hardness.score >= 40 ? "#FFB020" : "#FB3B4E"
-  }">${safe(document.hardness.score)}<small>/100</small></div></div>
-  <div><div class="k">Grade</div><div class="g">${safe(document.hardness.grade)}</div></div>
-</div>`
-    : "";
-
-  const key = [
-    ["Pr", "priority tier, P0 to do first through P3 for cleanup, taken from the severity."],
-    ["ID", "the finding's identity, the same in every assessment of this repository."],
-    ["Sev", "severity, shown with a coloured dot: Critical, High, Medium, Low, Info or Positive."],
-    [
-      "Model",
-      "what identified the finding, as it named itself, and what verified it where a second reading " +
-        "looked. They are deliberately different: confirming that a quoted line supports a claim is a " +
-        "smaller job than finding the claim.",
-    ],
-    ["Finding", "what was observed, with the file, the lines and the text it rests on."],
-    ["Remediation", "what to do about it, in the code named."],
-    ["Result", "Verified where a second reading confirmed it, Asserted where one reading found it and nothing else has looked, Undetermined where a second reading could not tell."],
-  ]
-    .map(([name, said]) => `<p><b>${name}</b>: ${safe(said)}</p>`)
-    .join("\n");
-
-  const sections = [...byCategory.entries()]
-    .sort((a, b) => a[0].localeCompare(b[0]))
-    .map(
-      ([category, held]) => `<h2>${safe(category)}</h2>
-<table>
-  <colgroup>
-    <col style="width:${FIXED.pr}in"><col style="width:${FIXED.id}in">
-    <col style="width:${FIXED.sev}in"><col style="width:${FIXED.model}in">
-    <col style="width:${FLEX_IN}in"><col style="width:${FLEX_IN}in">
-    <col style="width:${FIXED.result}in">
-  </colgroup>
-  <thead><tr><th>Pr</th><th>ID</th><th>Severity</th><th>Model</th><th>Finding</th><th>Remediation</th><th>Result</th></tr></thead>
-  <tbody>
-${rows(held, document.read_by)}
-  </tbody>
-</table>`,
-    )
-    .join("\n");
-
-  const when = new Date(document.at ?? Date.now()).toISOString().slice(0, 16).replace("T", " ");
-
-  const page = `<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Evalation findings detail: ${safe(document.target?.repository ?? "a repository")}</title>
-<style>${styles()}</style>
-</head>
-<body>
-<div class="page">
-<header>
-  ${mark()}
-  <div>
-    <p class="eyebrow">Evalation findings detail</p>
-    <h1>${safe(document.target?.repository ?? "Repository")}</h1>
-    <p class="subtitle">Every finding, with what to do about it and the lines it rests on.</p>
-  </div>
-</header>
-
-<h2>The work done</h2>
-<p class="muted">This repository was read against ${
-    (document.packs ?? []).map((one) => safe(one.pack)).join(", ") || "the selected packs"
-  } at governance revision ${safe(document.revision ?? "")}. Every finding below names the file and
-lines it rests on, and every quote was checked against the file before this document existed.</p>
-
-<ul class="facts">
-  <li>Assessed<b>${safe(when)} UTC</b></li>
-  <li>Target<b>${safe(document.target?.repository ?? "")}${
-    document.target?.head ? ` at ${safe(String(document.target.head).slice(0, 12))}` : ""
-  }</b></li>
-  <li>Run<b>${safe(document.run ?? "")}</b></li>
-  <li>Findings<b>${(document.findings ?? []).length}</b></li>
-</ul>
-
-<h2>Executive summary</h2>
-<p class="muted">${safe(summary)} across ${byCategory.size} ${
-    byCategory.size === 1 ? "category" : "categories"
-  }.</p>
-${hardness}
-
-<div class="break"></div>
-
-<h2>Reading the columns</h2>
-<p class="muted">This page explains the seven columns used by every findings table that follows. It is
-a key, not a finding.</p>
-<div class="key">
-${key}
-</div>
-
-<div class="break"></div>
-
-${sections || '<p class="none">No findings were recorded for this run.</p>'}
-</div>
-</body>
-</html>
-`;
-
-  const out = into
-    ? resolve(into)
-    : join(dirname(resolve(source)), basename(source).replace(/\.json$/, "") + "-detail.html");
-  writeFileSync(out, page);
-  process.stdout.write(
-    JSON.stringify(
-      {
-        written: out,
-        findings: (document.findings ?? []).length,
-        categories: byCategory.size,
-        by_severity: counted,
-        columns_in: [FIXED.pr, FIXED.id, FIXED.sev, FIXED.model, FLEX_IN, FLEX_IN, FIXED.result],
-        body_in: BODY_IN,
-      },
-      null,
-      2,
-    ) + "\n",
-  );
+  const document = JSON.parse(readFileSync(resolve(source), "utf8"));
+  const done = detail(document, resolve(into));
+  const count = (document.categories ?? []).reduce((sum, one) => sum + (one.findings?.length ?? 0), 0);
+  process.stdout.write(done.printed
+    ? `wrote ${count} findings across ${(document.categories ?? []).length} categories\n`
+    : `no browser to print with. The page is at ${done.page}: open it and print to PDF.\n`);
 }
-
-main();

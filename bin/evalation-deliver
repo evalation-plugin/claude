@@ -1,0 +1,267 @@
+#!/usr/bin/env node
+// evalation-deliver - the findings file becomes the deliverables.
+//
+// A run writes one findings file. A consultant hands over a board pack and a findings detail. This is
+// the step between them: it puts the run's own data into the shape the two builders read, derives the
+// narrative neither of them can compute, and builds both.
+//
+// Both are produced where the findings are, on the customer's machine, because sending findings away
+// to be rendered would break the one promise this product is sold on.
+//
+// Three things are derived rather than carried, because the findings file has no field for them and a
+// deliverable cannot be made without them:
+//
+//   the discipline  the concern's identifier prefix (SEC01 -> SEC), which is how the rubric already
+//                   groups and weights, so the pack, the score and the report cannot disagree
+//   the display id  <prefix>-<n>, numbered over the stable ids in sort order, so a rerun that finds
+//                   the same things prints the same ids while dedup still runs on the stable one
+//   the priority    from severity alone, so two runs of the same findings order the work the same way
+//
+// A discipline that was read and found nothing still gets a section. A discipline missing from a
+// report reads as one that found nothing wrong, and those are opposite claims.
+"use strict";
+
+const { existsSync, mkdirSync, readFileSync, writeFileSync } = require("node:fs");
+const { basename, join, resolve } = require("node:path");
+
+const { synthesise } = require("../lib/synthesise.js");
+const { inventory } = require("./evalation-inventory");
+const { deck } = require("./evalation-deck");
+const { detail } = require("./evalation-detail");
+
+// What a deliverable calls each discipline. The rubric weights these same keys, so a name here that
+// the rubric does not weight is a section that cannot be scored.
+const DISCIPLINES = {
+  SEC: "Security Defensive",
+  XSEC: "Security Adversarial",
+  ARCH: "Architecture",
+  QUAL: "Code quality",
+  PRIV: "Privacy & supply-chain",
+  REL: "Reliability & testing",
+  PERF: "Performance & cost",
+  COMP: "Compliance & governance",
+  UX: "Accessibility & UX",
+  DOC: "Documentation & operability",
+  WIKI: "Documentation (Wiki)",
+  AIPE: "AI & prompt engineering",
+  ALG: "Algorithm correctness",
+  RES: "Resilience & FMEA",
+  CVE: "Dependency CVE/SBOM",
+  API: "API & contract design",
+  DR: "DR & durability",
+  SLO: "Observability & SLO",
+};
+
+// Severity as the builders spell it, and what each is worth in the work order. Priority is severity
+// and nothing else, so the same findings always sort into the same tiers.
+const SEVERITIES = {
+  critical: { sev: "Critical", pr: "P0" },
+  high: { sev: "High", pr: "P1" },
+  medium: { sev: "Medium", pr: "P2" },
+  low: { sev: "Low", pr: "P3" },
+  info: { sev: "Info", pr: "P3" },
+  positive: { sev: "Positive", pr: "" },
+};
+
+// The order every deliverable reads in: the review's own sequence, security first, rather than
+// alphabetical. It is declared once, here, because the score bars, the discipline manifest and the
+// findings detail all have to run in one order or a reader comparing two pages is comparing two
+// different sequences of the same eighteen things.
+const ORDER = Object.keys(DISCIPLINES);
+
+function disciplineOf(concern) {
+  return String(concern ?? "").match(/^[A-Z]+/)?.[0] ?? "Other";
+}
+
+// A discipline the list does not name sorts after every one it does, by its own name, so an
+// unrecognised prefix is visible at the end rather than silently first.
+function inOrder(a, b) {
+  const at = ORDER.indexOf(a);
+  const to = ORDER.indexOf(b);
+  if (at < 0 && to < 0) return a.localeCompare(b);
+  if (at < 0) return 1;
+  if (to < 0) return -1;
+  return at - to;
+}
+
+// The vendor is not the finding. "Claude Opus 4.8" and "Opus 4.8" name the same reading and the
+// column is narrow.
+function withoutVendor(model) {
+  return String(model ?? "").replace(/^Claude\s+/i, "").trim();
+}
+
+// Whether a second reading stood behind it. The builders print this verbatim, so the three words they
+// know are the three words used here.
+function corroboration(finding, ingested) {
+  if (ingested.has(finding.id)) return "Scanner-verified";
+  return finding.confirmed === "verified" ? "Cross-validated" : "Agent-asserted";
+}
+
+function cited(at) {
+  if (!at) return "";
+  if (typeof at === "string") return at;
+  const path = at.path ?? at.file ?? "";
+  return at.line ? `${path}:${at.line}` : path;
+}
+
+function reviewFindings(document) {
+  const ingested = new Set((document.ingested ?? []).map((one) => one.id ?? one));
+  const readBy = withoutVendor(document.read_by);
+
+  // What each concern is called, as the pack served it. Present where the run recorded what it was
+  // asked; absent on an older file, which then falls back to the count.
+  const titles = new Map();
+  for (const pack of document.packs ?? []) {
+    for (const one of pack.entries_asked ?? []) titles.set(one.identifier, one.title);
+  }
+
+  // Every discipline that was read, whether or not it fired.
+  const held = new Map();
+  for (const row of document.accounted ?? []) {
+    const at = disciplineOf(row.concern);
+    if (!held.has(at)) held.set(at, []);
+  }
+  for (const one of document.findings ?? []) {
+    const at = disciplineOf(one.concern);
+    if (!held.has(at)) held.set(at, []);
+    held.get(at).push(one);
+  }
+
+  const categories = [];
+  for (const [prefix, findings] of [...held.entries()].sort((a, b) => inOrder(a[0], b[0]))) {
+    // Numbered over the stable ids, so a display id is a function of what was found rather than of
+    // the order a model happened to write things down in.
+    const sorted = [...findings].sort((a, b) => String(a.id).localeCompare(String(b.id)));
+    const rows = sorted.map((one, at) => {
+      const known = SEVERITIES[String(one.severity ?? "medium").toLowerCase()] ?? SEVERITIES.medium;
+      return {
+        pr: known.pr,
+        id: `${prefix}-${String(at + 1).padStart(2, "0")}`,
+        sev: known.sev,
+        model: withoutVendor(one.model) || readBy,
+        finding: one.observed,
+        remediation: one.required,
+        result: corroboration(one, ingested),
+        location: cited(one.at),
+      };
+    });
+
+    const read = (document.accounted ?? []).filter((row) => disciplineOf(row.concern) === prefix);
+
+    // What the discipline actually looked for, named. The heading above already carries the counts,
+    // so repeating them here says nothing: what a reader needs is what was on the list, which is also
+    // what lets them judge whether a clean section means anything.
+    const looked = read
+      .map((row) => titles.get(row.concern))
+      .filter(Boolean)
+      .map((one) => one.charAt(0).toLowerCase() + one.slice(1));
+
+    categories.push({
+      name: DISCIPLINES[prefix] ?? prefix,
+      count: rows.length,
+      blurb: looked.length
+        ? `Read for ${looked.slice(0, 4).join(", ")}` +
+          `${looked.length > 4 ? `, and ${looked.length - 4} more` : ""}.`
+        : (read.length ? `${read.length} concern${read.length === 1 ? "" : "s"} read.` : ""),
+      findings: rows,
+    });
+  }
+
+  const repository = document.target?.repository ?? "";
+  const models = [...new Set((document.findings ?? [])
+    .map((one) => withoutVendor(one.model) || readBy)
+    .filter(Boolean))].sort();
+
+  const built = {
+    eyebrow: `EVALATION · ${repository.toUpperCase()} · FINDINGS DETAIL`,
+    title: "Platform hardening review",
+    subtitle: `Detailed findings by discipline · ${repository}`,
+    tenant: repository,
+    generated_at: String(document.at ?? "").slice(0, 10).replace(/-/g, ""),
+    meta: {
+      // What was done, in enough detail that a reader can weigh the report before reading a row of
+      // it: how much was read, how it was read, what a row carries, how the rows are ordered, and
+      // what the assessment did not do.
+      intro: [
+        `The repository was read against ${(document.accounted ?? []).length} concerns across ` +
+        `${categories.length} independent disciplines, which produced ` +
+        `${(document.findings ?? []).length} findings.`,
+
+        "Each discipline was read on its own and answered on its own, so no discipline's result " +
+        "rests on another's, and a discipline that found nothing still has a section here: read and " +
+        "clean is a different claim from not read, and a report that dropped the section would make " +
+        "them look the same.",
+
+        "Every row carries a priority tier, the model that produced it, what was found, what closes " +
+        "it, and how far a second reading stood behind it. Rows are grouped by discipline and " +
+        "ordered by priority within it, so reading down a section is reading the work in the order " +
+        "it should be done.",
+
+        "Nothing was executed and nothing was changed. Every finding cites the file and lines it " +
+        "rests on, so any row can be checked against the code directly, and the same repository " +
+        "read again at the same governance revision returns the same findings.",
+      ].join(" "),
+      finding_count: (document.findings ?? []).length,
+      models,
+    },
+    legend: {
+      priority: "P0 do first · P1 near-term · P2 should-fix · P3 cleanup / low.",
+      result:
+        "Scanner-verified from a scanner · Cross-validated confirmed by a second reading · " +
+        "Agent-asserted single source.",
+    },
+    categories,
+  };
+
+  if (document.hardness) {
+    built.hardness = { score: document.hardness.score, grade: document.hardness.grade };
+    if (document.hardness.bars) {
+      // The same order as the sections, so the bar a reader finds on the score page and the section
+      // they turn to in the detail are the same distance down their respective lists.
+      built.hardness.lenses = [...document.hardness.bars]
+        .sort((a, b) => inOrder(a.category, b.category))
+        .map((bar) => ({ name: DISCIPLINES[bar.category] ?? bar.category, score: bar.score }));
+    }
+  }
+  return built;
+}
+
+function deliver(source, into, target) {
+  const document = JSON.parse(readFileSync(resolve(source), "utf8"));
+  mkdirSync(into, { recursive: true });
+
+  const built = reviewFindings(document);
+
+  // What the tree is, measured rather than described. It needs the repository itself, which the
+  // findings file does not carry, so a run pointed at no tree simply produces no repository slide
+  // rather than a slide of numbers nobody took.
+  if (target && existsSync(resolve(target))) {
+    built.repo_overview = inventory(resolve(target)).overview;
+  }
+
+  const shaped = synthesise(built);
+  writeFileSync(join(into, "review-findings.json"), `${JSON.stringify(shaped, null, 2)}\n`);
+
+  const name = (document.target?.repository ?? "review").replace(/[^A-Za-z0-9._-]+/g, "-");
+  const pack = join(into, `${name}-board-pack.pdf`);
+  const findings = join(into, `${name}-findings-detail.pdf`);
+
+  const one = deck(shaped, pack);
+  const two = detail(shaped, findings);
+
+  return { pack, findings, printed: one.printed && two.printed };
+}
+
+module.exports = { deliver, reviewFindings };
+
+if (require.main === module) {
+  const [source, into, target] = process.argv.slice(2);
+  if (!source || !into) {
+    process.stderr.write("usage: evalation-deliver <findings.json> <into-dir> [repository]\n");
+    process.exit(2);
+  }
+  const done = deliver(source, resolve(into), target);
+  process.stdout.write(done.printed
+    ? `wrote ${basename(done.pack)} and ${basename(done.findings)}\n`
+    : "the pages were written but no browser was found to print them. Open them and print to PDF.\n");
+}
