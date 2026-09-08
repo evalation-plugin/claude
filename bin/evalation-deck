@@ -1,0 +1,321 @@
+#!/usr/bin/env node
+// evalation-deck - the board-level pack: where a codebase stands, in five slides.
+//
+// **No individual findings.** They are in the detail deliverable, which is the document somebody
+// works from. This is the one somebody presents, and a slide carrying fifty findings is a slide
+// nobody reads and a document nobody can work from either: it fails at both jobs to avoid choosing
+// one. What is here is the score, the grade, where the weakness is, and what to do about it.
+//
+// Slide geometry rather than page geometry: 13.333 by 7.5 inches, which is sixteen by nine, so a
+// printed PDF drops straight into a deck rather than arriving as a portrait document somebody has to
+// reformat. Each slide is one page and nothing flows between them, because a board slide that
+// continues overleaf is two slides pretending to be one.
+//
+// **Nothing here is invented.** Every number comes from the findings file and every sentence is
+// composed from those numbers, so two runs that found the same things produce the same deck. There is
+// no commentary written for the occasion, because a sentence a person did not write and a number did
+// not produce is the one thing on a board slide nobody can check.
+//
+// The rubric is not read here. The score arrived on the findings file already computed, so the deck
+// shows what was decided and never decides anything, and the methodology stays where it is served.
+"use strict";
+
+const { existsSync, readFileSync, writeFileSync } = require("node:fs");
+const { basename, dirname, join, resolve } = require("node:path");
+
+const SEVERITY = [
+  ["critical", "Critical", "#FB3B4E"],
+  ["high", "High", "#F9581E"],
+  ["medium", "Medium", "#FFB020"],
+  ["low", "Low", "#6F82AB"],
+  ["info", "Info", "#6F82AB"],
+  ["positive", "Positive", "#35C46A"],
+];
+
+function fail(reason) {
+  process.stderr.write(reason + "\n");
+  process.exit(1);
+}
+
+function safe(text) {
+  return String(text ?? "").replace(
+    /[&<>"']/g,
+    (one) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[one],
+  );
+}
+
+function mark() {
+  const here = join(__dirname, "..", "templates", "assets", "ev-mark.svg");
+  return existsSync(here) ? readFileSync(here, "utf8").trim() : "";
+}
+
+/** The colour a score reads in. The bands are the rubric's and arrive already applied as a grade. */
+function toneOf(score) {
+  if (score >= 85) return "#35C46A";
+  if (score >= 70) return "#7BD16A";
+  if (score >= 55) return "#FFB020";
+  if (score >= 40) return "#F9581E";
+  return "#FB3B4E";
+}
+
+function styles() {
+  return `
+  @page { size: 13.333in 7.5in; margin: 0; }
+  :root{
+    --blue-300:#6B8FFF; --blue-500:#0F52FF; --ember-500:#F9581E;
+    --ink-950:#070C18; --ink-850:#0E1730; --ink-700:#1B2748;
+    --ink-500:#45557C; --ink-400:#6F82AB; --ink-300:#93A4C6; --ink-50:#EAF0FB;
+    --hair:rgba(130,160,230,0.16);
+    --font:'Hanken Grotesk',system-ui,-apple-system,'Segoe UI',sans-serif;
+    --mono:'JetBrains Mono',ui-monospace,'SF Mono',Menlo,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:#05080F;color:var(--ink-50);font-family:var(--font);
+    -webkit-font-smoothing:antialiased}
+  .slide{width:13.333in;height:7.5in;padding:0.62in 0.78in;background:var(--ink-950);
+    display:flex;flex-direction:column;position:relative;overflow:hidden;
+    break-after:page;page-break-after:always;margin:0 auto 18px}
+  .slide:last-child{break-after:auto;page-break-after:auto;margin-bottom:0}
+  .slide::after{content:"";position:absolute;left:0;right:0;bottom:0;height:5px;
+    background:linear-gradient(90deg,var(--blue-500),var(--ember-500))}
+  .rail{display:flex;align-items:center;gap:12px;margin-bottom:26px;flex:none}
+  .rail svg{width:34px;height:29px;flex:none}
+  .rail .who{font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-400)}
+  .rail .at{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--ink-500)}
+  h1{font-size:52px;line-height:1.03;margin:0 0 14px;font-weight:800;letter-spacing:-.02em}
+  h2{font-size:26px;line-height:1.15;margin:0 0 6px;font-weight:700;letter-spacing:-.01em}
+  .sub{color:var(--ink-300);font-size:16px;margin:0;max-width:9in}
+  .mid{flex:1;display:flex;flex-direction:column;justify-content:center}
+  .cover{display:flex;align-items:center;gap:0.9in}
+  .cover .said{flex:1}
+  .dial{flex:none;text-align:center;border:1px solid var(--hair);border-radius:18px;
+    padding:30px 40px;background:var(--ink-850)}
+  .dial .n{font-family:var(--mono);font-size:104px;font-weight:800;line-height:.9}
+  .dial .n small{font-size:26px;color:var(--ink-400);font-weight:400}
+  .dial .g{margin-top:12px;font-size:13px;letter-spacing:.16em;text-transform:uppercase;
+    color:var(--ink-400)}
+  .dial .g b{display:block;font-family:var(--mono);font-size:34px;color:var(--ink-50);margin-top:3px}
+  .tiles{display:flex;gap:14px;margin-top:8px}
+  .tiles div{flex:1;border:1px solid var(--hair);border-radius:12px;padding:18px 20px;
+    background:var(--ink-850)}
+  .tiles .n{font-family:var(--mono);font-size:38px;font-weight:800;line-height:1}
+  .tiles .l{font-size:13px;color:var(--ink-400);margin-top:6px}
+  table{width:100%;border-collapse:collapse;margin-top:4px}
+  td{padding:7px 0;vertical-align:middle;font-size:15px}
+  td.cat{width:2.4in;color:var(--ink-50);font-weight:600}
+  td.bar{padding-right:18px}
+  td.val{width:1.5in;text-align:right;font-family:var(--mono);font-size:15px}
+  .track{height:12px;border-radius:6px;background:var(--ink-700);overflow:hidden}
+  .track span{display:block;height:100%;border-radius:6px}
+  ol{margin:10px 0 0;padding:0;list-style:none;counter-reset:point}
+  ol li{counter-increment:point;padding:14px 0 14px 54px;border-top:1px solid var(--hair);
+    position:relative;font-size:17px;line-height:1.45;color:var(--ink-300)}
+  ol li:first-child{border-top:none}
+  ol li::before{content:counter(point);position:absolute;left:0;top:12px;width:32px;height:32px;
+    border-radius:50%;background:var(--ink-700);color:var(--ink-50);font-family:var(--mono);
+    font-size:14px;font-weight:700;display:flex;align-items:center;justify-content:center}
+  ol li b{color:var(--ink-50);font-weight:700}
+  .foot{margin-top:auto;padding-top:14px;font-size:12px;color:var(--ink-500);flex:none}
+  @media print{
+    html,body{background:#fff}
+    .slide{margin:0}
+  }`;
+}
+
+function slide(inner) {
+  return `<section class="slide">${inner}</section>`;
+}
+
+function rail(document, said) {
+  const when = new Date(document.at ?? Date.now()).toISOString().slice(0, 10);
+  return `<div class="rail">${mark()}<span class="who">${safe(said)}</span><span class="at">${safe(
+    document.target?.repository ?? "",
+  )} · ${safe(when)}</span></div>`;
+}
+
+function main() {
+  const [source, into] = process.argv.slice(2);
+  if (!source) {
+    process.stderr.write("usage: evalation-deck <findings.json> [out.html]\n");
+    process.exit(2);
+  }
+
+  let document;
+  try {
+    document = JSON.parse(readFileSync(resolve(source), "utf8"));
+  } catch (thrown) {
+    fail(`unreadable-findings: ${thrown.message}`);
+  }
+  if (document.schema !== "evalation.findings.v1") {
+    fail(`not-a-findings-file: ${source} says it is ${document.schema ?? "nothing"}`);
+  }
+  if (!document.hardness) {
+    fail(
+      "no-score: this findings file has not been scored, and a board pack is the score.\n" +
+        "Run evalation-score against the rubric the run was served, then build the deck.",
+    );
+  }
+
+  const { score, grade, bars = [] } = document.hardness;
+  const findings = document.findings ?? [];
+
+  const counted = Object.fromEntries(SEVERITY.map(([one]) => [one, 0]));
+  for (const one of findings) {
+    const named = String(one.severity ?? "info").toLowerCase();
+    if (named in counted) counted[named] += 1;
+  }
+
+  const ranked = [...bars].sort((a, b) => a.score - b.score);
+  const weakest = ranked[0];
+  const strongest = ranked[ranked.length - 1];
+  const serious = counted.critical + counted.high;
+
+  // Composed from the numbers rather than written for the occasion, so two runs that found the same
+  // things say the same thing. A sentence nobody wrote and no number produced is the one thing on a
+  // board slide that cannot be checked.
+  const points = [];
+  points.push(
+    `<b>${score} out of 100, grade ${safe(grade)}.</b> The score falls as unresolved findings ` +
+      `accumulate, weighted by severity and by how much each area costs in production.`,
+  );
+  if (serious > 0) {
+    points.push(
+      `<b>${serious} finding${serious === 1 ? "" : "s"} at critical or high.</b> These are what move ` +
+        `the score most and what an attacker reaches first.`,
+    );
+  } else {
+    points.push(
+      `<b>Nothing at critical or high.</b> What remains is medium and below, which is a matter of ` +
+        `debt rather than exposure.`,
+    );
+  }
+  if (weakest) {
+    points.push(
+      `<b>${safe(weakest.category)} is weakest, at ${weakest.score}.</b> ` +
+        `${weakest.findings} finding${weakest.findings === 1 ? "" : "s"} in that area, and it is ` +
+        `where the next hour of work returns most.`,
+    );
+  }
+  if (strongest && strongest !== weakest) {
+    points.push(
+      `<b>${safe(strongest.category)} is strongest, at ${strongest.score}.</b> Worth knowing what ` +
+        `holds it up, because that is what the weaker areas need.`,
+    );
+  }
+  if (counted.positive > 0) {
+    points.push(
+      `<b>${counted.positive} control${counted.positive === 1 ? "" : "s"} worth keeping.</b> ` +
+        `Recorded as strengths so a later change does not quietly remove one.`,
+    );
+  }
+
+  const tiles = [
+    ["critical", counted.critical],
+    ["high", counted.high],
+    ["medium", counted.medium],
+    ["low", counted.low + counted.info],
+  ]
+    .map(([named, n]) => {
+      const [, label, hex] = SEVERITY.find((one) => one[0] === named);
+      return `<div><div class="n" style="color:${hex}">${n}</div><div class="l">${
+        named === "low" ? "Low and info" : label
+      }</div></div>`;
+    })
+    .join("");
+
+  const rows = ranked
+    .map(
+      (one) =>
+        `<tr><td class="cat">${safe(one.category)}</td><td class="bar"><div class="track"><span style="width:${
+          one.score
+        }%;background:${toneOf(one.score)}"></span></div></td><td class="val" style="color:${toneOf(
+          one.score,
+        )}">${one.score}<span style="color:var(--ink-500)"> / ${safe(one.grade)}</span></td></tr>`,
+    )
+    .join("");
+
+  const worst = ranked.slice(0, 3);
+
+  const deck = [
+    slide(
+      rail(document, "Hardening review") +
+        `<div class="mid cover">
+  <div class="said">
+    <h1>${safe(document.target?.repository ?? "Repository")}</h1>
+    <p class="sub">Assessed against ${bars.length} areas of hardening, with every finding carrying the
+    file and lines it rests on.</p>
+  </div>
+  <div class="dial">
+    <div class="n" style="color:${toneOf(score)}">${score}<small>/100</small></div>
+    <div class="g">Grade<b>${safe(grade)}</b></div>
+  </div>
+</div>` +
+        `<div class="foot">Evalation · deterministic score, the same findings always producing the same number</div>`,
+    ),
+    slide(
+      rail(document, "What was found") +
+        `<h2>${findings.length} finding${findings.length === 1 ? "" : "s"} across ${
+          bars.length
+        } areas</h2>
+<p class="sub">Severity is what a finding costs the score. Positive entries are controls worth keeping
+and never count against it.</p>
+<div class="mid"><div class="tiles">${tiles}</div></div>
+<div class="foot">Every finding is listed with its remediation in the findings detail document</div>`,
+    ),
+    slide(
+      rail(document, "Where it stands") +
+        `<h2>Score by area</h2>
+<p class="sub">Weakest first. Each area is scored on its own findings, and the overall is weighted by
+what each area costs in production.</p>
+<div class="mid"><table>${rows}</table></div>`,
+    ),
+    slide(
+      rail(document, "What this says") +
+        `<h2>The picture</h2>
+<div class="mid"><ol>${points.map((one) => `<li>${one}</li>`).join("")}</ol></div>`,
+    ),
+    slide(
+      rail(document, "What to do next") +
+        `<h2>Where the next hour returns most</h2>
+<p class="sub">The three weakest areas, in order. The findings detail names every one of them with a
+concrete remediation.</p>
+<div class="mid"><ol>${worst
+          .map(
+            (one) =>
+              `<li><b>${safe(one.category)}, scoring ${one.score}.</b> ${one.findings} finding${
+                one.findings === 1 ? "" : "s"
+              } to work through.</li>`,
+          )
+          .join("")}</ol></div>
+<div class="foot">Nothing in this assessment left the machine it ran on</div>`,
+    ),
+  ].join("\n");
+
+  const page = `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Evalation hardening review: ${safe(document.target?.repository ?? "a repository")}</title>
+<style>${styles()}</style>
+</head>
+<body>
+${deck}
+</body>
+</html>
+`;
+
+  const out = into
+    ? resolve(into)
+    : join(dirname(resolve(source)), basename(source).replace(/\.json$/, "") + "-deck.html");
+  writeFileSync(out, page);
+  process.stdout.write(
+    JSON.stringify(
+      { written: out, slides: 5, score, grade, areas: bars.length, findings: findings.length },
+      null,
+      2,
+    ) + "\n",
+  );
+}
+
+main();

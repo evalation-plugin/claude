@@ -129,12 +129,18 @@ changed the thing being measured. The only file written is the findings file, an
    ```
    ${CLAUDE_PLUGIN_ROOT}/bin/evalation-report <findings.json>     # coverage, for a standard
    ${CLAUDE_PLUGIN_ROOT}/bin/evalation-detail <findings.json>     # findings, for a concern set
+   ${CLAUDE_PLUGIN_ROOT}/bin/evalation-deck   <findings.json>     # the board pack, where it scored
    ```
 
    A standard answers coverage, so its artefact is the assessment page. A concern set answers
-   findings, so its artefact is the findings detail, laid out to print. Run both where a run held
-   both kinds. Each is one self-contained page carrying the lines every claim rests on, so whoever
-   receives it can check the work without us.
+   findings, so it gets two: the detail, which carries every finding with its remediation and is what
+   somebody works from, and the deck, which carries the score and where the weakness is and is what
+   somebody presents. Build both. The deck holds no individual findings on purpose, because a slide
+   carrying fifty of them is neither a slide anybody reads nor a document anybody can work from.
+
+   Each is one self-contained page. The detail and the deck are laid out to print: the detail as
+   landscape pages, the deck as sixteen by nine slides, so printing either to PDF from the browser
+   gives something that can be sent on as it is.
 
 9. **Report what it found, in two or three sentences**, and say where the artefact is. Lead with what
    would matter to somebody deciding what to do next: what is a total gap, what is only claimed rather

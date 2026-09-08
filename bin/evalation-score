@@ -113,16 +113,31 @@ function main() {
   }
 
   const scoring = (document.findings ?? []).filter((one) => one.pack === rubric.pack);
-  if (scoring.length === 0) {
+  const read = (document.accounted ?? []).filter((one) => one.pack === rubric.pack);
+  if (scoring.length === 0 && read.length === 0) {
     fail(
-      `nothing-to-score: this run holds no findings from ${rubric.pack}, which is what this rubric ` +
-        "scores. A run that found nothing is not a run that scored well: say what it read rather " +
-        "than giving it a number it did not earn.",
+      `nothing-to-score: this run neither read nor found anything from ${rubric.pack}, which is what ` +
+        "this rubric scores. A run that read nothing is not a run that scored well: say what it read " +
+        "rather than giving it a number it did not earn.",
     );
   }
 
-  // Grouped by the category prefix, which is what a weight is keyed on.
+  // Every category that was read, whether or not anything was found in it.
+  //
+  // A category read and found clean scores at the ceiling and counts, because finding nothing after
+  // looking is evidence of health and the score should say so. A category nobody read counts for
+  // nothing at all, because scoring it would pay a run for work it did not do, and the fastest way to
+  // a good score would be to read less.
+  //
+  // Scoring only the categories that happened to hold findings, which is what this did, makes those
+  // two the same thing: a run that read fifty-two concerns and found problems in six scored exactly as
+  // a run that read only the six.
   const byCategory = new Map();
+  for (const row of document.accounted ?? []) {
+    if (row.pack !== rubric.pack) continue;
+    const category = String(row.concern ?? "").match(/^[A-Z]+/)?.[0] ?? "Other";
+    if (!byCategory.has(category)) byCategory.set(category, []);
+  }
   for (const one of scoring) {
     const category = String(one.concern ?? "").match(/^[A-Z]+/)?.[0] ?? "Other";
     if (!byCategory.has(category)) byCategory.set(category, []);
@@ -136,7 +151,15 @@ function main() {
   for (const [category, held] of [...byCategory.entries()].sort()) {
     const weight = Number(rubric.weights[category] ?? 0);
     const score = scored(held, rubric);
-    bars.push({ category, score, grade: graded(score, rubric.grades), findings: held.length });
+    bars.push({
+      category,
+      score,
+      grade: graded(score, rubric.grades),
+      findings: held.length,
+      // How many of this category's concerns were actually read, so a bar at the ceiling can be told
+      // from a bar nobody looked behind.
+      read: read.filter((one) => String(one.concern ?? "").startsWith(category)).length,
+    });
     // A category with no weight is not scored. That is how a pass whose findings are already counted
     // elsewhere is kept out of a number it would otherwise count toward twice.
     if (weight > 0) {
