@@ -105,6 +105,7 @@ function styles() {
   .cite pre{margin:0;padding:10px 11px;font-family:var(--mono);font-size:11.5px;line-height:1.5;
     overflow-x:auto;white-space:pre-wrap;word-break:break-word;color:var(--ink-50)}
   .tag{font-family:var(--mono);font-size:10.5px;color:var(--ink-400);margin-left:auto;flex:none}
+  .ref{font-family:var(--mono);font-size:10px;color:var(--ink-500);flex:none}
   footer{margin-top:56px;padding-top:20px;border-top:1px solid var(--hair);color:var(--ink-500);
     font-size:12px}
   footer code{font-family:var(--mono);color:var(--ink-400)}
@@ -142,17 +143,22 @@ function entry(answer, asked) {
     : "";
   // Said on the entry rather than only in the summary, because the difference between somebody having
   // looked and nobody having needed to is the reader's to see at the point they read the claim.
+  // One word each. The tag sits beside a status on every entry, so it earns its place by being read
+  // at a glance rather than by explaining itself: a sentence there is a sentence read fifty times.
   const how =
     answer.from === "authored"
-      ? '<span class="tag">answered from the pack, not by reading</span>'
+      ? '<span class="tag">predesignated</span>'
       : answer.confirmed === "verified"
-        ? '<span class="tag">verified by a second reading</span>'
+        ? '<span class="tag">verified</span>'
         : '<span class="tag">asserted</span>';
 
   return `<article class="entry">
   <div class="head">
     <span class="id">${safe(answer.entry)}</span>
     <span class="ttl">${safe(title)}</span>
+    <span class="ref" title="This answer's identity, the same in every run over this repository">${safe(
+      answer.id ?? "",
+    )}</span>
     ${how}
     <span class="pill" style="background:var(--${tone(answer.status)})">${safe(label(answer.status))}</span>
   </div>
@@ -271,6 +277,9 @@ ${sections}
   <p>${readCount} of ${answers.length} ${answers.length === 1 ? "entry was" : "entries were"} answered
   by reading this repository. The rest were settled by the pack because no repository could evidence
   them, and each says so where it appears.</p>
+  <p><b>Referring to something here later.</b> Each entry carries an identity derived from the
+  repository, the pack and the entry, so it is the same in every assessment of this repository and can
+  be quoted in a ticket, compared against a later run, or used to say that a gap was already known.</p>
   <p>Produced by Evalation from <code>${safe(basename(source))}</code>. The findings were written on
   the machine that ran the assessment and were not sent anywhere.</p>
 </footer>
