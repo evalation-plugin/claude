@@ -19,7 +19,7 @@
 
 const { createHash, createPrivateKey, createPublicKey, diffieHellman, hkdfSync, createDecipheriv } =
   require("node:crypto");
-const { execFileSync } = require("node:child_process");
+const store = require("./evalation-store");
 
 // The scheme, matching what the server names in the envelope. Both ends carry it separately, so a
 // change to one and not the other refuses everything rather than quietly covering less.
@@ -39,22 +39,14 @@ function context(path, at, digest) {
   return `${VERSION} ${path} ${at} ${digest}`;
 }
 
-/** The private half, from the operating system's own store. Settings name it and never hold it. */
+/** The private half, from wherever this machine keeps a key. Settings name it and never hold it. */
 function receiving(named) {
-  const held = (named ?? "keychain:evalation/receiving-key").match(/^keychain:([^/]+)\/(.+)$/);
-  if (!held) fail(`unreadable-key-reference: ${named}`);
+  const where = store.referenced(named ?? "store:evalation/receiving-key");
+  if (!where) fail(`unreadable-key-reference: ${named}`);
   try {
-    return Buffer.from(
-      execFileSync("security", ["find-generic-password", "-s", held[1], "-a", held[2], "-w"], {
-        encoding: "utf8",
-        stdio: ["ignore", "pipe", "ignore"],
-      }).trim(),
-      "base64",
-    );
-  } catch {
-    fail(
-      `no-receiving-key: nothing in the keychain under ${held[1]}/${held[2]}, and what is served is sealed to it`,
-    );
+    return Buffer.from(store.held(where.service, where.account), "base64");
+  } catch (thrown) {
+    fail(`no-receiving-key: ${thrown.message}, and what is served is sealed to it`);
   }
 }
 

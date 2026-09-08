@@ -21,6 +21,7 @@
 
 const { generateKeyPairSync, randomBytes, createHash } = require("node:crypto");
 const { execFileSync, spawn } = require("node:child_process");
+const store = require("./evalation-store");
 const { existsSync, mkdirSync, writeFileSync } = require("node:fs");
 const { join, dirname } = require("node:path");
 const { homedir, hostname, userInfo } = require("node:os");
@@ -84,9 +85,42 @@ function keypair(kind) {
 }
 
 function keep(account, value) {
-  execFileSync("security", ["add-generic-password", "-U", "-s", SERVICE, "-a", account, "-w", value], {
-    stdio: ["ignore", "ignore", "ignore"],
-  });
+  store.keep(SERVICE, account, value);
+}
+
+/**
+ * That this machine has somewhere to keep a key, established before anything is asked of anybody.
+ *
+ * The keys are kept last, only once the server has said the installation exists, so that a refused
+ * activation leaves nothing behind. That ordering has a failure of its own if the store is missing: a
+ * machine with nowhere to put a key got all the way through a browser sign-in, had an installation
+ * created and billable on our side, and then could not keep what proves it is itself. Nothing was
+ * written locally, and because the name is generated the next attempt made another orphan.
+ *
+ * So the store is proven to hold and return a value first. Failing here costs nothing: no sign-in has
+ * started, nothing exists anywhere, and what the person is told is the one thing that would fix it.
+ */
+function somewhere_to_keep_it() {
+  try {
+    const probe = `probe-${process.pid}`;
+    const value = "a-value-only-this-check-writes";
+    store.keep(SERVICE, probe, value);
+    const back = store.held(SERVICE, probe);
+    try {
+      store.forget(SERVICE, probe);
+    } catch {
+      // Tidying up, not the thing being established. A store that kept the probe has still shown it
+      // can hold a key, which is the whole question.
+    }
+    if (back !== value) throw new Error("it read back something other than what was written");
+    return store.chosen().name;
+  } catch (thrown) {
+    fail(
+      `no-key-store: this machine has nowhere to keep a private key (${thrown.message}).\n` +
+        "Nothing was created and nothing needs undoing. Set EVALATION_KEY_STORE=file to keep the " +
+        "keys in a file only you can read, under ~/.evalation/keys, then run this again.",
+    );
+  }
 }
 
 // One line out of the listener while it keeps running, since the port has to be usable before the
@@ -117,6 +151,10 @@ async function main() {
         "thing to be billed for. Remove it and its keys to activate again.",
     );
   }
+
+  // Before a browser opens or a server is asked anything, because the alternative is an installation
+  // that exists and is billable on a machine that can never hold the key proving it is itself.
+  const kept_in = somewhere_to_keep_it();
 
   // Generated before anything is asked of anybody, so the private halves are ours from the start.
   const signing = keypair("ed25519");
@@ -208,8 +246,10 @@ async function main() {
         schema: "evalation.local.v1",
         installation: done.installation,
         secrets: {
-          installation_key: `keychain:${SERVICE}/installation-key`,
-          receiving_key: `keychain:${SERVICE}/receiving-key`,
+          // Naming no platform, so one settings file reads the same on every machine and the store
+          // resolves it to whatever this one actually has.
+          installation_key: `store:${SERVICE}/installation-key`,
+          receiving_key: `store:${SERVICE}/receiving-key`,
         },
       },
       null,

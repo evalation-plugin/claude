@@ -23,6 +23,8 @@ const { generateKeyPairSync } = require("node:crypto");
 const { execFileSync } = require("node:child_process");
 const { join } = require("node:path");
 
+const store = require("./evalation-store");
+
 const here = __dirname;
 const SERVICE = "evalation";
 const CURRENT = "receiving-key";
@@ -45,17 +47,13 @@ function ask(path, body) {
 }
 
 function keep(account, value) {
-  execFileSync("security", ["add-generic-password", "-U", "-s", SERVICE, "-a", account, "-w", value], {
-    stdio: ["ignore", "ignore", "ignore"],
-  });
+  store.keep(SERVICE, account, value);
 }
 
+/** Null rather than a throw, because the caller is asking whether one is there at all. */
 function held(account) {
   try {
-    return execFileSync("security", ["find-generic-password", "-s", SERVICE, "-a", account, "-w"], {
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "ignore"],
-    }).trim();
+    return store.held(SERVICE, account);
   } catch {
     return null;
   }
@@ -94,9 +92,7 @@ try {
 
 ask("/rotate", { receiving_key: offered, confirmed: true });
 try {
-  execFileSync("security", ["delete-generic-password", "-s", SERVICE, "-a", PREVIOUS], {
-    stdio: ["ignore", "ignore", "ignore"],
-  });
+  store.forget(SERVICE, PREVIOUS);
 } catch {
   // Nothing to drop, which is the ordinary case on a first rotation.
 }

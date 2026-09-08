@@ -17,8 +17,8 @@
 "use strict";
 
 const { createHash, createPrivateKey, sign } = require("node:crypto");
-const { execFileSync } = require("node:child_process");
 const { readFileSync, existsSync } = require("node:fs");
+const store = require("./evalation-store");
 const { join } = require("node:path");
 const { homedir } = require("node:os");
 
@@ -64,18 +64,18 @@ function settings() {
   );
 }
 
-// Settings never hold a secret. They name one, and this finds it in the operating system's own store.
+// Settings never hold a secret. They name one, and the store finds it wherever this machine keeps it.
 function secret(named) {
   if (typeof named !== "string") fail("no-key: the settings name no installation key");
-  const held = named.match(/^keychain:([^/]+)\/(.+)$/);
-  if (!held) fail(`unreadable-key-reference: ${named}, which is not keychain:<service>/<account>`);
+  const where = store.referenced(named);
+  if (!where) fail(`unreadable-key-reference: ${named}, which is not store:<service>/<account>`);
   try {
-    return execFileSync("security", ["find-generic-password", "-s", held[1], "-a", held[2], "-w"], {
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "ignore"],
-    }).trim();
-  } catch {
-    fail(`no-key: nothing in the keychain under ${held[1]}/${held[2]}, and nothing else proves this installation is itself`);
+    return store.held(where.service, where.account);
+  } catch (thrown) {
+    fail(
+      `no-key: ${thrown.message}. Nothing else proves this installation is itself, so sign in again ` +
+        "with /ev-activate if the key is genuinely gone.",
+    );
   }
 }
 

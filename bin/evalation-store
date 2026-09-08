@@ -1,0 +1,241 @@
+#!/usr/bin/env node
+// evalation-store - where a private key is kept, on whatever machine this is.
+//
+// The settings name a key and never hold one, so something has to find it. That something was the
+// macOS keychain and nothing else, which meant every other operating system got all the way through
+// signing in and fell over on the last step, after the server had already created the installation.
+// The keys were never kept, the settings were never written, and because the name is generated the
+// next attempt made a second installation nobody could use either.
+//
+// Four places, tried in this order, which is the order in section 6 of the design:
+//
+//   the operating system's own store, where there is one
+//   a file only its owner can read, where there is not
+//   an environment variable, as an explicit last resort for a machine nobody is sitting at
+//
+// A file this cannot confirm is private is refused rather than read. That is the whole reason the
+// file tier is safe to have at all: a key readable by every account on a shared machine is not a key.
+//
+// The reference in the settings names no platform. `store:evalation/installation-key` means the same
+// thing everywhere and resolves to whatever this machine actually has, so one settings file is
+// portable and a person moving between machines changes nothing. `keychain:` is still read, because
+// installations created before this existed hold it and there is no reason to break them.
+"use strict";
+
+const { execFileSync } = require("node:child_process");
+const { chmodSync, existsSync, mkdirSync, readFileSync, statSync, writeFileSync, unlinkSync } =
+  require("node:fs");
+const { join, dirname } = require("node:path");
+const { homedir, platform } = require("node:os");
+
+const HOME = process.env.EVALATION_HOME || join(homedir(), ".evalation");
+
+/** Where the file tier keeps a key, one file per account so a rotation replaces one thing. */
+function beside(service, account) {
+  return join(HOME, "keys", `${service}.${account}`);
+}
+
+// --- the operating system's own store ---------------------------------------------------------
+
+const stores = {
+  // macOS. The keychain is locked with the login session, so nothing here is readable by another
+  // account or by this one before the person has logged in.
+  darwin: {
+    name: "the macOS keychain",
+    reachable: () => can("security", ["-h"]),
+    keep: (service, account, value) =>
+      run("security", ["add-generic-password", "-U", "-s", service, "-a", account, "-w", value]),
+    held: (service, account) =>
+      run("security", ["find-generic-password", "-s", service, "-a", account, "-w"]).trim(),
+    forget: (service, account) =>
+      run("security", ["delete-generic-password", "-s", service, "-a", account]),
+  },
+
+  // Windows. Credential Manager through PowerShell, because it is the store Windows already has and
+  // it is protected by the signed-in user the same way the keychain is.
+  //
+  // The value crosses as base64 on the command line rather than raw: a key is bytes, PowerShell
+  // quoting is its own subject, and base64 has nothing in it that any shell treats as special.
+  win32: {
+    name: "Windows Credential Manager",
+    reachable: () => can("powershell", ["-NoProfile", "-Command", "$PSVersionTable.PSVersion.Major"]),
+    keep: (service, account, value) =>
+      powershell(
+        `$b=[Convert]::FromBase64String('${b64(value)}');` +
+          `$s=[System.Text.Encoding]::UTF8.GetString($b);` +
+          `cmdkey /generic:${target(service, account)} /user:evalation /pass:$s | Out-Null`,
+      ),
+    held: (service, account) =>
+      powershell(
+        `$c=[Windows.Security.Credentials.PasswordVault,Windows.Security.Credentials,ContentType=WindowsRuntime];` +
+          `$v=New-Object Windows.Security.Credentials.PasswordVault;` +
+          `($v.Retrieve('${target(service, account)}','evalation')).Password`,
+      ).trim(),
+    forget: (service, account) =>
+      powershell(`cmdkey /delete:${target(service, account)} | Out-Null`),
+  },
+
+  // Linux and the BSDs. libsecret is what a desktop keyring exposes, and where no keyring is running
+  // there is nothing to reach, which is what the file tier below is for.
+  linux: {
+    name: "the desktop keyring",
+    reachable: () => can("secret-tool", ["--version"]),
+    keep: (service, account, value) =>
+      run("secret-tool", ["store", "--label", `${service} ${account}`, "service", service, "account", account], value),
+    held: (service, account) =>
+      run("secret-tool", ["lookup", "service", service, "account", account]).trim(),
+    forget: (service, account) =>
+      run("secret-tool", ["clear", "service", service, "account", account]),
+  },
+};
+
+function b64(value) {
+  return Buffer.from(value, "utf8").toString("base64");
+}
+
+function target(service, account) {
+  return `${service}:${account}`;
+}
+
+function powershell(script) {
+  return run("powershell", ["-NoProfile", "-NonInteractive", "-Command", script]);
+}
+
+function run(command, args, input) {
+  return execFileSync(command, args, {
+    encoding: "utf8",
+    input,
+    stdio: [input === undefined ? "ignore" : "pipe", "pipe", "ignore"],
+  });
+}
+
+/** Whether a command is here at all, asked once and never guessed from the platform name. */
+function can(command, args) {
+  try {
+    run(command, args);
+    return true;
+  } catch (thrown) {
+    // A command that exists and exits non-zero is still a command that exists. Only being unable to
+    // start it at all means it is absent, which is the thing being asked.
+    return thrown.code !== "ENOENT";
+  }
+}
+
+// --- the file, where there is no store --------------------------------------------------------
+
+/**
+ * A key in a file, readable by nobody but its owner.
+ *
+ * Refused rather than read where that cannot be confirmed. A file whose mode lets the group or the
+ * world read it is not private, and reading it anyway would turn the tier that exists for machines
+ * without a keyring into the tier that quietly weakens every machine that has one.
+ */
+const file = {
+  name: "a file only you can read",
+  keep(service, account, value) {
+    const path = beside(service, account);
+    mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
+    // Created empty at the right mode first, so there is no moment where the key is on disk readable
+    // by anybody else. Writing then chmod-ing leaves exactly that window.
+    writeFileSync(path, "", { mode: 0o600 });
+    chmodSync(path, 0o600);
+    writeFileSync(path, value, { mode: 0o600 });
+  },
+  held(service, account) {
+    const path = beside(service, account);
+    if (!existsSync(path)) throw new Error(`nothing at ${path}`);
+    const mode = statSync(path).mode & 0o777;
+    if (mode & 0o077) {
+      throw new Error(
+        `${path} is mode ${mode.toString(8)}, which somebody other than you can read. ` +
+          `Run: chmod 600 ${path}`,
+      );
+    }
+    return readFileSync(path, "utf8").trim();
+  },
+  forget(service, account) {
+    const path = beside(service, account);
+    if (existsSync(path)) unlinkSync(path);
+  },
+};
+
+// --- what this machine actually has -----------------------------------------------------------
+
+/**
+ * The store to use, decided by what is reachable rather than by what the platform is called.
+ *
+ * Named in the environment where somebody needs to force it, which is what a headless build has to
+ * do. Anything else asks the machine.
+ */
+function chosen() {
+  const named = process.env.EVALATION_KEY_STORE;
+  if (named === "file") return file;
+  if (named === "os") {
+    const store = stores[platform()];
+    if (!store) throw new Error(`no operating system store is known for ${platform()}`);
+    return store;
+  }
+  const store = stores[platform()];
+  if (store && store.reachable()) return store;
+  return file;
+}
+
+/** Reads `store:service/account`, and the older `keychain:` form for installations that hold it. */
+function referenced(named) {
+  const held = String(named ?? "").match(/^(?:store|keychain):([^/]+)\/(.+)$/);
+  if (!held) return null;
+  return { service: held[1], account: held[2] };
+}
+
+function keep(service, account, value) {
+  chosen().keep(service, account, value);
+}
+
+/**
+ * The key, from wherever it is, and an environment variable ahead of everything.
+ *
+ * Named per account so a machine nobody is sitting at can carry one key without carrying the other,
+ * and read first because somebody who has set it has said explicitly what they want used.
+ */
+function held(service, account) {
+  const named = process.env[`EVALATION_KEY_${account.toUpperCase().replace(/[^A-Z0-9]/g, "_")}`];
+  if (named) return named.trim();
+  return chosen().held(service, account);
+}
+
+function forget(service, account) {
+  chosen().forget(service, account);
+}
+
+module.exports = { keep, held, forget, referenced, chosen, file, stores };
+
+// Run directly, it says what this machine would use and proves it can be written to and read back.
+// That is what activation calls before it asks the server for anything, so a machine with nowhere to
+// put a key finds out before an installation exists rather than after.
+if (require.main === module) {
+  const [what] = process.argv.slice(2);
+  try {
+    const store = chosen();
+    if (what === "check") {
+      const probe = `probe-${process.pid}`;
+      const value = "a-value-only-this-check-writes";
+      store.keep("evalation-probe", probe, value);
+      const back = store.held("evalation-probe", probe);
+      try {
+        store.forget("evalation-probe", probe);
+      } catch {
+        // Removing the probe is tidiness rather than the thing being established, and a store that
+        // kept it has still proven it can hold a key.
+      }
+      if (back !== value) throw new Error(`wrote a value to ${store.name} and read back something else`);
+    }
+    process.stdout.write(`${store.name}\n`);
+  } catch (thrown) {
+    process.stderr.write(
+      `no-key-store: ${thrown.message}\n` +
+        "This machine has nowhere to keep a private key. Set EVALATION_KEY_STORE=file to keep it in " +
+        "a file only you can read, under ~/.evalation/keys.\n",
+    );
+    process.exit(1);
+  }
+}

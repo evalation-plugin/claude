@@ -79,9 +79,11 @@ It signs, and never presents a secret. It holds a private key, we hold the publi
 ask carries a signature over the call, the time and the body. So what we store verifies an
 installation and cannot impersonate one, and a captured proof stops working within five minutes.
 
-The key lives in the operating system's own store and never in a file. The settings name it and
-something else finds it, which is what makes the settings safe to read out, paste into a ticket or
-keep in a repository.
+The key lives in the operating system's own store: the Keychain on macOS, Credential Manager on
+Windows, the desktop keyring on Linux. Where a machine has none, and a server nobody is sitting at
+often has none, it goes in a file only its owner can read, and a file that cannot be confirmed private
+is refused rather than read. The settings name where it is and never hold it, which is what makes them
+safe to read out, paste into a ticket or keep in a repository.
 
 Settings are read from `EVALATION_LOCAL` if it is set, then `~/.evalation/evalation.local`, then
 `evalation.local` beside you. They name the installation and where its two keys are kept, and
