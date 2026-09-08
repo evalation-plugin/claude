@@ -11,7 +11,7 @@
 // two columns anybody reads, and every inch taken by a column that never fills is an inch taken from
 // them.
 //
-//   Pr 0.30  ID 0.78  Sev 0.82  Model 0.88  Finding flex  Remediation flex  Result 1.20
+//   Pr 0.30  ID 0.78  Sev 0.82  Model 1.02  Finding flex  Remediation flex  Result 1.20
 //
 // The numbers are inches and they sum to the body width exactly. Print CSS holds them rather than a
 // PDF library, so this needs nothing installed and prints to PDF from any browser.
@@ -39,11 +39,12 @@ const SEVERITY = {
 };
 
 // Inches. The fixed ones are sized to their longest real content and no wider: Pr holds two
-// characters, ID a short identity, Sev the word Critical and its dot, Model a model's name, Result
-// its longest tag. Everything left over is split between the two columns that carry prose.
+// characters, ID a short identity, Sev the word Critical and its dot, Model two labelled model names
+// stacked, Result its longest tag. Everything left over is split between the two columns that carry
+// prose.
 const MARGIN_IN = 0.35;
 const PAGE_IN = 11.0;
-const FIXED = { pr: 0.3, id: 0.78, sev: 0.82, model: 0.88, result: 1.2 };
+const FIXED = { pr: 0.3, id: 0.78, sev: 0.82, model: 1.02, result: 1.2 };
 const BODY_IN = PAGE_IN - 2 * MARGIN_IN;
 const FLEX_IN =
   (BODY_IN - Object.values(FIXED).reduce((sum, one) => sum + one, 0)) / 2;
@@ -63,6 +64,19 @@ function safe(text) {
 function mark() {
   const here = join(__dirname, "..", "templates", "assets", "ev-mark.svg");
   return existsSync(here) ? readFileSync(here, "utf8").trim() : "";
+}
+
+/**
+ * A verifier's name, from the command that ran it.
+ *
+ * It is configured as a command, so what arrives is a path and its arguments. A reader wants the
+ * model rather than the invocation, so the model named after a --model flag is preferred and the
+ * command's own name is the fallback.
+ */
+function shortened(command) {
+  const named = String(command).match(/--model[= ]+([^\s]+)/);
+  if (named) return named[1];
+  return String(command).trim().split(/\s+/)[0].split("/").pop();
 }
 
 function severity(one) {
@@ -130,6 +144,11 @@ function styles() {
     vertical-align:middle}
   .sev{font-size:11px;white-space:nowrap}
   .where{font-family:var(--mono);font-size:10px;color:var(--ink-400);display:block;margin-top:3px}
+  td.models{font-size:10.5px;line-height:1.35}
+  .who{display:block;font-size:8px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-400);
+    margin-top:6px;line-height:1.2}
+  .models .who:first-child{margin-top:0}
+  .m{display:block;font-size:10.5px;line-height:1.3;word-break:break-word}
   .quote{font-family:var(--mono);font-size:10px;color:var(--ink-300);display:block;margin-top:3px;
     padding-left:7px;border-left:2px solid var(--hair);white-space:pre-wrap}
   .none{color:var(--ink-400);font-style:italic;font-size:12px;margin:6px 0 0}
@@ -142,6 +161,7 @@ function styles() {
     th{color:#444;border-color:#bbb}
     td{border-color:#ddd}
     td.pr,td.id,td.res,.where,.quote{color:#333}
+    .who{color:#666}
     h2{page-break-after:avoid}
   }`;
 }
@@ -158,11 +178,16 @@ function rows(findings, readBy) {
   <td class="pr">${safe(sev.priority)}</td>
   <td class="id">${safe(one.concern || one.id || "")}</td>
   <td class="sev"><span class="dot" style="background:${sev.hex}"></span>${sev.label}</td>
-  <td>${safe(one.model || readBy || "not recorded")}${
-        one.verification?.by
-          ? `<span class="where">checked by ${safe(String(one.verification.by).split("/").pop())}</span>`
-          : ""
-      }</td>
+  <td class="models">
+    <span class="who">Identified by</span>
+    <span class="m">${safe(one.model || readBy || "not recorded")}</span>${
+      one.verification?.by
+        ? `
+    <span class="who">Verified by</span>
+    <span class="m">${safe(shortened(one.verification.by))}</span>`
+        : ""
+    }
+  </td>
   <td>${safe(one.observed)}${at}</td>
   <td>${safe(one.required)}</td>
   <td class="res">${safe(result(one))}</td>
@@ -231,8 +256,9 @@ function main() {
     ["Sev", "severity, shown with a coloured dot: Critical, High, Medium, Low, Info or Positive."],
     [
       "Model",
-      "the model that produced the finding, as it named itself, and beneath it what checked the " +
-        "finding where a second reading did.",
+      "what identified the finding, as it named itself, and what verified it where a second reading " +
+        "looked. They are deliberately different: confirming that a quoted line supports a claim is a " +
+        "smaller job than finding the claim.",
     ],
     ["Finding", "what was observed, with the file, the lines and the text it rests on."],
     ["Remediation", "what to do about it, in the code named."],
