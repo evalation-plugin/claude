@@ -41,6 +41,46 @@ function ask(path, body) {
   }
 }
 
+/**
+ * The entries the pack itself settled, answered without a file being opened.
+ *
+ * An entry marked as the organisation's is one no repository could ever evidence: a screening duty, a
+ * physical control, a contract with a supplier. That is a fact about the clause rather than about any
+ * tree, so it is decided once when the pack is authored and reading a repository to rediscover it
+ * would spend the reading to learn nothing. Whole frameworks are mostly this.
+ *
+ * They are answered rather than dropped, because an entry with nothing against it is a gap in the
+ * assessment rather than a clause that passed, and each carries `from: authored` so a person reading
+ * the report can tell this apart from somebody having looked.
+ */
+function settled(packs) {
+  const held = [];
+  for (const pack of packs) {
+    for (const entry of pack.body?.entries ?? []) {
+      if (entry.bears_on !== "organisation") continue;
+      held.push({
+        pack: pack.pack,
+        entry: entry.identifier,
+        status: "org-level",
+        from: "authored",
+        because:
+          `${entry.title}: no repository can evidence this, so it was answered from the pack rather ` +
+          "than by reading the tree",
+        justification: entry.justification,
+      });
+    }
+  }
+  return held;
+}
+
+/** What is left for the reading, which is what the run actually costs. */
+function reading(packs) {
+  return packs.map((pack) => ({
+    pack: pack.pack,
+    entries: (pack.body?.entries ?? []).filter((one) => one.bears_on !== "organisation"),
+  }));
+}
+
 function main() {
   const where = process.argv[2] || process.cwd();
   const wanted = process.argv.slice(3).filter((one) => one.trim() !== "");
@@ -100,6 +140,12 @@ function main() {
         admitted: admitted.because,
         skill: served.skill,
         packs: served.packs,
+        // Answered here rather than by the reading, because the pack settled them when it was
+        // authored: no repository could evidence a personnel duty or a physical control, so opening
+        // a tree to discover that wastes the reading and tells nobody anything. They are still
+        // answered, because an entry with nothing against it is a gap in the assessment.
+        answered: settled(served.packs),
+        to_read: reading(served.packs),
       },
       null,
       2,

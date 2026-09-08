@@ -47,11 +47,19 @@ changed the thing being measured. The only file written is the findings file, an
    whatever this machine uses for its own work, and that is theirs to issue rather than something to
    work around.
 
-3. **Read the repository against every selected entry.** Follow the served methodology. Open files.
-   Read the code that would carry the control rather than the file whose name sounds like it should.
+3. **Read the repository against every entry in `to_read`.** Follow the served methodology. Open
+   files. Read the code that would carry the control rather than the file whose name sounds like it
+   should.
 
-   Answer every entry. An entry with no answer is a gap in the assessment rather than a clause that
-   passed, and nothing downstream can tell those apart.
+   **Read nothing for the entries in `answered`.** The pack settled those when it was authored,
+   because no repository could evidence them: a personnel duty, a physical control, a contract with a
+   supplier. They arrive already answered with their justification, and they go into the document as
+   they are. Opening files to rediscover that a screening policy is not in a codebase spends the
+   reading to learn nothing, and whole frameworks are mostly these.
+
+   Between them, `answered` and `to_read` are every selected entry. An entry with nothing against it
+   is a gap in the assessment rather than a clause that passed, and nothing downstream can tell those
+   apart.
 
 4. **Write the answers as one document**, to a file outside the repository being read, in the shape
    `evalation.findings.v1` describes. Take `run`, `at`, `revision`, `target` and `packs` from what
@@ -61,6 +69,12 @@ changed the thing being measured. The only file written is the findings file, an
    Every answer carries the pack, the entry, the status, and why it is that status rather than the one
    either side of it. Covered carries its evidence. Everything else carries a corrective step.
    Org-level and not applicable carry a justification.
+
+   The entries from `answered` go in unchanged, each carrying `from: "authored"`. That is what lets a
+   person reading the report tell somebody having looked and found it was not this code's job from
+   nobody having looked because it never could be. Never mark an answer you reached by reading as
+   authored, and never reach for authored to avoid a reading: only org-level can be settled in
+   advance, because it is the one status that is a fact about the clause rather than about the tree.
 
    A citation is a path relative to the tree, a line range, the quote and its grade. **The quote must
    appear in those lines**, because step 5 opens the file and looks.
