@@ -87,6 +87,31 @@ function main() {
     fail(`not-a-rubric: it says it is ${rubric.id ?? "nothing"}`);
   }
 
+  // A map that has to hold numbers is checked to hold numbers, because the failure otherwise is
+  // silent and wrong rather than loud: a prose key among the weights was counted as a nineteenth
+  // category, and among the grades as a band whose floor sorted above every real one. A score
+  // computed from a rubric nothing checked is a number nobody should act on.
+  const wrong = [];
+  for (const [what, held] of [
+    ["weights", rubric.weights],
+    ["grades", rubric.grades],
+    ["defect_load", rubric.defect_load],
+  ]) {
+    for (const [name, value] of Object.entries(held ?? {})) {
+      if (typeof value !== "number" || !Number.isFinite(value)) {
+        wrong.push(`${what}.${name} is ${JSON.stringify(value)} rather than a number`);
+      }
+    }
+  }
+  if (wrong.length > 0) {
+    fail(
+      "unusable-rubric: this rubric holds something that is not a number where one is needed:\n  " +
+        wrong.join("\n  ") +
+        "\nNothing was scored. A score computed from a rubric nothing checked is a number nobody " +
+        "should act on.",
+    );
+  }
+
   const scoring = (document.findings ?? []).filter((one) => one.pack === rubric.pack);
   if (scoring.length === 0) {
     fail(

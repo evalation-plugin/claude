@@ -140,6 +140,10 @@ function main() {
         admitted: admitted.because,
         skill: served.skill,
         packs: served.packs,
+        // How this run's findings become a score, where the packs it selected are scored at all. It
+        // is served rather than shipped because the formula and the weights are the methodology, so
+        // it lives here for as long as this run does and is never written down.
+        rubrics: served.rubrics ?? [],
         // Answered here rather than by the reading, because the pack settled them when it was
         // authored: no repository could evidence a personnel duty or a physical control, so opening
         // a tree to discover that wastes the reading and tells nobody anything. They are still
