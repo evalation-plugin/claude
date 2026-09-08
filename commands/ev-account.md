@@ -25,9 +25,9 @@ description: Evalation seat status. Shows whether the seat is live, what is sele
 
 3. **Say what is next, in one line.**
 
-   - `no-settings` in the reason: this machine is not set up yet, which is the ordinary state for
-     somebody who has just installed the plugin rather than a fault. Say so and offer `/ev-start`,
-     which walks them through it.
+   - `state: not-set-up`: say one line, that this machine is not set up yet and `/ev-start` does it.
+     Nothing more. It is the normal path rather than a fault, and explaining that nothing is wrong is
+     what makes a person think something is.
    - Seat not live for any other reason: report the reason the status gave. A clock more than five
      minutes out refuses every ask on its own, so say that where the reason points at the proof.
    - Live with no packs selected: say what a pack is in one line and offer `/ev-packs`.

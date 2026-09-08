@@ -33,9 +33,11 @@ sequence silently and announce it afterwards.
    It always succeeds and names a state on its first line. Read that line rather than the prose under
    it, which may be reworded, and report none of these as an error:
 
-   - **`state: not-set-up`** is where everybody starts. It is the expected answer on a fresh install
-     and nothing is wrong. Say so in as many words, because somebody who has just installed a thing
-     and is told about settings that do not exist will think they broke it. Go to step 3.
+   - **`state: not-set-up`** is where everybody starts. Say nothing about it at all and go straight
+     to step 3. It is the normal path rather than a condition worth reporting, and reassuring somebody
+     that nothing is wrong is what plants the idea that something might be: an earlier wording told
+     them they had not broken anything, which is alarming for no reason and reads as a product
+     apologising for itself before it has done anything.
    - **`state: live`** means set up and paid up. Go to step 4.
    - **`state: not-live`** means set up, but the server will not serve it. Report the reason in their
      words. A clock more than five minutes out refuses every ask on its own, so where the reason
@@ -68,8 +70,8 @@ sequence silently and announce it afterwards.
    ${CLAUDE_PLUGIN_ROOT}/bin/evalation-packs show
    ```
 
-   Nothing selected is the ordinary state for someone who has just arrived, and it is not a problem.
-   Say so rather than reporting it as an error.
+   Nothing selected is the normal answer for somebody who has just arrived. Do not remark on it and
+   do not reassure them about it: go straight on to offering the choice.
 
 5. **Take them through choosing**, if nothing is selected.
 
