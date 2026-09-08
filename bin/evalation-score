@@ -1,0 +1,135 @@
+#!/usr/bin/env node
+// evalation-score - turns findings into a score, using a rubric it was served and does not hold.
+//
+// **The rubric is not here.** The formula, the constants and the weights are the methodology, so they
+// arrive with the run, sealed to the installation, and live in memory for as long as this process
+// does. This file holds the arithmetic and none of the numbers, which is why it can be read by anyone
+// without giving away how anything is scored.
+//
+// **The same findings always produce the same score.** There is no model in this and nothing about it
+// depends on when it ran, so two assessments of one repository are comparable, and a score that moved
+// means the repository moved. A score computed differently from one report to the next is a number
+// rather than a measure.
+//
+// What a deliverable then shows is the score, the grade and the per-category bars. Never the load, the
+// decay, the weights or the bands, because those are what was served.
+"use strict";
+
+const { readFileSync, writeFileSync } = require("node:fs");
+const { resolve } = require("node:path");
+
+function fail(reason) {
+  process.stderr.write(reason + "\n");
+  process.exit(1);
+}
+
+/**
+ * One category's score, from its findings.
+ *
+ * Defect load first, which positive findings never enter: a strength cannot deduct. Then decay rather
+ * than subtraction, so the first serious finding costs far more than the tenth. Then a bounded credit
+ * for strengths, which recovers a fraction of what was already lost rather than adding to a total, so
+ * the ceiling holds however many strengths are found.
+ */
+function scored(findings, rubric) {
+  const load = rubric.defect_load;
+  let weight = 0;
+  let positives = 0;
+
+  for (const one of findings) {
+    const severity = String(one.severity ?? "info").toLowerCase();
+    if (severity === "positive") {
+      positives += 1;
+      continue;
+    }
+    weight += Number(load[severity] ?? 0);
+  }
+
+  const base = 100 * Math.exp(-weight / rubric.base.decay);
+  const credit =
+    (100 - base) * rubric.credit.alpha * (positives / (positives + rubric.credit.softener));
+  return Math.max(0, Math.min(100, Math.round(base + credit)));
+}
+
+function graded(score, bands) {
+  // The highest band whose floor the score reaches. Read from the served bands rather than written
+  // here, so a change to what a B means is a revision rather than a release.
+  const ordered = Object.entries(bands).sort((a, b) => b[1] - a[1]);
+  for (const [name, floor] of ordered) {
+    if (score >= floor) return name;
+  }
+  return ordered[ordered.length - 1]?.[0] ?? "";
+}
+
+function main() {
+  const [source, rubricAt] = process.argv.slice(2);
+  if (!source || !rubricAt) {
+    process.stderr.write(
+      "usage: evalation-score <findings.json> <rubric.json>\n" +
+        "The rubric is what the run was served. It is never stored: pass what came back from the run.\n",
+    );
+    process.exit(2);
+  }
+
+  let document;
+  let rubric;
+  try {
+    document = JSON.parse(readFileSync(resolve(source), "utf8"));
+  } catch (thrown) {
+    fail(`unreadable-findings: ${thrown.message}`);
+  }
+  try {
+    rubric = JSON.parse(readFileSync(resolve(rubricAt), "utf8"));
+  } catch (thrown) {
+    fail(`unreadable-rubric: ${thrown.message}`);
+  }
+  if (rubric.id !== "evalation.rubric.v1") {
+    fail(`not-a-rubric: it says it is ${rubric.id ?? "nothing"}`);
+  }
+
+  const scoring = (document.findings ?? []).filter((one) => one.pack === rubric.pack);
+  if (scoring.length === 0) {
+    fail(
+      `nothing-to-score: this run holds no findings from ${rubric.pack}, which is what this rubric ` +
+        "scores. A run that found nothing is not a run that scored well: say what it read rather " +
+        "than giving it a number it did not earn.",
+    );
+  }
+
+  // Grouped by the category prefix, which is what a weight is keyed on.
+  const byCategory = new Map();
+  for (const one of scoring) {
+    const category = String(one.concern ?? "").match(/^[A-Z]+/)?.[0] ?? "Other";
+    if (!byCategory.has(category)) byCategory.set(category, []);
+    byCategory.get(category).push(one);
+  }
+
+  const bars = [];
+  let numerator = 0;
+  let denominator = 0;
+
+  for (const [category, held] of [...byCategory.entries()].sort()) {
+    const weight = Number(rubric.weights[category] ?? 0);
+    const score = scored(held, rubric);
+    bars.push({ category, score, grade: graded(score, rubric.grades), findings: held.length });
+    // A category with no weight is not scored. That is how a pass whose findings are already counted
+    // elsewhere is kept out of a number it would otherwise count toward twice.
+    if (weight > 0) {
+      numerator += weight * score;
+      denominator += weight;
+    }
+  }
+
+  const overall = denominator > 0 ? Math.round(numerator / denominator) : 0;
+  const grade = graded(overall, rubric.grades);
+
+  // Written onto the findings file, because the score is a fact about that assessment and belongs
+  // with it. What is written is the answer and never the rubric: a findings file carrying the weights
+  // would put the methodology on disk, which is the whole thing this arrangement exists to avoid.
+  document.hardness = { score: overall, grade, bars };
+  writeFileSync(resolve(source), JSON.stringify(document, null, 2) + "\n");
+
+  process.stdout.write(JSON.stringify({ score: overall, grade, bars }, null, 2) + "\n");
+}
+
+main();
