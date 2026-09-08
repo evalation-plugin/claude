@@ -8,21 +8,32 @@ The person running this has just installed the plugin and may know nothing about
 They have not read the readme, they do not know what a pack is, and they do not know which command
 comes next. Your job is to find out where they are, tell them, and take them one step further.
 
-**Work out where they are before saying anything.** The three questions below have answers on this
-machine and on our server, so ask rather than guess, and never ask the person something a command can
-answer.
+**Never describe the state of the installation. Act on it.** This reads three things about the
+machine, and every one of them is plumbing. A person setting a product up wants to be taken through
+it, not shown its internal states with an explanation of why each one is fine. "Nothing selected yet,
+which is the ordinary state for a fresh installation" is the failure: it narrates an absence, calls it
+ordinary, and leaves the reader wondering why anybody felt the need to say so. Say what the next step
+is and do it.
+
+The same goes for the reasoning in this file. What is written here is why you act, not something to
+repeat. If a sentence below explains a decision, that explanation is for you.
+
+**Never mention a thing that is not there.** No settings, no packs, no keys, no previous run. Absence
+is the starting point rather than a finding, and a product that lists what it has not got yet sounds
+like it is apologising.
 
 **Say each thing once, in plain English, before you do it.** A person who does not know what is about
 to happen cannot agree to it. Lead with what they get, not with how it works.
 
-**One step at a time.** Do the next thing, report it, and say what follows. Never run the whole
-sequence silently and announce it afterwards.
+**One step at a time.** Do the next thing and say what follows. Never run the whole sequence silently
+and announce it afterwards.
 
 ## What to do
 
-1. **Say hello before you run anything.** A sentence or two: what Evalation is, and that you are
-   about to check where this machine stands. A person whose first sight of a new product is a command
-   running has been given no reason to trust it.
+1. **Open with what this is and what happens next**, in a sentence or two. Not what you are about to
+   check: what they are about to get. A person whose first sight of a product is a command running has
+   been given no reason to trust it, and one whose first sight is a status report has been handed
+   somebody else's diagnostics.
 
 2. **Find out where they are.**
 
@@ -33,11 +44,7 @@ sequence silently and announce it afterwards.
    It always succeeds and names a state on its first line. Read that line rather than the prose under
    it, which may be reworded, and report none of these as an error:
 
-   - **`state: not-set-up`** is where everybody starts. Say nothing about it at all and go straight
-     to step 3. It is the normal path rather than a condition worth reporting, and reassuring somebody
-     that nothing is wrong is what plants the idea that something might be: an earlier wording told
-     them they had not broken anything, which is alarming for no reason and reads as a product
-     apologising for itself before it has done anything.
+   - **`state: not-set-up`**: go to step 3 without saying anything about it.
    - **`state: live`** means set up and paid up. Go to step 4.
    - **`state: not-live`** means set up, but the server will not serve it. Report the reason in their
      words. A clock more than five minutes out refuses every ask on its own, so where the reason
@@ -70,8 +77,8 @@ sequence silently and announce it afterwards.
    ${CLAUDE_PLUGIN_ROOT}/bin/evalation-packs show
    ```
 
-   Nothing selected is the normal answer for somebody who has just arrived. Do not remark on it and
-   do not reassure them about it: go straight on to offering the choice.
+   Where nothing is selected, go to step 5 without remarking on it. Where something is, name what it
+   is.
 
 5. **Take them through choosing**, if nothing is selected.
 
@@ -83,15 +90,14 @@ sequence silently and announce it afterwards.
 
    Then run `/ev-packs`, which fetches the real catalogue and records what they choose.
 
-6. **Tell them where they have got to, and what this version does next.**
+6. **Close in two or three sentences.** What they are set up to do, and the one thing to do next.
 
-   Name what is set up and what is selected. Then say plainly that reading a repository against the
-   selected packs is not in this version yet, so this is as far as it goes today. Do not imply a run
-   is available, do not offer to do one by hand, and do not promise a date.
+   Not a status report. No numbered summary of what happened, no list of everything now true of the
+   machine, and no restating of steps they just watched: they were there. The screen at the end of
+   setting a product up should read like the end of a conversation rather than the output of an audit.
 
-   Say what they can do meanwhile: `/ev-account` to check where the seat stands, `/ev-packs` to
-   change the selection, and `/ev-rotate` to replace the key that opens what we serve, which needs no
-   reason and causes no downtime.
+   Where reading a repository against the packs is not in the version they hold, say that once, in a
+   sentence, without promising a date. Then stop.
 
 ## What this never does
 
