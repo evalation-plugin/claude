@@ -62,7 +62,14 @@ changed the thing being measured. The only file written is the findings file, an
    apart.
 
 4. **Write the answers as one document**, to a file outside the repository being read, in the shape
-   `evalation.findings.v1` describes. Take `run`, `at`, `revision`, `target` and `packs` from what
+   `evalation.findings.v1` describes.
+
+   **What a pack owes depends on what it answers, and the pack says which.** A `standard` answers
+   coverage: one entry in `answers` per selected entry, with a status. A `concern-set` answers
+   findings: entries in `findings`, each with a severity, a location and a remedy, plus one row in
+   `accounted` per selected concern saying what was looked for. A concern with nothing wrong still
+   gets its row, because a clean row and a concern nobody read are the same thing to a reader
+   otherwise. Carry `kind` through from what step 2 returned so the check knows which it is holding. Take `run`, `at`, `revision`, `target` and `packs` from what
    step 2 returned rather than composing them, since those are what make the assessment resolve back
    to an exact entry set a year from now.
 
@@ -95,9 +102,44 @@ changed the thing being measured. The only file written is the findings file, an
    than the check.** A citation that will not verify is one that was not read from the file, and the
    remedy is to open the file and read it, never to soften the claim until it passes.
 
-6. **Report what it found, in two or three sentences**, and say where the file is. Lead with what
+6. **Have a second reading confirm what it can**, where one is configured.
+
+   ```
+   ${CLAUDE_PLUGIN_ROOT}/bin/evalation-verify <answers.json> <target>
+   ```
+
+   Optional, and it says `ran: false` where the settings name no verifier, which is the ordinary state
+   and not a fault. It moves a claim between asserted and verified and can never drop one, so nothing
+   about the assessment depends on it. If it stops part way, run it again: it picks up where it
+   stopped rather than paying for the whole pass twice.
+
+7. **Score it**, for a pack that is scored.
+
+   ```
+   ${CLAUDE_PLUGIN_ROOT}/bin/evalation-score <findings.json> <rubric.json>
+   ```
+
+   The rubric is what step 2 returned in `rubrics`. Write it to a file beside the answers, pass it
+   here, and **delete it when the run is done**: it is served rather than shipped, so it belongs in
+   this run and nowhere else. A pack step 2 returned no rubric for is not scored, and that is not a
+   failure.
+
+8. **Produce the artefact**, which is what somebody is actually given.
+
+   ```
+   ${CLAUDE_PLUGIN_ROOT}/bin/evalation-report <findings.json>     # coverage, for a standard
+   ${CLAUDE_PLUGIN_ROOT}/bin/evalation-detail <findings.json>     # findings, for a concern set
+   ```
+
+   A standard answers coverage, so its artefact is the assessment page. A concern set answers
+   findings, so its artefact is the findings detail, laid out to print. Run both where a run held
+   both kinds. Each is one self-contained page carrying the lines every claim rests on, so whoever
+   receives it can check the work without us.
+
+9. **Report what it found, in two or three sentences**, and say where the artefact is. Lead with what
    would matter to somebody deciding what to do next: what is a total gap, what is only claimed rather
-   than implemented. Not a table of every entry, which is what the file is for.
+   than implemented, what scored worst. Not a table of every entry, which is what the artefact is for.
+   Say the file path last, on its own line, because that is what they will want to open.
 
 ## What this never does
 

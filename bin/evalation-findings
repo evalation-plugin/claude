@@ -101,9 +101,24 @@ function cited(where, one, said) {
 function checked(document, where) {
   const said = [];
 
+  // What each pack answers decides what completeness means for it. A standard answers coverage, so
+  // every selected entry owes an outcome. A concern set answers findings, so an entry owes no outcome
+  // at all and what it owes instead is a row saying what was looked for: without that, a run that
+  // read three concerns and one that read fifty-two both produce a list of findings and neither says
+  // which. Absent, a pack is held to coverage, which is the older of the two and the safer default.
+  const answersFindings = new Set(
+    (document.packs ?? [])
+      .filter((one) => one.kind === "concern-set")
+      .map((one) => one.pack),
+  );
+
   const selected = new Set();
+  const concerns = new Set();
   for (const pack of document.packs ?? []) {
-    for (const entry of pack.selected ?? []) selected.add(`${pack.pack}/${entry}`);
+    for (const entry of pack.selected ?? []) {
+      if (answersFindings.has(pack.pack)) concerns.add(`${pack.pack}/${entry}`);
+      else selected.add(`${pack.pack}/${entry}`);
+    }
   }
 
   const answered = new Set();
@@ -169,12 +184,39 @@ function checked(document, where) {
       said.push(`${one}: selected and not answered, which is a gap in the assessment rather than a pass`);
     }
   }
+
+  // The concern set's own completeness. Every selected concern is accounted for, and a row that found
+  // nothing still says what it looked at, because a clean row saying nothing and a concern nobody read
+  // are the same thing to whoever reads the report.
+  const accountedFor = new Set();
+  for (const row of document.accounted ?? []) {
+    const named = `${row.pack}/${row.concern}`;
+    if (accountedFor.has(named)) said.push(`${named}: accounted for twice`);
+    accountedFor.add(named);
+    if (!String(row.because ?? "").trim()) {
+      said.push(`${named}: accounted for with nothing said about what was looked at`);
+    }
+    if (!concerns.has(named)) said.push(`${named}: accounted for and never selected`);
+  }
+  for (const one of [...concerns].sort()) {
+    if (!accountedFor.has(one)) {
+      said.push(
+        `${one}: selected and never accounted for. A concern set owes a row per concern saying what ` +
+          "was looked for, since a list of findings alone cannot say what was read",
+      );
+    }
+  }
   for (const one of [...answered].sort()) {
     if (!selected.has(one)) said.push(`${one}: answered and never selected`);
   }
 
   for (const finding of document.findings ?? []) {
     if (!String(finding.observed ?? "").trim()) said.push(`${finding.id}: a finding saying nothing observed`);
+    if (finding.concern && concerns.size > 0 && !concerns.has(`${finding.pack}/${finding.concern}`)) {
+      said.push(
+        `${finding.id}: names ${finding.pack}/${finding.concern}, which this run was not pointed at`,
+      );
+    }
     if (finding.severity && !SEVERITIES.includes(finding.severity)) {
       said.push(
         `${finding.id}: severity ${JSON.stringify(finding.severity)} is not one of ${SEVERITIES.join(", ")}`,
