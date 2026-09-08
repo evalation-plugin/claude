@@ -1,0 +1,110 @@
+#!/usr/bin/env node
+// evalation-run - starts a findings run, and is the only thing that can.
+//
+// It does three things and then stops, because the reading itself is not this script's job. It
+// establishes that this run may not write, asks the server for the methodology and the entries, and
+// opens both. What comes back is handed to whatever is doing the reading.
+//
+// The order is the whole of it. The write bound is answered first, before a byte of the tree is read
+// and before the server is asked for anything, because a run that turned out to hold write after it
+// had read a repository has already had the access it must not have. Then the server, which is where
+// the run is counted: serving is the count and the gate, so nothing here decides whether a run
+// happened and nothing here could decline to say so.
+//
+// It writes nothing. The findings file is written by evalation-findings once there are findings to
+// put in it, and the tree being read is never touched at all.
+"use strict";
+
+const { randomBytes } = require("node:crypto");
+const { execFileSync } = require("node:child_process");
+const { existsSync } = require("node:fs");
+const { join } = require("node:path");
+
+const here = __dirname;
+const readonly = require("./evalation-readonly");
+
+function fail(reason) {
+  process.stderr.write(reason + "\n");
+  process.exit(1);
+}
+
+function ask(path, body) {
+  try {
+    return JSON.parse(
+      execFileSync(join(here, "evalation-ask"), [path, JSON.stringify(body)], {
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "pipe"],
+      }),
+    );
+  } catch (thrown) {
+    fail(`the server refused: ${(thrown.stderr || thrown.message).toString().trim()}`);
+  }
+}
+
+function main() {
+  const where = process.argv[2] || process.cwd();
+  const wanted = process.argv.slice(3).filter((one) => one.trim() !== "");
+
+  if (!existsSync(where)) fail(`no-such-target: ${where}`);
+
+  // First, and before anything else at all.
+  const admitted = readonly.decide(where);
+  if (!admitted.admitted) {
+    fail(
+      `cannot-run-here: ${admitted.observed}.\n${admitted.required}.\n` +
+        "Nothing was read and nothing was counted.",
+    );
+  }
+
+  // What to assess against: named on the command line where somebody named some, and the recorded
+  // selection otherwise. Per run rather than per installation, because a consultant assesses one
+  // client's repository against one set of obligations and the next client's against another.
+  let packs = wanted;
+  if (packs.length === 0) {
+    try {
+      const shown = JSON.parse(
+        execFileSync(join(here, "evalation-packs"), ["show"], {
+          encoding: "utf8",
+          stdio: ["ignore", "pipe", "ignore"],
+        }),
+      );
+      packs = shown.packs ?? [];
+    } catch {
+      packs = [];
+    }
+  }
+  if (packs.length === 0) {
+    fail(
+      "nothing-selected: this run was given no packs and none are recorded.\n" +
+        "Run /ev-packs to choose what to be assessed against, or name them after the target.",
+    );
+  }
+
+  // Named here, before the server is asked, so a retry after our own transport failed is the same run
+  // rather than a second one to be charged for.
+  const run = `run-${randomBytes(6).toString("hex")}`;
+
+  const served = ask("/run", { run, packs });
+
+  // What the reading is given. The tree is named rather than its contents, because nothing about the
+  // repository has been read yet and nothing here will read it.
+  process.stdout.write(
+    JSON.stringify(
+      {
+        run,
+        at: new Date().toISOString(),
+        revision: served.revision,
+        remaining: served.remaining,
+        already: served.already === true,
+        target: admitted.target,
+        admitted: admitted.because,
+        skill: served.skill,
+        packs: served.packs,
+      },
+      null,
+      2,
+    ) + "\n",
+  );
+}
+
+main();

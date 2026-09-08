@@ -17,6 +17,15 @@
 // a plain directory explicitly and no credential is loaded at all. Refusing to guess is the whole
 // rule: an unprovable permission is never a passing one.
 //
+// **What is judged is the run, not the machine.** A token in the environment shadows a stored login,
+// so where one is set that is the credential every call this run makes will carry and the stored one
+// is unreachable from here. Judging both refused a run holding only read because of something in a
+// keyring it could never have used. Where nothing is in the environment the stored login is what the
+// run would use and it counts, which is not caution but the truth: the reading happens in this
+// session and the session holds what it holds. Bounding it further than that would mean running the
+// reading somewhere this cannot reach, and a plugin cannot scrub the environment of the agent doing
+// the reading.
+//
 // The friction is real and intended. A customer whose only credential can write cannot run findings
 // until they issue a read-only one, which is the correct trade for a product sold on not touching
 // what it inspects.
@@ -65,13 +74,27 @@ function target(where) {
   return { kind: remote ? "repository" : "directory", repository: named, head, remote, inside };
 }
 
-/** Every credential this process is actually carrying, named rather than guessed at. */
+/**
+ * The credential this run would actually use, which is not the same as what the machine holds.
+ *
+ * A token in the environment shadows a stored login: the host's own tool prefers it, so that token is
+ * what every call this run makes will carry and the stored one is not reachable from here. Reading
+ * both and refusing on either was the wrong bound, because it refused a run that genuinely held only
+ * read for something sitting in a keyring that the run could not have used.
+ *
+ * Where nothing is in the environment, the stored login is what the run would use, so it counts. That
+ * is not caution, it is the truth about this run: the reading happens in this session and the session
+ * holds what it holds.
+ */
 function carried() {
-  const held = CARRIERS.filter((one) => (process.env[one] ?? "").trim() !== "");
-  // The host's own tool counts too. A machine where `gh` is signed in holds a credential whether or
-  // not one is in the environment, and a check that only read the environment would pass it.
-  if (quietly("gh", ["auth", "token"], process.cwd())) held.push("gh auth");
-  return held;
+  const named = CARRIERS.filter((one) => (process.env[one] ?? "").trim() !== "");
+  if (named.length > 0) return { held: named, shadowing: true };
+
+  // Nothing named, so whatever the host's tool is signed in as is what the run would use.
+  if (quietly("gh", ["auth", "token"], process.cwd())) {
+    return { held: ["the signed-in gh login"], shadowing: false };
+  }
+  return { held: [], shadowing: false };
 }
 
 /**
@@ -100,7 +123,7 @@ function permitted(named) {
 /** The whole decision, as data, so the caller reports it rather than reconstructing it. */
 function decide(where) {
   const what = target(where);
-  const credentials = carried();
+  const { held: credentials, shadowing } = carried();
 
   if (what.kind === "directory") {
     if (credentials.length > 0) {
@@ -108,8 +131,8 @@ function decide(where) {
         admitted: false,
         target: what,
         observed:
-          `this is a plain directory with no host to ask about permissions, and a credential is loaded ` +
-          `(${credentials.join(", ")}), so nothing here can prove the run holds no write`,
+          `this is a plain directory with no host to ask about permissions, and this run carries ` +
+          `${credentials.join(", ")}, so nothing here can prove it holds no write`,
         required:
           "point the run at a checkout whose host can be asked, or clear the credential from this " +
           "session, since an unprovable permission is never a passing one",
@@ -137,8 +160,8 @@ function decide(where) {
       admitted: false,
       target: what,
       observed:
-        `a credential is loaded (${credentials.join(", ")}) and the host could not be asked what it may ` +
-        "do, so what this run holds is unknown",
+        `this run carries ${credentials.join(", ")} and the host could not be asked what it may do, ` +
+        "so what it holds is unknown",
       required:
         "make the host reachable so its answer can be read, or clear the credential, since an " +
         "unprovable permission is never a passing one",
@@ -156,7 +179,7 @@ function decide(where) {
     return {
       admitted: false,
       target: what,
-      observed: `the credential loaded here is granted ${writes.join(", ")}, which can write`,
+      observed: `the credential this run would use is granted ${writes.join(", ")}, which can write`,
       required:
         "run findings under an identity granted read and never more, since a token scoped for write " +
         "is dangerous even where it currently has only read",
@@ -169,7 +192,7 @@ function decide(where) {
     return {
       admitted: false,
       target: what,
-      observed: `the credential loaded here holds ${which.join(", ")} on ${what.repository}`,
+      observed: `the credential this run would use holds ${which.join(", ")} on ${what.repository}`,
       required:
         "run findings under a read-only identity, separate from the one the engine uses, since a run " +
         "that can write has already changed what it was only meant to inspect",
@@ -179,7 +202,9 @@ function decide(where) {
   return {
     admitted: true,
     target: what,
-    because: `the credential loaded holds read and no more on ${what.repository}`,
+    because:
+      `the credential this run would use holds read and no more on ${what.repository}` +
+      (shadowing ? ", and it shadows whatever else this machine is signed in as" : ""),
   };
 }
 
