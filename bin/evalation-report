@@ -1,0 +1,291 @@
+#!/usr/bin/env node
+// evalation-report - turns a findings file into something a person can read, check and send on.
+//
+// A verified findings file nobody can hand to anybody is half a product. This is the other half: one
+// self-contained page, opening in any browser, carrying every claim with the lines it rests on, so
+// the person receiving it can check the work without us and without the person who ran it.
+//
+// **Self-contained on purpose.** No script, no fetch, no font from somewhere else, nothing that stops
+// working when a network is absent or a link rots. It is a file somebody can attach to an email, put
+// in an evidence folder, and open in five years. An evidence pack that needs the internet to render
+// is an evidence pack that expires.
+//
+// **It renders and never decides.** Every status, every reason and every citation comes from the
+// findings file, which was already refused if a citation did not hold. Nothing here recomputes a
+// judgement, softens a gap or drops an entry: a renderer that could change what the report says would
+// be a second place the assessment happens.
+//
+// **The layout is here and the judgement is not**, which is what makes it safe to ship. A template
+// carries how a thing looks and nothing about how it was decided, so a customer who rebrands this
+// takes the presentation and none of the method.
+"use strict";
+
+const { existsSync, readFileSync, writeFileSync } = require("node:fs");
+const { basename, dirname, join, resolve } = require("node:path");
+
+const STATUSES = [
+  ["total-gap", "Total gap", "danger"],
+  ["partial-gap", "Partial gap", "warn"],
+  ["covered", "Covered", "ok"],
+  ["org-level", "Org-level", "orglevel"],
+  ["not-applicable", "Not applicable", "muted"],
+];
+
+function fail(reason) {
+  process.stderr.write(reason + "\n");
+  process.exit(1);
+}
+
+/** Everything from the findings file is somebody's code, so nothing reaches the page unescaped. */
+function safe(text) {
+  return String(text ?? "").replace(
+    /[&<>"']/g,
+    (one) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[one],
+  );
+}
+
+function mark() {
+  const here = join(__dirname, "..", "templates", "assets", "ev-mark.svg");
+  return existsSync(here) ? readFileSync(here, "utf8").trim() : "";
+}
+
+function styles() {
+  return `
+  :root{
+    --blue-300:#6B8FFF; --blue-500:#0F52FF; --ember-500:#F9581E;
+    --ink-950:#070C18; --ink-850:#0E1730; --ink-700:#1B2748;
+    --ink-500:#45557C; --ink-400:#6F82AB; --ink-300:#93A4C6; --ink-50:#EAF0FB;
+    --ok:#2FD07A; --warn:#FFB020; --danger:#FB3B4E; --orglevel:#6F82AB; --muted:#45557C;
+    --hair:rgba(130,160,230,0.13);
+    --font:'Hanken Grotesk',system-ui,-apple-system,'Segoe UI',sans-serif;
+    --mono:'JetBrains Mono',ui-monospace,'SF Mono',Menlo,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--ink-950);color:var(--ink-50);font-family:var(--font);
+    font-size:15px;line-height:1.55;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1040px;margin:0 auto;padding:48px 28px 96px}
+  header{display:flex;align-items:flex-start;gap:20px;padding-bottom:28px;border-bottom:1px solid var(--hair)}
+  header svg{width:56px;height:48px;flex:none}
+  .eyebrow{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-400);margin:0 0 6px}
+  h1{font-size:27px;line-height:1.2;margin:0 0 8px;font-weight:700}
+  .subtitle{color:var(--ink-300);margin:0;font-size:14px}
+  .facts{display:flex;flex-wrap:wrap;gap:10px 28px;margin:22px 0 0;padding:0;list-style:none;
+    font-size:12.5px;color:var(--ink-400)}
+  .facts b{display:block;color:var(--ink-50);font-weight:600;font-family:var(--mono);font-size:12px;
+    margin-top:2px;word-break:break-all}
+  .tally{display:flex;flex-wrap:wrap;gap:10px;margin:34px 0 8px;padding:0;list-style:none}
+  .tally li{flex:1 1 150px;border:1px solid var(--hair);border-radius:10px;padding:13px 15px;
+    background:var(--ink-850)}
+  .tally .n{font-size:26px;font-weight:700;font-family:var(--mono);line-height:1.1}
+  .tally .l{font-size:11.5px;color:var(--ink-400);margin-top:3px}
+  .bar{display:flex;height:7px;border-radius:4px;overflow:hidden;margin:20px 0 0;background:var(--ink-700)}
+  .bar span{display:block}
+  h2{font-size:16px;margin:44px 0 4px;font-weight:700;letter-spacing:-.01em}
+  h2 .of{color:var(--ink-400);font-weight:400}
+  .lead{color:var(--ink-300);font-size:13.5px;margin:0 0 18px}
+  .entry{border:1px solid var(--hair);border-radius:10px;margin:0 0 10px;background:var(--ink-850);
+    overflow:hidden;break-inside:avoid}
+  .head{display:flex;gap:12px;align-items:baseline;padding:13px 16px}
+  .id{font-family:var(--mono);font-size:12px;color:var(--blue-300);flex:none;font-weight:600}
+  .ttl{font-weight:600;flex:1;font-size:14px}
+  .pill{font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;font-weight:700;
+    padding:3px 9px;border-radius:999px;flex:none;color:var(--ink-950)}
+  .body{padding:0 16px 15px;font-size:13.5px}
+  .q{color:var(--ink-400);font-style:italic;margin:0 0 10px;font-size:13px}
+  .because{margin:0 0 10px}
+  .did{margin:10px 0 0;padding:10px 12px;border-left:2px solid var(--ember-500);
+    background:rgba(249,88,30,.06);border-radius:0 6px 6px 0}
+  .did b{display:block;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--ember-500);margin-bottom:3px}
+  .cite{margin:10px 0 0;border:1px solid var(--hair);border-radius:7px;overflow:hidden}
+  .cite .where{display:flex;justify-content:space-between;gap:12px;padding:7px 11px;
+    background:var(--ink-700);font-family:var(--mono);font-size:11.5px;color:var(--ink-300)}
+  .cite .grade{color:var(--ink-400);text-transform:uppercase;letter-spacing:.06em;font-size:10px;
+    align-self:center}
+  .cite pre{margin:0;padding:10px 11px;font-family:var(--mono);font-size:11.5px;line-height:1.5;
+    overflow-x:auto;white-space:pre-wrap;word-break:break-word;color:var(--ink-50)}
+  .tag{font-family:var(--mono);font-size:10.5px;color:var(--ink-400);margin-left:auto;flex:none}
+  footer{margin-top:56px;padding-top:20px;border-top:1px solid var(--hair);color:var(--ink-500);
+    font-size:12px}
+  footer code{font-family:var(--mono);color:var(--ink-400)}
+  @media print{
+    html,body{background:#fff;color:#111}
+    .entry,.tally li{background:#fff;border-color:#ccc}
+    .cite .where{background:#f3f4f7;color:#333}
+    .cite pre{color:#111}
+    .wrap{max-width:none;padding:0}
+    h2{page-break-after:avoid}
+  }`;
+}
+
+function tone(status) {
+  return (STATUSES.find((one) => one[0] === status) ?? [, , "muted"])[2];
+}
+
+function label(status) {
+  return (STATUSES.find((one) => one[0] === status) ?? [, status])[1];
+}
+
+function citation(one) {
+  return `<div class="cite"><div class="where"><span>${safe(one.path)}:${safe(one.from)}-${safe(
+    one.to,
+  )}</span><span class="grade">${safe(one.grade)}</span></div><pre>${safe(one.quote)}</pre></div>`;
+}
+
+function entry(answer, asked) {
+  const question = asked?.intent ? `<p class="q">${safe(asked.intent)}</p>` : "";
+  const title = asked?.title ?? answer.entry;
+  const evidence = (answer.evidence ?? []).map(citation).join("");
+  const remedy = answer.remedy ? `<div class="did"><b>What to do</b>${safe(answer.remedy)}</div>` : "";
+  const why = answer.justification
+    ? `<div class="did"><b>Why this is not the code's to answer</b>${safe(answer.justification)}</div>`
+    : "";
+  // Said on the entry rather than only in the summary, because the difference between somebody having
+  // looked and nobody having needed to is the reader's to see at the point they read the claim.
+  const how =
+    answer.from === "authored"
+      ? '<span class="tag">answered from the pack, not by reading</span>'
+      : answer.confirmed === "verified"
+        ? '<span class="tag">verified by a second reading</span>'
+        : '<span class="tag">asserted</span>';
+
+  return `<article class="entry">
+  <div class="head">
+    <span class="id">${safe(answer.entry)}</span>
+    <span class="ttl">${safe(title)}</span>
+    ${how}
+    <span class="pill" style="background:var(--${tone(answer.status)})">${safe(label(answer.status))}</span>
+  </div>
+  <div class="body">${question}<p class="because">${safe(answer.because)}</p>${evidence}${remedy}${why}</div>
+</article>`;
+}
+
+function main() {
+  const [source, into] = process.argv.slice(2);
+  if (!source) {
+    process.stderr.write("usage: evalation-report <findings.json> [out.html]\n");
+    process.exit(2);
+  }
+
+  let document;
+  try {
+    document = JSON.parse(readFileSync(source, "utf8"));
+  } catch (thrown) {
+    fail(`unreadable-findings: ${thrown.message}`);
+  }
+  if (document.schema !== "evalation.findings.v1") {
+    fail(`not-a-findings-file: ${source} says it is ${document.schema ?? "nothing"}`);
+  }
+
+  // What each entry asked, so the report carries the question beside the answer. A reader judging
+  // whether a status is right needs to know what was being asked.
+  const asked = new Map();
+  for (const pack of document.packs ?? []) {
+    for (const one of pack.entries_asked ?? []) asked.set(`${pack.pack}/${one.identifier}`, one);
+  }
+
+  const answers = [...(document.answers ?? [])];
+  const order = STATUSES.map((one) => one[0]);
+  answers.sort(
+    (a, b) =>
+      order.indexOf(a.status) - order.indexOf(b.status) ||
+      String(a.pack).localeCompare(String(b.pack)) ||
+      String(a.entry).localeCompare(String(b.entry)),
+  );
+
+  const counted = Object.fromEntries(STATUSES.map(([one]) => [one, 0]));
+  for (const one of answers) if (one.status in counted) counted[one.status] += 1;
+
+  const total = answers.length || 1;
+  const bar = STATUSES.map(
+    ([one, , colour]) =>
+      `<span style="width:${(counted[one] / total) * 100}%;background:var(--${colour})"></span>`,
+  ).join("");
+
+  const tally = STATUSES.map(
+    ([one, name, colour]) =>
+      `<li><div class="n" style="color:var(--${colour})">${counted[one]}</div><div class="l">${name}</div></li>`,
+  ).join("");
+
+  const byPack = new Map();
+  for (const one of answers) {
+    if (!byPack.has(one.pack)) byPack.set(one.pack, []);
+    byPack.get(one.pack).push(one);
+  }
+
+  const sections = [...byPack.entries()]
+    .map(([pack, held]) => {
+      const named = (document.packs ?? []).find((one) => one.pack === pack);
+      const edition = named?.version
+        ? `<span class="of">at ${safe(named.version)}${named.version_is_ours ? ", our designation" : ""}</span>`
+        : "";
+      return `<h2>${safe(pack)} ${edition}</h2>
+<p class="lead">${held.length} ${held.length === 1 ? "entry" : "entries"} assessed against this repository.</p>
+${held.map((one) => entry(one, asked.get(`${pack}/${one.entry}`))).join("\n")}`;
+    })
+    .join("\n");
+
+  const readCount = answers.filter((one) => one.from !== "authored").length;
+  const when = new Date(document.at ?? Date.now()).toISOString().slice(0, 16).replace("T", " ");
+
+  const page = `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Evalation assessment: ${safe(document.target?.repository ?? "a repository")}</title>
+<style>${styles()}</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  ${mark()}
+  <div>
+    <p class="eyebrow">Evalation assessment</p>
+    <h1>${safe(document.target?.repository ?? "Repository")}</h1>
+    <p class="subtitle">What this repository evidences against ${byPack.size} ${
+      byPack.size === 1 ? "pack" : "packs"
+    }, with the lines every claim rests on.</p>
+  </div>
+</header>
+
+<ul class="facts">
+  <li>Assessed<b>${safe(when)} UTC</b></li>
+  <li>Target<b>${safe(document.target?.repository ?? "")}${
+    document.target?.head ? ` at ${safe(String(document.target.head).slice(0, 12))}` : ""
+  }</b></li>
+  <li>Governance revision<b>${safe(document.revision ?? "")}</b></li>
+  <li>Run<b>${safe(document.run ?? "")}</b></li>
+</ul>
+
+<ul class="tally">${tally}</ul>
+<div class="bar">${bar}</div>
+
+${sections}
+
+<footer>
+  <p><b>How to check this yourself.</b> Every claim above names a file, a line range and the text it
+  rests on. Open the repository at the commit named, go to those lines, and read them. A claim whose
+  quote is not at the lines it names was refused before this page existed, so what you are reading has
+  already been checked against the tree once by something with no judgement in it.</p>
+  <p>${readCount} of ${answers.length} ${answers.length === 1 ? "entry was" : "entries were"} answered
+  by reading this repository. The rest were settled by the pack because no repository could evidence
+  them, and each says so where it appears.</p>
+  <p>Produced by Evalation from <code>${safe(basename(source))}</code>. The findings were written on
+  the machine that ran the assessment and were not sent anywhere.</p>
+</footer>
+</div>
+</body>
+</html>
+`;
+
+  const out = into
+    ? resolve(into)
+    : join(dirname(resolve(source)), basename(source).replace(/\.json$/, "") + ".html");
+  writeFileSync(out, page);
+  process.stdout.write(
+    JSON.stringify({ written: out, entries: answers.length, by_status: counted }, null, 2) + "\n",
+  );
+}
+
+main();
