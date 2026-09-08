@@ -192,6 +192,35 @@ function keep(service, account, value) {
 }
 
 /**
+ * Keeps a key only where nothing is held under that name, and refuses where something is.
+ *
+ * Every store here overwrites without a word, which is what a store is for. A private signing key is
+ * the one thing that must never be written over: we hold only its public half, so nothing can restore
+ * it, and the installation it belonged to is left activated, entitled and unable to sign. It happened
+ * on this machine. A findings installation activated under the same name the engine's held, took the
+ * slot, and the engine could not prove itself to its own server until the row was re-keyed by hand.
+ *
+ * So this reads first and refuses, and activation calls it rather than keep. Refusing costs an
+ * activation that has created nothing yet; writing costs a key nothing can get back.
+ */
+function keepUntaken(service, account, value) {
+  let there = null;
+  try {
+    there = chosen().held(service, account);
+  } catch {
+    // Nothing under that name, which is the ordinary case and the one this admits.
+  }
+  if (there !== null && there !== "" && there !== value) {
+    throw new Error(
+      `${chosen().name} already holds a key under ${service}/${account}, which belongs to an ` +
+        "installation on this machine. Writing over it would destroy the only proof that " +
+        "installation is itself, and nothing can restore it.",
+    );
+  }
+  chosen().keep(service, account, value);
+}
+
+/**
  * The key, from wherever it is, and an environment variable ahead of everything.
  *
  * Named per account so a machine nobody is sitting at can carry one key without carrying the other,
@@ -207,7 +236,7 @@ function forget(service, account) {
   chosen().forget(service, account);
 }
 
-module.exports = { keep, held, forget, referenced, chosen, file, stores };
+module.exports = { keep, keepUntaken, held, forget, referenced, chosen, file, stores };
 
 // Run directly, it says what this machine would use and proves it can be written to and read back.
 // That is what activation calls before it asks the server for anything, so a machine with nowhere to

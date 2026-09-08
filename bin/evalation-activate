@@ -84,8 +84,51 @@ function keypair(kind) {
   return { priv: priv.subarray(priv.length - 32), pub: pub.subarray(pub.length - 32) };
 }
 
-function keep(account, value) {
-  store.keep(SERVICE, account, value);
+/**
+ * Where this installation's keys are kept, named so no other installation can name the same place.
+ *
+ * A name built from the product and the kind of key is the same name for every installation on the
+ * machine, and the store overwrites, so the second activation takes the first one's private signing
+ * key. We hold only the public half, so nothing restores it: the first installation stays activated,
+ * entitled and unable to sign, and it is found later as an installation the server says it never
+ * issued. It happened here, between a findings installation and the engine's own.
+ *
+ * The settings file is already refused where one exists, and that is not enough on its own: two
+ * installations keep their settings in different files by design, so the file that would have caught
+ * this sat somewhere else entirely while the key slot was shared.
+ */
+function slot(installation, account) {
+  return `${installation}.${account}`;
+}
+
+function keep(installation, account, value) {
+  store.keepUntaken(SERVICE, slot(installation, account), value);
+}
+
+/**
+ * That the names this activation will write under are free, asked before anything is created.
+ *
+ * Only reachable where a name was asked for, since a generated one collides with nothing. Refusing
+ * here costs an activation that has created nothing; refusing after the exchange leaves an
+ * installation that exists, is billable, and holds no key.
+ */
+function untaken(installation) {
+  for (const account of ["installation-key", "receiving-key"]) {
+    let there = null;
+    try {
+      there = store.held(SERVICE, slot(installation, account));
+    } catch {
+      // Nothing there, which is what this is asking for.
+    }
+    if (there) {
+      fail(
+        `already-holds-a-key: this machine already holds ${account} for an installation named ` +
+          `${installation}. Activating it again would write over the key that proves that ` +
+          "installation is itself, and nothing can restore it. Activate under another name, or " +
+          "remove that installation's keys first if it is genuinely gone.",
+      );
+    }
+  }
 }
 
 /**
@@ -155,6 +198,10 @@ async function main() {
   // Before a browser opens or a server is asked anything, because the alternative is an installation
   // that exists and is billable on a machine that can never hold the key proving it is itself.
   const kept_in = somewhere_to_keep_it();
+
+  // Asked here rather than at the write, for the same reason: a name already holding a key is an
+  // activation to abandon now, not one to discover after the server has created something.
+  if (wanted) untaken(wanted);
 
   // Generated before anything is asked of anybody, so the private halves are ours from the start.
   const signing = keypair("ed25519");
@@ -233,8 +280,8 @@ async function main() {
 
   // Last, and only once the server has said the installation exists. Keys kept for an installation
   // that was refused would be an activation that looks done and answers nothing.
-  keep("installation-key", signing.priv.toString("base64"));
-  keep("receiving-key", receiving.priv.toString("base64"));
+  keep(done.installation, "installation-key", signing.priv.toString("base64"));
+  keep(done.installation, "receiving-key", receiving.priv.toString("base64"));
 
   // The settings name where each key is and hold neither, so this file can be read out or pasted
   // into a ticket without carrying anything worth having.
@@ -248,8 +295,8 @@ async function main() {
         secrets: {
           // Naming no platform, so one settings file reads the same on every machine and the store
           // resolves it to whatever this one actually has.
-          installation_key: `store:${SERVICE}/installation-key`,
-          receiving_key: `store:${SERVICE}/receiving-key`,
+          installation_key: `store:${SERVICE}/${slot(done.installation, "installation-key")}`,
+          receiving_key: `store:${SERVICE}/${slot(done.installation, "receiving-key")}`,
         },
       },
       null,
@@ -267,4 +314,8 @@ async function main() {
   );
 }
 
-main();
+// How the keys are named is read by a check, and requiring this file to read it must not open a
+// browser and sign somebody in. Run directly it activates; required, it only says what it would name.
+module.exports = { slot };
+
+if (require.main === module) main();

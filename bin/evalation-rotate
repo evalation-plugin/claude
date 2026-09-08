@@ -21,14 +21,43 @@
 
 const { generateKeyPairSync } = require("node:crypto");
 const { execFileSync } = require("node:child_process");
+const { readFileSync } = require("node:fs");
+const { homedir } = require("node:os");
 const { join } = require("node:path");
 
 const store = require("./evalation-store");
 
 const here = __dirname;
-const SERVICE = "evalation";
-const CURRENT = "receiving-key";
-const PREVIOUS = "receiving-key-previous";
+
+/**
+ * The names this installation's receiving keys are kept under, read from the settings rather than
+ * rebuilt here.
+ *
+ * Rebuilt from a constant they are the same names for every installation on the machine, and a
+ * rotation would then replace another installation's key with this one's. The settings already
+ * record where this installation's key is, so reading them is both correct and one fewer place that
+ * has to agree. An older installation whose settings name the shared slot keeps rotating exactly
+ * where it always did.
+ */
+function named() {
+  const settings = process.env.EVALATION_LOCAL || join(homedir(), ".evalation", "evalation.local");
+  let held;
+  try {
+    held = JSON.parse(readFileSync(settings, "utf8"));
+  } catch (thrown) {
+    fail(`no-settings: ${settings} could not be read, so there is no way to tell which installation this is (${thrown.message})`);
+  }
+  const reference = store.referenced(held?.secrets?.receiving_key);
+  if (!reference) {
+    fail(
+      `no-receiving-key: ${settings} names no receiving key, so there is nothing to rotate. ` +
+        "Activate this installation first.",
+    );
+  }
+  return { service: reference.service, current: reference.account, previous: `${reference.account}-previous` };
+}
+
+const { service: SERVICE, current: CURRENT, previous: PREVIOUS } = named();
 
 function fail(reason) {
   process.stderr.write(reason + "\n");
