@@ -66,6 +66,11 @@ changed the thing being measured. The only file written is the findings file, an
    step 2 returned rather than composing them, since those are what make the assessment resolve back
    to an exact entry set a year from now.
 
+   **Say what you are, in `read_by`.** Name the model doing this reading as it names itself, for
+   example `Claude Opus 5`. Nothing can observe it: no host puts the model in the environment, so this
+   is the one fact about the run only you can supply. A deliverable that cannot say what produced a
+   finding is worth less to whoever has to weigh it, and step 5 refuses a document without it.
+
    Every answer carries the pack, the entry, the status, and why it is that status rather than the one
    either side of it. Covered carries its evidence. Everything else carries a corrective step.
    Org-level and not applicable carry a justification.

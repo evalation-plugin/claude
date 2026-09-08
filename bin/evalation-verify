@@ -239,13 +239,16 @@ function main() {
       }
       counted[said.verdict] += 1;
       answer.confirmed = said.verdict === "CONFIRMED" ? "verified" : "asserted";
-      answer.verification = { verdict: said.verdict.toLowerCase(), why: said.why };
+      answer.verification = { verdict: said.verdict.toLowerCase(), why: said.why, by: verifier };
     });
 
     // Written as each batch lands, so what stops halfway costs one batch rather than the pass.
     keep();
   }
 
+  // Named on the document too, so a reader can see what stood behind a confirmed finding without
+  // opening one. It is deliberately a different and cheaper model from the one that did the reading.
+  document.verified_by = verifier;
   keep();
   process.stdout.write(
     JSON.stringify(

@@ -1,6 +1,6 @@
 {
   "name": "evalation-plugin",
-  "version": "0.12.0",
+  "version": "0.13.0",
   "description": "Evalation: read a repository against compliance, regulation and hardening packs, and report what it evidences. Read-only. Run /ev-start to be set up and walked through it. Findings stay on your machine, the methodology is served rather than shipped, and the installation proves itself by signing rather than by holding a secret.",
   "author": {
     "name": "Evalation",

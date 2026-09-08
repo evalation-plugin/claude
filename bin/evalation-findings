@@ -240,6 +240,17 @@ function main() {
     fail(`unreadable-answers: ${thrown.message}`);
   }
 
+  // Said once by the reading, because nothing here can observe it: no host puts the model in the
+  // environment. A deliverable that cannot say what produced a finding is worth less to whoever has
+  // to weigh it, so this is asked for rather than left to be absent.
+  if (!String(document.read_by ?? "").trim()) {
+    fail(
+      "no-model: this run does not say what read the repository.\n" +
+        "Set read_by to the model that did the reading, as it names itself. A finding nobody can " +
+        "attribute is one a reader cannot weigh.",
+    );
+  }
+
   const offences = checked(document, where);
   if (offences.length > 0) {
     fail(
@@ -258,6 +269,15 @@ function main() {
   for (const finding of document.findings ?? []) {
     if (!finding.id) finding.id = namedFinding(document, finding);
     if (!finding.confirmed) finding.confirmed = "asserted";
+    // The run's own model, written onto each finding where the finding names none. One reading
+    // answers everything it was given, so saying it once and carrying it is the ordinary case, and a
+    // finding that names its own is a finding something else produced.
+    if (!finding.model && document.read_by) finding.model = document.read_by;
+  }
+  for (const answer of document.answers ?? []) {
+    if (!answer.model && answer.from !== "authored" && document.read_by) {
+      answer.model = document.read_by;
+    }
   }
 
   // Ordered, so that two runs of the same assessment write the same file. Nothing here changes what

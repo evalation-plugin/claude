@@ -146,7 +146,7 @@ function styles() {
   }`;
 }
 
-function rows(findings) {
+function rows(findings, readBy) {
   return findings
     .map((one) => {
       const sev = severity(one.severity);
@@ -158,7 +158,11 @@ function rows(findings) {
   <td class="pr">${safe(sev.priority)}</td>
   <td class="id">${safe(one.concern || one.id || "")}</td>
   <td class="sev"><span class="dot" style="background:${sev.hex}"></span>${sev.label}</td>
-  <td>${safe(one.model || "not recorded")}</td>
+  <td>${safe(one.model || readBy || "not recorded")}${
+        one.verification?.by
+          ? `<span class="where">checked by ${safe(String(one.verification.by).split("/").pop())}</span>`
+          : ""
+      }</td>
   <td>${safe(one.observed)}${at}</td>
   <td>${safe(one.required)}</td>
   <td class="res">${safe(result(one))}</td>
@@ -225,7 +229,11 @@ function main() {
     ["Pr", "priority tier, P0 to do first through P3 for cleanup, taken from the severity."],
     ["ID", "the finding's identity, the same in every assessment of this repository."],
     ["Sev", "severity, shown with a coloured dot: Critical, High, Medium, Low, Info or Positive."],
-    ["Model", "the model that produced the finding."],
+    [
+      "Model",
+      "the model that produced the finding, as it named itself, and beneath it what checked the " +
+        "finding where a second reading did.",
+    ],
     ["Finding", "what was observed, with the file, the lines and the text it rests on."],
     ["Remediation", "what to do about it, in the code named."],
     ["Result", "Verified where a second reading confirmed it, Asserted where one reading found it and nothing else has looked, Undetermined where a second reading could not tell."],
@@ -246,7 +254,7 @@ function main() {
   </colgroup>
   <thead><tr><th>Pr</th><th>ID</th><th>Severity</th><th>Model</th><th>Finding</th><th>Remediation</th><th>Result</th></tr></thead>
   <tbody>
-${rows(held)}
+${rows(held, document.read_by)}
   </tbody>
 </table>`,
     )
