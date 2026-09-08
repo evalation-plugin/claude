@@ -90,14 +90,12 @@ and announce it afterwards.
 
    Then run `/ev-packs`, which fetches the real catalogue and records what they choose.
 
-6. **Close in two or three sentences.** What they are set up to do, and the one thing to do next.
+6. **Close in two or three sentences.** What they are set up to do, and the one thing to do next,
+   which is `/ev-run` to read a repository against what they chose.
 
    Not a status report. No numbered summary of what happened, no list of everything now true of the
    machine, and no restating of steps they just watched: they were there. The screen at the end of
    setting a product up should read like the end of a conversation rather than the output of an audit.
-
-   Where reading a repository against the packs is not in the version they hold, say that once, in a
-   sentence, without promising a date. Then stop.
 
 ## What this never does
 

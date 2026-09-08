@@ -31,9 +31,7 @@ description: Evalation seat status. Shows whether the seat is live, what is sele
    - Seat not live for any other reason: report the reason the status gave. A clock more than five
      minutes out refuses every ask on its own, so say that where the reason points at the proof.
    - Live with no packs selected: say what a pack is in one line and offer `/ev-packs`.
-   - Live with packs selected: name them, and say plainly that reading a repository against them is
-     not in this version yet, so nothing runs today. Do not imply otherwise and do not offer to do
-     it by hand.
+   - Live with packs selected: name them and say `/ev-run` reads a repository against them.
 
 ## What this never does
 
