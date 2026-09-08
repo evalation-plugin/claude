@@ -67,6 +67,21 @@ function mark() {
 }
 
 /**
+ * The model, without the vendor in front of it.
+ *
+ * A column two names wide has no room for a word that is the same on every row and tells a reader
+ * nothing: "Claude Opus 5" and "Claude Sonnet 5" differ in the part after the vendor, and that is the
+ * part worth the width.
+ *
+ * A short list rather than a pattern, because a rule that strips a leading word would turn GPT-4 into
+ * 4 and Llama 3 into 3. What is dropped is a vendor whose name is not part of the model's, and that
+ * is a fact about each vendor rather than something a shape can decide.
+ */
+function withoutVendor(name) {
+  return String(name ?? "").replace(/^(?:Claude|Anthropic)\s+/i, "").trim() || String(name ?? "");
+}
+
+/**
  * A verifier's name, from the command that ran it.
  *
  * It is configured as a command, so what arrives is a path and its arguments. A reader wants the
@@ -138,6 +153,9 @@ function styles() {
   td{padding:7px;border-bottom:1px solid var(--hair);vertical-align:top;font-size:11.5px;
     word-wrap:break-word;overflow-wrap:anywhere}
   tr{break-inside:avoid;page-break-inside:avoid}
+  /* A row past about four lines gets a line of space beneath it, so a long remediation does not run
+     into the next finding's. Short rows separate themselves and pay nothing for this. */
+  tr.tall td{padding-bottom:calc(7px + 1.3em)}
   td.pr,td.id,td.res{font-family:var(--mono);font-size:10.5px;color:var(--ink-300)}
   td.id{color:var(--blue-300)}
   .dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:5px;
@@ -166,6 +184,35 @@ function styles() {
   }`;
 }
 
+/**
+ * Roughly how many lines a cell will take, so a tall row can be given room to breathe.
+ *
+ * Estimated from the character count against the column width rather than measured, because nothing
+ * here renders the page: the layout happens in a browser or a print engine and this only writes the
+ * markup. An estimate is enough for the decision being made, which is whether two rows are about to
+ * run together, and being a line out either way changes nothing.
+ */
+function lines(text, inches) {
+  // About fifteen characters to the inch at the size this prints, which is the width the columns were
+  // sized against in the first place.
+  const perLine = Math.max(1, Math.floor(inches * 15));
+  return Math.ceil(String(text ?? "").length / perLine);
+}
+
+/**
+ * Whether a row is tall enough to need a gap after it.
+ *
+ * Short rows read as a list and separate themselves. Past about four lines the eye loses which
+ * remediation belongs to which finding, because the rule between them is a hairline and the text
+ * either side of it is the same weight. So a tall row gets a line of space beneath it, which is the
+ * cheapest thing that fixes it and costs nothing on a page of short ones.
+ */
+function tall(one, flexIn) {
+  const found = lines(one.observed, flexIn) + (one.at ? 2 + lines(one.at.quote, flexIn) : 0);
+  const fixed = lines(one.required, flexIn);
+  return Math.max(found, fixed) > 4;
+}
+
 function rows(findings, readBy) {
   return findings
     .map((one) => {
@@ -174,17 +221,17 @@ function rows(findings, readBy) {
         ? `<span class="where">${safe(one.at.path)}:${safe(one.at.from)}-${safe(one.at.to)}</span>` +
           `<span class="quote">${safe(one.at.quote)}</span>`
         : "";
-      return `<tr>
+      return `<tr${tall(one, FLEX_IN) ? ' class="tall"' : ""}>
   <td class="pr">${safe(sev.priority)}</td>
   <td class="id">${safe(one.concern || one.id || "")}</td>
   <td class="sev"><span class="dot" style="background:${sev.hex}"></span>${sev.label}</td>
   <td class="models">
     <span class="who">Identified by</span>
-    <span class="m">${safe(one.model || readBy || "not recorded")}</span>${
+    <span class="m">${safe(withoutVendor(one.model || readBy) || "not recorded")}</span>${
       one.verification?.by
         ? `
     <span class="who">Verified by</span>
-    <span class="m">${safe(shortened(one.verification.by))}</span>`
+    <span class="m">${safe(withoutVendor(shortened(one.verification.by)))}</span>`
         : ""
     }
   </td>
