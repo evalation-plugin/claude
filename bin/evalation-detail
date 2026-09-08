@@ -1,0 +1,334 @@
+#!/usr/bin/env node
+// evalation-detail - the findings detail deliverable, laid out to print.
+//
+// The board-level pack carries the score, the grade and the shape of the thing. This carries every
+// finding, and it is the document somebody actually works from: a landscape page per category, seven
+// columns, one row per finding.
+//
+// **The layout is the one that was already settled**, and it is reproduced rather than reinvented.
+// Landscape letter, a narrow margin, and column widths sized to their longest real content so the
+// width reclaimed from the fixed columns goes to Finding and Remediation, split evenly. Those are the
+// two columns anybody reads, and every inch taken by a column that never fills is an inch taken from
+// them.
+//
+//   Pr 0.30  ID 0.78  Sev 0.82  Model 0.88  Finding flex  Remediation flex  Result 1.20
+//
+// The numbers are inches and they sum to the body width exactly. Print CSS holds them rather than a
+// PDF library, so this needs nothing installed and prints to PDF from any browser.
+//
+// **The column key gets its own page.** A key that shares a page with findings is read as a finding,
+// which is why the original broke the page after it, and this does the same.
+//
+// **A category nothing assessed is said aloud.** A lens that did not run is a gap in the coverage
+// rather than a clean pass, so it appears with what happened to it rather than being dropped, which
+// would make a report that assessed less read as a report that found less.
+"use strict";
+
+const { existsSync, readFileSync, writeFileSync } = require("node:fs");
+const { basename, dirname, join, resolve } = require("node:path");
+
+// Severity, and what each is worth to the eye. Positive is a strength to keep rather than a defect,
+// so it reads green and never red.
+const SEVERITY = {
+  critical: { label: "Critical", hex: "#FB3B4E", rank: 0, priority: "P0" },
+  high: { label: "High", hex: "#F9581E", rank: 1, priority: "P1" },
+  medium: { label: "Medium", hex: "#FFB020", rank: 2, priority: "P2" },
+  low: { label: "Low", hex: "#6F82AB", rank: 3, priority: "P3" },
+  info: { label: "Info", hex: "#6F82AB", rank: 4, priority: "P3" },
+  positive: { label: "Positive", hex: "#35C46A", rank: 5, priority: "" },
+};
+
+// Inches. The fixed ones are sized to their longest real content and no wider: Pr holds two
+// characters, ID a short identity, Sev the word Critical and its dot, Model a model's name, Result
+// its longest tag. Everything left over is split between the two columns that carry prose.
+const MARGIN_IN = 0.35;
+const PAGE_IN = 11.0;
+const FIXED = { pr: 0.3, id: 0.78, sev: 0.82, model: 0.88, result: 1.2 };
+const BODY_IN = PAGE_IN - 2 * MARGIN_IN;
+const FLEX_IN =
+  (BODY_IN - Object.values(FIXED).reduce((sum, one) => sum + one, 0)) / 2;
+
+function fail(reason) {
+  process.stderr.write(reason + "\n");
+  process.exit(1);
+}
+
+function safe(text) {
+  return String(text ?? "").replace(
+    /[&<>"']/g,
+    (one) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[one],
+  );
+}
+
+function mark() {
+  const here = join(__dirname, "..", "templates", "assets", "ev-mark.svg");
+  return existsSync(here) ? readFileSync(here, "utf8").trim() : "";
+}
+
+function severity(one) {
+  return SEVERITY[String(one ?? "info").toLowerCase()] ?? SEVERITY.info;
+}
+
+/**
+ * Corroboration, in the reader's terms rather than ours.
+ *
+ * Every finding here has already had its citation checked against the file, so what varies is whether
+ * a second reading stood behind it. Said plainly, because "asserted" beside a finding is the honest
+ * statement that one reading found it and nothing else has looked.
+ */
+function result(finding) {
+  if (finding.confirmed === "verified") return "Verified";
+  if (finding.verification?.verdict === "cannot-tell") return "Undetermined";
+  return "Asserted";
+}
+
+function styles() {
+  return `
+  @page { size: letter landscape; margin: ${MARGIN_IN}in; }
+  :root{
+    --blue-300:#6B8FFF; --ember-500:#F9581E;
+    --ink-950:#070C18; --ink-850:#0E1730; --ink-700:#1B2748;
+    --ink-500:#45557C; --ink-400:#6F82AB; --ink-300:#93A4C6; --ink-50:#EAF0FB;
+    --hair:rgba(130,160,230,0.13);
+    --font:'Hanken Grotesk',system-ui,-apple-system,'Segoe UI',sans-serif;
+    --mono:'JetBrains Mono',ui-monospace,'SF Mono',Menlo,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--ink-950);color:var(--ink-50);font-family:var(--font);
+    font-size:12px;line-height:1.45;-webkit-font-smoothing:antialiased}
+  .page{width:${BODY_IN}in;margin:0 auto;padding:24px 0 40px}
+  .break{break-after:page;page-break-after:always}
+  header{display:flex;align-items:flex-start;gap:18px;padding-bottom:20px;
+    border-bottom:1px solid var(--hair);margin-bottom:22px}
+  header svg{width:48px;height:41px;flex:none}
+  .eyebrow{font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-400);margin:0 0 5px}
+  h1{font-size:23px;line-height:1.2;margin:0 0 6px;font-weight:700}
+  .subtitle{color:var(--ink-300);margin:0;font-size:12.5px}
+  h2{font-size:14px;margin:22px 0 6px;font-weight:700}
+  h2:first-of-type{margin-top:0}
+  p.muted{color:var(--ink-300);margin:0 0 8px;font-size:12px}
+  .facts{display:flex;flex-wrap:wrap;gap:8px 26px;margin:0 0 18px;padding:0;list-style:none;
+    font-size:11px;color:var(--ink-400)}
+  .facts b{display:block;color:var(--ink-50);font-family:var(--mono);font-size:11px;margin-top:2px}
+  .chip{display:inline-flex;align-items:center;gap:14px;border:1px solid var(--hair);border-radius:9px;
+    padding:11px 16px;background:var(--ink-850);margin:6px 0 4px}
+  .chip .k{font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-400)}
+  .chip .v{font-family:var(--mono);font-size:24px;font-weight:700;line-height:1}
+  .chip .v small{font-size:11px;color:var(--ink-400);font-weight:400}
+  .chip .g{font-family:var(--mono);font-size:24px;font-weight:700;line-height:1}
+  .key b{color:var(--ink-50)}
+  .key p{margin:0 0 3px;color:var(--ink-300);font-size:12px}
+  table{width:100%;border-collapse:collapse;table-layout:fixed;margin:6px 0 0}
+  th{font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-400);
+    text-align:left;padding:6px 7px;border-bottom:1px solid var(--hair);font-weight:700}
+  td{padding:7px;border-bottom:1px solid var(--hair);vertical-align:top;font-size:11.5px;
+    word-wrap:break-word;overflow-wrap:anywhere}
+  tr{break-inside:avoid;page-break-inside:avoid}
+  td.pr,td.id,td.res{font-family:var(--mono);font-size:10.5px;color:var(--ink-300)}
+  td.id{color:var(--blue-300)}
+  .dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:5px;
+    vertical-align:middle}
+  .sev{font-size:11px;white-space:nowrap}
+  .where{font-family:var(--mono);font-size:10px;color:var(--ink-400);display:block;margin-top:3px}
+  .quote{font-family:var(--mono);font-size:10px;color:var(--ink-300);display:block;margin-top:3px;
+    padding-left:7px;border-left:2px solid var(--hair);white-space:pre-wrap}
+  .none{color:var(--ink-400);font-style:italic;font-size:12px;margin:6px 0 0}
+  @media print{
+    html,body{background:#fff;color:#111;font-size:9.5pt}
+    .page{width:auto;padding:0}
+    header{border-color:#ccc}
+    .chip{background:#f6f7fa;border-color:#ccc}
+    .eyebrow,.subtitle,p.muted,.facts,.key p{color:#444}
+    th{color:#444;border-color:#bbb}
+    td{border-color:#ddd}
+    td.pr,td.id,td.res,.where,.quote{color:#333}
+    h2{page-break-after:avoid}
+  }`;
+}
+
+function rows(findings) {
+  return findings
+    .map((one) => {
+      const sev = severity(one.severity);
+      const at = one.at
+        ? `<span class="where">${safe(one.at.path)}:${safe(one.at.from)}-${safe(one.at.to)}</span>` +
+          `<span class="quote">${safe(one.at.quote)}</span>`
+        : "";
+      return `<tr>
+  <td class="pr">${safe(sev.priority)}</td>
+  <td class="id">${safe(one.concern || one.id || "")}</td>
+  <td class="sev"><span class="dot" style="background:${sev.hex}"></span>${sev.label}</td>
+  <td>${safe(one.model || "not recorded")}</td>
+  <td>${safe(one.observed)}${at}</td>
+  <td>${safe(one.required)}</td>
+  <td class="res">${safe(result(one))}</td>
+</tr>`;
+    })
+    .join("\n");
+}
+
+function main() {
+  const [source, into] = process.argv.slice(2);
+  if (!source) {
+    process.stderr.write("usage: evalation-detail <findings.json> [out.html]\n");
+    process.exit(2);
+  }
+
+  let document;
+  try {
+    document = JSON.parse(readFileSync(source, "utf8"));
+  } catch (thrown) {
+    fail(`unreadable-findings: ${thrown.message}`);
+  }
+  if (document.schema !== "evalation.findings.v1") {
+    fail(`not-a-findings-file: ${source} says it is ${document.schema ?? "nothing"}`);
+  }
+
+  // Grouped by the concern's own prefix, which is what a category is in a concern set: SEC, ARCH, DR.
+  // Sorted by severity within a category so the worst is read first, and by identity after that so two
+  // runs that found the same things order them the same way.
+  const byCategory = new Map();
+  for (const one of document.findings ?? []) {
+    const category = String(one.concern ?? "").match(/^[A-Z]+/)?.[0] ?? "Other";
+    if (!byCategory.has(category)) byCategory.set(category, []);
+    byCategory.get(category).push(one);
+  }
+  for (const held of byCategory.values()) {
+    held.sort(
+      (a, b) =>
+        severity(a.severity).rank - severity(b.severity).rank ||
+        String(a.id).localeCompare(String(b.id)),
+    );
+  }
+
+  const counted = {};
+  for (const one of document.findings ?? []) {
+    const label = severity(one.severity).label;
+    counted[label] = (counted[label] ?? 0) + 1;
+  }
+  const summary =
+    Object.entries(counted)
+      .map(([name, n]) => `${n} ${name.toLowerCase()}`)
+      .join(", ") || "no findings";
+
+  const hardness = document.hardness
+    ? `<div class="chip">
+  <div><div class="k">Deterministic hardness</div>
+  <div class="v" style="color:${
+    document.hardness.score >= 70 ? "#35C46A" : document.hardness.score >= 40 ? "#FFB020" : "#FB3B4E"
+  }">${safe(document.hardness.score)}<small>/100</small></div></div>
+  <div><div class="k">Grade</div><div class="g">${safe(document.hardness.grade)}</div></div>
+</div>`
+    : "";
+
+  const key = [
+    ["Pr", "priority tier, P0 to do first through P3 for cleanup, taken from the severity."],
+    ["ID", "the finding's identity, the same in every assessment of this repository."],
+    ["Sev", "severity, shown with a coloured dot: Critical, High, Medium, Low, Info or Positive."],
+    ["Model", "the model that produced the finding."],
+    ["Finding", "what was observed, with the file, the lines and the text it rests on."],
+    ["Remediation", "what to do about it, in the code named."],
+    ["Result", "Verified where a second reading confirmed it, Asserted where one reading found it and nothing else has looked, Undetermined where a second reading could not tell."],
+  ]
+    .map(([name, said]) => `<p><b>${name}</b>: ${safe(said)}</p>`)
+    .join("\n");
+
+  const sections = [...byCategory.entries()]
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(
+      ([category, held]) => `<h2>${safe(category)}</h2>
+<table>
+  <colgroup>
+    <col style="width:${FIXED.pr}in"><col style="width:${FIXED.id}in">
+    <col style="width:${FIXED.sev}in"><col style="width:${FIXED.model}in">
+    <col style="width:${FLEX_IN}in"><col style="width:${FLEX_IN}in">
+    <col style="width:${FIXED.result}in">
+  </colgroup>
+  <thead><tr><th>Pr</th><th>ID</th><th>Severity</th><th>Model</th><th>Finding</th><th>Remediation</th><th>Result</th></tr></thead>
+  <tbody>
+${rows(held)}
+  </tbody>
+</table>`,
+    )
+    .join("\n");
+
+  const when = new Date(document.at ?? Date.now()).toISOString().slice(0, 16).replace("T", " ");
+
+  const page = `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Evalation findings detail: ${safe(document.target?.repository ?? "a repository")}</title>
+<style>${styles()}</style>
+</head>
+<body>
+<div class="page">
+<header>
+  ${mark()}
+  <div>
+    <p class="eyebrow">Evalation findings detail</p>
+    <h1>${safe(document.target?.repository ?? "Repository")}</h1>
+    <p class="subtitle">Every finding, with what to do about it and the lines it rests on.</p>
+  </div>
+</header>
+
+<h2>The work done</h2>
+<p class="muted">This repository was read against ${
+    (document.packs ?? []).map((one) => safe(one.pack)).join(", ") || "the selected packs"
+  } at governance revision ${safe(document.revision ?? "")}. Every finding below names the file and
+lines it rests on, and every quote was checked against the file before this document existed.</p>
+
+<ul class="facts">
+  <li>Assessed<b>${safe(when)} UTC</b></li>
+  <li>Target<b>${safe(document.target?.repository ?? "")}${
+    document.target?.head ? ` at ${safe(String(document.target.head).slice(0, 12))}` : ""
+  }</b></li>
+  <li>Run<b>${safe(document.run ?? "")}</b></li>
+  <li>Findings<b>${(document.findings ?? []).length}</b></li>
+</ul>
+
+<h2>Executive summary</h2>
+<p class="muted">${safe(summary)} across ${byCategory.size} ${
+    byCategory.size === 1 ? "category" : "categories"
+  }.</p>
+${hardness}
+
+<div class="break"></div>
+
+<h2>Reading the columns</h2>
+<p class="muted">This page explains the seven columns used by every findings table that follows. It is
+a key, not a finding.</p>
+<div class="key">
+${key}
+</div>
+
+<div class="break"></div>
+
+${sections || '<p class="none">No findings were recorded for this run.</p>'}
+</div>
+</body>
+</html>
+`;
+
+  const out = into
+    ? resolve(into)
+    : join(dirname(resolve(source)), basename(source).replace(/\.json$/, "") + "-detail.html");
+  writeFileSync(out, page);
+  process.stdout.write(
+    JSON.stringify(
+      {
+        written: out,
+        findings: (document.findings ?? []).length,
+        categories: byCategory.size,
+        by_severity: counted,
+        columns_in: [FIXED.pr, FIXED.id, FIXED.sev, FIXED.model, FLEX_IN, FLEX_IN, FIXED.result],
+        body_in: BODY_IN,
+      },
+      null,
+      2,
+    ) + "\n",
+  );
+}
+
+main();
