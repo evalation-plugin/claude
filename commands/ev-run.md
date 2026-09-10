@@ -36,7 +36,13 @@ changed the thing being measured. The only file written is the findings file, an
 
 ## What to do
 
-1. **Say what is about to happen and how long it will take**, in a sentence or two. Reading a
+1. **Ask which packs to run, and wait for the answer.** Show the recorded selection first, from
+   `${CLAUDE_PLUGIN_ROOT}/bin/evalation-packs show`, as the default, and let the person confirm it,
+   narrow it or name others. A consultant assesses one client's tree against one set of obligations
+   and the next against another, so the packs are a choice per run and never assumed. The packs the
+   person names are what step 2 is given. Nothing is counted until step 2, so asking costs nothing.
+
+   Then say what is about to happen and how long it will take, in a sentence or two. Reading a
    repository against ten entries is minutes rather than seconds, and a person who was not told that
    will think it has hung.
 
@@ -46,9 +52,9 @@ changed the thing being measured. The only file written is the findings file, an
    ${CLAUDE_PLUGIN_ROOT}/bin/evalation-run <target> [pack ...]
    ```
 
-   The target is the repository to read, and the working directory where none is named. Packs default
-   to the recorded selection, and naming some overrides it for this run: a consultant assessing one
-   client's tree against one set of obligations and the next against another names them here.
+   The target is the repository to read, and the working directory where none is named. The packs
+   are the ones the person chose in step 1, named here every time, so the run is against what they
+   asked for and never against a selection they did not see.
 
    It returns the methodology, the entries to answer, what was admitted and what is left. **This is
    the moment the run is counted**, so it happens once. If the reading goes badly, that is a reading

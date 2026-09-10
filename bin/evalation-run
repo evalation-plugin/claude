@@ -18,7 +18,7 @@
 const { randomBytes } = require("node:crypto");
 const { execFileSync } = require("node:child_process");
 const { existsSync, statSync } = require("node:fs");
-const { join } = require("node:path");
+const { basename, join, resolve } = require("node:path");
 
 const here = __dirname;
 
@@ -80,6 +80,28 @@ function reading(packs) {
   }));
 }
 
+/** What a command says, or nothing where it says nothing or is not there. Never a throw. */
+function quietly(command, args, cwd) {
+  try {
+    return execFileSync(command, args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim() || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * What is being read, named for the report. A checkout with a remote is named by that remote, and
+ * a directory with none by its path, per section 1. Read from the clone's own configuration and
+ * never by asking the host: the run reaches no host.
+ */
+function target(where) {
+  const remote = quietly("git", ["remote", "get-url", "origin"], where);
+  const head = quietly("git", ["rev-parse", "HEAD"], where);
+  const inside = quietly("git", ["rev-parse", "--is-inside-work-tree"], where) === "true";
+  const named = remote ? remote.replace(/^.*[:/]{1}([^/:]+\/[^/]+?)(?:\.git)?$/, "$1") : basename(resolve(where));
+  return { kind: remote ? "repository" : "directory", repository: named, head, remote, inside };
+}
+
 function main() {
   const where = process.argv[2] || process.cwd();
   const wanted = process.argv.slice(3).filter((one) => one.trim() !== "");
@@ -137,8 +159,8 @@ function main() {
         revision: served.revision,
         remaining: served.remaining,
         already: served.already === true,
-        target: admitted.target,
-        admitted: admitted.because,
+        target: target(where),
+        admitted: "a directory on this machine, read through the fence and reaching no host",
         skill: served.skill,
         packs: served.packs,
         // How this run's findings become a score, where the packs it selected are scored at all. It
@@ -158,4 +180,6 @@ function main() {
   );
 }
 
-main();
+module.exports = { target };
+
+if (require.main === module) main();
