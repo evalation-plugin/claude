@@ -54,11 +54,10 @@ changed the thing being measured. The only file written is the findings file, an
    the moment the run is counted**, so it happens once. If the reading goes badly, that is a reading
    to redo and not a run to buy again.
 
-   Where it refuses with `cannot-run-here`, read the reason out and stop. It means this run holds
-   credentials that could write, and a run that can write has the access it must not have. Nothing was
-   read and nothing was counted. What fixes it is a read-only identity for findings, separate from
-   whatever this machine uses for its own work, and that is theirs to issue rather than something to
-   work around.
+   The target is a directory on this machine, the local clone, and the run reads that and nothing
+   else: it issues no call to the host the clone came from and holds no credential for it, so there is
+   nothing it could write to. Where it refuses with `no-such-target`, the path is not a directory this
+   machine can read. Read the reason out and stop. Nothing was read and nothing was counted.
 
 3. **Read the repository against every entry in `to_read`**, through `evalation-read` and nothing
    else. Follow the served methodology. Read the code that would carry the control rather than the

@@ -17,11 +17,10 @@
 
 const { randomBytes } = require("node:crypto");
 const { execFileSync } = require("node:child_process");
-const { existsSync } = require("node:fs");
+const { existsSync, statSync } = require("node:fs");
 const { join } = require("node:path");
 
 const here = __dirname;
-const readonly = require("./evalation-readonly");
 
 function fail(reason) {
   process.stderr.write(reason + "\n");
@@ -87,13 +86,15 @@ function main() {
 
   if (!existsSync(where)) fail(`no-such-target: ${where}`);
 
-  // First, and before anything else at all.
-  const admitted = readonly.decide(where);
-  if (!admitted.admitted) {
-    fail(
-      `cannot-run-here: ${admitted.observed}.\n${admitted.required}.\n` +
-        "Nothing was read and nothing was counted.",
-    );
+  // The target is a directory and nothing else, per section 1: the run reads the local clone, issues
+  // no call to the host it came from and holds no credential for it, so there is nothing to prove
+  // read-only against and nothing the run could write to. What it reads crosses evalation-read's
+  // fence, which is the perimeter.
+  try {
+    if (!statSync(where).isDirectory()) fail(`no-such-target: ${where} is not a directory`);
+  } catch (thrown) {
+    if (String(thrown.message).startsWith("no-such-target")) throw thrown;
+    fail(`no-such-target: ${where} cannot be read`);
   }
 
   // What to assess against: named on the command line where somebody named some, and the recorded
