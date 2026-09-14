@@ -144,16 +144,27 @@ changed the thing being measured. The only file written is the findings file, an
    than the check.** A citation that will not verify is one that was not read from the file, and the
    remedy is to open the file and read it, never to soften the claim until it passes.
 
-6. **Have a second reading confirm what it can**, where one is configured.
+6. **Ask whether they want a second reading of the findings, and wait for the answer.** Show what
+   is named first, from `${CLAUDE_PLUGIN_ROOT}/bin/evalation-verifier show`. Say in a sentence what
+   it is: a cheaper model is handed each finding and the exact lines it rests on, and says whether
+   those lines support it, so a confirmed finding reads as verified in the report and the rest stay
+   as asserted. Say that it runs on a model command of their own and is their spend, name the
+   command that would run, the one named or the default the tool prints, and say roughly what it
+   costs: one short reading per twelve findings. Offer three answers: yes with that command, yes with
+   a command of their own, or no for this run. Ask every run, since the spend is per run and never
+   assumed.
+
+   On a yes, keep the command where the next run finds it and run the reading:
 
    ```
+   ${CLAUDE_PLUGIN_ROOT}/bin/evalation-verifier set <command>
    ${CLAUDE_PLUGIN_ROOT}/bin/evalation-verify <answers.json> <target>
    ```
 
-   Optional, and it says `ran: false` where the settings name no verifier, which is the ordinary state
-   and not a fault. It moves a claim between asserted and verified and can never drop one, so nothing
-   about the assessment depends on it. If it stops part way, run it again: it picks up where it
-   stopped rather than paying for the whole pass twice.
+   On a no, run nothing and move on. Every finding stays asserted, which is what it already was. The
+   reading moves a claim between asserted and verified and can never drop one, so nothing about the
+   assessment depends on it. If it stops part way, run it again: it picks up where it stopped rather
+   than paying for the whole pass twice.
 
 7. **Score it**, for a pack that is scored.
 
