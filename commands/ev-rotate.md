@@ -25,12 +25,12 @@ and needs no reason given.
 
 3. **If it fails**, the message says so plainly and the old key is already back in place. Nothing is
    lost and nothing needs undoing: the key the server holds returns to the old one when its window
-   closes. Report the reason and stop rather than running it again on the assumption it will work
+   closes. Report the reason and stop, never running it again on the assumption it will work
    the second time.
 
 ## What it never does
 
 It sends the public half and keeps the private half, which never leaves the operating system's own
-store and never appears in this conversation. It is authenticated by the seat's signing key rather
-than by the key being replaced, which is why a lost or suspect receiving key is recoverable rather
-than the end of the installation.
+store and never appears in this conversation. It is authenticated by the seat's signing key and
+not by the key being replaced, so a lost or suspect receiving key is recoverable and never the end
+of the installation.

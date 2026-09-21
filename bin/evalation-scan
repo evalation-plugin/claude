@@ -1,0 +1,544 @@
+#!/usr/bin/env node
+// evalation-scan - the deterministic half of a hardening review.
+//
+// A reading of a repository is a judgement. Whether lodash 4.17.20 carries a known advisory is not:
+// it is a lookup, and a model answering it from memory is answering from a knowledge cutoff against
+// a database that moved this morning. So the advisories, the secrets and the static findings come
+// from tools that either ran or did not, and the reading is handed what they found and judges what
+// it means in this codebase. Deterministic facts, judged exploitability, and a reader can see which
+// is which.
+//
+// **The reading never runs this and never holds a shell.** This runs before the reading starts. The
+// reading reaches what it found through `evalation-read <target> scan`, fenced like every other
+// thing it is shown, so the one command that can start a process is not one the model holds.
+//
+// **A phase whose tool is not on the machine skips and says so.** It never falls back to guessing,
+// and the scan file records the skip with its reason, because a report that cannot tell a clean scan
+// from an absent one is worth nothing. The reading is told which phases ran, and a discipline whose
+// scanner never ran says that where it appears.
+//
+// **Read-only on the target.** Each tool is given the target as an argument and is run as argv, never
+// through a shell, so nothing derived from the tree is ever interpolated into a command line. Where
+// the target is a git repository a porcelain witness is taken before and after, and a scan that
+// changed the thing being measured fails rather than reports.
+//
+// **A secret's material never leaves the machine it was found on.** The secret phase records the
+// file, the lines and the rule that fired. Not the secret, not the line it sat on, and not a partial
+// of either: a finding that quotes the credential it found has published it into a PDF.
+//
+// **Nothing is cached.** The same lockfile carries a different answer the day an advisory lands, so
+// a cache keyed on the dependencies would serve yesterday's all-clear as today's.
+"use strict";
+
+const { execFileSync } = require("node:child_process");
+const { existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync,
+  statSync, writeFileSync } = require("node:fs");
+const { homedir, tmpdir } = require("node:os");
+const { basename, dirname, isAbsolute, join, relative, resolve } = require("node:path");
+
+const { SCANS } = require("../lib/scans.js");
+
+const HOME = process.env.EVALATION_HOME || join(homedir(), ".evalation");
+const SETTINGS = process.env.EVALATION_LOCAL || join(HOME, "evalation.local");
+
+// Worst last. A floor keeps the noise of a thousand negligible transitive advisories out of a report
+// somebody has to act on, without pretending they were not there: the count of what fell below it is
+// recorded beside what was kept.
+const LADDER = ["negligible", "low", "medium", "high", "critical"];
+
+// What runs, and what it runs with. Four phases because the questions are four: what does the
+// dependency tree carry, what is in the tree, what does the code itself do wrong, and what was
+// committed that should never have been.
+//
+// Three of them answer in findings and the bill of materials answers in an inventory, because an
+// inventory is not a list of things wrong. A phase held to findings alone would report the bill of
+// materials clean on every repository that ever had one, which is a true number and a useless one.
+// So a phase returns findings, an inventory, or both, and the reading is shown whichever it gave.
+const DEFAULTS = {
+  sca: { enabled: true, tool: "trivy" },
+  sbom: { enabled: true, tool: "syft" },
+  sast: { enabled: true, tool: "semgrep" },
+  secret: { enabled: true, tool: "gitleaks" },
+};
+
+const FLOOR = "low";
+
+// How a tool gets onto a machine that has none of them, which is every customer's machine on the
+// first run. The plugin is the only thing they installed, so a scanner it needs is a scanner it has
+// to offer to fetch: told to go and install four tools themselves, most people run the review
+// without them and never learn what it did not look at.
+//
+// Homebrew, because it is the one package manager that covers macOS and Linux and is what all four
+// of these publish through. Where it is absent this says so and the phase skips, which is the same
+// honest ending as a refusal.
+const BREW = "brew";
+
+function installer(tool) {
+  return { command: BREW, args: ["install", tool], said: `${BREW} install ${tool}` };
+}
+
+function fail(reason) {
+  process.stderr.write(`${reason}\n`);
+  process.exit(1);
+}
+
+function settings() {
+  if (!existsSync(SETTINGS)) return {};
+  try {
+    return JSON.parse(readFileSync(SETTINGS, "utf8"));
+  } catch (thrown) {
+    fail(`settings-unreadable: ${SETTINGS} is not JSON (${thrown.message})`);
+  }
+}
+
+function keep(next) {
+  mkdirSync(dirname(SETTINGS), { recursive: true });
+  const draft = `${SETTINGS}.writing`;
+  writeFileSync(draft, `${JSON.stringify(next, null, 2)}\n`);
+  renameSync(draft, SETTINGS);
+}
+
+function phases() {
+  const held = settings().scan ?? {};
+  const built = {};
+  for (const [phase, fallback] of Object.entries(DEFAULTS)) {
+    built[phase] = { ...fallback, ...(held.phases?.[phase] ?? {}) };
+  }
+  return {
+    floor: held.floor ?? FLOOR,
+    drop_transitive_below_floor: held.drop_transitive_below_floor ?? true,
+    declined: held.declined ?? [],
+    phases: built,
+  };
+}
+
+// Whether the tool is here, by walking the path rather than by asking a shell. Asking a shell to
+// answer it means building a command line out of a tool name, which is the one thing this file does
+// not do anywhere else.
+function onThisMachine(tool) {
+  if (tool.includes("/")) return existsSync(tool);
+  for (const where of (process.env.PATH ?? "").split(":")) {
+    if (!where) continue;
+    try {
+      const at = statSync(join(where, tool));
+      if (at.isFile() && (at.mode & 0o111) !== 0) return true;
+    } catch {
+      // Not in this one.
+    }
+  }
+  return false;
+}
+
+function ranked(said) {
+  const at = LADDER.indexOf(String(said ?? "").toLowerCase());
+  return at === -1 ? 0 : at;
+}
+
+// What each tool calls a grade, in ours. Static analysers speak in errors and warnings and advisory
+// databases speak in the ladder, and a word this does not know is taken as the bottom of it rather
+// than dropped, so an unrecognised grade is quiet and never absent.
+const SPOKEN = {
+  error: "high",
+  warning: "medium",
+  info: "low",
+  unknown: "negligible",
+  none: "negligible",
+};
+
+function severityOf(said) {
+  const word = String(said ?? "").toLowerCase();
+  return LADDER.includes(word) ? word : (SPOKEN[word] ?? "negligible");
+}
+
+// Where a tool says a thing is, said as the repository says it. A tool that answers in absolute
+// paths writes the person's home directory into a file that becomes a PDF, and names a path the
+// reading cannot open, since the one command it holds takes a path inside the tree.
+function within(root, path) {
+  if (!path) return path;
+  const full = isAbsolute(path) ? path : join(root, path);
+  const said = relative(root, full);
+  return said && !said.startsWith("..") ? said : path;
+}
+
+/**
+ * The adapters. Each says how to start its tool and how to read what it printed, and each returns
+ * findings in the one shape the rest of this file and the reading ever see. A tool the table does
+ * not name cannot be set, because a tool name that reached a command line from anywhere else is a
+ * command somebody else chose.
+ */
+const ADAPTERS = {
+  trivy: {
+    phase: "sca",
+    argv: (target) => ["fs", "--scanners", "vuln", "--format", "json", "--quiet", target],
+    read: (out, root) => {
+      const held = JSON.parse(out || "{}");
+      const found = [];
+      for (const result of held.Results ?? []) {
+        for (const one of result.Vulnerabilities ?? []) {
+          const version = one.InstalledVersion ?? "";
+          found.push({
+            key: `sca:${one.PkgName}@${version}:${one.VulnerabilityID}`,
+            severity: severityOf(one.Severity),
+            title: `${one.VulnerabilityID} in ${one.PkgName} ${version}`,
+            package: one.PkgName,
+            version,
+            fixed: one.FixedVersion ?? null,
+            transitive: String(one.Relationship ?? "").toLowerCase() === "indirect",
+            at: { path: within(root, result.Target) },
+            body: [one.Title, one.PrimaryURL].filter(Boolean).join(" "),
+          });
+        }
+      }
+      return found;
+    },
+  },
+
+  syft: {
+    phase: "sbom",
+    argv: (target) => ["scan", `dir:${target}`, "-o", "syft-json", "-q"],
+    // An inventory, not findings. What a reviewer answering the bill of materials needs is how much
+    // is in there, what it is written against, and how much of it declares no licence, since an
+    // undeclared licence is the one thing in a bill of materials that is somebody's problem later.
+    read: (out) => {
+      const held = JSON.parse(out || "{}");
+      const parts = held.artifacts ?? [];
+      const ecosystems = {};
+      const unlicensed = [];
+      for (const one of parts) {
+        ecosystems[one.type ?? "unknown"] = (ecosystems[one.type ?? "unknown"] ?? 0) + 1;
+        const licences = (one.licenses ?? [])
+          .map((each) => each.value || each.spdxExpression || "").filter(Boolean);
+        if (licences.length === 0) unlicensed.push(`${one.name}@${one.version ?? ""}`);
+      }
+      return {
+        findings: [],
+        inventory: {
+          components: parts.length,
+          ecosystems,
+          declaring_no_licence: unlicensed.length,
+          // Named to a bound. A tree with four hundred unlicensed components needs the number and a
+          // sample, and a report carrying all four hundred is a report nobody reads.
+          some_of_them: unlicensed.sort().slice(0, 12),
+        },
+      };
+    },
+  },
+
+  semgrep: {
+    phase: "sast",
+    // The published security rules rather than the automatic set, which asks for an account on this
+    // version and would stop the phase on a machine that has none.
+    argv: (target) => ["scan", "--config", "p/security-audit", "--json", "--quiet", "--no-git-ignore",
+      "--metrics", "off", target],
+    read: (out, root) => (JSON.parse(out || "{}").results ?? []).map((one) => {
+      const at = within(root, one.path);
+      const from = one.start?.line ?? 0;
+      return {
+        key: `sast:${one.check_id}:${at}:${from}`,
+        severity: severityOf(one.extra?.severity),
+        title: `${String(one.check_id).split(".").pop()} in ${at}`,
+        at: { path: at, from, to: one.end?.line ?? from },
+        body: String(one.extra?.message ?? "").replace(/\s+/g, " ").trim(),
+      };
+    }),
+  },
+
+  gitleaks: {
+    phase: "secret",
+    // Reported to a file because the tool writes its own progress to the terminal, and told to exit
+    // zero on a leak so that finding something is not read here as the tool having failed.
+    intoFile: true,
+    argv: (target, into, isRepository) => [
+      isRepository ? "git" : "dir", target,
+      "--report-format", "json", "--report-path", into,
+      "--redact", "--exit-code", "0", "--no-banner", "--log-level", "error",
+    ],
+    read: (out, root) => (JSON.parse(out || "[]")).map((one) => {
+      // The rule, the file and the line. Nothing from the match itself: the tool is told to redact,
+      // and this drops the redacted remains too, since a report is the wrong place to carry even the
+      // shape of a credential.
+      const at = within(root, one.File);
+      return {
+        key: `secret:${one.RuleID}:${at}:${one.StartLine}`,
+        severity: "high",
+        title: `${one.RuleID} in ${at}`,
+        at: { path: at, from: one.StartLine, to: one.EndLine ?? one.StartLine },
+        body: `${one.Description ?? one.RuleID}${one.Commit ? `, in commit ${one.Commit}` : ""}.`,
+      };
+    }),
+  },
+};
+
+/** What the tree was before and after, where git can say. A scan that moved anything is a scan that changed what it measured. */
+function witness(target) {
+  try {
+    return execFileSync("git", ["-C", target, "status", "--porcelain"],
+      { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * One phase. Returns what it found and how it went, and never both a skip and a finding: a phase
+ * that could not run has no opinion about the repository.
+ */
+function runPhase(phase, named, target, isRepository, declined) {
+  const override = process.env[`EVALATION_${phase.toUpperCase()}_CMD`];
+  const adapter = ADAPTERS[named.tool];
+
+  if (!named.enabled) return { phase, tool: named.tool, ran: false, why: "it is turned off", findings: [] };
+  if (!override) {
+    // Why it did not run, in the words a person reading the report will be given. A declined install
+    // is a decision somebody made and reads as one, which is a different thing from a tool nobody
+    // has heard of, and a report that flattens the two says less than either.
+    if (!onThisMachine(named.tool)) {
+      return {
+        phase,
+        tool: named.tool,
+        ran: false,
+        why: declined.includes(named.tool)
+          ? `${named.tool} is not on this machine and installing it was declined for this run`
+          : `${named.tool} is not on this machine`,
+        findings: [],
+      };
+    }
+    if (!adapter) {
+      return { phase, tool: named.tool, ran: false, why: `this build knows no adapter for ${named.tool}`, findings: [] };
+    }
+  }
+
+  let scratch = null;
+  try {
+    let out;
+    if (override) {
+      // The seam a test drives: the command prints findings in the shape above and this reads them
+      // as they are. Split on spaces and run as argv, so nothing reaches a shell here either.
+      const [command, ...args] = override.split(/\s+/);
+      out = execFileSync(command, [...args, target],
+        { encoding: "utf8", maxBuffer: 64 * 1024 * 1024, timeout: 600_000, stdio: ["ignore", "pipe", "ignore"] });
+      return { phase, tool: override, ran: true, findings: JSON.parse(out || "[]") };
+    }
+
+    if (adapter.intoFile) {
+      scratch = mkdtempSync(join(tmpdir(), "evalation-scan-"));
+      const into = join(scratch, "found.json");
+      execFileSync(named.tool, adapter.argv(target, into, isRepository),
+        { stdio: ["ignore", "ignore", "ignore"], timeout: 600_000 });
+      out = existsSync(into) ? readFileSync(into, "utf8") : "[]";
+    } else {
+      out = execFileSync(named.tool, adapter.argv(target, null, isRepository),
+        { encoding: "utf8", maxBuffer: 64 * 1024 * 1024, timeout: 600_000, stdio: ["ignore", "pipe", "ignore"] });
+    }
+
+    // An adapter answers with findings, with an inventory, or with both. A list on its own is the
+    // ordinary case and is read as findings.
+    const answered = adapter.read(out, target);
+    const found = (Array.isArray(answered) ? answered : answered.findings ?? [])
+      .map((one) => ({ ...one, phase, tool: named.tool }));
+    const inventory = Array.isArray(answered) ? null : answered.inventory ?? null;
+    return { phase, tool: named.tool, ran: true, findings: found, inventory };
+  } catch (thrown) {
+    // Said rather than swallowed, and with no findings, since a tool that fell over knows nothing
+    // about this repository and a phase reported clean on a crash is the worst answer available.
+    return {
+      phase,
+      tool: named.tool,
+      ran: false,
+      why: `the tool did not finish: ${String(thrown.message ?? thrown).split("\n")[0]}`,
+      findings: [],
+    };
+  } finally {
+    if (scratch) rmSync(scratch, { recursive: true, force: true });
+  }
+}
+
+function scan(target) {
+  const root = resolve(target);
+  try {
+    if (!statSync(root).isDirectory()) fail(`${target} is not a directory`);
+  } catch {
+    fail(`no-such-target: ${target} is not a directory this machine can read`);
+  }
+
+  const held = phases();
+  const isRepository = existsSync(join(root, ".git"));
+  const before = witness(root);
+
+  const ran = Object.entries(held.phases)
+    .map(([phase, named]) => runPhase(phase, named, root, isRepository, held.declined));
+
+  const after = witness(root);
+  if (before !== null && after !== null && before !== after) {
+    fail("the target changed while it was being scanned, so nothing was written. A scan that moves " +
+      "the tree has changed the thing it measured.");
+  }
+
+  const all = ran.flatMap((one) => one.findings);
+  const floor = ranked(held.floor);
+  const kept = [];
+  let below = 0;
+  for (const one of all) {
+    if (ranked(one.severity) >= floor) {
+      kept.push(one);
+      continue;
+    }
+    below += 1;
+    // Below the floor and a dependency nobody here chose. Kept where it is the repository's own, so
+    // a quiet finding in a direct dependency is still the repository's to answer.
+    if (!(held.drop_transitive_below_floor && one.transitive)) kept.push(one);
+  }
+  kept.sort((a, b) => ranked(b.severity) - ranked(a.severity) || a.key.localeCompare(b.key));
+
+  const document = {
+    schema: "evalation.scan.v1",
+    at: new Date().toISOString(),
+    target: { path: root, name: basename(root), git: isRepository },
+    floor: held.floor,
+    witnessed: before !== null,
+    phases: ran.map(({ findings, inventory, ...said }) => ({
+      ...said,
+      found: findings.length,
+      ...(inventory ? { inventory } : {}),
+    })),
+    below_floor: below,
+    findings: kept,
+  };
+
+  mkdirSync(SCANS, { recursive: true, mode: 0o700 });
+  const path = join(SCANS, `${document.at.replace(/[:.]/g, "-")}-${basename(root)}.json`);
+  writeFileSync(path, `${JSON.stringify(document, null, 2)}\n`);
+  return { path, document };
+}
+
+function show() {
+  const held = phases();
+  process.stdout.write(`${JSON.stringify({
+    floor: held.floor,
+    drop_transitive_below_floor: held.drop_transitive_below_floor,
+    declined: held.declined,
+    can_install_with: onThisMachine(BREW) ? BREW : null,
+    phases: Object.fromEntries(Object.entries(held.phases).map(([phase, named]) => [phase, {
+      ...named,
+      on_this_machine: onThisMachine(named.tool),
+      adapter: Boolean(ADAPTERS[named.tool]),
+      declined: held.declined.includes(named.tool),
+      install_with: onThisMachine(named.tool) ? null : installer(named.tool).said,
+    }])),
+    tools_this_knows: Object.keys(ADAPTERS),
+    at: SETTINGS,
+  }, null, 2)}\n`);
+}
+
+/**
+ * Fetches a tool this file knows, and nothing else. Only a name in the adapter table can reach the
+ * package manager, so a grant over this verb is a grant over four fetches rather than over the
+ * machine.
+ */
+function install(tools) {
+  if (!onThisMachine(BREW)) {
+    fail(`this build installs scanners with ${BREW}, which is not on this machine. Install the ` +
+      `tools another way, or run the review without them and it will say what it did not check.`);
+  }
+  const done = [];
+  for (const tool of tools) {
+    if (!ADAPTERS[tool]) fail(`this build knows no tool called ${JSON.stringify(tool)}.`);
+    const how = installer(tool);
+    try {
+      execFileSync(how.command, how.args, { stdio: ["ignore", "ignore", "pipe"], timeout: 900_000 });
+      done.push({ tool, installed: onThisMachine(tool) });
+    } catch (thrown) {
+      done.push({ tool, installed: false, why: String(thrown.message ?? thrown).split("\n")[0] });
+    }
+  }
+  // Anything that did not arrive is recorded as declined for the same reason a refusal is: the
+  // review is about to run without it and the report has to say so either way.
+  const stillMissing = done.filter((one) => !one.installed).map((one) => one.tool);
+  if (stillMissing.length > 0) decline(stillMissing, { quiet: true });
+  process.stdout.write(`${JSON.stringify({ installed: done }, null, 2)}\n`);
+}
+
+/** Written down, because a person who said no has made a decision and the report names it as one. */
+function decline(tools, { quiet = false } = {}) {
+  for (const tool of tools) {
+    if (!ADAPTERS[tool]) fail(`this build knows no tool called ${JSON.stringify(tool)}.`);
+  }
+  const held = settings();
+  const next = { ...held, scan: { ...(held.scan ?? {}) } };
+  next.scan.declined = [...new Set([...(held.scan?.declined ?? []), ...tools])].sort();
+  keep(next);
+  if (!quiet) show();
+}
+
+const USAGE = `usage: evalation-scan <verb>
+
+  show                     what would run, what of it is on this machine, and how to get the rest
+  install <tool ...>       fetch a scanner this build knows, with the person's yes
+  decline <tool ...>       record that a scanner was not wanted, so the report can say so
+  run <target>             scan a repository and write what the tools found
+  set <phase> <tool|off>   name the tool for a phase, or turn the phase off
+`;
+
+function main() {
+  const [verb, ...rest] = process.argv.slice(2);
+  switch (verb ?? "show") {
+    case "show":
+      show();
+      return;
+    case "install":
+      if (rest.length === 0) fail("usage: evalation-scan install <tool ...>");
+      install(rest);
+      return;
+    case "decline":
+      if (rest.length === 0) fail("usage: evalation-scan decline <tool ...>");
+      decline(rest);
+      return;
+    case "run": {
+      if (!rest[0]) fail("usage: evalation-scan run <target>");
+      const { path, document } = scan(rest[0]);
+      process.stdout.write(`${JSON.stringify({
+        written: path,
+        phases_that_ran: document.phases.filter((one) => one.ran).map((one) => one.phase),
+        phases_that_did_not: document.phases.filter((one) => !one.ran)
+          .map((one) => `${one.phase}: ${one.why}`),
+        findings: document.findings.length,
+        below_floor: document.below_floor,
+      }, null, 2)}\n`);
+      return;
+    }
+    case "set": {
+      const [phase, tool] = rest;
+      if (!phase || !tool) fail("usage: evalation-scan set <phase> <tool|off>");
+      if (!DEFAULTS[phase]) fail(`no phase ${JSON.stringify(phase)}. The phases are ${Object.keys(DEFAULTS).join(", ")}.`);
+      // Only a tool this file knows how to start and how to read. A name from anywhere else is a
+      // command somebody would be running without having chosen it.
+      if (tool !== "off" && !ADAPTERS[tool]) {
+        fail(`no adapter for ${JSON.stringify(tool)}. This knows ${Object.keys(ADAPTERS).join(", ")}.`);
+      }
+      // And only a tool that answers this phase's question. A secret scanner pointed at the
+      // dependency phase runs, finds nothing, and reports the dependencies clean, which is the one
+      // wrong answer a scan can give that nobody sees.
+      if (tool !== "off" && ADAPTERS[tool].phase !== phase) {
+        const fits = Object.entries(ADAPTERS)
+          .filter(([, one]) => one.phase === phase).map(([name]) => name);
+        fail(`${tool} answers the ${ADAPTERS[tool].phase} phase, not ${phase}. ` +
+          (fits.length ? `For ${phase} this knows ${fits.join(", ")}.` : `This knows no tool for ${phase}.`));
+      }
+      const held = settings();
+      const next = { ...held, scan: { ...(held.scan ?? {}), phases: { ...(held.scan?.phases ?? {}) } } };
+      next.scan.phases[phase] = tool === "off"
+        ? { ...DEFAULTS[phase], enabled: false }
+        : { enabled: true, tool };
+      keep(next);
+      show();
+      return;
+    }
+    default:
+      process.stderr.write(USAGE);
+      process.exit(2);
+  }
+}
+
+module.exports = { scan };
+
+if (require.main === module) main();

@@ -15,7 +15,7 @@ that could impersonate them ever leaves it.
 ## What to do
 
 1. **Ask which provider.** Google and Microsoft are the two. Ask even where one was named earlier in
-   this conversation: an attempt that already failed is a reason to ask again rather than a reason to
+   this conversation: an attempt that already failed is a reason to ask again and never a reason to
    assume, because the provider is the most likely thing to have been wrong. Where one has already
    failed, say which and what it said, and offer the other first.
 
@@ -34,8 +34,8 @@ that could impersonate them ever leaves it.
 
    **Tell them to watch the browser and speak up.** Whatever the provider does happens in a browser
    this command cannot see, so a refusal there never reaches it and the wait runs its full length with
-   nothing to report. Say plainly: if the browser shows an error rather than a sign-in page, stop this
-   and say what it said. Then act on what they tell you rather than waiting the clock out.
+   nothing to report. Say plainly: if the browser shows an error and not a sign-in page, stop this
+   and say what it said. Then act on what they tell you, never waiting the clock out.
 
 3. **Read what it printed and say it in their words.** On success it names the installation it
    created and the account it signed in as. Tell them this machine is now set up, and that a second
@@ -46,7 +46,7 @@ that could impersonate them ever leaves it.
 
 ## When it does not work
 
-Read the reason it printed rather than guessing, and tell the person the one thing that would change
+Read the reason it printed, never guess, and tell the person the one thing that would change
 it.
 
 - **`could not open a browser`** is not a failure. It prints the address instead. Give them the
@@ -55,9 +55,9 @@ it.
   created. Ask whether they meant to, and offer to run it again.
 - **`already-activated`** means this machine is set up already. Do not remove anything to get past
   it: run `/ev-account` and tell them where the seat stands. A second installation on one machine is
-  a second thing to be billed for, which is why it refuses rather than replacing.
+  a second thing to be billed for, so it refuses and never replaces.
 - **`the provider would not exchange the code`** carries the provider's own words after it. If those
-  words name a redirect or a reply URL, the fault is our registration rather than anything they did:
+  words name a redirect or a reply URL, the fault is our registration and not anything they did:
   say so, say it needs us, and stop. Do not have them try again, because that will fail the same way.
 - **`unreachable`** is our server or their network. Say which it looks like and stop.
 - **`wrong-sign-in`** means what came back was not the sign-in that went out. Nothing was created.

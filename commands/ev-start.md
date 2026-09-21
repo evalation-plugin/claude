@@ -19,7 +19,7 @@ The same goes for the reasoning in this file. What is written here is why you ac
 repeat. If a sentence below explains a decision, that explanation is for you.
 
 **Never mention a thing that is not there.** No settings, no packs, no keys, no previous run. Absence
-is the starting point rather than a finding, and a product that lists what it has not got yet sounds
+is the starting point and not a finding, and a product that lists what it has not got yet sounds
 like it is apologising.
 
 **Say each thing once, in plain English, before you do it.** A person who does not know what is about
@@ -41,7 +41,7 @@ and announce it afterwards.
    ${CLAUDE_PLUGIN_ROOT}/bin/evalation-status
    ```
 
-   It always succeeds and names a state on its first line. Read that line rather than the prose under
+   It always succeeds and names a state on its first line. Read that line and not the prose under
    it, which may be reworded, and report none of these as an error:
 
    - **`state: not-set-up`**: go to step 3 without saying anything about it.
@@ -57,11 +57,11 @@ and announce it afterwards.
    Tell them first, in about this much detail and in your own words: Evalation needs to know whose
    account to bill, so they sign in with Google or Microsoft in their own browser. No password comes
    near us. Their machine makes two keys and keeps both private halves, so from then on it proves
-   itself by signing rather than by holding anything worth stealing.
+   itself by signing and never by holding anything worth stealing.
 
    **Ask which provider they want every single time, and never carry one forward.** Offer Google and
    Microsoft as a question, even where they named one earlier in this conversation. An attempt that
-   failed is the strongest reason to ask again rather than the weakest: the provider is the thing most
+   failed is the strongest reason to ask again and not the weakest: the provider is the thing most
    likely to have been what was wrong, and answering it for them from a previous turn sends them
    straight back into the failure they just came out of. Where an attempt has already failed, say
    which provider it was and what it said, and offer the other one first.
@@ -95,7 +95,7 @@ and announce it afterwards.
 
    Not a status report. No numbered summary of what happened, no list of everything now true of the
    machine, and no restating of steps they just watched: they were there. The screen at the end of
-   setting a product up should read like the end of a conversation rather than the output of an audit.
+   setting a product up should read like the end of a conversation and not the output of an audit.
 
 ## What this never does
 

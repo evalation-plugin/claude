@@ -89,7 +89,7 @@
                 "model": {"type": "string"},
                 "finding": {"type": "string"},
                 "remediation": {"type": "string"},
-                "result": {"type": "string", "description": "Scanner-verified | Cross-validated | Agent-asserted"},
+                "result": {"type": "string", "description": "scanned | verified | asserted, as evalation-findings and evalation-verify record it on the finding"},
                 "location": {"type": "string", "description": "path:line - the finding's stable locator, carried through consolidation for the auto-filer's dedup key (#2089)"}
               }
             }

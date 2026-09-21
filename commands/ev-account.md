@@ -6,7 +6,7 @@ description: Evalation seat status. Shows whether the seat is live, what is sele
 
 ## What to do
 
-1. **Ask the server rather than inferring it.**
+1. **Ask the server, never infer it.**
 
    ```
    ${CLAUDE_PLUGIN_ROOT}/bin/evalation-status
@@ -26,7 +26,7 @@ description: Evalation seat status. Shows whether the seat is live, what is sele
 3. **Say what is next, in one line.**
 
    - `state: not-set-up`: say one line, that this machine is not set up yet and `/ev-start` does it.
-     Nothing more. It is the normal path rather than a fault, and explaining that nothing is wrong is
+     Nothing more. It is the normal path and not a fault, and explaining that nothing is wrong is
      what makes a person think something is.
    - Seat not live for any other reason: report the reason the status gave. A clock more than five
      minutes out refuses every ask on its own, so say that where the reason points at the proof.

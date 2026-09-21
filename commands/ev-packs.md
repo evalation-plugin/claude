@@ -19,7 +19,7 @@ founder claims of it. Any number may be selected, and selecting several is the o
 
 2. **Ask before changing it.** If a selection already stands, ask whether to keep it or choose
    again, and stop there if they keep it. A selection silently replaced is one nobody agreed to, and
-   what was assessed against is evidence rather than a preference.
+   what was assessed against is evidence and not a preference.
 
 3. **Fetch the catalogue.**
 
@@ -32,7 +32,7 @@ founder claims of it. Any number may be selected, and selecting several is the o
    never offer a pack the fetch did not return.
 
 4. **Ask which packs they want**, using this host's own question interface where it has one, offering
-   exactly what the catalogue returned. Say what each pack is in one line, in their words rather than
+   exactly what the catalogue returned. Say what each pack is in one line, in their words and not
    ours, so somebody choosing between SOC 2 and ISO 27001 can tell which they need.
 
 5. **Record it.**

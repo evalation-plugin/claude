@@ -63,11 +63,25 @@ const SEVERITIES = {
   positive: { sev: "Positive", pr: "" },
 };
 
-// The order every deliverable reads in: the review's own sequence, security first, rather than
+// Which disciplines a scanner phase answers for. A discipline whose phase never ran was read by a
+// person and by nothing else, and the report says that where the discipline appears: a section
+// headed zero findings reads as a clean bill, and a clean bill nobody checked is the one claim this
+// product cannot afford to make by accident.
+const ANSWERED_BY = {
+  sca: ["CVE", "PRIV"],
+  sbom: ["CVE", "PRIV"],
+  sast: ["SEC", "XSEC", "QUAL"],
+  secret: ["SEC", "XSEC"],
+};
+
+// The order every deliverable reads in: the review's own sequence, security first, and not
 // alphabetical. It is declared once, here, because the score bars, the discipline manifest and the
 // findings detail all have to run in one order or a reader comparing two pages is comparing two
 // different sequences of the same eighteen things.
 const ORDER = Object.keys(DISCIPLINES);
+
+// Severity worst first, which breaks a tie inside a priority tier.
+const RANK = ["Critical", "High", "Medium", "Low", "Info", "Positive"];
 
 function disciplineOf(concern) {
   return String(concern ?? "").match(/^[A-Z]+/)?.[0] ?? "Other";
@@ -90,18 +104,24 @@ function withoutVendor(model) {
   return String(model ?? "").replace(/^Claude\s+/i, "").trim();
 }
 
-// Whether a second reading stood behind it. The builders print this verbatim, so the three words they
-// know are the three words used here.
+// How far a second reading stood behind it. These are the run's own words: evalation-findings writes
+// every finding asserted, evalation-verify moves one to verified where the reading checked the cited
+// lines and confirmed the claim, and a finding brought in from a deterministic run was scanned. The
+// builders print this verbatim, so a word invented here would be a word nothing else in the run uses.
 function corroboration(finding, ingested) {
-  if (ingested.has(finding.id)) return "Scanner-verified";
-  return finding.confirmed === "verified" ? "Cross-validated" : "Agent-asserted";
+  if (ingested.has(finding.id)) return "scanned";
+  return finding.confirmed === "verified" ? "verified" : "asserted";
 }
 
+// Where the finding rests, to the line. A run cites a range, and a reader handed the file alone has
+// to search a thousand lines for the thing the finding is about.
 function cited(at) {
   if (!at) return "";
   if (typeof at === "string") return at;
   const path = at.path ?? at.file ?? "";
-  return at.line ? `${path}:${at.line}` : path;
+  const from = at.from ?? at.line;
+  if (!from) return path;
+  return at.to && at.to !== from ? `${path}:${from}-${at.to}` : `${path}:${from}`;
 }
 
 function reviewFindings(document) {
@@ -129,40 +149,57 @@ function reviewFindings(document) {
 
   const categories = [];
   for (const [prefix, findings] of [...held.entries()].sort((a, b) => inOrder(a[0], b[0]))) {
-    // Numbered over the stable ids, so a display id is a function of what was found rather than of
-    // the order a model happened to write things down in.
-    const sorted = [...findings].sort((a, b) => String(a.id).localeCompare(String(b.id)));
-    const rows = sorted.map((one, at) => {
-      const known = SEVERITIES[String(one.severity ?? "medium").toLowerCase()] ?? SEVERITIES.medium;
-      return {
-        pr: known.pr,
-        id: `${prefix}-${String(at + 1).padStart(2, "0")}`,
-        sev: known.sev,
-        model: withoutVendor(one.model) || readBy,
-        finding: one.observed,
-        remediation: one.required,
-        result: corroboration(one, ingested),
-        location: cited(one.at),
-      };
-    });
+    // Numbered in the order they print, which is the work order: priority first, severity breaking a
+    // tie inside a tier and the stable id breaking that. Numbered over the stable id instead, the
+    // ids run 04, 02, 06 down the page and a reader looking for SEC-03 has to scan for it. The
+    // numbering stays a function of what was found, since priority comes from severity alone.
+    const graded = findings.map((one) => ({
+      one,
+      known: SEVERITIES[String(one.severity ?? "medium").toLowerCase()] ?? SEVERITIES.medium,
+    }));
+    graded.sort((a, b) => String(a.known.pr || "P9").localeCompare(String(b.known.pr || "P9"))
+      || RANK.indexOf(a.known.sev) - RANK.indexOf(b.known.sev)
+      || String(a.one.id).localeCompare(String(b.one.id)));
+
+    const rows = graded.map(({ one, known }, at) => ({
+      pr: known.pr,
+      id: `${prefix}-${String(at + 1).padStart(2, "0")}`,
+      sev: known.sev,
+      model: withoutVendor(one.model) || readBy,
+      finding: one.observed,
+      remediation: one.required,
+      result: corroboration(one, ingested),
+      location: cited(one.at),
+    }));
 
     const read = (document.accounted ?? []).filter((row) => disciplineOf(row.concern) === prefix);
 
-    // What the discipline actually looked for, named. The heading above already carries the counts,
-    // so repeating them here says nothing: what a reader needs is what was on the list, which is also
-    // what lets them judge whether a clean section means anything.
+    // What the discipline actually looked for, named. The heading above already carries the finding
+    // counts, so repeating them here says nothing, and a reader judging whether a clean discipline
+    // means anything needs the list and not its length.
+    //
+    // **No deliverable says how many concerns a pack holds.** The size of a pack is ours, a bare
+    // count is all a reader would take from "3 concerns read", and a pack that grows would read as
+    // a different product rather than a deeper one. So the count is never printed, and where the
+    // run recorded no titles the discipline carries no line at all.
     const looked = read
       .map((row) => titles.get(row.concern))
       .filter(Boolean)
       .map((one) => one.charAt(0).toLowerCase() + one.slice(1));
 
+    // What no tool looked at here. Named per discipline, because a reader turning to Dependency
+    // CVE/SBOM and finding nothing has to know whether that is a clean tree or an absent scanner.
+    const unchecked = (document.scan?.phases ?? [])
+      .filter((one) => !one.ran && (ANSWERED_BY[one.phase] ?? []).includes(prefix))
+      .map((one) => ({ phase: one.phase, why: one.why }));
+
     categories.push({
       name: DISCIPLINES[prefix] ?? prefix,
       count: rows.length,
       blurb: looked.length
-        ? `Read for ${looked.slice(0, 4).join(", ")}` +
-          `${looked.length > 4 ? `, and ${looked.length - 4} more` : ""}.`
-        : (read.length ? `${read.length} concern${read.length === 1 ? "" : "s"} read.` : ""),
+        ? `Read for ${looked.slice(0, 4).join(", ")}${looked.length > 4 ? ", among others" : ""}.`
+        : "",
+      unchecked,
       findings: rows,
     });
   }
@@ -173,9 +210,8 @@ function reviewFindings(document) {
     .filter(Boolean))].sort();
 
   const built = {
-    eyebrow: `EVALATION · ${repository.toUpperCase()} · FINDINGS DETAIL`,
-    title: "Platform hardening review",
-    subtitle: `Detailed findings by discipline · ${repository}`,
+    title: "Evalation Hardening Review",
+    subtitle: `Detailed findings by discipline · Repo: ${repository}`,
     tenant: repository,
     generated_at: String(document.at ?? "").slice(0, 10).replace(/-/g, ""),
     meta: {
@@ -183,22 +219,21 @@ function reviewFindings(document) {
       // it: how much was read, how it was read, what a row carries, how the rows are ordered, and
       // what the assessment did not do.
       intro: [
-        `The repository was read against ${(document.accounted ?? []).length} concerns across ` +
-        `${categories.length} independent disciplines, which produced ` +
-        `${(document.findings ?? []).length} findings.`,
+        `The repository was read across ${categories.length} independent disciplines, which ` +
+        `produced ${(document.findings ?? []).length} findings.`,
 
         "Each discipline was read on its own and answered on its own, so no discipline's result " +
         "rests on another's, and a discipline that found nothing still has a section here: read and " +
         "clean is a different claim from not read, and a report that dropped the section would make " +
         "them look the same.",
 
-        "Every row carries a priority tier, the model that produced it, what was found, what closes " +
-        "it, and how far a second reading stood behind it. Rows are grouped by discipline and " +
-        "ordered by priority within it, so reading down a section is reading the work in the order " +
-        "it should be done.",
+        "Every finding is a section of its own carrying a priority tier, the model that produced " +
+        "it, what was found, the file it rests on, how far a second reading stood behind it, and " +
+        "what closes it. Findings are grouped by discipline and ordered by priority within it, so " +
+        "reading down a discipline is reading the work in the order it should be done.",
 
         "Nothing was executed and nothing was changed. Every finding cites the file and lines it " +
-        "rests on, so any row can be checked against the code directly, and the same repository " +
+        "rests on, so any finding can be checked against the code directly, and the same repository " +
         "read again at the same governance revision returns the same findings.",
       ].join(" "),
       finding_count: (document.findings ?? []).length,
@@ -207,11 +242,13 @@ function reviewFindings(document) {
     legend: {
       priority: "P0 do first · P1 near-term · P2 should-fix · P3 cleanup / low.",
       result:
-        "Scanner-verified from a scanner · Cross-validated confirmed by a second reading · " +
-        "Agent-asserted single source.",
+        "Scanned by a deterministic run · verified where a second reading confirmed the cited " +
+        "lines · asserted where nothing confirmed it.",
     },
     categories,
   };
+
+  if (document.scan) built.scan = document.scan;
 
   if (document.hardness) {
     built.hardness = { score: document.hardness.score, grade: document.hardness.grade };

@@ -24,6 +24,9 @@ const { existsSync, mkdirSync, readFileSync, writeFileSync } = require("node:fs"
 const { join, resolve, relative, isAbsolute } = require("node:path");
 const { homedir } = require("node:os");
 
+const { newestFor } = require("../lib/scans.js");
+const { facing, held } = require("../lib/prose.js");
+
 const STATUSES = ["covered", "partial-gap", "total-gap", "org-level", "not-applicable"];
 const EXEMPT = ["org-level", "not-applicable"];
 const GRADES = ["executable", "configuration", "assertion"];
@@ -32,6 +35,14 @@ const GRADES = ["executable", "configuration", "assertion"];
 // counts against anything, which is why it sits in the same list rather than in a flag beside it.
 const SEVERITIES = ["critical", "high", "medium", "low", "info", "positive"];
 const STANDS_ALONE = ["executable", "configuration"];
+
+// A positive finding says a control is working. Its remedy field is printed under "What to keep",
+// and an order opening it is read as an order: "Keep the second guard" tells a reader to keep one
+// thing and leaves them working out what happens to the first. The control is not a list of parts
+// to choose between, so the field says what the control is and what would break it, in the
+// indicative. The label already carries the instruction.
+const ORDERS = ["keep", "leave", "retain", "preserve", "maintain", "continue", "don't", "do",
+  "avoid", "ensure", "make", "consider", "carry"];
 
 const HOME = process.env.EVALATION_HOME || join(homedir(), ".evalation");
 
@@ -211,22 +222,70 @@ function checked(document, where) {
   }
 
   for (const finding of document.findings ?? []) {
-    if (!String(finding.observed ?? "").trim()) said.push(`${finding.id}: a finding saying nothing observed`);
+    if (!String(finding.observed ?? "").trim()) said.push(`${nameOf(finding)}: a finding saying nothing observed`);
     if (finding.concern && concerns.size > 0 && !concerns.has(`${finding.pack}/${finding.concern}`)) {
       said.push(
-        `${finding.id}: names ${finding.pack}/${finding.concern}, which this run was not pointed at`,
+        `${nameOf(finding)}: names ${finding.pack}/${finding.concern}, which this run was not pointed at`,
       );
     }
     if (finding.severity && !SEVERITIES.includes(finding.severity)) {
       said.push(
-        `${finding.id}: severity ${JSON.stringify(finding.severity)} is not one of ${SEVERITIES.join(", ")}`,
+        `${nameOf(finding)}: severity ${JSON.stringify(finding.severity)} is not one of ${SEVERITIES.join(", ")}`,
       );
     }
-    if (!String(finding.required ?? "").trim()) said.push(`${finding.id}: a finding with no remedy fails closed`);
+    if (!String(finding.required ?? "").trim()) said.push(`${nameOf(finding)}: a finding with no remedy fails closed`);
+
+    if (finding.severity === "positive") {
+      const opens = String(finding.required ?? "").trim().toLowerCase().split(/[^a-z']+/)[0] ?? "";
+      if (ORDERS.includes(opens)) {
+        said.push(
+          `${nameOf(finding)}: this is a positive finding, and what it says to keep opens on an order ` +
+          `(${JSON.stringify(opens)}). Say what the control is and what would break it, in the ` +
+          "indicative. An order naming one part of a control reads as a decision about the rest: " +
+          '"Keep the second guard" leaves a reader working out what happens to the first.',
+        );
+      }
+    }
+
     if (finding.at) cited(where, finding.at, said);
   }
 
+  // Every word a customer reads, against the part of the writing standard a machine can decide.
+  // The rest of it is judgement and sits in the instruction, but a rule nothing enforces holds only
+  // until it is inconvenient, and these five cost a regular expression each.
+  for (const field of facing(document)) {
+    for (const rule of held(field.text)) {
+      said.push(`${field.at}: ${rule}. This is read by somebody deciding what to do about it, so ` +
+        `it holds to the writing standard: ${JSON.stringify(field.text.trim().slice(0, 90))}`);
+    }
+  }
+
+  // A finding saying a tool found it names a key the scan of this target actually holds. The report
+  // prints that as "scanned", which is the strongest provenance it can claim, so it is the one most
+  // worth making up and the cheapest to check.
+  const claimed = (document.findings ?? []).filter((one) => one.scanned);
+  if (claimed.length > 0) {
+    const held = newestFor(where);
+    const keys = new Set((held?.document.findings ?? []).map((one) => one.key));
+    for (const one of claimed) {
+      if (keys.has(one.scanned)) continue;
+      said.push(`${one.id ?? one.concern}: says a tool found it, naming ${JSON.stringify(one.scanned)}, ` +
+        (held
+          ? "which no finding in the newest scan of this target carries"
+          : "and no scan has been run over this target"));
+    }
+  }
+
   return said;
+}
+
+/**
+ * What to call a finding in a refusal. Its identity is composed after the checks pass, so at this
+ * point most findings have none, and every message naming one said "undefined". What a person needs
+ * to find it in their own answers file is the concern it answers.
+ */
+function nameOf(finding) {
+  return finding.id ?? `${finding.pack ?? "?"}/${finding.concern ?? "?"}`;
 }
 
 function digested(prefix, parts) {
@@ -320,6 +379,27 @@ function main() {
     if (!answer.model && answer.from !== "authored" && document.read_by) {
       answer.model = document.read_by;
     }
+  }
+
+  // Which findings a tool found rather than a reading. The reading names the scan's own key on the
+  // finding and this lists the ids once on the document, which is where a deliverable reads
+  // provenance from. A finding with no key is a reading's, which is every finding on a run where no
+  // scanner was available.
+  const scanned = (document.findings ?? [])
+    .filter((one) => one.scanned)
+    .map((one) => ({ id: one.id, scanned: one.scanned }));
+  if (scanned.length > 0) document.ingested = scanned;
+
+  // What the tools were asked to do and what of it happened, copied onto the findings file rather
+  // than left in the scan. A deliverable built from this file a month from now still has to be able
+  // to say which disciplines no tool ever looked at.
+  const scan = newestFor(where);
+  if (scan) {
+    document.scan = {
+      at: scan.document.at,
+      floor: scan.document.floor,
+      phases: scan.document.phases,
+    };
   }
 
   // Ordered, so that two runs of the same assessment write the same file. Nothing here changes what

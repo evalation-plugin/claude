@@ -25,6 +25,8 @@ const { randomBytes } = require("node:crypto");
 const { readdirSync, readFileSync, statSync } = require("node:fs");
 const { extname, join, relative, resolve, sep } = require("node:path");
 
+const { newestFor, said } = require("../lib/scans.js");
+
 // What a whole read may run to before the range has to be named. A file past this is answered with
 // its shape and the ranges to ask for, because a reading that takes the whole file to find one
 // definition pays for every line it did not need.
@@ -339,6 +341,34 @@ function paged(held, what) {
   );
 }
 
+/**
+ * What the scanners found, where one was run over this target before the reading started. It comes
+ * through the fence like everything else: a tool's output is a statement about somebody's code and
+ * a rule name or a package description can be written to steer whoever reads it.
+ *
+ * A scan nobody ran is said plainly. A reading told nothing would take silence for a clean tree,
+ * and those are opposite claims.
+ */
+function scan(root) {
+  const held = newestFor(root);
+  if (held === null) {
+    return plain(
+      "No scan has been run over this repository, so nothing here was found by a tool. Answer the " +
+      "dependency and secret concerns from what the tree itself says, and say in the finding that " +
+      "no scanner ran.",
+    );
+  }
+  return [
+    fenced(`what the scanners found, ${held.document.at.slice(0, 10)}`, said(held.document)),
+    "",
+    "A phase that did not run has found nothing and proves nothing, so say that where its concern is",
+    "answered rather than reporting the repository clean. For each finding above worth reporting,",
+    "open the file it names, decide what it means in this codebase and whether it is reachable here,",
+    "and write your own finding with its own citation. Put the key above in that finding's `scanned`",
+    "field, so the report can say a tool found it rather than a reading.",
+  ].join("\n");
+}
+
 const USAGE = `usage: evalation-read <target> <verb> [...]
 
   map                          what the tree holds, before any of it is read
@@ -346,6 +376,7 @@ const USAGE = `usage: evalation-read <target> <verb> [...]
   search <pattern> [glob]      lines matching a pattern, with where they are
   outline <path>               what one file defines, and at which line
   read <path> [from] [to]      a range of one file, or the whole of a short one
+  scan                         what the scanners found, where one was run
 `;
 
 function main() {
@@ -367,6 +398,7 @@ function main() {
     search: () => search(root, rest[0], rest[1]),
     outline: () => outline(root, rest[0]),
     read: () => read(root, rest[0], rest[1], rest[2]),
+    scan: () => scan(root),
   };
 
   const answer = answers[verb];
