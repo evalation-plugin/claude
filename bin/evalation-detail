@@ -24,42 +24,30 @@
 "use strict";
 
 const { readFileSync } = require("node:fs");
-const { join, resolve } = require("node:path");
+const { resolve } = require("node:path");
 
 const { print } = require("../lib/print.js");
 const { named } = require("../lib/scans.js");
+const { CHROME, css, escaped, paginator } = require("../lib/sheet.js");
 
-const ASSETS = resolve(__dirname, "..", "reporting", "assets");
+// Severity is this report's own: the evidence pack owns coverage colours and this owns severity,
+// and neither writes into the other. The page itself is the shared one.
 
-// The house chrome, as the shared source holds it. Severity is this report's own: the evidence pack
-// owns coverage colours and this owns severity, and neither writes into the other.
-const CHROME = {
-  page: "#070C18",
-  panel: "#0E1730",
-  // A finding's own card, and its edge. Both are deliberately well clear of the page: the panel the
-  // rest of the house uses sits one step off it, which is enough for a single box on a page and not
-  // enough for twenty down one.
-  card: "#141E3C",
-  edge: "rgba(130,160,230,0.32)",
-  // Inside a card, set below it. A bar lighter than the card it sits in reads as another card.
-  inset: "#0B1226",
-  rule: "#1B2748",
-  hairline: "rgba(130,160,230,0.13)",
-  ember: "#F9581E",
-  blue: "#6B8FFF",
-  text: "#E6ECF7",
-  muted: "#9DAAC6",
-  faint: "#6F82AB",
-};
-
+// Red through amber is the risk ladder. Low and Info leave it: they are things worth knowing and
+// not things on fire, so they take the house blue the ids carry and the ladder stops at medium.
+// A count of none is grey wherever it appears, so colour on the page marks what is there.
 const SEVERITY = {
   Critical: "#FB3B4E",
   High: "#F9581E",
   Medium: "#FFB020",
-  Low: "#6F82AB",
-  Info: "#6F82AB",
+  Low: CHROME.blue,
+  Info: CHROME.blue,
   Positive: "#35C46A",
 };
+
+function severityColour(sev, count) {
+  return count === 0 ? CHROME.faint : (SEVERITY[sev] ?? CHROME.faint);
+}
 
 const ORDER = ["Critical", "High", "Medium", "Low", "Info", "Positive"];
 
@@ -74,33 +62,6 @@ const STANDING = {
 
 function standing(word) {
   return STANDING[String(word ?? "").toLowerCase()] ?? CHROME.faint;
-}
-
-const MARGIN = 0.45;
-
-const FONTS = [
-  ["Hanken Grotesk", "HankenGrotesk-Regular.ttf", 400],
-  ["Hanken Grotesk", "HankenGrotesk-Bold.ttf", 700],
-  ["JetBrains Mono", "JetBrainsMono-Regular.ttf", 400],
-  ["JetBrains Mono", "JetBrainsMono-Bold.ttf", 700],
-];
-
-function escaped(value) {
-  return String(value ?? "")
-    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
-
-function faces() {
-  return FONTS.map(([family, file, weight]) => {
-    const data = readFileSync(join(ASSETS, "fonts", file)).toString("base64");
-    return `@font-face{font-family:'${family}';font-weight:${weight};font-style:normal;` +
-      `src:url(data:font/ttf;base64,${data}) format('truetype')}`;
-  }).join("");
-}
-
-function mark() {
-  return readFileSync(join(ASSETS, "ev-mark.svg")).toString("base64");
 }
 
 function counted(findings) {
@@ -127,7 +88,7 @@ function heading(category) {
   const findings = category.findings ?? [];
   const held = counted(findings);
   const split = SPLIT.map(([letter, sev]) =>
-    `<span style="color:${held[sev] ? SEVERITY[sev] : CHROME.faint}">${letter} ${held[sev]}</span>`)
+    `<span style="color:${severityColour(sev, held[sev])}">${letter} ${held[sev]}</span>`)
     .join('<span class="bar-sep">|</span>');
   return `${escaped(category.name)} (${findings.length}): <span class="split">${split}</span>`;
 }
@@ -256,7 +217,7 @@ function tally(document) {
   const total = Object.values(held).reduce((sum, one) => sum + one, 0);
 
   const cells = ORDER.map((sev) =>
-    `<li><div class="n" style="color:${SEVERITY[sev]}">${held[sev]}</div>` +
+    `<li><div class="n" style="color:${severityColour(sev, held[sev])}">${held[sev]}</div>` +
     `<div class="l">${sev}</div></li>`).join("");
 
   const bar = total === 0 ? "" : `<div class="bar">${ORDER
@@ -371,95 +332,12 @@ function page(document) {
 
   return `<!doctype html><meta charset="utf-8"><title>${escaped(document.title ?? "")}</title>
 <style>
-${faces()}
-@page{size:8.5in 11in;margin:0}
-*{box-sizing:border-box}
-html,body{margin:0;padding:0;background:${CHROME.page};color:${CHROME.text};
-  font-family:'Hanken Grotesk',system-ui,sans-serif;
-  -webkit-print-color-adjust:exact;print-color-adjust:exact}
+${css()}
 
-.sheet{position:relative;width:8.5in;height:11in;overflow:hidden;background:${CHROME.page};
-  page-break-after:always;break-after:page;padding:${MARGIN}in}
-.sheet:last-child{page-break-after:auto;break-after:auto}
-
-.masthead{position:absolute;left:${MARGIN}in;right:${MARGIN}in;top:0.34in;height:0.70in}
-.title{font-size:18pt;font-weight:700;color:${CHROME.text};margin:0}
-.subtitle{font-size:9.5pt;color:${CHROME.muted};margin:0.05in 0 0}
-.mark{position:absolute;right:0;top:0.02in;height:0.42in}
-
-/* The flow stops well clear of the foot. Ending it where the foot's own rule begins lets a last
-   line print hard against the rule, which reads as a page that ran out of room. */
-.flow{position:absolute;left:${MARGIN}in;right:${MARGIN}in;top:1.12in;bottom:0.62in;overflow:hidden}
-
-.foot{position:absolute;left:${MARGIN}in;right:${MARGIN}in;bottom:0.34in;
-  display:flex;justify-content:space-between;
-  font-family:'JetBrains Mono',monospace;font-size:7pt;letter-spacing:0.05em;color:${CHROME.faint};
-  border-top:1px solid ${CHROME.hairline};padding-top:5px}
-
-h2{font-size:13pt;font-weight:700;color:${CHROME.text};margin:0 0 0.14in}
-h2 .split{font-family:'JetBrains Mono',monospace;font-size:10pt;font-weight:400}
-h2 .bar-sep{color:${CHROME.rule};margin:0 5px}
-/* Set open. At eight point with tight tracking the mono W runs into the H beside it and "WHERE"
-   reads as "#HERE", which is the kind of thing a reader notices and cannot explain. */
-h3{font-family:'JetBrains Mono',monospace;font-size:8.5pt;font-weight:400;letter-spacing:0.16em;
-  text-transform:uppercase;color:${CHROME.faint};margin:0 0 0.06in}
-p{font-size:9.5pt;line-height:13pt;color:${CHROME.text};margin:0 0 0.05in}
-.blurb{color:${CHROME.muted};font-size:9pt;margin:0 0 0.09in}
-.lede{color:${CHROME.muted};margin:0 0 0.09in}
-.none{color:${CHROME.faint};font-style:italic}
-.block{margin:0 0 0.15in}
-/* A discipline opens on a gap wider than the one between its own findings, so the page reads as
-   several sections and not as one long column. Adjacent margins collapse to the larger of the two,
-   so this has to beat a finding's own bottom margin to show at all. A discipline that lands at the
-   top of a page takes no gap, since there is nothing above it to be separated from. */
-.lens{margin-top:0.44in}
-.flow > .lens:first-child{margin-top:0}
-/* The last block on a sheet must not push its own margin into the measurement that decides whether
-   it fits, or every sheet stops one section early. */
-.flow > .block:last-child,.flow > .entry:last-child{margin-bottom:0}
-
-/* The discipline said again where its findings run past the foot of a page. */
-.carry{font-family:'JetBrains Mono',monospace;font-size:8pt;letter-spacing:0.1em;
-  text-transform:uppercase;color:${CHROME.faint};margin:0 0 0.09in;
-  border-bottom:1px solid ${CHROME.hairline};padding-bottom:4px}
-
-.facts{display:flex;flex-wrap:wrap;gap:8px 26px;margin:0 0 0.16in;padding:0;list-style:none;
-  font-size:8pt;color:${CHROME.faint}}
-.facts b{display:block;color:${CHROME.text};font-weight:400;font-family:'JetBrains Mono',monospace;
-  font-size:8.5pt;margin-top:2px}
-
-.tally{display:flex;gap:7px;margin:0;padding:0;list-style:none}
-/* The same surface a finding sits on, so the document has one raised thing and not two. */
-.tally li{flex:1 1 0;border:1px solid ${CHROME.edge};background:${CHROME.card};
-  padding:0.08in 0.10in}
-.tally .n{font-family:'JetBrains Mono',monospace;font-size:17pt;font-weight:700;line-height:1.1}
-.tally .l{font-size:7.5pt;color:${CHROME.faint};margin-top:2px}
-.bar{display:flex;height:6px;overflow:hidden;margin:7px 0 0;background:${CHROME.rule}}
-.bar span{display:block}
-
-/* The opening is set a half point tighter than a finding. It holds the facts, the split, the score,
-   what was done, the summary and the key, and set at the findings' own size the key falls onto the
-   second page and leaves two inches of nothing under the summary. */
-p.intro{font-size:9pt;line-height:12.5pt}
-.columns{display:flex;gap:0.28in;align-items:flex-start}
-.columns .column{flex:1 1 0;min-width:0}
-.columns .column p{color:${CHROME.muted};font-size:8.5pt;line-height:12pt}
-
-/* A term and what it means, side by side at a fixed term width. Set as a list the terms are a
-   column of one word each with the meanings wrapping under them, which reads as prose broken in
-   half rather than as a key. */
-dl.key{margin:0;font-size:7.5pt;line-height:10pt}
-dl.key dt{float:left;clear:left;width:1.15in;font-family:'JetBrains Mono',monospace;font-size:7pt;
-  letter-spacing:0.08em;text-transform:uppercase;color:${CHROME.faint};padding-top:1px}
-dl.key dd{margin:0 0 0.03in 1.15in;color:${CHROME.muted}}
-/* The scan's own list needs a wider term column: "dependency advisories" wraps at the width the
-   finding key uses, and a wrapped term is two lines tall beside a description that is one, which
-   puts the next term alongside the wrong description. */
-dl.key.wide dt{width:1.6in}
-dl.key.wide dd{margin-left:1.6in}
-/* A check that did not run, set in the warning colour in both columns, so the eye finds the gaps
-   in the list rather than reading eight lines to work out which two are missing. */
-dl.key dt.off,dl.key dd.off{color:${SEVERITY.Medium}}
+/* What this report owns and the evidence pack does not: severity, the colour a control that holds
+   carries, and the bar that says a scanner never ran. */
+.did.keep{border-left-color:${SEVERITY.Positive};background:rgba(53,196,106,0.07)}
+.did.keep b{color:${SEVERITY.Positive}}
 
 /* What no tool looked at, under the heading of the discipline it leaves uncovered. In the warning
    colour and not the fix colour: it is neither a finding nor something to do, it is the bound on
@@ -468,125 +346,9 @@ dl.key dt.off,dl.key dd.off{color:${SEVERITY.Medium}}
   background:rgba(255,176,32,0.07);font-size:8.5pt;line-height:11.5pt;color:${CHROME.text}}
 .unchecked b{display:block;font-family:'JetBrains Mono',monospace;font-size:7pt;letter-spacing:0.08em;
   text-transform:uppercase;color:${SEVERITY.Medium};font-weight:400;margin-bottom:3px}
-
-.score{margin:0.16in 0 0;text-align:center}
-.chip{background:${CHROME.card};border-left:3px solid ${CHROME.ember};
-  padding:0.12in 0.22in;margin:0;display:inline-flex;align-items:baseline;gap:0.10in;
-  white-space:nowrap}
-.chip-label{font-family:'JetBrains Mono',monospace;font-size:7.5pt;letter-spacing:0.10em;
-  color:${CHROME.faint}}
-.chip-score{font-size:20pt;font-weight:700;color:${CHROME.text}}
-.chip-of{font-size:9pt;color:${CHROME.muted}}
-.chip-grade{font-size:11pt;color:${CHROME.text}}
-
-/* The card is what says where one finding ends and the next begins, and which of the four things on
-   the page belong to which finding. Space alone does not do that job: a reader counting blank gaps
-   has to measure them against each other to tell a gap inside a finding from a gap between two.
-   What it needs is to be visible. At one step off the page colour a card is not a boundary, so
-   twenty of them read as one dark surface, and the fix is to lift the fill and the border until the
-   edge is a line somebody can see. */
-.entry{background:${CHROME.card};border:1px solid ${CHROME.edge};margin:0 0 0.22in;overflow:hidden}
-.entry .head{display:flex;gap:0.09in;align-items:baseline;padding:0.10in 0.13in 0}
-.entry .id{font-family:'JetBrains Mono',monospace;font-size:8.5pt;font-weight:700;
-  color:${CHROME.blue};flex:none}
-.entry .ttl{font-size:10pt;line-height:13pt;font-weight:700;flex:1;min-width:0}
-.entry .tag{font-family:'JetBrains Mono',monospace;font-size:7.5pt;color:${CHROME.faint};flex:none}
-.entry .pill{font-family:'JetBrains Mono',monospace;font-size:7pt;letter-spacing:0.06em;
-  text-transform:uppercase;font-weight:700;padding:2px 7px;flex:none;color:${CHROME.page}}
-.entry .body{padding:0 0.13in 0.12in}
-.entry .body:empty{padding:0 0 0.03in}
-.because{margin:0.07in 0 0;font-size:9pt;line-height:12.5pt;color:${CHROME.text}}
-
-.cite{margin:0.09in 0 0}
-.cite .where{display:flex;justify-content:space-between;gap:0.12in;padding:5px 9px;
-  background:${CHROME.inset};font-family:'JetBrains Mono',monospace;font-size:7.5pt;
-  color:${CHROME.muted}}
-.cite .grade{text-transform:uppercase;letter-spacing:0.06em;font-size:7pt;
-  align-self:center;flex:none}
-
-.did{margin:0.09in 0 0;padding:0.07in 0.10in;border-left:2px solid ${CHROME.ember};
-  background:rgba(249,88,30,0.09);font-size:9pt;line-height:12.5pt}
-.did b{display:block;font-family:'JetBrains Mono',monospace;font-size:7pt;letter-spacing:0.08em;
-  text-transform:uppercase;color:${CHROME.ember};font-weight:400;margin-bottom:3px}
-.did.keep{border-left-color:${SEVERITY.Positive};background:rgba(53,196,106,0.07)}
-.did.keep b{color:${SEVERITY.Positive}}
 </style>
 <div id="source">${blocks}</div>
-<div id="out"></div>
-<script>
-// The page lays itself out before it prints. A section's height depends on how its text wraps, which
-// only the browser knows, so each one is measured and moved onto a fresh sheet the moment it would
-// cross the foot of the page. A finding is never split down the middle: it moves whole.
-(function () {
-  var source = document.getElementById('source');
-  var out = document.getElementById('out');
-  var title = ${JSON.stringify(document.title ?? "")};
-  var subtitle = ${JSON.stringify(document.subtitle ?? "")};
-  var foot = ${JSON.stringify(foot)};
-  var mark = "data:image/svg+xml;base64,${mark()}";
-  var sheet = null, flow = null;
-
-  function open() {
-    sheet = document.createElement('div');
-    sheet.className = 'sheet';
-    sheet.innerHTML =
-      '<div class="masthead"><p class="title"></p>' +
-      '<p class="subtitle"></p><img class="mark"></div>' +
-      '<div class="flow"></div>' +
-      '<div class="foot"><span class="foot-left"></span><span class="foot-right"></span></div>';
-    sheet.querySelector('.title').textContent = title;
-    sheet.querySelector('.subtitle').textContent = subtitle;
-    sheet.querySelector('.mark').src = mark;
-    sheet.querySelector('.foot-left').textContent = foot;
-    out.appendChild(sheet);
-    flow = sheet.querySelector('.flow');
-    return flow;
-  }
-
-  // Measured from the boxes themselves rather than from scrollHeight, which counts a trailing margin
-  // as content and so ends every sheet a section early.
-  function overflows() {
-    var last = flow.children[flow.children.length - 1];
-    if (!last) return false;
-    return last.getBoundingClientRect().bottom > flow.getBoundingClientRect().bottom + 0.5;
-  }
-
-  // A discipline continuing onto a fresh sheet names itself at the top of it. The word is spelled
-  // out rather than abbreviated, so a page carrying one reads as a continuation to anybody.
-  function carry(block) {
-    var lens = block.getAttribute('data-lens');
-    if (!lens) return;
-    var said = document.createElement('p');
-    said.className = 'carry';
-    said.textContent = lens + ', continued';
-    flow.appendChild(said);
-  }
-
-  open();
-  var blocks = Array.prototype.slice.call(source.children);
-  for (var i = 0; i < blocks.length; i++) {
-    var block = blocks[i];
-    flow.appendChild(block);
-    if (!overflows()) continue;
-
-    // The section does not fit where it is. On a sheet that already holds something it moves to a
-    // fresh one; on an empty sheet it stays, because taking it off and only putting it back when
-    // there was something else there drops any section taller than a page.
-    if (flow.children.length > 1) {
-      flow.removeChild(block);
-      open();
-      carry(block);
-      flow.appendChild(block);
-    }
-  }
-
-  source.remove();
-  var sheets = out.querySelectorAll('.sheet');
-  for (var s = 0; s < sheets.length; s++) {
-    sheets[s].querySelector('.foot-right').textContent = 'Page ' + (s + 1) + ' of ' + sheets.length;
-  }
-})();
-</script>`;
+${paginator({ title: document.title ?? "Evalation Hardening Review", subtitle: document.subtitle ?? "", foot })}`;
 }
 
 function detail(document, into) {

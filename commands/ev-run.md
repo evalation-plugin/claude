@@ -177,6 +177,24 @@ at step 4, and the findings, at step 6.
    step 2 returned, never composing them, since those are what make the assessment resolve back
    to an exact entry set a year from now.
 
+   **Each pack carries what it is**: its `title` as the standard publishes it, its `version`, its
+   `entry_noun` and its `sections`, all copied from what step 2 returned. The report heads the pack
+   by that title, so a pack carrying none goes out headed with the lower-case handle it is filed
+   under, and an auditor handed a page headed `soc2` is being told the assessor did not know what
+   the standard is called. `entry_noun` is what the standard calls its own parts: SOC 2 has
+   criteria, GDPR has articles, PCI DSS has requirements. `sections` say how it divides itself and
+   which parts are in every audit.
+
+   **Each pack carries `entries_asked`**, one row per selected entry, each with the `identifier`,
+   the `title`, the `intent` and the `section` it falls under, copied from what step 2 returned,
+   along with the `obligation` and the `note` where the entry carried them. Those two say whether
+   the standard assesses that entry in every audit or only where a level was elected, which is how
+   OWASP ASVS grades each requirement level 1, 2 or 3, and a report without them tells a customer
+   assessed at level 1 they have gaps against requirements nobody was assessing. The evidence pack prints the
+   control's name and the question it was asked beside your answer, and an auditor deciding whether
+   a status is right cannot do it from a clause number and a verdict. Without this the pack goes out
+   as a column of bare identifiers, so step 7 refuses a pack that does not carry them.
+
    **Say what you are, in `read_by`.** Name the model doing this reading as it names itself, for
    example `Claude Opus 5`. Nothing can observe it: no host puts the model in the environment, so this
    is the one fact about the run only you can supply. A deliverable that cannot say what produced a

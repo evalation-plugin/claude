@@ -132,6 +132,69 @@ function checked(document, where) {
     }
   }
 
+  // What each selected entry was called and what it asked. The deliverables print both beside the
+  // answer, and an auditor cannot judge whether a status is right from a clause number and a
+  // verdict. The reading has these in front of it from the moment the run starts, so the only way
+  // they are absent is that it did not carry them through.
+  for (const pack of document.packs ?? []) {
+    // What the standard is called, as it publishes it. Without it the report heads the pack with
+    // the lower-case handle it is filed under, which tells an auditor the assessor did not know
+    // what the standard is named.
+    if (!String(pack.title ?? "").trim()) {
+      said.push(`${pack.pack}: carries no title, so the report would head it with this handle. ` +
+        "Copy the pack's title from what step 2 returned.");
+    }
+
+    // An entry naming a section the pack never declared is an entry the report cannot place, so it
+    // would be printed under a heading nobody authored.
+    const sections = new Set((pack.sections ?? []).map((one) => one.identifier));
+    for (const one of pack.entries_asked ?? []) {
+      if (one.section && !sections.has(one.section)) {
+        said.push(`${pack.pack}/${one.identifier}: names section ${JSON.stringify(one.section)}, ` +
+          `which this pack does not declare`);
+      }
+    }
+
+    const asked = new Map((pack.entries_asked ?? []).map((one) => [one.identifier, one]));
+    const missing = (pack.selected ?? []).filter((one) => !asked.has(one));
+    if (missing.length > 0) {
+      said.push(`${pack.pack}: ${missing.length} of ${(pack.selected ?? []).length} selected ` +
+        "entries carry no row in entries_asked, so the report would print a clause number with no " +
+        `name and no question. Copy identifier, title and intent from step 2 for each. First: ` +
+        `${missing.slice(0, 3).join(", ")}`);
+    }
+    // Two clauses carrying the same words is two clauses a reader cannot tell apart. The report
+    // prints the question above the answer so somebody can judge whether the status answers it, and
+    // where CC5.2 and CC5.3 ask the same thing the page says nothing about what separates them.
+    const askedTwice = new Map();
+    const titledTwice = new Map();
+    for (const one of pack.entries_asked ?? []) {
+      if (!String(one.title ?? "").trim()) said.push(`${pack.pack}/${one.identifier}: asked with no title`);
+      const asked = String(one.intent ?? "").trim();
+      if (!asked) said.push(`${pack.pack}/${one.identifier}: asked with no question`);
+      // A clause crosses as a question, so the question is what the report prints. A statement of
+      // what the reading did reads as something somebody already decided, and an auditor cannot
+      // weigh a status against it.
+      else if (!asked.endsWith("?")) {
+        said.push(`${pack.pack}/${one.identifier}: what it was asked is not a question. A clause ` +
+          `crosses as a question about what the repository has to show: ${JSON.stringify(asked.slice(0, 70))}`);
+      }
+      for (const [held, text] of [[askedTwice, one.intent], [titledTwice, one.title]]) {
+        const key = String(text ?? "").trim().toLowerCase();
+        if (key.length === 0) continue;
+        if (!held.has(key)) held.set(key, []);
+        held.get(key).push(one.identifier);
+      }
+    }
+    for (const [what, held] of [["question", askedTwice], ["title", titledTwice]]) {
+      for (const [, sharing] of held) {
+        if (sharing.length < 2) continue;
+        said.push(`${pack.pack}: ${sharing.join(", ")} carry the same ${what}, so the report cannot ` +
+          `say what separates them. Each entry takes its own ${what} from what step 2 returned.`);
+      }
+    }
+  }
+
   const answered = new Set();
   for (const answer of document.answers ?? []) {
     const named = `${answer.pack}/${answer.entry}`;

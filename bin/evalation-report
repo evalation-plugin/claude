@@ -1,157 +1,331 @@
 #!/usr/bin/env node
 // evalation-report - the evidence pack: what a repository evidences against a standard.
 //
-// This is the artefact an auditor is handed. It carries one row per selected clause: the clause, the
-// question that was asked of it, what the repository answers, the evidence that answer rests on, and
-// the status. A reader can check any row against the code without us and without the person who ran
-// the assessment.
+// This is the artefact an auditor is handed. It carries one section per selected clause: what was
+// asked, what the repository answers, the lines that answer rests on, the status, and what closes it
+// where it is not closed. A reader can check any section against the code without us and without the
+// person who ran the assessment.
 //
-// **The layout is the one that was settled** and it is reproduced rather than reinvented: A4
-// landscape, five columns, the house chrome, a coverage line under the title. Column widths are
-// proportions of the body so the table fills the page at any paper size.
+// **A section, not a row.** Read across five narrow columns the two things an auditor actually reads,
+// the answer and the evidence, are each about two inches wide and every sentence wraps four times.
+// A section gives the clause the width of the page and puts the quoted line under the claim it
+// supports, which is the order somebody checking it works in.
 //
 // **It renders and never decides.** Every status, reason and citation comes from the findings file,
 // which was already refused if a citation did not hold. Nothing here recomputes a judgement, softens
 // a gap or drops an entry: a renderer that could change what the report says would be a second place
 // the assessment happens.
 //
-// **Delivered as a PDF**, like the board pack and the findings detail, because an evidence pack that
-// can be edited after it is handed over is not evidence. The page it was printed from is kept beside
-// it, so a person can see exactly what was printed.
+// **Delivered as a PDF**, like the findings detail, because an evidence pack that can be edited after
+// it is handed over is not evidence. The page it was printed from is kept beside it, so a person can
+// see exactly what was printed.
 //
 // **Org-level is never a gap.** A control the deploying organisation owns and no repository can
 // evidence has its own status and its own colour. A pack full of false gaps is the fastest way to
 // lose the auditor it was produced for.
 "use strict";
 
-const { existsSync, readFileSync } = require("node:fs");
+const { readFileSync } = require("node:fs");
 const { basename, dirname, join, resolve } = require("node:path");
 
 const { print } = require("../lib/print.js");
+const { CHROME, css, escaped, paginator } = require("../lib/sheet.js");
 
-const ASSETS = resolve(__dirname, "..", "reporting", "assets");
-
-// The vocabulary, in the order a reader should meet it: what is wrong first, what is right after, and
-// what is nobody's or somebody else's last.
+// The vocabulary, in the order a reader should meet it: what is wrong first, what is right after,
+// and what is nobody's or somebody else's last. Coverage is this pack's own, as severity is the
+// findings detail's, and neither writes into the other.
 const STATUSES = [
-  ["total-gap", "Gap", "danger"],
-  ["partial-gap", "Partial", "warn"],
-  ["covered", "Covered", "ok"],
-  ["org-level", "Org-level", "orglevel"],
-  ["not-applicable", "Not applicable", "muted"],
+  ["total-gap", "Gap", "G", "#FB3B4E"],
+  ["partial-gap", "Partial", "P", "#FFB020"],
+  ["covered", "Covered", "C", "#35C46A"],
+  ["org-level", "Org-level", "O", "#8FA2C6"],
+  ["not-applicable", "Not applicable", "N", "#6F82AB"],
 ];
-
-const CHROME = {
-  page: "#070C18",
-  panel: "#0E1730",
-  zebra: "rgba(14,23,48,0.55)",
-  hairline: "rgba(130,160,230,0.13)",
-  rule: "#1B2748",
-  blue: "#6B8FFF",
-  text: "#E6ECF7",
-  muted: "#9DAAC6",
-  faint: "#6F82AB",
-  ok: "#2FD07A",
-  warn: "#FFB020",
-  danger: "#FB3B4E",
-  orglevel: "#8FA2C6",
-};
-
-// Proportions of the body width, taken from the settled layout. Evidence and the answer get the room
-// because they are what a reader actually reads; the clause and the status need only their own width.
-const COLUMNS = [0.16, 0.22, 0.26, 0.23, 0.13];
-
-const FONTS = [
-  ["Hanken Grotesk", "HankenGrotesk-Regular.ttf", 400],
-  ["Hanken Grotesk", "HankenGrotesk-Bold.ttf", 700],
-  ["JetBrains Mono", "JetBrainsMono-Regular.ttf", 400],
-  ["JetBrains Mono", "JetBrainsMono-Bold.ttf", 700],
-];
-
-const MARGIN = 0.55;
-const PAGE = { width: 11.69, height: 8.27 };
 
 function fail(reason) {
   process.stderr.write(`${reason}\n`);
   process.exit(1);
 }
 
-function safe(text) {
-  return String(text ?? "")
-    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
-
-// The mark every deliverable carries, from the one place the assets live. Read as optional it fails
-// silently: the pack renders, looks nearly right, and goes out unbranded, which nobody notices until
-// a customer has already sent it on.
-function mark() {
-  const here = join(ASSETS, "ev-mark.svg");
-  if (!existsSync(here)) {
-    throw new Error(`the brand mark is missing from ${here}, so this pack would go out unbranded`);
-  }
-  return `data:image/svg+xml;base64,${readFileSync(here).toString("base64")}`;
-}
-
-function faces() {
-  return FONTS.map(([family, file, weight]) => {
-    const data = readFileSync(join(ASSETS, "fonts", file)).toString("base64");
-    return `@font-face{font-family:'${family}';font-weight:${weight};font-style:normal;` +
-      `src:url(data:font/ttf;base64,${data}) format('truetype')}`;
-  }).join("");
-}
-
-function tone(status) {
-  return STATUSES.find(([one]) => one === status)?.[2] ?? "muted";
-}
-
-function label(status) {
+function named(status) {
   return STATUSES.find(([one]) => one === status)?.[1] ?? status;
 }
 
-// What a claim rests on: what the evidence says first, then where it is, then what kind it is.
-//
-// A location on its own is not evidence to a reader, it is a coordinate. An auditor reading this
-// column wants to know what was found before deciding whether to go and look at it, and only then
-// where to look. The grade is said aloud because planting text is free and planting behaviour is not:
-// a reader weighing a covered row needs to know which of the two it rests on.
-function citation(one) {
-  if (!one?.at) return "";
-  const where = `${one.at.path}:${one.at.from}${one.at.to && one.at.to !== one.at.from ? `-${one.at.to}` : ""}`;
-  return `${one.at.quote ? `<span class="said">${safe(one.at.quote)}</span>` : ""}` +
-    `<span class="where">${safe(where)}</span>` +
-    `<span class="grade">${safe(one.at.grade ?? "")}</span>`;
+function colourOf(status) {
+  return STATUSES.find(([one]) => one === status)?.[3] ?? CHROME.faint;
 }
 
-function row(answer, asked) {
-  const entry = asked.get(`${answer.pack}/${answer.entry}`);
-  const colour = tone(answer.status);
+function counted(answers) {
+  const held = Object.fromEntries(STATUSES.map(([one]) => [one, 0]));
+  for (const one of answers) if (one.status in held) held[one.status] += 1;
+  return held;
+}
 
-  // Every status but covered owes a corrective step, and covered owes its evidence. Both are shown
-  // where they exist, and neither is invented where it does not.
-  const remedy = answer.required
-    ? `<p class="remedy">${safe(answer.required)}</p>`
+/**
+ * What a claim rests on: where it is, how strong it is, and the line itself.
+ *
+ * An answer carries a list, because a clause is often evidenced in more than one place, and showing
+ * one of three is showing a reader less than was found. The quote is under the location, since
+ * somebody checking a claim goes to the file first and reads second.
+ */
+function evidence(answer) {
+  const held = answer.evidence ?? [];
+  if (held.length === 0) {
+    return '<div class="cite"><div class="where"><span>no citation recorded</span></div></div>';
+  }
+  return held.map((one) => {
+    const range = one.to && one.to !== one.from ? `${one.from}-${one.to}` : one.from;
+    return `<div class="cite"><div class="where">` +
+      `<span>${escaped(one.path)}:${escaped(range)}</span>` +
+      `<span class="grade">${escaped(one.grade ?? "")}</span></div>` +
+      (one.quote ? `<pre>${escaped(one.quote)}</pre>` : "") +
+      `</div>`;
+  }).join("");
+}
+
+// What closes it, or why nothing here can. A clause the deploying organisation owns has a
+// justification and no remedy, and printing an empty fix bar under it would read as work somebody
+// forgot to write down.
+function closing(answer) {
+  if (answer.remedy) {
+    return `<div class="did"><b>What to do</b>${escaped(answer.remedy)}</div>`;
+  }
+  if (answer.justification) {
+    return `<div class="did"><b>Why this is not the code's to answer</b>` +
+      `${escaped(answer.justification)}</div>`;
+  }
+  return "";
+}
+
+function entry(answer, asked, pack) {
+  const clause = asked.get(`${answer.pack}/${answer.entry}`);
+  const colour = colourOf(answer.status);
+
+  // Where the answer came from. A clause settled by the pack was never read against this tree, and
+  // an auditor weighing it has to be able to see that without going to the methodology.
+  const tag = answer.from === "authored"
+    ? "answered from the pack"
+    : escaped(answer.model ?? "");
+
+  const body = [
+    clause?.intent ? `<p class="asked">${escaped(clause.intent)}</p>` : "",
+    answer.because ? `<p class="because">${escaped(answer.because)}</p>` : "",
+    answer.from === "authored" ? "" : evidence(answer),
+    closing(answer),
+  ].join("");
+
+  // Whether the standard assesses this one in every audit or only where a level was elected. One
+  // word, because what the word means is said once on the opening page.
+  const marker = clause?.obligation
+    ? `<span class="grade ${escaped(clause.obligation)}">${escaped(clause.obligation)}</span>`
     : "";
 
-  return `<tr>
-<td class="control"><span class="code">${safe(answer.entry)}</span>${safe(entry?.title ?? "")}</td>
-<td class="asked">${safe(entry?.intent ?? "")}</td>
-<td class="answers">${safe(answer.because)}${remedy}</td>
-<td class="evidence">${citation(answer) || '<span class="none">no citation recorded</span>'}</td>
-<td class="status"><span class="pill" style="color:var(--${colour})">
-  <span class="dot" style="background:var(--${colour})"></span>${safe(label(answer.status))}</span></td>
-</tr>`;
+  return `<article class="entry" data-lens="${escaped(pack)}">
+<div class="head">
+<span class="id">${escaped(answer.entry)}</span>
+<span class="ttl">${escaped(clause?.title ?? "")}</span>
+${marker}
+<span class="tag">${tag}</span>
+<span class="pill" style="background:${colour}">${escaped(named(answer.status))}</span>
+</div>
+<div class="body">${body}</div>
+</article>`;
 }
 
-function page(document, answers, asked, counted) {
+// A pack's heading carries its own coverage split, each letter in that status's colour and a zero in
+// grey, the same colours the tags and the first page's bar use.
+function heading(title, answers) {
+  const held = counted(answers);
+  const split = STATUSES.map(([status, , letter, colour]) =>
+    `<span style="color:${held[status] ? colour : CHROME.faint}">${letter} ${held[status]}</span>`)
+    .join('<span class="bar-sep">|</span>');
+  return `${escaped(title)} (${answers.length}): <span class="split">${split}</span>`;
+}
+
+/**
+ * A section of a standard, as that standard divides itself: SOC 2's five categories, and whichever
+ * parts another framework names. The heading says how many of the framework's own things it holds
+ * and whether it is assessed in every audit or only where the customer elected it, because a report
+ * listing an elected category beside a compulsory one says a repository has gaps against something
+ * nobody was assessing.
+ */
+function section(part, answers, asked, noun) {
+  const [first, ...rest] = answers.map((one) => entry(one, asked, part.title));
+
+  const marker = part.obligation
+    ? `<span class="obligation ${part.obligation}">${escaped(part.obligation)}</span>`
+    : "";
+  const count = answers.length === 1 ? noun.one : noun.many;
+  const blurb = [`${answers.length} ${count} assessed against this repository.`, part.note]
+    .filter(Boolean).join(" ");
+
+  // The heading travels with its first entry. Left to break on its own it lands at the foot of a
+  // page with its entries on the next one.
+  return `<div class="block lens"><h2>${heading(part.title, answers)}${marker}</h2>` +
+    `<p class="blurb">${escaped(blurb)}</p>${first}</div>` + rest.join("");
+}
+
+/**
+ * A pack's name as a person would recognise it, which is the name the standard publishes. The
+ * identifier is a lower-case handle for filing and is never what a report shows: an auditor handed
+ * a page headed soc2 is being told the assessor did not know what the standard is called.
+ */
+function nameOf(pack, identifier) {
+  return String(pack?.title ?? "").trim() || String(identifier ?? "");
+}
+
+/** What a standard calls the things it is made of. A pack that says nothing is read as entries. */
+function nounOf(pack) {
+  const held = pack?.entry_noun;
+  return held?.one && held?.many ? held : { one: "entry", many: "entries" };
+}
+
+/**
+ * The noun the opening page uses, which is the standard's own where every pack in the report agrees
+ * on one. Two standards calling their parts different things leave the key nothing true to call all
+ * of them, so it falls back to the neutral word.
+ */
+function nounAcross(packs) {
+  const nouns = (packs ?? []).map((one) => nounOf(one));
+  const first = nouns[0] ?? nounOf(null);
+  return nouns.every((one) => one.one === first.one) ? first : { one: "entry", many: "entries" };
+}
+
+/**
+ * The sections a pack declares, in its own order, each with the answers that fall under it. A pack
+ * declaring none is one section holding everything, so the page is laid out the same way either way
+ * and nothing downstream has two shapes to handle.
+ */
+function sectionsOf(pack, answers, asked) {
+  const declared = pack?.sections ?? [];
+  if (declared.length === 0) {
+    return [[{ identifier: "", title: pack?.title ?? pack?.pack ?? "" }, answers]];
+  }
+
+  const bySection = new Map(declared.map((one) => [one.identifier, []]));
+  const loose = [];
+  for (const one of answers) {
+    // The section is a fact about the entry the standard holds, not about the answer to it, so it
+    // is read from what the pack was asked and never from what came back.
+    const at = asked.get(`${one.pack}/${one.entry}`)?.section ?? "";
+    if (bySection.has(at)) bySection.get(at).push(one);
+    else loose.push(one);
+  }
+
+  const held = declared
+    .filter((one) => bySection.get(one.identifier).length > 0)
+    .map((one) => [one, bySection.get(one.identifier)]);
+
+  // An answer naming no declared section is still reported. Dropped, it would be an entry the
+  // standard asked about and the report never mentioned.
+  if (loose.length > 0) held.push([{ identifier: "", title: "Not in any declared section" }, loose]);
+  return held;
+}
+
+function dated(at) {
+  return String(at ?? "").slice(0, 10);
+}
+
+function facts(document, answers, packs) {
+  // The standard and the edition it was assessed against. Without the edition a reader cannot tell
+  // which document the clause numbers resolve to, and the numbering moves between editions.
+  const standards = (packs ?? []).filter((one) => (one.title ?? "").trim().length > 0);
+  const said = [
+    ["Assessed", dated(document.at)],
+    ["Against", standards.map((one) => nameOf(one, one.pack)).join(", ")],
+    ["Edition", standards.map((one) => one.version).filter(Boolean).join(", ")],
+    ["Entries", answers.length],
+    ["Governance revision", document.revision],
+    ["Run", document.run],
+  ].filter(([, value]) => value !== undefined && value !== null && String(value) !== "");
+
+  return `<ul class="facts">${said
+    .map(([label, value]) => `<li>${escaped(label)}<b>${escaped(value)}</b></li>`).join("")}</ul>`;
+}
+
+// The coverage split of the whole pack, as counts and as a bar of the same colours. The bar says the
+// proportion, which a row of five numbers does not.
+function tally(answers) {
+  const held = counted(answers);
+  const total = answers.length;
+
+  const cells = STATUSES.map(([status, label, , colour]) =>
+    `<li><div class="n" style="color:${colour}">${held[status]}</div>` +
+    `<div class="l">${label}</div></li>`).join("");
+
+  const bar = total === 0 ? "" : `<div class="bar">${STATUSES
+    .map(([status, , , colour]) =>
+      `<span style="width:${(held[status] / total) * 100}%;background:${colour}"></span>`)
+    .join("")}</div>`;
+
+  return `<ul class="tally">${cells}</ul>${bar}`;
+}
+
+/**
+ * What the grades on the entries mean, each said once. The reason a requirement is optional is the
+ * same reason for every requirement of that grade, so printing it on each card would be one
+ * sentence a hundred times and a reader would stop seeing it.
+ */
+function grades(asked) {
+  const held = new Map();
+  for (const one of asked.values()) {
+    if (!one.obligation || !one.note) continue;
+    held.set(`${one.obligation}/${one.note}`, [one.obligation, one.note]);
+  }
+  // What is always assessed leads, since a reader takes that as the baseline and reads the rest
+  // against it. Inside a word the order is the order the standard put them in.
+  return [...held.values()].sort((one, two) =>
+    Number(two[0] === "mandatory") - Number(one[0] === "mandatory"));
+}
+
+// The opening page: what was assessed, what it came to, and how to read one of the standard's parts.
+function opening(document, answers, packs, asked) {
+  const read = answers.filter((one) => one.from !== "authored").length;
+  const noun = nounAcross(packs);
+  const marks = grades(asked);
+  const parts = [
+    ["Identifier", "The standard's own number for it, and the short name beside it."],
+    ["Asked", "The question put to the repository, in italics, so a reader can judge whether the status answers it."],
+    ["Answer", "What the repository evidences, and why it is this status and not the one either side of it."],
+    ["Where it rests", "The file and lines, on the grey bar, with the line itself under them and how strong it is at the right."],
+    ["Status", "Gap, Partial, Covered, Org-level or Not applicable, on the coloured tag at the right."],
+    ["What to do", `What closes it, on the orange bar. A ${noun.one} the organisation owns carries why the code cannot answer it.`],
+  ];
+  if (marks.length > 0) {
+    parts.push(["In scope",
+      `Whether this standard assesses the ${noun.one} in every audit or only where a level was elected, on the small tag after the name. What each word means is below.`]);
+  }
+
+  return `<div class="block">
+${facts(document, answers, packs)}
+${tally(answers)}
+</div>
+<div class="block">
+<h2>The work done</h2>
+<p class="intro">${read} of these ${answers.length} ${escaped(noun.many)} were answered by reading this
+repository, and every one of those names the file and lines it rests on. The rest were settled by the
+pack because no repository could evidence them, and each says so where it appears. Nothing was
+executed and nothing was changed. Open the repository at the commit named, go to the lines a claim
+cites, and read them.</p>
+<p class="intro">This reads the repository as it stands at one commit. That is evidence of how a
+control is designed and whether the code implements it. It is not evidence that a control operated
+over a period, which takes records across months that no repository holds at a commit. Where a
+standard separates the two, this supports the first.</p>
+</div>
+<div class="block last">
+<h2>Reading a ${escaped(noun.one)}</h2>
+<p class="lede">Every ${escaped(noun.one)} that follows is laid out the same way. This is a key, not
+an entry.</p>
+<dl class="key wide">${parts
+  .map(([name, meaning]) => `<dt>${escaped(name)}</dt><dd>${escaped(meaning)}</dd>`).join("")}</dl>
+${marks.length === 0 ? "" : `<dl class="key wide grades">${marks
+  .map(([word, meaning]) => `<dt>${escaped(word)}</dt><dd>${escaped(meaning)}</dd>`).join("")}</dl>`}
+</div>`;
+}
+
+function page(document, answers, asked) {
   const repository = document.target?.repository ?? "";
   const packs = document.packs ?? [];
-  const first = packs[0] ?? {};
-
-  const coverage = STATUSES
-    .filter(([one]) => counted[one])
-    .map(([one, name, colour]) => `<span style="color:var(--${colour})">${name} ${counted[one]}</span>`)
-    .join('<span class="dot-sep">·</span>');
 
   const byPack = new Map();
   for (const one of answers) {
@@ -159,203 +333,46 @@ function page(document, answers, asked, counted) {
     byPack.get(one.pack).push(one);
   }
 
-  const blocks = [...byPack.entries()].map(([pack, held]) => {
-    const named = packs.find((one) => one.pack === pack);
-    return `<section class="block">
-<h2>${safe(named?.title ?? pack)}<span class="edition"> at ${safe(named?.version ?? "")}</span></h2>
-<p class="count">${held.length} ${held.length === 1 ? "entry" : "entries"} assessed against this repository.</p>
-<table><thead><tr>
-${["Control", "Audit question", "How this repository answers", "Evidence", "Status"]
-      .map((one) => `<th>${one}</th>`).join("")}
-</tr></thead><tbody>${held.map((one) => row(one, asked)).join("")}</tbody></table>
-</section>`;
+  const blocks = opening(document, answers, packs, asked) + [...byPack.entries()].map(([pack, held]) => {
+    const one = packs.find((each) => each.pack === pack);
+    const noun = nounOf(one);
+    // The pack's own name leads a section heading only where the report covers more than one. With
+    // one standard the opening page has already named it, and repeating it on every heading is the
+    // same words down the page saying nothing new.
+    const several = byPack.size > 1;
+    return sectionsOf(one, held, asked).map(([part, rows]) => section({
+      ...part,
+      title: several && part.title ? `${nameOf(one, pack)}, ${part.title}` : (part.title || nameOf(one, pack)),
+    }, rows, asked, noun)).join("");
   }).join("");
 
-  const eyebrow = `EVALATION · ${repository.toUpperCase()} · EVIDENCE PACK`;
-  const foot = `Evidence pack for ${repository}. Assessed ${String(document.at ?? "").slice(0, 10)} ` +
-    `at governance revision ${document.revision ?? ""}.`;
+  const title = "Evalation Evidence Pack";
+  const subtitle = `What this repository evidences · Repo: ${repository}`;
+  const foot = `${title}. Assessed ${dated(document.at)} at governance revision ` +
+    `${document.revision ?? ""}.`;
 
-  return `<!doctype html><meta charset="utf-8"><title>Evidence pack · ${safe(repository)}</title>
+  return `<!doctype html><meta charset="utf-8"><title>${escaped(title)}</title>
 <style>
-${faces()}
-@page{size:${PAGE.width}in ${PAGE.height}in;margin:0}
-*{box-sizing:border-box}
-html,body{margin:0;padding:0;background:${CHROME.page};color:${CHROME.text};
-  font-family:'Hanken Grotesk',system-ui,sans-serif;
-  -webkit-print-color-adjust:exact;print-color-adjust:exact}
-:root{--ok:${CHROME.ok};--warn:${CHROME.warn};--danger:${CHROME.danger};
-  --orglevel:${CHROME.orglevel};--muted:${CHROME.faint}}
+${css()}
 
-.sheet{position:relative;width:${PAGE.width}in;height:${PAGE.height}in;overflow:hidden;
-  background:${CHROME.page};page-break-after:always;break-after:page;padding:${MARGIN}in}
-.sheet:last-child{page-break-after:auto;break-after:auto}
+/* Whether a section is in every audit against this standard or only where the customer elected it.
+   Beside the heading and not under it, since it qualifies the heading and a reader who scrolls past
+   it has taken the whole section as compulsory. */
+h2 .obligation{font-family:'JetBrains Mono',monospace;font-size:7pt;letter-spacing:0.08em;
+  text-transform:uppercase;font-weight:400;padding:2px 7px;margin-left:0.10in;
+  vertical-align:middle;color:${CHROME.page}}
+h2 .obligation.mandatory{background:${CHROME.muted}}
+h2 .obligation.optional{background:${CHROME.rule};color:${CHROME.muted}}
 
-.masthead{position:absolute;left:${MARGIN}in;right:${MARGIN}in;top:0.5in;height:0.34in}
-.eyebrow{font-family:'JetBrains Mono',monospace;font-size:8.5pt;letter-spacing:0.18em;
-  color:${CHROME.faint};margin:0}
-.mark{position:absolute;right:0;top:-0.06in;height:0.28in}
-
-.lead{position:absolute;left:${MARGIN}in;right:${MARGIN}in;top:0.95in}
-.lead h1{font-size:27pt;font-weight:700;margin:0;letter-spacing:-0.01em}
-.lead .subtitle{font-size:10pt;color:${CHROME.muted};margin:0.04in 0 0}
-.lead .coverage{font-family:'JetBrains Mono',monospace;font-size:10.5pt;margin:0.14in 0 0}
-.lead .coverage .what{color:${CHROME.text}}
-.dot-sep{color:${CHROME.rule};margin:0 0.09in}
-
-.flow{position:absolute;left:${MARGIN}in;right:${MARGIN}in;top:2.22in;bottom:0.62in;overflow:hidden}
-.flow.plain{top:1.05in}
-
-.foot{position:absolute;left:${MARGIN}in;right:${MARGIN}in;bottom:0.36in;
-  display:flex;justify-content:space-between;
-  font-family:'JetBrains Mono',monospace;font-size:7.5pt;letter-spacing:0.05em;color:${CHROME.faint};
-  border-top:1px solid ${CHROME.hairline};padding-top:6px}
-
-h2{font-size:13pt;font-weight:700;margin:0 0 0.03in}
-h2 .edition{font-weight:400;color:${CHROME.muted};font-size:11pt}
-.count{font-size:9pt;color:${CHROME.faint};margin:0 0 0.06in}
-.block{margin:0 0 0.22in}
-
-table{width:100%;border-collapse:collapse;table-layout:fixed}
-th{font-family:'JetBrains Mono',monospace;font-size:8pt;font-weight:400;text-align:left;
-  letter-spacing:0.10em;text-transform:uppercase;color:${CHROME.faint};
-  padding:6px 10px 6px 0;border-bottom:1px solid ${CHROME.rule}}
-td{font-size:8.5pt;line-height:11.5pt;color:${CHROME.text};padding:9px 10px 9px 0;
-  vertical-align:top;border-bottom:1px solid ${CHROME.hairline};overflow-wrap:anywhere}
-tbody tr:nth-child(even){background:${CHROME.zebra}}
-tbody tr:nth-child(even) td:first-child{box-shadow:-10px 0 0 ${CHROME.zebra}}
-
-td.control{font-weight:600}
-td.control .code{display:block;font-family:'JetBrains Mono',monospace;font-size:8pt;
-  font-weight:400;color:${CHROME.blue};margin-bottom:2px}
-td.asked{color:${CHROME.muted}}
-td.evidence{color:${CHROME.muted}}
-td.evidence .said{display:block;font-style:italic;color:${CHROME.muted};margin-bottom:3px}
-td.evidence .where{display:block;font-family:'JetBrains Mono',monospace;font-style:normal;
-  font-size:7.5pt;color:${CHROME.faint}}
-td.evidence .grade{display:block;font-family:'JetBrains Mono',monospace;font-style:normal;
-  font-size:7pt;letter-spacing:0.08em;text-transform:uppercase;color:${CHROME.rule}}
-td.evidence .none{font-style:italic;color:${CHROME.rule}}
-.remedy{margin:0.04in 0 0;color:${CHROME.muted};font-size:8pt}
-.pill{font-family:'JetBrains Mono',monospace;font-size:8pt;letter-spacing:0.08em;
-  text-transform:uppercase;white-space:nowrap;display:inline-flex;align-items:center;gap:6px}
-.dot{width:6px;height:6px;border-radius:50%;flex:none}
+/* The same distinction on an entry, where a standard grades each of its parts. Quieter than the
+   status tag beside it, since it qualifies the name and the status is what the reader came for. */
+.entry .grade{font-family:'JetBrains Mono',monospace;font-size:6.5pt;letter-spacing:0.08em;
+  text-transform:uppercase;padding:1px 6px;flex:none;color:${CHROME.faint};
+  border:1px solid ${CHROME.rule}}
+.entry .grade.mandatory{color:${CHROME.muted}}
 </style>
 <div id="source">${blocks}</div>
-<div id="out"></div>
-<script>
-// The page lays itself out before it prints, for the reason the findings detail does: a row's height
-// depends on how its text wraps, which only the browser knows, and a page number cannot be written by
-// the stylesheet. A table continued on the next sheet takes its heading and its column headers with
-// it, because a column of text under no headings cannot be read.
-(function () {
-  var COLS = '<colgroup>' + ${JSON.stringify(COLUMNS)}
-    .map(function (w) { return '<col style="width:' + (w * 100) + '%">'; }).join('') + '</colgroup>';
-  var source = document.getElementById('source');
-  var out = document.getElementById('out');
-  var eyebrow = ${JSON.stringify(eyebrow)};
-  var title = ${JSON.stringify(first.title ?? first.pack ?? "Evidence pack")};
-  var subtitle = ${JSON.stringify(`What this repository evidences, with the lines every claim rests on.`)};
-  var coverage = ${JSON.stringify(coverage)};
-  var coverageLabel = ${JSON.stringify("Coverage")};
-  var foot = ${JSON.stringify(foot)};
-  var mark = ${JSON.stringify(mark())};
-  var sheet = null, flow = null, first = true;
-
-  // Column widths go on before anything is measured. Measured without them the columns are equal,
-  // every row wraps taller than it will, and each sheet ends a row or two early.
-  var early = source.querySelectorAll('table');
-  for (var e = 0; e < early.length; e++) early[e].insertAdjacentHTML('afterbegin', COLS);
-
-  function open() {
-    sheet = document.createElement('div');
-    sheet.className = 'sheet';
-    sheet.innerHTML =
-      '<div class="masthead"><p class="eyebrow"></p><img class="mark"></div>' +
-      (first
-        ? '<div class="lead"><h1></h1><p class="subtitle"></p><p class="coverage">' +
-          '<span class="what"></span> </p></div>'
-        : '') +
-      '<div class="flow' + (first ? '' : ' plain') + '"></div>' +
-      '<div class="foot"><span class="foot-left"></span><span class="foot-right"></span></div>';
-    sheet.querySelector('.eyebrow').textContent = eyebrow;
-    sheet.querySelector('.mark').src = mark;
-    sheet.querySelector('.foot-left').textContent = foot;
-    if (first) {
-      sheet.querySelector('h1').textContent = title;
-      sheet.querySelector('.subtitle').textContent = subtitle;
-      sheet.querySelector('.coverage .what').textContent = coverageLabel + ':';
-      sheet.querySelector('.coverage').insertAdjacentHTML('beforeend', coverage);
-    }
-    out.appendChild(sheet);
-    flow = sheet.querySelector('.flow');
-    first = false;
-    return flow;
-  }
-
-  function overflows() {
-    var last = flow.lastElementChild;
-    if (!last) return false;
-    var rows = last.querySelectorAll('tbody tr');
-    var edge = rows.length
-      ? rows[rows.length - 1].getBoundingClientRect().bottom
-      : last.getBoundingClientRect().bottom;
-    return edge > flow.getBoundingClientRect().bottom + 0.5;
-  }
-
-  open();
-  var blocks = Array.prototype.slice.call(source.children);
-  for (var i = 0; i < blocks.length; i++) {
-    var block = blocks[i];
-    flow.appendChild(block);
-    if (!overflows()) continue;
-
-    // On a sheet that already holds something, the block moves to a fresh one. On an empty sheet it
-    // stays where it is: taking it off and only putting it back when there was something else there
-    // drops any block bigger than a page, which is every table of real length.
-    if (flow.children.length > 1) {
-      flow.removeChild(block);
-      open();
-      flow.appendChild(block);
-    }
-    if (!overflows()) continue;
-
-    var table = block.querySelector('table');
-    if (!table) continue;
-
-    // The section's own heading, taken once. Read from the block each time round, a continuation
-    // takes the heading that already says so and says it again: eight pages in, the heading reads
-    // "(cont.) (cont.) (cont.)" and the section's name is off the edge of the page.
-    var heading = block.querySelector('h2').innerHTML;
-
-    var body = table.querySelector('tbody');
-    var rows = Array.prototype.slice.call(body.children);
-    for (var r = 0; r < rows.length; r++) body.removeChild(rows[r]);
-
-    for (var r2 = 0; r2 < rows.length; r2++) {
-      body.appendChild(rows[r2]);
-      if (!overflows()) continue;
-      body.removeChild(rows[r2]);
-
-      open();
-      var carried = document.createElement('section');
-      carried.className = 'block';
-      carried.innerHTML = '<h2></h2><table>' + COLS + table.querySelector('thead').outerHTML +
-        '<tbody></tbody></table>';
-      carried.querySelector('h2').innerHTML = heading + '  <span class="edition">(cont.)</span>';
-      flow.appendChild(carried);
-      block = carried;
-      body = carried.querySelector('tbody');
-      body.appendChild(rows[r2]);
-    }
-  }
-
-  source.remove();
-  var sheets = out.querySelectorAll('.sheet');
-  for (var s = 0; s < sheets.length; s++) {
-    sheets[s].querySelector('.foot-right').textContent = 'Page ' + (s + 1) + ' of ' + sheets.length;
-  }
-})();
-</script>`;
+${paginator({ title, subtitle, foot })}`;
 }
 
 function main() {
@@ -384,8 +401,8 @@ function main() {
 
   // In the standard's own order, which is the order it was asked in and the order an auditor works
   // through it. Sorted by status instead, the clause numbers jump about the page and a reader
-  // checking a criterion has to hunt for it: the coverage line at the top already says how many of
-  // each there are, so the table's job is to be findable rather than to rank.
+  // checking a criterion has to hunt for it: the split at the top already says how many of each
+  // there are, so the pack's job is to be findable and not to rank.
   const asking = new Map();
   for (const pack of document.packs ?? []) {
     (pack.entries_asked ?? []).forEach((one, at) => asking.set(`${pack.pack}/${one.identifier}`, at));
@@ -399,19 +416,17 @@ function main() {
 
   if (!answers.length) fail(`no-answers: ${source} carries no coverage to report`);
 
-  const counted = Object.fromEntries(STATUSES.map(([one]) => [one, 0]));
-  for (const one of answers) if (one.status in counted) counted[one.status] += 1;
-
   const out = into
     ? resolve(into)
     : join(dirname(resolve(source)), `${basename(source).replace(/\.json$/, "")}.pdf`);
-  const done = print(page(document, answers, asked, counted), `${out.replace(/\.pdf$/, "")}.html`, out);
+  const done = print(page(document, answers, asked), `${out.replace(/\.pdf$/, "")}.html`, out);
 
   process.stdout.write(`${JSON.stringify({
     written: done.printed ? out : done.page,
     printed: done.printed,
     entries: answers.length,
-    by_status: counted,
+    cited: answers.filter((one) => (one.evidence ?? []).length > 0).length,
+    by_status: counted(answers),
   }, null, 2)}\n`);
 }
 
