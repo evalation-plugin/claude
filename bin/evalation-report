@@ -181,6 +181,16 @@ function nounOf(pack) {
 }
 
 /**
+ * A word with the article that goes in front of it. The nouns a standard calls its parts are
+ * ordinary words with an ordinary first letter, so the vowel decides it: an article, an entry, a
+ * requirement. A word starting on a vowel letter and a consonant sound, a one-off for instance,
+ * would need the sound and no standard here has one.
+ */
+function called(word) {
+  return `${/^[aeiou]/i.test(word) ? "an" : "a"} ${word}`;
+}
+
+/**
  * The noun the opening page uses, which is the standard's own where every pack in the report agrees
  * on one. Two standards calling their parts different things leave the key nothing true to call all
  * of them, so it falls back to the neutral word.
@@ -289,7 +299,7 @@ function opening(document, answers, packs, asked) {
     ["Answer", "What the repository evidences, and why it is this status and not the one either side of it."],
     ["Where it rests", "The file and lines, on the grey bar, with the line itself under them and how strong it is at the right."],
     ["Status", "Gap, Partial, Covered, Org-level or Not applicable, on the coloured tag at the right."],
-    ["What to do", `What closes it, on the orange bar. A ${noun.one} the organisation owns carries why the code cannot answer it.`],
+    ["What to do", `What closes it, on the orange bar. Where the organisation owns ${called(noun.one)}, it carries why the code cannot answer it.`],
   ];
   if (marks.length > 0) {
     parts.push(["In scope",
@@ -313,7 +323,7 @@ over a period, which takes records across months that no repository holds at a c
 standard separates the two, this supports the first.</p>
 </div>
 <div class="block last">
-<h2>Reading a ${escaped(noun.one)}</h2>
+<h2>Reading ${escaped(called(noun.one))}</h2>
 <p class="lede">Every ${escaped(noun.one)} that follows is laid out the same way. This is a key, not
 an entry.</p>
 <dl class="key wide">${parts
