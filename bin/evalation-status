@@ -28,6 +28,15 @@ if ANSWER="$("$DIR/evalation-ask" /pin '{}' 2>"$SAID")"; then
   printf 'seat: live\n'
   printf 'released revision: %s\n' \
     "$(printf '%s' "$ANSWER" | /usr/bin/python3 -c 'import json,sys; print(json.load(sys.stdin)["revision"])')"
+
+  # What is left to spend, which only the server can answer. A run spends one credit for each pack it
+  # reads, so somebody choosing five packs against three credits is refused whole, and the place to
+  # learn that is before they choose. The seat is live either way, so a balance that cannot be read
+  # prints nothing and never turns a live seat into a failure.
+  if LEFT="$("$DIR/evalation-ask" /runs '{}' 2>/dev/null)"; then
+    printf 'pack credits left: %s\n' \
+      "$(printf '%s' "$LEFT" | /usr/bin/python3 -c 'import json,sys; print(json.load(sys.stdin)["remaining"])')"
+  fi
   exit 0
 fi
 

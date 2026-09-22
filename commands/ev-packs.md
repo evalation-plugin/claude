@@ -9,6 +9,9 @@ EU AI Act, a set of concerns such as hardening or cyber, or a composition author
 as a review for insurance underwriting or for an investor reading a codebase against what its
 founder claims of it. Any number may be selected, and selecting several is the ordinary case.
 
+A run spends one pack credit for each pack it reads, so what is selected here is what a run costs.
+Four packs is four credits every time that selection is run.
+
 ## What to do
 
 1. **Show what is selected now.**
@@ -34,6 +37,10 @@ founder claims of it. Any number may be selected, and selecting several is the o
 4. **Ask which packs they want**, using this host's own question interface where it has one, offering
    exactly what the catalogue returned. Say what each pack is in one line, in their words and not
    ours, so somebody choosing between SOC 2 and ISO 27001 can tell which they need.
+
+   Say what the selection they are making will cost, one credit per pack, and how many credits they
+   have, which `${CLAUDE_PLUGIN_ROOT}/bin/evalation-status` prints. Somebody choosing five packs
+   against three credits is refused at the run and is better told here.
 
 5. **Record it.**
 

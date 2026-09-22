@@ -1,6 +1,6 @@
 ---
 description: Read this repository against the packs you selected, and write down what it evidences.
-allowed-tools: Bash(evalation-read:*), Bash(evalation-run:*), Bash(evalation-scan show:*), Bash(evalation-scan install:*), Bash(evalation-scan decline:*), Bash(evalation-scan run:*), Bash(evalation-findings:*), Bash(evalation-verify:*), Bash(evalation-score:*), Bash(evalation-deliver:*), Bash(evalation-report:*)
+allowed-tools: Bash(evalation-read:*), Bash(evalation-run:*), Bash(evalation-packs show:*), Bash(evalation-status:*), Bash(evalation-scan show:*), Bash(evalation-scan install:*), Bash(evalation-scan decline:*), Bash(evalation-scan run:*), Bash(evalation-findings:*), Bash(evalation-verify:*), Bash(evalation-score:*), Bash(evalation-deliver:*), Bash(evalation-report:*)
 ---
 
 <!--
@@ -8,6 +8,10 @@ The grant is the bound. The reading holds these commands and nothing else: no fi
 searching, no general shell, no network. Repository content reaches it only through
 `evalation-read`, which fences what it returns, so a reading cannot open a file outside the
 perimeter even if something in the tree persuades it to try.
+
+`evalation-packs` is granted at `show` alone and `evalation-status` whole. Both are named by step 1,
+both read the selection and the balance and nothing of the repository, and a person being asked what
+a run will spend should not have to approve the reading of their own balance to be told.
 
 `evalation-scan` is granted at four verbs and not at `set`. Show, install, decline and run each take
 a tool name the command's own table has to hold, or a directory, so nothing here chooses what
@@ -48,6 +52,12 @@ at step 4, and the findings, at step 6.
    and the next against another, so the packs are a choice per run and never assumed. The packs the
    person names are what step 2 is given. Nothing is counted until step 2, so asking costs nothing.
 
+   **Say what this run will spend before they answer.** It spends one pack credit for each pack it
+   reads, and `${CLAUDE_PLUGIN_ROOT}/bin/evalation-status` prints how many credits are left. Name
+   both numbers. Where the selection is larger than the balance, say so here: the run is refused
+   whole, with no part of it served, so they choose between topping up and narrowing the selection,
+   and this is the moment to find that out.
+
    Then say what is about to happen and how long it will take, in a sentence or two. Reading a
    repository against ten entries takes minutes, not seconds, and a person who was not told that
    will think it has hung.
@@ -65,6 +75,10 @@ at step 4, and the findings, at step 6.
    It returns the methodology, the entries to answer, what was admitted and what is left. **This is
    the moment the run is counted**, so it happens once. If the reading goes badly, that is a reading
    to redo and not a run to buy again.
+
+   Where it refuses for want of credit, the refusal says how many packs were asked for and how many
+   credits are left. Read both numbers out and stop. Nothing was read, nothing was counted, and the
+   two things that would change the answer are topping up and selecting fewer packs.
 
    The target is a directory on this machine, the local clone, and the run reads that and nothing
    else: it issues no call to the host the clone came from and holds no credential for it, so there is
