@@ -55,6 +55,15 @@ function colourOf(status) {
   return STATUSES.find(([one]) => one === status)?.[3] ?? CHROME.faint;
 }
 
+// How far an answer was checked, in the colours the findings detail gives the same words, so a
+// reader holding both learns them once.
+const STANDING = { verified: colourOf("covered"), asserted: CHROME.blue };
+
+function standing(answer) {
+  const word = answer.confirmed === "verified" ? "verified" : "asserted";
+  return `<span style="color:${STANDING[word]}">${word}</span>`;
+}
+
 function counted(answers) {
   const held = Object.fromEntries(STATUSES.map(([one]) => [one, 0]));
   for (const one of answers) if (one.status in held) held[one.status] += 1;
@@ -105,7 +114,7 @@ function entry(answer, asked, pack) {
   // an auditor weighing it has to be able to see that without going to the methodology.
   const tag = answer.from === "authored"
     ? "answered from the pack"
-    : escaped(answer.model ?? "");
+    : [escaped(answer.model ?? ""), standing(answer)].filter(Boolean).join(" &middot; ");
 
   const body = [
     clause?.intent ? `<p class="asked">${escaped(clause.intent)}</p>` : "",
@@ -299,6 +308,7 @@ function opening(document, answers, packs, asked) {
     ["Answer", "What the repository evidences, and why it is this status and not the one either side of it."],
     ["Where it rests", "The file and lines, on the grey bar, with the line itself under them and how strong it is at the right."],
     ["Status", "Gap, Partial, Covered, Org-level or Not applicable, on the coloured tag at the right."],
+    ["Checked", "Beside the model that read it: verified where a second check confirmed the cited lines support the answer, asserted where nothing confirmed it."],
     ["What to do", `What closes it, on the orange bar. Where the organisation owns ${called(noun.one)}, it carries why the code cannot answer it.`],
   ];
   if (marks.length > 0) {
@@ -327,7 +337,8 @@ standard separates the two, this supports the first.</p>
 <p class="lede">Every ${escaped(noun.one)} that follows is laid out the same way. This is a key, not
 an entry.</p>
 <dl class="key wide">${parts
-  .map(([name, meaning]) => `<dt>${escaped(name)}</dt><dd>${escaped(meaning)}</dd>`).join("")}</dl>
+  .map(([name, meaning]) => `<dt>${escaped(name)}</dt><dd>${escaped(meaning)
+    .replace(/\b(verified|asserted)\b/g, (word) => `<span style="color:${STANDING[word]}">${word}</span>`)}</dd>`).join("")}</dl>
 ${marks.length === 0 ? "" : `<dl class="key wide grades">${marks
   .map(([word, meaning]) => `<dt>${escaped(word)}</dt><dd>${escaped(meaning)}</dd>`).join("")}</dl>`}
 </div>`;
