@@ -63,8 +63,8 @@ function settled(packs) {
         status: "org-level",
         from: "authored",
         because:
-          `${entry.title}: no repository can evidence this, so it was answered from the pack rather ` +
-          "than by reading the tree",
+          `${entry.title}: no repository can evidence this, so it was answered from the pack and ` +
+          "nothing in the tree was read for it.",
         justification: entry.justification,
       });
     }

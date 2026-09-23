@@ -333,7 +333,10 @@ function checked(document, where) {
   // Every word a customer reads, against the part of the writing standard a machine can decide.
   // The rest of it is judgement and sits in the instruction, but a rule nothing enforces holds only
   // until it is inconvenient, and these five cost a regular expression each.
-  for (const field of facing(document)) {
+  // The reading's own lists only. The packs carry what the pack's authors wrote, and a reading cannot
+  // be refused for a pack's title.
+  const written = { answers: document.answers, findings: document.findings, accounted: document.accounted };
+  for (const field of facing(written)) {
     if (credentialIn(field.text)) {
       said.push(`${field.at}: holds what looks like a credential. Name the setting and never its value`);
     }
@@ -409,10 +412,206 @@ function namedFinding(document, finding) {
   ]);
 }
 
+/** The fields named, where the value has them. */
+function pick(value, names) {
+  const out = {};
+  for (const name of names) if (value[name] !== undefined && value[name] !== null) out[name] = value[name];
+  return out;
+}
+
+/**
+ * The answers document every run starts from, built from what evalation-run returned: the run's own
+ * facts, each pack with its title, edition, sections and the entries it asked, and the answers the
+ * pack settled itself. A reading adds its answers, findings and accounted rows and nothing else, so
+ * none of what makes an assessment resolve back to its entries is copied by hand.
+ */
+function skeleton(served, readBy) {
+  return {
+    run: served.run,
+    at: served.at,
+    revision: served.revision,
+    target: served.target,
+    read_by: readBy,
+    packs: (served.packs ?? []).map((one) => {
+      const body = one.body ?? {};
+      const entries = body.entries ?? [];
+      return {
+        pack: one.pack,
+        kind: body.kind ?? one.kind,
+        ...pick(body, ["title", "version", "entry_noun", "sections"]),
+        selected: entries.map((entry) => entry.identifier),
+        entries_asked: entries.map((entry) => pick(entry, ["identifier", "title", "intent", "section", "obligation", "note"])),
+      };
+    }),
+    answers: [...(served.answered ?? [])],
+    findings: [],
+    accounted: [],
+  };
+}
+
+// How many entries one reader is given. Enough to be worth a reader starting up, and few enough that
+// every one is read with care inside one context.
+const GROUP = 25;
+
+/**
+ * What is left to read, in groups: each within one pack, in the pack's own order, at most GROUP, and
+ * a pack's groups even in size, so no reader is started for the one entry left over.
+ */
+function groupsOf(served) {
+  const out = [];
+  for (const one of served.to_read ?? []) {
+    const kind = (served.packs ?? []).find((pack) => pack.pack === one.pack)?.body?.kind ?? "standard";
+    const size = Math.ceil(one.entries.length / Math.ceil(one.entries.length / GROUP));
+    for (let at = 0; at < one.entries.length; at += size) {
+      out.push({ pack: one.pack, kind, entries: one.entries.slice(at, at + size) });
+    }
+  }
+  return out.map((group, index) => ({ group: index + 1, of: out.length, ...group }));
+}
+
+/** One group, as its reader is handed it. */
+function groupOf(served, n) {
+  const all = groupsOf(served);
+  const one = all[n - 1];
+  if (!one) fail(`no-such-group: ${n}, and this run has ${all.length}`);
+  return {
+    ...one,
+    entries: one.entries.map((entry) => pick(entry, ["identifier", "title", "intent", "section", "locator", "obligation", "note"])),
+    owes: one.kind === "concern-set"
+      ? "one accounted row per concern saying what was looked for, and a finding for each weakness or working control found"
+      : "one answer per entry",
+  };
+}
+
+/** One reader's part, checked against its own group with every rule the whole document meets. */
+function partChecked(served, n, part, where) {
+  const group = groupOf(served, n);
+  const held = new Set(group.entries.map((entry) => entry.identifier));
+  const document = skeleton(served, "part");
+  document.packs = document.packs
+    .filter((pack) => pack.pack === group.pack)
+    .map((pack) => ({
+      ...pack,
+      selected: pack.selected.filter((one) => held.has(one)),
+      entries_asked: pack.entries_asked.filter((one) => held.has(one.identifier)),
+    }));
+  document.answers = part.answers ?? [];
+  document.findings = part.findings ?? [];
+  document.accounted = part.accounted ?? [];
+  return checked(document, where);
+}
+
+/** The answer format, from the lists this checker holds, so what a reader is told is what is checked. */
+function shape() {
+  const { RULES, WRITING_STANDARD } = require("../lib/prose.js");
+  return [
+    "An answers document holds the run's facts, its packs, and three lists a reading writes:",
+    "answers (a standard's, one per entry), findings and accounted (a concern set's). Build the whole",
+    "document with `evalation-findings merge`, never by hand: a reading writes only its own lists.",
+    "",
+    "An answer, one per entry of a standard:",
+    '  {"pack":"soc2","entry":"CC6.1","status":"<status>","because":"...","evidence":[<citation>],',
+    '   "remedy":"...","justification":"..."}',
+    `  status is one of ${STATUSES.join(", ")}.`,
+    "  because says what was looked at, what was found, and why this status and not the one either side.",
+    `  covered owes at least one citation graded ${STANDS_ALONE.join(" or ")}. Prose alone is partial-gap.`,
+    "  Every status but covered owes a remedy: what to change in this code, naming no rule.",
+    `  ${EXEMPT.join(" and ")} owe a justification.`,
+    "",
+    "A finding, for a weakness or a working control in a concern set:",
+    '  {"pack":"hardening","concern":"SEC01","severity":"<severity>","title":"...","observed":"...",',
+    '   "required":"...","at":<citation>,"scanned":"<scan key, only where a tool found it>"}',
+    `  severity is one of ${SEVERITIES.join(", ")}.`,
+    "  observed says what is there, what is at risk and what happens if it is left. required says what",
+    "  closes it. A positive finding's required is printed under \"What to keep\" and never opens on",
+    `  ${ORDERS.join(", ")}: say what the control is and what would break it.`,
+    "  scanned names a key `evalation-read <target> scan` printed, and nothing else.",
+    "",
+    "An accounted row, one per concern of a concern set, found or not:",
+    '  {"pack":"hardening","concern":"SEC01","because":"what was looked for, where, and what was found"}',
+    "",
+    "A citation:",
+    `  {"path":"relative/to/tree.ts","from":10,"to":14,"quote":"...","grade":"<grade>"}`,
+    `  grade is one of ${GRADES.join(", ")}: code that performs the control or tests it, a setting`,
+    "  something is shown to read, or prose claiming it. The quote appears within those lines,",
+    "  whitespace aside. Quote the name a secret is set against, never its value.",
+    "",
+    "Every sentence a customer reads (because, justification, observed, required, title):",
+    `  ${WRITING_STANDARD}`,
+    `  Refused where a machine can tell: ${RULES.map((one) => one.rule).join(", ")}, and a credential.`,
+    "  Anything in backticks or double quotes is the repository's own and is left alone.",
+  ].join("\n");
+}
+
+function served(path) {
+  try {
+    return JSON.parse(readFileSync(path, "utf8"));
+  } catch (thrown) {
+    fail(`unreadable-run: ${path} is not what evalation-run printed (${thrown.message})`);
+  }
+}
+
+function verbs(argv) {
+  const [verb, ...rest] = argv;
+  if (verb === "shape") {
+    process.stdout.write(`${shape()}\n`);
+    return true;
+  }
+  if (verb === "groups") {
+    const all = groupsOf(served(rest[0]));
+    process.stdout.write(`${JSON.stringify(all.map((one) => ({ group: one.group, of: one.of, pack: one.pack, entries: one.entries.length, first: one.entries[0]?.identifier, last: one.entries.at(-1)?.identifier })), null, 2)}\n`);
+    return true;
+  }
+  if (verb === "group") {
+    process.stdout.write(`${JSON.stringify(groupOf(served(rest[0]), Number(rest[1])), null, 2)}\n`);
+    return true;
+  }
+  if (verb === "part") {
+    const [run, n, file, tree] = rest;
+    let part;
+    try {
+      part = JSON.parse(readFileSync(file, "utf8"));
+    } catch (thrown) {
+      fail(`unreadable-part: ${thrown.message}`);
+    }
+    const said = partChecked(served(run), Number(n), part, resolve(tree || process.cwd()));
+    if (said.length > 0) fail(`observed: ${said.length} thing${said.length === 1 ? "" : "s"} in part ${n} to fix:`, said);
+    process.stdout.write(`part ${n} holds: ${(part.answers ?? []).length} answers, ${(part.findings ?? []).length} findings, ${(part.accounted ?? []).length} accounted\n`);
+    return true;
+  }
+  if (verb === "merge") {
+    const at = rest.indexOf("--read-by");
+    const readBy = at >= 0 ? rest[at + 1] : undefined;
+    if (!String(readBy ?? "").trim()) fail("no-model: name the model that did the reading with --read-by, as it names itself");
+    const [run, ...parts] = rest.filter((_, index) => index !== at && index !== at + 1);
+    const document = skeleton(served(run), readBy);
+    for (const file of parts) {
+      let part;
+      try {
+        part = JSON.parse(readFileSync(file, "utf8"));
+      } catch (thrown) {
+        fail(`unreadable-part: ${file} (${thrown.message})`);
+      }
+      for (const list of ["answers", "findings", "accounted"]) document[list].push(...(part[list] ?? []));
+    }
+    process.stdout.write(`${JSON.stringify(document, null, 2)}\n`);
+    return true;
+  }
+  return false;
+}
+
 function main() {
+  if (verbs(process.argv.slice(2))) return;
   const [source, target] = process.argv.slice(2);
   if (!source) {
-    process.stderr.write("usage: evalation-findings <answers.json> [tree]  (writes the findings file)\n");
+    process.stderr.write(
+      "usage: evalation-findings <answers.json|-> [tree]  (checks, and writes the findings file)\n" +
+        "       evalation-findings shape\n" +
+        "       evalation-findings groups <run.json>\n" +
+        "       evalation-findings group <run.json> <n>\n" +
+        "       evalation-findings part <run.json> <n> <part.json> <tree>\n" +
+        "       evalation-findings merge <run.json> --read-by <model> <part.json ...>\n",
+    );
     process.exit(2);
   }
   const where = resolve(target || process.cwd());
