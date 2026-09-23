@@ -24,7 +24,7 @@ const { existsSync, mkdirSync, readFileSync, writeFileSync } = require("node:fs"
 const { join, resolve, relative, isAbsolute } = require("node:path");
 const { homedir } = require("node:os");
 
-const { named: phaseNamed, newestFor } = require("../lib/scans.js");
+const { named: phaseNamed, newestFor, phasesRead } = require("../lib/scans.js");
 const { facing, held } = require("../lib/prose.js");
 
 const STATUSES = ["covered", "partial-gap", "total-gap", "org-level", "not-applicable"];
@@ -820,19 +820,13 @@ function main() {
       floor: scan.document.floor,
       phases: scan.document.phases,
     };
-    // What each item the scan settled rests on, so the evidence pack can print what was found
-    // without the scan file, which a later scan of the same tree replaces.
-    const settled = [];
-    for (const pack of document.packs ?? []) {
-      for (const one of pack.entries_asked ?? []) {
-        for (const want of one.looks_for ?? []) if (want.proof === "scan") settled.push(want);
-      }
-    }
-    if (settled.length > 0) {
-      const keys = new Set(settled.flatMap((want) => scanSays(want, scan.document, document.at).over.map((one) => one.key)));
-      document.scan.settling = (scan.document.findings ?? [])
-        .filter((one) => keys.has(one.key))
-        .map((one) => pick(one, ["key", "phase", "severity", "title", "package", "version", "fixed", "at"]));
+    // Every finding of the phases this run's packs read, at every severity, so each report can table
+    // them without the scan file, which a later scan of the same tree replaces.
+    const read = phasesRead((document.packs ?? []).map((pack) => ({ kind: pack.kind, entries: pack.entries_asked ?? [] })));
+    if (read.length > 0) {
+      document.scan.relevant = (scan.document.findings ?? [])
+        .filter((one) => read.includes(one.phase))
+        .map((one) => pick(one, ["key", "phase", "severity", "title", "package", "version", "fixed", "transitive", "at"]));
     }
   }
 

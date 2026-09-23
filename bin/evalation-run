@@ -19,6 +19,7 @@ const { randomBytes } = require("node:crypto");
 const { execFileSync } = require("node:child_process");
 const { existsSync, statSync } = require("node:fs");
 const { basename, join, resolve } = require("node:path");
+const { phasesRead } = require("../lib/scans.js");
 
 const here = __dirname;
 
@@ -86,9 +87,10 @@ function reading(packs) {
  * scanners nor runs them, since nothing it reports would carry a scan result.
  */
 function scanFor(packs) {
-  const by = packs.filter((pack) => pack.body?.kind === "concern-set" ||
-    (pack.body?.entries ?? []).some((entry) => (entry.looks_for ?? []).some((item) => item.proof === "scan")));
-  return { wanted: by.length > 0, for: by.map((pack) => pack.body?.title ?? pack.pack) };
+  const as = (pack) => ({ kind: pack.body?.kind, entries: pack.body?.entries ?? [] });
+  const by = packs.filter((pack) => phasesRead([as(pack)]).length > 0);
+  const phases = phasesRead(packs.map(as));
+  return { wanted: phases.length > 0, phases, for: by.map((pack) => pack.body?.title ?? pack.pack) };
 }
 
 /** What a command says, or nothing where it says nothing or is not there. Never a throw. */

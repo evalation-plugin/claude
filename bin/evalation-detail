@@ -27,8 +27,8 @@ const { readFileSync } = require("node:fs");
 const { resolve } = require("node:path");
 
 const { print } = require("../lib/print.js");
-const { named } = require("../lib/scans.js");
-const { CHROME, css, escaped, paginator } = require("../lib/sheet.js");
+const { named, whereOf } = require("../lib/scans.js");
+const { CHROME, css, escaped, paginator, scanTable } = require("../lib/sheet.js");
 
 // Severity is this report's own: the evidence pack owns coverage colours and this owns severity,
 // and neither writes into the other. The page itself is the shared one.
@@ -327,8 +327,21 @@ ${scanned(document)}
 function page(document) {
   const foot = `${document.title ?? "Evalation Hardening Review"}. Engineering / SDLC findings.`;
 
+  const reported = document.scan?.reported ?? {};
   const blocks = opening(document) +
-    (document.categories ?? []).map(section).join("");
+    (document.categories ?? []).map(section).join("") +
+    // Every scanner finding, whether or not the reading took it up, so a reader can see what the tools
+    // found and which of it became a finding here. A result the reading judged not to bear on this
+    // codebase is still listed, as not reported.
+    scanTable({
+      findings: document.scan?.relevant ?? [],
+      intro: "Every finding of the scans, at every severity, worst first. Reported as names the finding " +
+        "above that took it up. Not reported means the reading judged it not to bear on this codebase.",
+      last: "Reported as",
+      lastOf: (one) => (reported[one.key] ?? []).join(", ") || "not reported",
+      phaseOf: named,
+      whereOf,
+    });
 
   return `<!doctype html><meta charset="utf-8"><title>${escaped(document.title ?? "")}</title>
 <style>

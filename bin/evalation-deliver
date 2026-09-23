@@ -149,6 +149,9 @@ function reviewFindings(document) {
   }
 
   const categories = [];
+  // Which reported finding each scanner result became, by the scan's key, so the scan table at the
+  // end of the detail can say where a result was taken up and where the reading left it.
+  const reported = {};
   for (const [prefix, findings] of [...held.entries()].sort((a, b) => inOrder(a[0], b[0]))) {
     // Numbered in the order they print, which is the work order: priority first, severity breaking a
     // tie inside a tier and the stable id breaking that. Numbered over the stable id instead, the
@@ -162,6 +165,9 @@ function reviewFindings(document) {
       || RANK.indexOf(a.known.sev) - RANK.indexOf(b.known.sev)
       || String(a.one.id).localeCompare(String(b.one.id)));
 
+    graded.forEach(({ one }, at) => {
+      if (one.scanned) (reported[one.scanned] ??= []).push(`${prefix}-${String(at + 1).padStart(2, "0")}`);
+    });
     const rows = graded.map(({ one, known }, at) => ({
       pr: known.pr,
       id: `${prefix}-${String(at + 1).padStart(2, "0")}`,
@@ -249,7 +255,7 @@ function reviewFindings(document) {
     categories,
   };
 
-  if (document.scan) built.scan = document.scan;
+  if (document.scan) built.scan = { ...document.scan, reported };
 
   if (document.hardness) {
     built.hardness = { score: document.hardness.score, grade: document.hardness.grade };

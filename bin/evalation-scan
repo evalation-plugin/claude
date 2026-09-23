@@ -353,7 +353,22 @@ function runPhase(phase, named, target, isRepository, declined) {
   }
 }
 
-function scan(target) {
+/**
+ * The phases a run asked for, from --phases a,b, or every phase where none is named. A phase no
+ * selected pack reads is not run at all: a SOC 2 run building a bill of materials spends the time and
+ * prints nothing of it.
+ */
+function asked(rest) {
+  const at = rest.indexOf("--phases");
+  if (at < 0) return { only: null, rest };
+  const only = String(rest[at + 1] ?? "").split(",").map((one) => one.trim()).filter(Boolean);
+  for (const one of only) {
+    if (!DEFAULTS[one]) fail(`no phase ${JSON.stringify(one)}. The phases are ${Object.keys(DEFAULTS).join(", ")}.`);
+  }
+  return { only, rest: rest.filter((_, index) => index !== at && index !== at + 1) };
+}
+
+function scan(target, only = null) {
   const root = resolve(target);
   try {
     if (!statSync(root).isDirectory()) fail(`${target} is not a directory`);
@@ -366,6 +381,7 @@ function scan(target) {
   const before = witness(root);
 
   const ran = Object.entries(held.phases)
+    .filter(([phase]) => !only || only.includes(phase))
     .map(([phase, named]) => runPhase(phase, named, root, isRepository, held.declined));
 
   const after = witness(root);
@@ -411,14 +427,14 @@ function scan(target) {
   return { path, document };
 }
 
-function show() {
+function show(only = null) {
   const held = phases();
   process.stdout.write(`${JSON.stringify({
     floor: held.floor,
     drop_transitive_below_floor: held.drop_transitive_below_floor,
     declined: held.declined,
     can_install_with: onThisMachine(BREW) ? BREW : null,
-    phases: Object.fromEntries(Object.entries(held.phases).map(([phase, named]) => [phase, {
+    phases: Object.fromEntries(Object.entries(held.phases).filter(([phase]) => !only || only.includes(phase)).map(([phase, named]) => [phase, {
       ...named,
       on_this_machine: onThisMachine(named.tool),
       adapter: Boolean(ADAPTERS[named.tool]),
@@ -472,10 +488,11 @@ function decline(tools, { quiet = false } = {}) {
 
 const USAGE = `usage: evalation-scan <verb>
 
-  show                     what would run, what of it is on this machine, and how to get the rest
+  show [--phases a,b]      what would run, what of it is on this machine, and how to get the rest
   install <tool ...>       fetch a scanner this build knows, with the person's yes
   decline <tool ...>       record that a scanner was not wanted, so the report can say so
-  run <target>             scan a repository and write what the tools found
+  run <target> [--phases a,b]
+                           scan a repository with those phases, or all, and write what they found
   set <phase> <tool|off>   name the tool for a phase, or turn the phase off
 `;
 
@@ -483,7 +500,7 @@ function main() {
   const [verb, ...rest] = process.argv.slice(2);
   switch (verb ?? "show") {
     case "show":
-      show();
+      show(asked(rest).only);
       return;
     case "install":
       if (rest.length === 0) fail("usage: evalation-scan install <tool ...>");
@@ -494,8 +511,9 @@ function main() {
       decline(rest);
       return;
     case "run": {
-      if (!rest[0]) fail("usage: evalation-scan run <target>");
-      const { path, document } = scan(rest[0]);
+      const { only, rest: left } = asked(rest);
+      if (!left[0]) fail("usage: evalation-scan run <target> [--phases a,b]");
+      const { path, document } = scan(left[0], only);
       process.stdout.write(`${JSON.stringify({
         written: path,
         phases_that_ran: document.phases.filter((one) => one.ran).map((one) => one.phase),
