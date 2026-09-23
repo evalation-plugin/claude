@@ -116,16 +116,17 @@ at step 4, and the findings, at step 6.
 
    **Where `scan.wanted` in `run.json` is false, skip steps 3 and 4 and say nothing about scanners.**
    None of the selected packs reads a scan result, so a scan would be time spent on nothing any
-   report prints. Where it is true, `scan.for` names the packs that read it.
+   report prints. Where it is true, `scan.for` names the packs that read it and `scan.phases` the
+   phases they read, joined with commas below as `<phases>`. Only those phases are offered and run.
 
 3. **Ask whether to install the scanners that are missing, and wait for the answer.**
 
    ```
-   ${CLAUDE_PLUGIN_ROOT}/bin/evalation-scan show
+   ${CLAUDE_PLUGIN_ROOT}/bin/evalation-scan show --phases <phases>
    ```
 
    Whether a pinned version carries a known advisory is a lookup against a database that moved this
-   morning, and no reading answers it from memory. Four tools answer that class of question, and on
+   morning, and no reading answers it from memory. One tool per phase answers that class of question, and on
    a machine where the only thing installed is this plugin, none of them is here yet.
 
    `show` says which are missing and the command that would fetch each. Ask once, naming every
@@ -153,7 +154,7 @@ at step 4, and the findings, at step 6.
 4. **Run the scanners over the tree.**
 
    ```
-   ${CLAUDE_PLUGIN_ROOT}/bin/evalation-scan run <target>
+   ${CLAUDE_PLUGIN_ROOT}/bin/evalation-scan run <target> --phases <phases>
    ```
 
    It runs before the reading so that what it found is in front of you while you answer the

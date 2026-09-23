@@ -29,9 +29,9 @@ const { mkdirSync, readFileSync } = require("node:fs");
 const { join, resolve } = require("node:path");
 
 const { print } = require("../lib/print.js");
-const { named: phaseNamed } = require("../lib/scans.js");
+const { named: phaseNamed, whereOf } = require("../lib/scans.js");
 const { keepFindings, reportsFolder, reviewName } = require("../lib/reports.js");
-const { CHROME, css, escaped, paginator } = require("../lib/sheet.js");
+const { CHROME, css, escaped, paginator, scanTable } = require("../lib/sheet.js");
 
 // The vocabulary, in the order a reader should meet it: what is wrong first, what is right after,
 // and what is nobody's or somebody else's last. Coverage is this pack's own, as severity is the
@@ -114,9 +114,6 @@ const RESULT = {
 // Severities worst first, the order a scanner's findings are listed in under an item.
 const SEVERITY = ["critical", "high", "medium", "low", "info"];
 
-// Scanner findings listed under one item before the rest are counted. The findings file holds all.
-const LISTED = 8;
-
 /**
  * What the scan said about an item it settled. Found says the phase ran and found nothing at the
  * item's severity or above. Missing lists what it found there, worst first. Not checked says why the
@@ -129,18 +126,15 @@ function scanned(want, row, scan) {
     const ran = (scan?.phases ?? []).find((one) => one.phase === want.phase);
     return `<p class="looked">${escaped(ran && !ran.ran ? `The ${phase} did not run: ${ran.why}.` : `The ${phase} was not run over this repository in this run.`)}</p>`;
   }
-  if (row.result === "found") {
-    return `<p class="looked">${escaped(`The ${phase} ran over this repository and found nothing${level}.`)}</p>`;
-  }
+  const all = (scan?.relevant ?? []).filter((one) => one.phase === want.phase);
   const floor = want.at_least ? SEVERITY.indexOf(want.at_least) : SEVERITY.length - 1;
-  const over = (scan?.settling ?? [])
-    .filter((one) => one.phase === want.phase && SEVERITY.indexOf(one.severity) >= 0 && SEVERITY.indexOf(one.severity) <= floor)
-    .sort((a, b) => SEVERITY.indexOf(a.severity) - SEVERITY.indexOf(b.severity));
-  const shown = over.slice(0, LISTED).map((one) =>
-    `<div class="at"><span>${escaped(one.title ?? one.key)}${one.fixed ? escaped(`, fixed in ${one.fixed}`) : ""}</span>` +
-    `<span class="grade">${escaped(one.severity)}</span></div>`).join("");
-  const more = over.length > LISTED ? `<p class="looked">${escaped(`And ${over.length - LISTED} more, each listed in Evalation Findings.json.`)}</p>` : "";
-  return `<p class="looked">${escaped(`The ${phase} found ${over.length}${level}.`)}</p>${shown}${more}`;
+  const over = all.filter((one) => SEVERITY.indexOf(one.severity) >= 0 && SEVERITY.indexOf(one.severity) <= floor);
+  const listed = all.length > 0 ? " Each is listed under Scan findings at the end of this pack." : "";
+  const said = row.result === "found"
+    ? `The ${phase} ran over this repository and found nothing${level}` +
+      (all.length > 0 ? `, and ${all.length} below that.` : ".")
+    : `The ${phase} found ${over.length}${level}` + (all.length > over.length ? `, of ${all.length} in all.` : ".");
+  return `<p class="looked">${escaped(said + listed)}</p>`;
 }
 
 /**
@@ -387,7 +381,7 @@ function opening(document, answers, packs, asked) {
     ["Asked", "The question put to the repository, in italics, so a reader can judge whether the status answers it."],
     ["Answer", "What the repository evidences, and why it is this status and not the one either side of it."],
     ["Where it rests", "The file and lines, on the grey bar, with the line itself under them and how strong it is at the right. Where the answer is that something is absent, what was searched for and where, so anybody can look again."],
-    ["Looked for", "Where the standard's part lists what it looks for, each item numbered with found, missing or does not apply at the right, and the status is the count of them. An item marked scanned was settled by a scanner run over this repository during the reading, and lists what the scanner found."],
+    ["Looked for", "Where the standard's part lists what it looks for, each item numbered with found, missing or does not apply at the right, and the status is the count of them. An item marked scanned was settled by a scanner run over this repository during the reading, and every finding of that scan is listed under Scan findings at the end, worst first."],
     ["Status", "Gap, Partial, Covered, Org-level or Not applicable, on the coloured tag at the right."],
     ["Checked", "Beside the model that read it: verified where a second check confirmed the answer against the repository, asserted where nothing confirmed it."],
     ["What to do", `What closes it, on the orange bar. Where the organisation owns ${called(noun.one)}, it carries why the code cannot answer it.`],
@@ -425,6 +419,33 @@ ${marks.length === 0 ? "" : `<dl class="key wide grades">${marks
 </div>`;
 }
 
+/**
+ * Every scanner finding of the phases this pack's items read, at every severity, in one table after
+ * the last criterion, each naming the criteria it bears on. The cards stay short and point here. A
+ * pack whose items read no scan, or whose scan found nothing, carries no table.
+ */
+function scanFindings(document, packs, asked) {
+  const bears = new Map();
+  for (const [key, entry] of asked) {
+    if (!packs.includes(key.split("/")[0])) continue;
+    for (const want of entry.looks_for ?? []) {
+      if (want.proof !== "scan") continue;
+      if (!bears.has(want.phase)) bears.set(want.phase, []);
+      if (!bears.get(want.phase).includes(entry.identifier)) bears.get(want.phase).push(entry.identifier);
+    }
+  }
+  return scanTable({
+    findings: (document.scan?.relevant ?? []).filter((one) => bears.has(one.phase)),
+    intro: "Every finding of the scans this pack's criteria read, at every severity, worst first. A " +
+      "criterion's item counts only the severities its words name, so a finding listed here can bear " +
+      "on a criterion without counting against it.",
+    last: "Bears on",
+    lastOf: (one) => bears.get(one.phase).join(", "),
+    phaseOf: phaseNamed,
+    whereOf,
+  });
+}
+
 function page(document, answers, asked) {
   const repository = document.target?.repository ?? "";
   const packs = document.packs ?? [];
@@ -446,7 +467,7 @@ function page(document, answers, asked) {
       ...part,
       title: several && part.title ? `${nameOf(one, pack)}, ${part.title}` : (part.title || nameOf(one, pack)),
     }, rows, asked, noun, document.scan)).join("");
-  }).join("");
+  }).join("") + scanFindings(document, [...byPack.keys()], asked);
 
   const title = "Evalation Evidence Pack";
   const subtitle = `What this repository evidences · Repo: ${repository}`;
