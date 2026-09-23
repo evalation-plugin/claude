@@ -94,6 +94,9 @@ at step 4, and the findings, at step 6.
    the moment the run is counted**, so it happens once. If the reading goes badly, that is a reading
    to redo and not a run to buy again.
 
+   **Save what it prints, exactly as printed, as `run.json`** in a scratch folder outside the
+   repository. Every later step reads the run from that file, so nothing in it is copied by hand.
+
    Where it refuses for want of credit, the refusal says how many packs were asked for and how many
    credits are left. Read both numbers out and stop. Nothing was read, nothing was counted, and the
    two things that would change the answer are topping up and selecting fewer packs.
@@ -156,6 +159,20 @@ at step 4, and the findings, at step 6.
    else. Follow the served methodology. Read the code that would carry the control, never the
    file whose name sounds like it should.
 
+   **The answer format is what `${CLAUDE_PLUGIN_ROOT}/bin/evalation-findings shape` prints.** It is
+   printed from the lists the check holds, so it says everything the check will ask. Never open the
+   plugin's own files to work the format out.
+
+   **Read in groups, one reader each.** `evalation-findings groups run.json` splits `to_read` into
+   groups of about twenty entries, each within one pack. Where there is more than one group, start one
+   subagent per group, several at once, and give each the same task: read the methodology in
+   `run.json`, print its group with `evalation-findings group run.json <n>`, read the repository for
+   those entries through `evalation-read` alone, write its answers, findings and accounted rows as
+   `part-<n>.json` in the scratch folder in the format `shape` prints, and run
+   `evalation-findings part run.json <n> part-<n>.json <target>` until it holds. A part that holds is
+   one the whole check will accept, so a reader fixes its own part and nothing is fixed after the
+   merge. Where there is one group, read it here the same way.
+
    ```
    ${CLAUDE_PLUGIN_ROOT}/bin/evalation-read <target> map
    ${CLAUDE_PLUGIN_ROOT}/bin/evalation-read <target> list [glob]
@@ -197,50 +214,22 @@ at step 4, and the findings, at step 6.
    is a gap in the assessment, not a clause that passed, and nothing downstream can tell those
    apart.
 
-6. **Write the answers as one document**, to a file outside the repository being read, in the shape
-   `evalation.findings.v1` describes.
+6. **What each part holds.** A part holds only what the reading wrote: `answers` for a standard's
+   entries, `findings` and `accounted` for a concern set's. The run's facts, the packs with their
+   titles, editions, sections and questions, and the answers the pack settled itself all come from
+   `run.json` at step 7, so a part never copies them.
 
    **What a pack owes depends on what it answers, and the pack says which.** A `standard` answers
-   coverage: one entry in `answers` per selected entry, with a status. A `concern-set` answers
-   findings: entries in `findings`, each with a severity, a location and a remedy, plus one row in
-   `accounted` per selected concern saying what was looked for. A concern with nothing wrong still
-   gets its row, because a clean row and a concern nobody read are the same thing to a reader
-   otherwise. Carry `kind` through from what step 2 returned so the check knows which it is holding. Take `run`, `at`, `revision`, `target` and `packs` from what
-   step 2 returned, never composing them, since those are what make the assessment resolve back
-   to an exact entry set a year from now.
+   coverage: one answer per entry, with a status. A `concern-set` answers findings: a finding for
+   each weakness and each working control, plus one row in `accounted` per concern saying what was
+   looked for. A concern with nothing wrong still gets its row, because a clean row and a concern
+   nobody read are the same thing to a reader otherwise.
 
-   **Each pack carries what it is**: its `title` as the standard publishes it, its `version`, its
-   `entry_noun` and its `sections`, all copied from what step 2 returned. The report heads the pack
-   by that title, so a pack carrying none goes out headed with the lower-case handle it is filed
-   under, and an auditor handed a page headed `soc2` is being told the assessor did not know what
-   the standard is called. `entry_noun` is what the standard calls its own parts: SOC 2 has
-   criteria, GDPR has articles, PCI DSS has requirements. `sections` say how it divides itself and
-   which parts are in every audit.
-
-   **Each pack carries `entries_asked`**, one row per selected entry, each with the `identifier`,
-   the `title`, the `intent` and the `section` it falls under, copied from what step 2 returned,
-   along with the `obligation` and the `note` where the entry carried them. Those two say whether
-   the standard assesses that entry in every audit or only where a level was elected, which is how
-   OWASP ASVS grades each requirement level 1, 2 or 3, and a report without them tells a customer
-   assessed at level 1 they have gaps against requirements nobody was assessing. The evidence pack prints the
-   control's name and the question it was asked beside your answer, and an auditor deciding whether
-   a status is right cannot do it from a clause number and a verdict. Without this the pack goes out
-   as a column of bare identifiers, so step 7 refuses a pack that does not carry them.
-
-   **Say what you are, in `read_by`.** Name the model doing this reading as it names itself, for
-   example `Claude Opus 5`. Nothing can observe it: no host puts the model in the environment, so this
-   is the one fact about the run only you can supply. A deliverable that cannot say what produced a
-   finding is worth less to whoever has to weigh it, and step 5 refuses a document without it.
-
-   Every answer carries the pack, the entry, the status, and why it is that status and not the one
-   either side of it. Covered carries its evidence. Everything else carries a corrective step.
-   Org-level and not applicable carry a justification.
-
-   The entries from `answered` go in unchanged, each carrying `from: "authored"`. That is what lets a
-   person reading the report tell somebody having looked and found it was not this code's job from
-   nobody having looked because it never could be. Never mark an answer you reached by reading as
-   authored, and never reach for authored to avoid a reading: only org-level can be settled in
-   advance, because it is the one status that is a fact about the clause and not about the tree.
+   Every answer says why it is that status and not the one either side of it. Covered carries its
+   evidence. Everything else carries a corrective step. Org-level and not applicable carry a
+   justification. Never answer an entry from `answered`: the pack settled it, and only org-level can
+   be settled without reading, because it is the one status that is a fact about the clause and not
+   about the tree.
 
    **Write every word a customer reads for a leader who has never opened the codebase.** They decide
    what to fund and what to leave, and a sentence they cannot follow is a finding they cannot act on.
@@ -279,11 +268,15 @@ at step 4, and the findings, at step 6.
    A citation is a path relative to the tree, a line range, the quote and its grade. **The quote must
    appear in those lines**, because step 7 opens the file and looks.
 
-7. **Check it, which is what writes the file.**
+7. **Merge the parts and check the whole, which is what writes the file.**
 
    ```
-   ${CLAUDE_PLUGIN_ROOT}/bin/evalation-findings <answers.json> <target>
+   ${CLAUDE_PLUGIN_ROOT}/bin/evalation-findings merge run.json --read-by "<model>" part-*.json | ${CLAUDE_PLUGIN_ROOT}/bin/evalation-findings - <target>
    ```
+
+   `--read-by` names the model that did the reading, as it names itself, for example
+   `Claude Opus 5.5`. Nothing else can observe it, and a deliverable that cannot say what produced a
+   finding is worth less to whoever has to weigh it.
 
    It refuses and writes nothing where a citation does not hold, an entry was left unanswered, a
    status is covered on prose alone, or a field a status owes is missing. **Fix the answers rather
