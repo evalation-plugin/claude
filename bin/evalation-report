@@ -25,10 +25,11 @@
 // lose the auditor it was produced for.
 "use strict";
 
-const { readFileSync } = require("node:fs");
-const { basename, dirname, join, resolve } = require("node:path");
+const { mkdirSync, readFileSync } = require("node:fs");
+const { join, resolve } = require("node:path");
 
 const { print } = require("../lib/print.js");
+const { keepFindings, reportsFolder, reviewName } = require("../lib/reports.js");
 const { CHROME, css, escaped, paginator } = require("../lib/sheet.js");
 
 // The vocabulary, in the order a reader should meet it: what is wrong first, what is right after,
@@ -248,7 +249,10 @@ function dated(at) {
 function facts(document, answers, packs) {
   // The standard and the edition it was assessed against. Without the edition a reader cannot tell
   // which document the clause numbers resolve to, and the numbering moves between editions.
-  const standards = (packs ?? []).filter((one) => (one.title ?? "").trim().length > 0);
+  // Only the packs this document answers: a run can also read a concern set, whose findings go in the
+  // findings detail and never here.
+  const held = new Set(answers.map((one) => one.pack));
+  const standards = (packs ?? []).filter((one) => held.has(one.pack) && (one.title ?? "").trim().length > 0);
   const said = [
     ["Assessed", dated(document.at)],
     ["Against", standards.map((one) => nameOf(one, one.pack)).join(", ")],
@@ -399,7 +403,7 @@ ${paginator({ title, subtitle, foot })}`;
 function main() {
   const [source, into] = process.argv.slice(2);
   if (!source) {
-    process.stderr.write("usage: evalation-report <findings.json> [out.pdf]\n");
+    process.stderr.write("usage: evalation-report <findings.json> [into-dir]\n");
     process.exit(2);
   }
 
@@ -437,18 +441,27 @@ function main() {
 
   if (!answers.length) fail(`no-answers: ${source} carries no coverage to report`);
 
-  const out = into
-    ? resolve(into)
-    : join(dirname(resolve(source)), `${basename(source).replace(/\.json$/, "")}.pdf`);
-  const done = print(page(document, answers, asked), `${out.replace(/\.pdf$/, "")}.html`, out);
+  // One evidence pack per standard, named for it, so a folder holding several says which is which and
+  // an auditor for one standard is handed that standard alone.
+  const folder = into ? resolve(into) : reportsFolder(document);
+  mkdirSync(folder, { recursive: true });
+  keepFindings(resolve(source), folder);
+  const written = [...new Set(answers.map((one) => one.pack))].map((pack) => {
+    const own = answers.filter((one) => one.pack === pack);
+    const alone = { ...document, packs: (document.packs ?? []).filter((one) => one.pack === pack) };
+    const out = join(folder, `${reviewName(document, pack)} Evidence Pack.pdf`);
+    const done = print(page(alone, own, asked), `${out.replace(/\.pdf$/, "")}.html`, out);
+    return {
+      pack,
+      written: done.printed ? out : done.page,
+      printed: done.printed,
+      entries: own.length,
+      cited: own.filter((one) => (one.evidence ?? []).length > 0).length,
+      by_status: counted(own),
+    };
+  });
 
-  process.stdout.write(`${JSON.stringify({
-    written: done.printed ? out : done.page,
-    printed: done.printed,
-    entries: answers.length,
-    cited: answers.filter((one) => (one.evidence ?? []).length > 0).length,
-    by_status: counted(answers),
-  }, null, 2)}\n`);
+  process.stdout.write(`${JSON.stringify({ folder, packs: written }, null, 2)}\n`);
 }
 
 main();

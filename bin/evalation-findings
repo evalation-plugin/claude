@@ -46,6 +46,19 @@ const ORDERS = ["keep", "leave", "retain", "preserve", "maintain", "continue", "
 
 const HOME = process.env.EVALATION_HOME || join(homedir(), ".evalation");
 
+// A credential never reaches a report, per the findings detail: a finding that quotes one has
+// published it into a PDF. Two shapes a machine can decide. A value of sixteen or more characters,
+// holding a letter and a digit, set against a name that says key, secret, token, password or
+// credential. And the prefixes the large providers put on their keys.
+const NAMED = /["']?\b[\w.-]*(?:key|secret|token|passw(?:or)?d|kek|credential)[\w.-]*["']?\s*[:=]\s*["']?([A-Za-z0-9+/_=-]{16,})/gi;
+const PREFIXED = /\b(?:sk-[A-Za-z0-9_-]{20,}|ghp_[A-Za-z0-9]{30,}|github_pat_\w{20,}|AKIA[0-9A-Z]{16}|xox[abprs]-[\w-]{10,})|-----BEGIN [A-Z ]*PRIVATE KEY-----/;
+
+function credentialIn(text) {
+  const said = String(text ?? "");
+  if (PREFIXED.test(said)) return true;
+  return [...said.matchAll(NAMED)].some(([, value]) => /[a-z]/i.test(value) && /\d/.test(value));
+}
+
 function fail(reason, offences) {
   process.stderr.write(reason + "\n");
   for (const one of offences ?? []) process.stderr.write(`  ${one}\n`);
@@ -102,6 +115,10 @@ function cited(where, one, said) {
       `${one.path}:${from}-${to}: the quote is not there. ` +
         `Cited ${JSON.stringify(one.quote.slice(0, 60))}`,
     );
+  }
+
+  if (credentialIn(one.quote)) {
+    said.push(`${one.path}:${from}-${to}: the quote holds what looks like a credential. Quote the name it is set against and never the value`);
   }
 
   if (!GRADES.includes(one.grade)) {
@@ -317,6 +334,9 @@ function checked(document, where) {
   // The rest of it is judgement and sits in the instruction, but a rule nothing enforces holds only
   // until it is inconvenient, and these five cost a regular expression each.
   for (const field of facing(document)) {
+    if (credentialIn(field.text)) {
+      said.push(`${field.at}: holds what looks like a credential. Name the setting and never its value`);
+    }
     for (const rule of held(field.text)) {
       said.push(`${field.at}: ${rule}. This is read by somebody deciding what to do about it, so ` +
         `it holds to the writing standard: ${JSON.stringify(field.text.trim().slice(0, 90))}`);
@@ -501,4 +521,6 @@ function main() {
   );
 }
 
-main();
+module.exports = { credentialIn };
+
+if (require.main === module) main();

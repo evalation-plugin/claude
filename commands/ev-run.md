@@ -338,34 +338,45 @@ at step 4, and the findings, at step 6.
    this run and nowhere else. A pack step 2 returned no rubric for is not scored, and that is not a
    failure.
 
-10. **Produce the artefact**, which is what somebody is actually given.
+10. **Produce the artefacts**, which are what somebody is actually given. Run `evalation-deliver`
+   where the run read a concern set and `evalation-report` where it read a standard, both over the
+   file step 7 wrote.
 
    ```
-   ${CLAUDE_PLUGIN_ROOT}/bin/evalation-deliver <findings.json> <into-dir> [repository]
-   ${CLAUDE_PLUGIN_ROOT}/bin/evalation-report  <findings.json> [out.pdf]
+   ${CLAUDE_PLUGIN_ROOT}/bin/evalation-deliver <written> "" <target>
+   ${CLAUDE_PLUGIN_ROOT}/bin/evalation-report  <written>
    ```
 
-   A concern set answers findings, so `evalation-deliver` builds its two: the findings detail, which
-   carries every finding with its remediation and is what somebody works from, and the board pack,
+   Name no folder unless the person asked for a place. Both write into one folder per run under the
+   person's Documents folder, `Documents/Evalation/<repository>/<date> <run>`, where they can find it.
+   The repository names the folder and each file is named for the review it holds, so a folder of
+   several reviews says which file is which:
+
+   - `Evalation Hardening Review Pack.pdf` and `Evalation Hardening Review Detail.pdf`
+   - one evidence pack per standard, such as `Evalation SOC 2 Trust Services Criteria Evidence Pack.pdf`
+   - `Evalation Findings.json`, a copy of the findings file, which is what the engine ingests to work
+     the findings. The one under `~/.evalation` stays the record.
+
+   A concern set answers findings, so `evalation-deliver` builds its two: the review detail, which
+   carries every finding with its remediation and is what somebody works from, and the review pack,
    which carries the score and where the weakness sits and is what somebody presents. Naming the
-   repository as the third argument measures the tree, which is what fills the repository page. Leave
-   it off and that page is dropped, never shown as a page of zeros.
+   repository as the third argument measures the tree, which is what fills the repository page.
 
-   A standard answers coverage, so `evalation-report` builds its one: the evidence pack, a clause per
-   row with the question, the answer, the evidence and the status.
+   A standard answers coverage, so `evalation-report` builds one evidence pack for each standard the
+   run read: a clause per row with the question, the answer, the evidence and the status.
 
    **Both write PDFs**, printed here with the browser already on the machine, because a deliverable an
-   auditor is handed has to print the same everywhere and must not be editable into an assessment
-   that never happened. The page each was printed from is kept beside it. Where no browser is found
-   they say so and leave the page, which is a thing a person can finish in one action.
+   auditor is handed has to print the same everywhere. Where no browser is found they say so and
+   leave the page each PDF would have been printed from, which the person opens in any browser and
+   prints to PDF. Where a browser printed it, only the PDF is kept.
 
-   The board pack carries no individual findings on purpose: a slide holding fifty of them is neither
+   The review pack carries no individual findings on purpose: a slide holding fifty of them is neither
    a slide anybody reads nor a document anybody can work from, and the detail is where they live.
 
 11. **Report what it found, in two or three sentences**, and say where the artefact is. Lead with what
    would matter to somebody deciding what to do next: what is a total gap, what is only claimed rather
    than implemented, what scored worst. Not a table of every entry, which is what the artefact is for.
-   Say the file path last, on its own line, because that is what they will want to open.
+   Say the folder last, on its own line, because that is what they will want to open.
 
 ## What this never does
 

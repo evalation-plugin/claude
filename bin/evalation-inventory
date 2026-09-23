@@ -134,30 +134,48 @@ const OBJECTS = {
   "DECISIONS (ADRS)": (path) => /(^|\/)(adrs?|decisions)\//i.test(path) && /\.(md|adoc)$/i.test(path),
   HOOKS: (path) => /(^|\/)\.(githooks|husky)\//i.test(path) || /(^|\/)hooks\/[^/]+$/i.test(path),
   SERVICES: (path) => /(^|\/)(services|apps|packages)\/[^/]+\/(package\.json|Cargo\.toml|go\.mod|pyproject\.toml)$/i.test(path),
-  GATES: (path) => /(^|\/)(checks|gates)\/[^/]+\.(ts|js|sh|py)$/i.test(path),
-  "LOOP SCRIPTS": (path) => /(^|\/)scripts\/[^/]+\.(sh|bash)$/i.test(path),
+  "CHECK SCRIPTS": (path) => /(^|\/)(checks|gates)\/[^/]+\.(ts|js|sh|py)$/i.test(path),
+  "SHELL SCRIPTS": (path) => /(^|\/)scripts\/[^/]+\.(sh|bash)$/i.test(path),
   SKILLS: (path) => /(^|\/)skills\/[^/]+/i.test(path),
   "MOBILE SCREENS": (path) => /(^|\/)(screens|views)\/[^/]+\.(tsx|jsx|swift|kt|dart)$/i.test(path),
 };
 
-// Declared dependencies, read as structured data rather than matched out of text, per section 13.
+// Declared dependencies, read from every manifest in the tree, since a repository of several apps and
+// services declares most of them below the root. Counted once each by name, so a package every app
+// uses is one dependency. Cargo's manifest is read by its dependency tables alone.
 const MANIFESTS = {
-  "package.json": (held) => Object.keys(held.dependencies ?? {}).length
-    + Object.keys(held.devDependencies ?? {}).length,
+  "package.json": (text) => {
+    const held = JSON.parse(text);
+    return [...Object.keys(held.dependencies ?? {}), ...Object.keys(held.devDependencies ?? {})];
+  },
+  "Cargo.toml": (text) => {
+    const names = [];
+    let inside = false;
+    for (const line of text.split("\n")) {
+      const table = line.match(/^\s*\[([^\]]+)\]/);
+      if (table) {
+        inside = /(^|\.)(dev-|build-)?dependencies$/.test(table[1].trim());
+        continue;
+      }
+      const name = inside && line.match(/^\s*([A-Za-z0-9_-]+)(?:\.[a-z-]+)?\s*=/);
+      if (name) names.push(name[1]);
+    }
+    return names;
+  },
 };
 
-function dependencies(where) {
-  let count = 0;
-  for (const [name, read] of Object.entries(MANIFESTS)) {
-    const path = join(where, name);
+function dependencies(where, paths) {
+  const names = new Set();
+  for (const path of paths) {
+    const read = MANIFESTS[path.split("/").pop()];
+    if (!read) continue;
     try {
-      count += read(JSON.parse(readFileSync(path, "utf8")));
+      for (const one of read(readFileSync(join(where, path), "utf8"))) names.add(`${path.split("/").pop()}:${one}`);
     } catch {
-      // Absent, or not the shape its name promises. Either way it contributes nothing rather than
-      // failing the whole measurement.
+      // Not the shape its name promises. It contributes nothing rather than failing the measurement.
     }
   }
-  return count;
+  return names.size;
 }
 
 function inventory(where) {
@@ -175,7 +193,9 @@ function inventory(where) {
     .map(([name, bytes]) => ({
       name,
       share: total > 0 ? Math.round((bytes / total) * 1000) / 10 : 0,
-    }));
+    }))
+    // A language under half a percent prints as 0% beside the bar, which reads as a fault.
+    .filter((one) => one.share >= 0.5);
 
   const commits = quietly("git", ["rev-list", "--count", "HEAD"], where);
   const since = quietly("git", ["log", "--reverse", "--format=%as", "--max-count=1"], where);
@@ -193,7 +213,7 @@ function inventory(where) {
   };
   if (commits) counts.COMMITS = Number(commits);
 
-  const declared = dependencies(where);
+  const declared = dependencies(where, held.paths);
   if (declared) counts.DEPENDENCIES = declared;
 
   for (const [label, holds] of Object.entries(OBJECTS)) {

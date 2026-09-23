@@ -119,11 +119,13 @@ function model(document) {
     });
 
   return {
-    title: document.title ?? "Platform hardening review",
+    title: document.title ?? "Evalation Hardening Review",
     subtitle: document.subtitle ?? "",
     tenant: document.tenant ?? "",
-    auditType: "Platform Hardening Review",
-    findings: findings.length,
+    auditType: "Hardening Review",
+    // Weaknesses only. A control found working is counted where the verdict names it, and counting it
+    // here too put 147 on the cover beside commentary that says 108.
+    findings: findings.filter((one) => one.sev !== "Positive").length,
     critical: totals.Critical,
     high: totals.High,
     score: hardness.score,
@@ -661,20 +663,14 @@ function deck(document, into, options = {}) {
         .sort((a, b) => a.top - b.top)[0],
     }));
 
-    // Cells run left to right, top to bottom, which is the order a reader takes them in. What was
-    // measured comes first, and every other object type the template names follows it at zero: the
-    // grid's job is to say what was looked for as much as what was found, and a short grid reads as a
-    // shallower assessment than the one that happened.
+    // Cells run left to right, top to bottom, which is the order a reader takes them in. Only what was
+    // measured and found is shown. Filling the template's other labels at zero printed "0 REST
+    // endpoints" for a repository full of API routes, since nothing counts those, and put our own
+    // engine's words on a customer's page.
     const cells = [...labelled].sort((a, b) =>
       a.value.top - b.value.top || a.value.left - b.value.left);
 
-    const named = cells.map((cell) => cell.label?.text.trim().toUpperCase()).filter(Boolean);
-    const measured = Object.entries(inventory);
-    const rest = named
-      .filter((label) => !(label in inventory))
-      .map((label) => [label, 0]);
-
-    [...measured, ...rest].forEach(([label, count], at) => {
+    Object.entries(inventory).forEach(([label, count], at) => {
       if (cells[at]) cells[at].holds = { label, count };
     });
 

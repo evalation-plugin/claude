@@ -25,6 +25,7 @@ const { existsSync, mkdirSync, readFileSync, writeFileSync } = require("node:fs"
 const { basename, join, resolve } = require("node:path");
 
 const { synthesise } = require("../lib/synthesise.js");
+const { keepFindings, reportsFolder, reviewName } = require("../lib/reports.js");
 const { inventory } = require("./evalation-inventory");
 const { deck } = require("./evalation-deck");
 const { detail } = require("./evalation-detail");
@@ -242,7 +243,7 @@ function reviewFindings(document) {
     legend: {
       priority: "P0 do first · P1 near-term · P2 should-fix · P3 cleanup / low.",
       result:
-        "Scanned by a deterministic run · verified where a second reading confirmed the cited " +
+        "Scanned by a deterministic run · verified where a second check confirmed the cited " +
         "lines · asserted where nothing confirmed it.",
     },
     categories,
@@ -263,9 +264,11 @@ function reviewFindings(document) {
   return built;
 }
 
-function deliver(source, into, target) {
+function deliver(source, named, target) {
   const document = JSON.parse(readFileSync(resolve(source), "utf8"));
+  const into = named ? resolve(named) : reportsFolder(document);
   mkdirSync(into, { recursive: true });
+  keepFindings(resolve(source), into);
 
   const built = reviewFindings(document);
 
@@ -277,28 +280,31 @@ function deliver(source, into, target) {
   }
 
   const shaped = synthesise(built);
-  writeFileSync(join(into, "review-findings.json"), `${JSON.stringify(shaped, null, 2)}\n`);
 
-  const name = (document.target?.repository ?? "review").replace(/[^A-Za-z0-9._-]+/g, "-");
-  const pack = join(into, `${name}-board-pack.pdf`);
-  const findings = join(into, `${name}-findings-detail.pdf`);
+  // Named for the review they hold. A run reads one concern set today, hardening, and a run that
+  // read several has no one title to give them.
+  const concerns = (document.packs ?? []).filter((one) => one.kind === "concern-set").map((one) => one.pack);
+  const name = concerns.length === 1 ? reviewName(document, concerns[0]) : "Evalation Findings";
+  const pack = join(into, `${name} Pack.pdf`);
+  const findings = join(into, `${name} Detail.pdf`);
 
   const one = deck(shaped, pack);
   const two = detail(shaped, findings);
 
-  return { pack, findings, printed: one.printed && two.printed };
+  return { into, pack, findings, printed: one.printed && two.printed };
 }
 
 module.exports = { deliver, reviewFindings };
 
 if (require.main === module) {
   const [source, into, target] = process.argv.slice(2);
-  if (!source || !into) {
-    process.stderr.write("usage: evalation-deliver <findings.json> <into-dir> [repository]\n");
+  if (!source) {
+    process.stderr.write("usage: evalation-deliver <findings.json> [into-dir] [repository]\n");
     process.exit(2);
   }
-  const done = deliver(source, resolve(into), target);
+  // An empty folder argument takes the default, so a repository can be named without a folder.
+  const done = deliver(source, into || null, target);
   process.stdout.write(done.printed
-    ? `wrote ${basename(done.pack)} and ${basename(done.findings)}\n`
-    : "the pages were written but no browser was found to print them. Open them and print to PDF.\n");
+    ? `wrote ${basename(done.pack)} and ${basename(done.findings)} into ${done.into}\n`
+    : `the pages were written into ${done.into} but no browser was found to print them. Open them and print to PDF.\n`);
 }
