@@ -524,6 +524,8 @@ function shape() {
     '   "searched":"...","remedy":"...","justification":"..."}',
     `  status is one of ${STATUSES.join(", ")}.`,
     "  because says what was looked at, what was found, and why this status and not the one either side.",
+    "  A sentence using every, only, no, none or all is checked across the whole repository before it",
+    "  is written. That is the word a second reader most often finds one exception to.",
     "  Every answer carries something a person can check. Where it rests on something being absent and",
     "  has no lines to cite, searched says in plain words what was looked for and where, and that none",
     "  of it was found, so a person can look again: \"Looked in the CI workflows and the release",
@@ -736,6 +738,6 @@ function main() {
   );
 }
 
-module.exports = { credentialIn };
+module.exports = { credentialIn, checked };
 
 if (require.main === module) main();
