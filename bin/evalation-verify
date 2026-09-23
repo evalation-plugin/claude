@@ -96,6 +96,7 @@ function listsOf(document) {
 /** One item of a claim, as the verifier and a correcting reader are shown it. */
 function itemShown(tree, one, at) {
   const head = `  item ${at + 1}, ${String(one.result ?? "unanswered").toUpperCase()} (proof: ${one.proof}): ${one.find}`;
+  if (one.proof === "scan") return [head, `    settled from the scan of this run (${one.phase}${one.at_least ? `, ${one.at_least} or above` : ""}), which the findings check compared it with`];
   if (one.result === "found") return [head, ...(one.evidence ?? []).map((c) => cited(tree, c))];
   if (one.result === "missing") return [head, `    searched: ${one.searched ?? ""}`];
   return [head, `    why it does not apply: ${one.why ?? ""}`];
@@ -186,7 +187,8 @@ function grid(source, n) {
     "Where a row lists items, its status is counted from them, so check each item. One said FOUND is",
     "there as its words say, and where its proof is runs, the lines are code, configuration or a test",
     "that performs it. One said MISSING is missing after your own search. One said not to apply is out",
-    "of reach for the reason given. An item wrong in any of these makes the row NOT-CONFIRMED.",
+    "of reach for the reason given. An item wrong in any of these makes the row NOT-CONFIRMED. An item",
+    "settled from the scan was compared with the scan already and needs nothing from you.",
     "",
     "Every part of a claim has to hold for the row to be confirmed, the numbers in it included. A part",
     "you found wrong makes the row NOT-CONFIRMED, and a part you could not check makes it CANNOT-TELL,",

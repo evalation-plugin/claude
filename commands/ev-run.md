@@ -114,6 +114,10 @@ at step 4, and the findings, at step 6.
    nothing it could write to. Where it refuses with `no-such-target`, the path is not a directory this
    machine can read. Read the reason out and stop. Nothing was read and nothing was counted.
 
+   **Where `scan.wanted` in `run.json` is false, skip steps 3 and 4 and say nothing about scanners.**
+   None of the selected packs reads a scan result, so a scan would be time spent on nothing any
+   report prints. Where it is true, `scan.for` names the packs that read it.
+
 3. **Ask whether to install the scanners that are missing, and wait for the answer.**
 
    ```
@@ -153,7 +157,7 @@ at step 4, and the findings, at step 6.
    ```
 
    It runs before the reading so that what it found is in front of you while you answer the
-   dependency, supply-chain and secret concerns.
+   dependency, supply-chain and secret concerns, and the items of a standard the scan settles.
 
    It prints which phases ran and which did not, each with its reason. **Read that out.** A phase
    that did not run found nothing and proves nothing, and a person handed a report has to know which

@@ -80,6 +80,17 @@ function reading(packs) {
   }));
 }
 
+/**
+ * Which of the selected packs read the scan: a concern set, whose findings name what a scanner found,
+ * and a standard with an item only the scan settles. A run selecting none of them neither offers the
+ * scanners nor runs them, since nothing it reports would carry a scan result.
+ */
+function scanFor(packs) {
+  const by = packs.filter((pack) => pack.body?.kind === "concern-set" ||
+    (pack.body?.entries ?? []).some((entry) => (entry.looks_for ?? []).some((item) => item.proof === "scan")));
+  return { wanted: by.length > 0, for: by.map((pack) => pack.body?.title ?? pack.pack) };
+}
+
 /** What a command says, or nothing where it says nothing or is not there. Never a throw. */
 function quietly(command, args, cwd) {
   try {
@@ -198,6 +209,7 @@ function main() {
         // answered, because an entry with nothing against it is a gap in the assessment.
         answered: settled(served.packs),
         to_read: reading(served.packs),
+        scan: scanFor(served.packs),
       },
       null,
       2,
@@ -205,6 +217,6 @@ function main() {
   );
 }
 
-module.exports = { target, branchOf };
+module.exports = { target, branchOf, scanFor };
 
 if (require.main === module) main();
