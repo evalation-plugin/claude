@@ -72,7 +72,8 @@ at step 4, and the findings, at step 6.
 
    Then show the recorded selection first, from
    `${CLAUDE_PLUGIN_ROOT}/bin/evalation-packs show`, as the default, naming each pack by its title
-   from `${CLAUDE_PLUGIN_ROOT}/bin/evalation-packs titles` and never by its handle, and let the person confirm it,
+   from `${CLAUDE_PLUGIN_ROOT}/bin/evalation-packs titles` and never by its handle, in the alphabetical
+   order `titles` prints them in, and let the person confirm it,
    narrow it or name others. A consultant assesses one client's tree against one set of obligations
    and the next against another, so the packs are a choice per run and never assumed. The packs the
    person names are what step 2 is given. Nothing is counted until step 2, so asking costs nothing.
@@ -231,6 +232,10 @@ at step 4, and the findings, at step 6.
    each weakness and each working control, plus one row in `accounted` per concern saying what was
    looked for. A concern with nothing wrong still gets its row, because a clean row and a concern
    nobody read are the same thing to a reader otherwise.
+
+   **An entry carrying `looks_for` is answered item by item.** Look for each item, record it found,
+   missing or not applying in `looked_for`, and the status is the count `shape` gives. The count is
+   the status, so settle each item as its words say and never lean an item to reach a status.
 
    Every answer says why it is that status and not the one either side of it, and carries something
    a person can check. Covered carries its evidence. An answer resting on something being absent,

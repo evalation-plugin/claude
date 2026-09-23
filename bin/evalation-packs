@@ -34,16 +34,23 @@ show() {
 
 # The catalogue is served against an entitled seat and never shipped here, so this is a fetch and
 # this file carries none of it. The ask is signed like every other, and what comes back is what the
-# revision this installation is served holds.
+# revision this installation is served holds. The packs come back in alphabetical order of their
+# titles, the order a person is offered them in, so every run offers them the same way.
 list() {
-  "$DIR/evalation-ask" /packs '{}'
+  local served
+  served="$("$DIR/evalation-ask" /packs '{}')"
+  if command -v jq >/dev/null 2>&1; then
+    printf '%s\n' "$served" | jq '.packs |= sort_by(.body.title // .pack | ascii_downcase)'
+  else
+    printf '%s\n' "$served"
+  fi
 }
 
 # Each pack's handle beside the title a person is shown, without the entries the whole catalogue
 # carries.
 titles() {
   command -v jq >/dev/null 2>&1 || { echo "missing-jq" >&2; exit 1; }
-  list | jq -c '[.packs[] | {pack, title: .body.title}]'
+  list | jq -c '[.packs[] | {pack, title: .body.title}] | sort_by(.title // .pack | ascii_downcase)'
 }
 
 # The selection is composed whole before anything is written, so a malformed argument fails with the
