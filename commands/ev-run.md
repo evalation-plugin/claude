@@ -290,30 +290,42 @@ at step 4, and the findings, at step 6.
    than the check.** A citation that will not verify is one that was not read from the file, and the
    remedy is to open the file and read it, never to soften the claim until it passes.
 
-8. **Ask whether they want the findings verified, and wait for the answer.** Show what is named
-   first, from `${CLAUDE_PLUGIN_ROOT}/bin/evalation-verifier show`. Ask it in these words: "Would
-   you like a second model to independently verify the findings of the Evalation review packs? It
-   runs on your own model account and spends no pack credits. Verification status will be recorded
-   in the reports generated." Never call it a second reading or a rerun: that reads as the packs
-   being run again and charged again. Then say in a sentence how it works: a cheaper model is handed
-   each finding and the exact lines it rests on, and says whether those lines support it, so a
-   confirmed finding reads as verified in the report and the rest stay as asserted. Say that it runs on a model command of their own and is their spend, name the
-   command that would run, the one named or the default the tool prints, and say roughly what it
-   costs: one short reading per twelve findings. Offer three answers: yes with that command, yes with
-   a command of their own, or no for this run. Ask every run, since the spend is per run and never
-   assumed.
+8. **Ask whether they want the findings verified, and wait for the answer.** Ask it in these words:
+   "Would you like this session to independently verify the findings of the Evalation review packs?
+   It uses the model this session runs on and spends no pack credits. Verification status will be
+   recorded in the reports generated." Never call it a second reading or a rerun: that reads as the
+   packs being run again and charged again. Then say in a sentence how it works: each claim that
+   cites lines, covered answers and findings alike, is handed with those lines to a reader that
+   starts fresh, which says whether the lines support it, so a confirmed claim reads as verified and
+   the rest stay asserted. Say roughly what it costs: one short reading per twelve claims, on their
+   own model. Ask every run, since the spend is per run and never assumed.
 
-   On a yes, keep the command where the next run finds it and run the reading:
+   On a no, run nothing and move on. Every claim stays asserted, which is what it already was.
+
+   On a yes, plan it over the file step 7 wrote, the one it named as `written`:
 
    ```
-   ${CLAUDE_PLUGIN_ROOT}/bin/evalation-verifier set <command>
-   ${CLAUDE_PLUGIN_ROOT}/bin/evalation-verify <answers.json> <target>
+   ${CLAUDE_PLUGIN_ROOT}/bin/evalation-verify plan <written> <target>
    ```
 
-   On a no, run nothing and move on. Every finding stays asserted, which is what it already was. The
-   reading moves a claim between asserted and verified and can never drop one, so nothing about the
-   assessment depends on it. If it stops part way, run it again: it picks up where it stopped rather
-   than paying for the whole pass twice.
+   Then for each batch it names, 1 to the count, start a fresh subagent that holds nothing of this
+   run, so a claim is never checked by the reading that made it. Several at once is fine, since
+   each batch keeps its answers apart. Give each one this task and nothing more: run
+   `${CLAUDE_PLUGIN_ROOT}/bin/evalation-verify grid <written> <n>`, judge every row from what it
+   prints alone, opening nothing else, and pass its answer lines to
+   `${CLAUDE_PLUGIN_ROOT}/bin/evalation-verify record <written> <n>` on standard input. Where
+   `record` answers `may_ask_again`, start one more fresh subagent for that batch the same way.
+   `grid` shows only the rows still unanswered and refuses a third ask, so a row missed twice stays
+   asserted.
+
+   Then write every answer onto the file, naming the model this session runs on as it names itself:
+
+   ```
+   ${CLAUDE_PLUGIN_ROOT}/bin/evalation-verify apply <written> "<model>"
+   ```
+
+   Read out what it counted. A claim that was not confirmed is kept and reported as asserted, never
+   dropped. If the verifying stops part way, plan again: a claim already answered is skipped.
 
 9. **Score it**, for a pack that is scored.
 
