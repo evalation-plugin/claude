@@ -327,8 +327,32 @@ at step 4, and the findings, at step 6.
    ${CLAUDE_PLUGIN_ROOT}/bin/evalation-verify apply <written> "<model>"
    ```
 
-   Read out what it counted. A claim that was not confirmed is kept and reported as asserted, never
-   dropped. If the verifying stops part way, plan again: a claim already answered is skipped.
+   If the verifying stops part way, plan again: a claim already answered is skipped.
+
+   **Then send back what the verifier did not confirm.** A claim found wrong, or one the verifier
+   could not settle, goes back to a reader to be fixed against the repository, twice at most:
+
+   ```
+   ${CLAUDE_PLUGIN_ROOT}/bin/evalation-verify corrections <written> <target>
+   ```
+
+   For each group it names, start a fresh subagent and give it this task and nothing more: run
+   `${CLAUDE_PLUGIN_ROOT}/bin/evalation-verify correction <written> <n>`, do what it says for every
+   item, reading the repository only through the `evalation-read` commands it names, write the
+   corrections to a file in the scratch folder, and run
+   `${CLAUDE_PLUGIN_ROOT}/bin/evalation-verify correct <written> <n> <file>` until it holds. A
+   reader corrects a claim, withdraws a finding that does not hold at all, or says with its reason
+   that a claim stands. Then write every group's corrections onto the file:
+
+   ```
+   ${CLAUDE_PLUGIN_ROOT}/bin/evalation-verify corrected <written>
+   ```
+
+   and verify again from `plan`, the same way as above. Plan takes only the corrected claims. Then run
+   `corrections` once more: it takes only claims refused after their first correction. A claim still
+   not confirmed after its second correction is reported as asserted, and the loop ends there.
+
+   Read out what the verifying counted, the corrections and the withdrawals.
 
 9. **Score it**, for a pack that is scored.
 
