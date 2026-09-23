@@ -351,9 +351,9 @@ ${css()}
 ${paginator({ title: document.title ?? "Evalation Hardening Review", subtitle: document.subtitle ?? "", foot })}`;
 }
 
-function detail(document, into) {
+function detail(document, into, seal) {
   const html = page(document);
-  return print(html, `${into.replace(/\.pdf$/, "")}.html`, into);
+  return print(html, `${into.replace(/\.pdf$/, "")}.html`, into, seal);
 }
 
 module.exports = { detail };

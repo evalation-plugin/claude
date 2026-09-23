@@ -450,11 +450,13 @@ function main() {
     const own = answers.filter((one) => one.pack === pack);
     const alone = { ...document, packs: (document.packs ?? []).filter((one) => one.pack === pack) };
     const out = join(folder, `${reviewName(document, pack)} Evidence Pack.pdf`);
-    const done = print(page(alone, own, asked), `${out.replace(/\.pdf$/, "")}.html`, out);
+    const done = print(page(alone, own, asked), `${out.replace(/\.pdf$/, "")}.html`, out, { run: document.run });
     return {
       pack,
       written: done.printed ? out : done.page,
       printed: done.printed,
+      signed: done.signed === true,
+      ...(done.unsigned ? { unsigned: `marked "Signature missing, document cannot be verified": ${done.unsigned}` } : {}),
       entries: own.length,
       cited: own.filter((one) => (one.evidence ?? []).length > 0).length,
       by_status: counted(own),

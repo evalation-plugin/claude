@@ -288,10 +288,15 @@ function deliver(source, named, target) {
   const pack = join(into, `${name} Pack.pdf`);
   const findings = join(into, `${name} Detail.pdf`);
 
-  const one = deck(shaped, pack);
-  const two = detail(shaped, findings);
+  const seal = { run: document.run };
+  const one = deck(shaped, pack, { seal });
+  const two = detail(shaped, findings, seal);
 
-  return { into, pack, findings, printed: one.printed && two.printed };
+  return {
+    into, pack, findings,
+    printed: one.printed && two.printed,
+    unsigned: [one, two].map((each) => each.unsigned).filter(Boolean),
+  };
 }
 
 module.exports = { deliver, reviewFindings };
@@ -307,4 +312,9 @@ if (require.main === module) {
   process.stdout.write(done.printed
     ? `wrote ${basename(done.pack)} and ${basename(done.findings)} into ${done.into}\n`
     : `the pages were written into ${done.into} but no browser was found to print them. Open them and print to PDF.\n`);
+  // Said on its own line, since a report marked unsigned is one a person should know about before
+  // they hand it on.
+  if (done.unsigned.length > 0) {
+    process.stdout.write(`not signed, and marked "Signature missing, document cannot be verified": ${done.unsigned[0]}\n`);
+  }
 }

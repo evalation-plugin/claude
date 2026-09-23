@@ -1,0 +1,52 @@
+#!/usr/bin/env node
+// evalation-check-pdf <report.pdf> - says whether a report is one we issued and unchanged since.
+//
+// A PDF reader shows a signature's verdict only where it checks signatures, and the Mac's own viewer
+// does not. This answers the same question anywhere: it takes the digest of the signed byte ranges,
+// asks our server whether that digest was signed and when, and says whether anything was added to the
+// file after signing, which is how an editor saves a change.
+"use strict";
+
+const { execFileSync } = require("node:child_process");
+const { join } = require("node:path");
+const { signedRanges } = require("../lib/sign.js");
+
+const file = process.argv[2];
+if (!file) {
+  process.stderr.write("usage: evalation-check-pdf <report.pdf>\n");
+  process.exit(2);
+}
+
+let read;
+try {
+  read = signedRanges(file);
+} catch (thrown) {
+  process.stderr.write(`unreadable: ${thrown.message}\n`);
+  process.exit(1);
+}
+if (!read) {
+  process.stdout.write("not signed: this file carries no signature, so it cannot be verified as one we issued.\n");
+  process.exit(1);
+}
+
+let said;
+try {
+  said = JSON.parse(execFileSync(join(__dirname, "evalation-ask"), ["/verify", JSON.stringify({ digest: read.digest })], {
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "pipe"],
+    timeout: 60_000,
+  }));
+} catch (thrown) {
+  process.stderr.write(`could not ask: ${String(thrown.stderr || thrown.message).trim()}\n`);
+  process.exit(1);
+}
+
+if (!said.issued) {
+  process.stdout.write("altered: the signed part of this file is not one Evalation issued, so it was changed or never ours.\n");
+  process.exit(1);
+}
+if (read.appended > 0) {
+  process.stdout.write(`altered: Evalation issued this report on ${said.signed_at}, and ${read.appended} bytes were added after signing, which is how an edit is saved.\n`);
+  process.exit(1);
+}
+process.stdout.write(`genuine: Evalation issued this report on ${said.signed_at}, and nothing has changed since.\n`);

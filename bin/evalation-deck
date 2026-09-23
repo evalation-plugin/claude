@@ -942,7 +942,7 @@ function deck(document, into, options = {}) {
   // Delivered as a document rather than as the template it was filled from, so what a reader is
   // handed prints the same everywhere and cannot be edited into something the run never said.
   const page = render(file, ASSETS);
-  const done = print(page, `${into.replace(/\.pdf$/, "")}.html`, into);
+  const done = print(page, `${into.replace(/\.pdf$/, "")}.html`, into, options.seal);
   return { slides: file.slides.length, findings: held.findings, ...done };
 }
 

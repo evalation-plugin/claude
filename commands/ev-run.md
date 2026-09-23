@@ -1,6 +1,6 @@
 ---
 description: Read this repository against the packs you selected, and write down what it evidences.
-allowed-tools: Bash(evalation-read:*), Bash(evalation-run:*), Bash(evalation-packs show:*), Bash(evalation-packs titles:*), Bash(evalation-status:*), Bash(evalation-scan show:*), Bash(evalation-scan install:*), Bash(evalation-scan decline:*), Bash(evalation-scan run:*), Bash(evalation-findings:*), Bash(evalation-verify:*), Bash(evalation-score:*), Bash(evalation-deliver:*), Bash(evalation-report:*)
+allowed-tools: Bash(evalation-read:*), Bash(evalation-run:*), Bash(evalation-packs show:*), Bash(evalation-packs titles:*), Bash(evalation-status:*), Bash(evalation-scan show:*), Bash(evalation-scan install:*), Bash(evalation-scan decline:*), Bash(evalation-scan run:*), Bash(evalation-findings:*), Bash(evalation-verify:*), Bash(evalation-score:*), Bash(evalation-deliver:*), Bash(evalation-report:*), Bash(evalation-check-pdf:*)
 ---
 
 <!--
@@ -369,6 +369,13 @@ at step 4, and the findings, at step 6.
    auditor is handed has to print the same everywhere. Where no browser is found they say so and
    leave the page each PDF would have been printed from, which the person opens in any browser and
    prints to PDF. Where a browser printed it, only the PDF is kept.
+
+   **Every PDF is signed by Evalation** as it is printed, so a reader that checks signatures shows an
+   unchanged report as signed and an edited one as altered. Only the digest of the file is sent to be
+   signed, never its content. Where one could not be signed, both commands say so and why, and that
+   PDF carries "Signature missing, document cannot be verified" across the top of every page. Say so
+   in step 11 when it happens. Anybody holding a report can check it with
+   `${CLAUDE_PLUGIN_ROOT}/bin/evalation-check-pdf <report.pdf>`.
 
    The review pack carries no individual findings on purpose: a slide holding fifty of them is neither
    a slide anybody reads nor a document anybody can work from, and the detail is where they live.
