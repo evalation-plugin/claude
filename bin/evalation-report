@@ -29,6 +29,7 @@ const { mkdirSync, readFileSync } = require("node:fs");
 const { join, resolve } = require("node:path");
 
 const { print } = require("../lib/print.js");
+const { named: phaseNamed } = require("../lib/scans.js");
 const { keepFindings, reportsFolder, reviewName } = require("../lib/reports.js");
 const { CHROME, css, escaped, paginator } = require("../lib/sheet.js");
 
@@ -58,7 +59,7 @@ function colourOf(status) {
 
 // How far an answer was checked, in the colours the findings detail gives the same words, so a
 // reader holding both learns them once.
-const STANDING = { verified: colourOf("covered"), asserted: CHROME.blue };
+const STANDING = { verified: colourOf("covered"), asserted: CHROME.blue, scanned: CHROME.muted };
 
 function standing(answer) {
   const word = answer.confirmed === "verified" ? "verified" : "asserted";
@@ -107,18 +108,53 @@ const RESULT = {
   found: ["found", colourOf("covered")],
   missing: ["missing", colourOf("total-gap")],
   "does-not-apply": ["does not apply", CHROME.faint],
+  "not-checked": ["not checked", colourOf("partial-gap")],
 };
+
+// Severities worst first, the order a scanner's findings are listed in under an item.
+const SEVERITY = ["critical", "high", "medium", "low", "info"];
+
+// Scanner findings listed under one item before the rest are counted. The findings file holds all.
+const LISTED = 8;
+
+/**
+ * What the scan said about an item it settled. Found says the phase ran and found nothing at the
+ * item's severity or above. Missing lists what it found there, worst first. Not checked says why the
+ * phase did not run.
+ */
+function scanned(want, row, scan) {
+  const phase = phaseNamed(want.phase);
+  const level = want.at_least ? ` at ${want.at_least} or above` : "";
+  if (row.result === "not-checked") {
+    const ran = (scan?.phases ?? []).find((one) => one.phase === want.phase);
+    return `<p class="looked">${escaped(ran && !ran.ran ? `The ${phase} did not run: ${ran.why}.` : `The ${phase} was not run over this repository in this run.`)}</p>`;
+  }
+  if (row.result === "found") {
+    return `<p class="looked">${escaped(`The ${phase} ran over this repository and found nothing${level}.`)}</p>`;
+  }
+  const floor = want.at_least ? SEVERITY.indexOf(want.at_least) : SEVERITY.length - 1;
+  const over = (scan?.settling ?? [])
+    .filter((one) => one.phase === want.phase && SEVERITY.indexOf(one.severity) >= 0 && SEVERITY.indexOf(one.severity) <= floor)
+    .sort((a, b) => SEVERITY.indexOf(a.severity) - SEVERITY.indexOf(b.severity));
+  const shown = over.slice(0, LISTED).map((one) =>
+    `<div class="at"><span>${escaped(one.title ?? one.key)}${one.fixed ? escaped(`, fixed in ${one.fixed}`) : ""}</span>` +
+    `<span class="grade">${escaped(one.severity)}</span></div>`).join("");
+  const more = over.length > LISTED ? `<p class="looked">${escaped(`And ${over.length - LISTED} more, each listed in Evalation Findings.json.`)}</p>` : "";
+  return `<p class="looked">${escaped(`The ${phase} found ${over.length}${level}.`)}</p>${shown}${more}`;
+}
 
 /**
  * An entry that lists what to look for, item by item: what was sought, whether it was found, and
  * under it the lines it was found in, the account of the search, or why it does not apply. The
  * status above is the count of these, so a reader can check the count.
  */
-function items(answer, list) {
+function items(answer, list, scan) {
   return list.map((want, at) => {
     const row = answer.looked_for?.[at] ?? {};
     const [word, colour] = RESULT[row.result] ?? ["not answered", CHROME.faint];
-    const under = row.result === "found"
+    const tag = want.proof === "scan" ? `<span class="grade" style="color:${STANDING.scanned}">scanned</span> ` : "";
+    const under = want.proof === "scan" ? scanned(want, row, scan)
+      : row.result === "found"
       ? (row.evidence ?? []).map((one) => {
         const range = one.to && one.to !== one.from ? `${one.from}-${one.to}` : one.from;
         return `<div class="at"><span>${escaped(one.path)}:${escaped(range)}</span>` +
@@ -127,7 +163,7 @@ function items(answer, list) {
       }).join("")
       : `<p class="looked">${escaped(row.result === "missing" ? row.searched : row.why)}</p>`;
     return `<div class="cite item"><div class="where"><span>${at + 1}. ${escaped(want.find)}</span>` +
-      `<span class="grade" style="color:${colour}">${word}</span></div>${under}</div>`;
+      `<span>${tag}<span class="grade" style="color:${colour}">${word}</span></span></div>${under}</div>`;
   }).join("");
 }
 
@@ -145,7 +181,7 @@ function closing(answer) {
   return "";
 }
 
-function entry(answer, asked, pack) {
+function entry(answer, asked, pack, scan) {
   const clause = asked.get(`${answer.pack}/${answer.entry}`);
   const colour = colourOf(answer.status);
 
@@ -159,7 +195,7 @@ function entry(answer, asked, pack) {
     clause?.intent ? `<p class="asked">${escaped(clause.intent)}</p>` : "",
     answer.because ? `<p class="because">${escaped(answer.because)}</p>` : "",
     answer.from === "authored" ? ""
-      : clause?.looks_for?.length && Array.isArray(answer.looked_for) ? items(answer, clause.looks_for)
+      : clause?.looks_for?.length && Array.isArray(answer.looked_for) ? items(answer, clause.looks_for, scan)
       : evidence(answer),
     closing(answer),
   ].join("");
@@ -199,8 +235,8 @@ function heading(title, answers) {
  * listing an elected category beside a compulsory one says a repository has gaps against something
  * nobody was assessing.
  */
-function section(part, answers, asked, noun) {
-  const [first, ...rest] = answers.map((one) => entry(one, asked, part.title));
+function section(part, answers, asked, noun, scan) {
+  const [first, ...rest] = answers.map((one) => entry(one, asked, part.title, scan));
 
   const marker = part.obligation
     ? `<span class="obligation ${part.obligation}">${escaped(part.obligation)}</span>`
@@ -351,6 +387,7 @@ function opening(document, answers, packs, asked) {
     ["Asked", "The question put to the repository, in italics, so a reader can judge whether the status answers it."],
     ["Answer", "What the repository evidences, and why it is this status and not the one either side of it."],
     ["Where it rests", "The file and lines, on the grey bar, with the line itself under them and how strong it is at the right. Where the answer is that something is absent, what was searched for and where, so anybody can look again."],
+    ["Looked for", "Where the standard's part lists what it looks for, each item numbered with found, missing or does not apply at the right, and the status is the count of them. An item marked scanned was settled by a scanner run over this repository during the reading, and lists what the scanner found."],
     ["Status", "Gap, Partial, Covered, Org-level or Not applicable, on the coloured tag at the right."],
     ["Checked", "Beside the model that read it: verified where a second check confirmed the answer against the repository, asserted where nothing confirmed it."],
     ["What to do", `What closes it, on the orange bar. Where the organisation owns ${called(noun.one)}, it carries why the code cannot answer it.`],
@@ -408,7 +445,7 @@ function page(document, answers, asked) {
     return sectionsOf(one, held, asked).map(([part, rows]) => section({
       ...part,
       title: several && part.title ? `${nameOf(one, pack)}, ${part.title}` : (part.title || nameOf(one, pack)),
-    }, rows, asked, noun)).join("");
+    }, rows, asked, noun, document.scan)).join("");
   }).join("");
 
   const title = "Evalation Evidence Pack";

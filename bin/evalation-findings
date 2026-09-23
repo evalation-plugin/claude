@@ -24,7 +24,7 @@ const { existsSync, mkdirSync, readFileSync, writeFileSync } = require("node:fs"
 const { join, resolve, relative, isAbsolute } = require("node:path");
 const { homedir } = require("node:os");
 
-const { newestFor } = require("../lib/scans.js");
+const { named: phaseNamed, newestFor } = require("../lib/scans.js");
 const { facing, held } = require("../lib/prose.js");
 
 const STATUSES = ["covered", "partial-gap", "total-gap", "org-level", "not-applicable"];
@@ -36,8 +36,28 @@ const GRADES = ["executable", "configuration", "assertion"];
 const SEVERITIES = ["critical", "high", "medium", "low", "info", "positive"];
 const STANDS_ALONE = ["executable", "configuration"];
 
-// What a reading records against each thing an entry looks for.
-const RESULTS = ["found", "missing", "does-not-apply"];
+// What a reading records against each thing an entry looks for. Not checked is only for an item the
+// scan settles, where the scan did not run.
+const RESULTS = ["found", "missing", "does-not-apply", "not-checked"];
+
+// A scanner's severities, worst first. An item the scan settles names the lowest that counts.
+const SEVERITY = ["critical", "high", "medium", "low", "info"];
+
+/**
+ * What the scan says about one item, decided from the scan alone: found where the phase ran after
+ * the run began and holds nothing at the item's severity or above, missing where it holds some, and
+ * not checked where it did not run. A scan from before the run is an answer about an older tree.
+ */
+function scanSays(want, scan, since) {
+  const phase = (scan?.phases ?? []).find((one) => one.phase === want.phase);
+  const fresh = scan && (!since || String(scan.at) >= String(since));
+  if (!phase?.ran || !fresh) {
+    return { result: "not-checked", over: [], why: !scan || !fresh ? "no scan was run over this tree in this run" : `the ${phaseNamed(want.phase)} did not run: ${phase?.why ?? "it was not in the scan"}` };
+  }
+  const floor = want.at_least ? SEVERITY.indexOf(want.at_least) : SEVERITY.length - 1;
+  const over = (scan.findings ?? []).filter((one) => one.phase === want.phase && SEVERITY.indexOf(one.severity) >= 0 && SEVERITY.indexOf(one.severity) <= floor);
+  return { result: over.length === 0 ? "found" : "missing", over };
+}
 
 // A positive finding says a control is working. Its remedy field is printed under "What to keep",
 // and an order opening it is read as an order: "Keep the second guard" tells a reader to keep one
@@ -215,6 +235,7 @@ function checked(document, where) {
     }
   }
 
+  const scanHeld = newestFor(where)?.document ?? null;
   const lists = new Map();
   for (const pack of document.packs ?? []) {
     for (const one of pack.entries_asked ?? []) {
@@ -262,7 +283,7 @@ function checked(document, where) {
 
     const list = lists.get(named);
     if (list) {
-      said.push(...followed(named, answer, list, where));
+      said.push(...followed(named, answer, list, where, scanHeld, document.at));
     } else if (evidence.length === 0 && !searched) {
       // Something a person can check, whatever the status. An absence has no lines to cite, so it
       // says what was looked for and where, which a person can look for again. An answer with
@@ -398,7 +419,7 @@ function checked(document, where) {
  * same facts and gave seven SOC 2 criteria different statuses, since an open question left the line
  * between statuses to each of them.
  */
-function followed(named, answer, list, where) {
+function followed(named, answer, list, where, scan, since) {
   const said = [];
   if (answer.status === "org-level") {
     said.push(`${named}: org-level, and the pack has this entry read from the repository. Answer each thing it looks for`);
@@ -417,7 +438,20 @@ function followed(named, answer, list, where) {
       said.push(`${item}: result ${JSON.stringify(row?.result)} is not one of ${RESULTS.join(", ")}`);
       return;
     }
-    counted[row.result] += 1;
+    counted[row.result === "not-checked" ? "missing" : row.result] += 1;
+    if (list[at].proof === "scan") {
+      const says = scanSays(list[at], scan, since);
+      if (row.result !== says.result) {
+        said.push(`${item}: ${row.result}, and the scan settles this item as ${says.result}` +
+          (says.result === "missing" ? `, holding ${says.over.length} at ${list[at].at_least ?? "any severity"} or above` : "") +
+          (says.result === "not-checked" ? `, since ${says.why}` : ""));
+      }
+      return;
+    }
+    if (row.result === "not-checked") {
+      said.push(`${item}: not checked, which only an item the scan settles can be`);
+      return;
+    }
     const evidence = row.evidence ?? [];
     for (const one of evidence) cited(where, one, said);
     if (row.result === "found") {
@@ -606,6 +640,10 @@ function shape() {
     '    {"result":"does-not-apply","why":"what about this repository puts the item out of reach"}',
     `  An item whose proof is runs is found only with a citation graded ${STANDS_ALONE.join(" or ")}. A`,
     "  document saying it exists makes it missing. An item whose proof is written is found in a document.",
+    "  An item whose proof is scan is settled by the scan of this run, and the row says what the scan",
+    "  says: found where its phase ran and holds nothing at the item's at_least severity or above,",
+    '  missing where it holds some, and {"result":"not-checked"} where the phase did not run. Read it',
+    "  from `evalation-read <target> scan`. A not-checked item counts as missing.",
     "  The status is a count of the items that apply: all found is covered, none found is total-gap,",
     "  anything between is partial-gap, and none applying is not-applicable. It is never org-level.",
     "  Judge each item by its words. An item naming a thing is found where the repository has that",
@@ -782,6 +820,20 @@ function main() {
       floor: scan.document.floor,
       phases: scan.document.phases,
     };
+    // What each item the scan settled rests on, so the evidence pack can print what was found
+    // without the scan file, which a later scan of the same tree replaces.
+    const settled = [];
+    for (const pack of document.packs ?? []) {
+      for (const one of pack.entries_asked ?? []) {
+        for (const want of one.looks_for ?? []) if (want.proof === "scan") settled.push(want);
+      }
+    }
+    if (settled.length > 0) {
+      const keys = new Set(settled.flatMap((want) => scanSays(want, scan.document, document.at).over.map((one) => one.key)));
+      document.scan.settling = (scan.document.findings ?? [])
+        .filter((one) => keys.has(one.key))
+        .map((one) => pick(one, ["key", "phase", "severity", "title", "package", "version", "fixed", "at"]));
+    }
   }
 
   // Ordered, so that two runs of the same assessment write the same file. Nothing here changes what
