@@ -80,17 +80,25 @@ function counted(answers) {
  */
 function evidence(answer) {
   const held = answer.evidence ?? [];
-  if (held.length === 0) {
+  const searched = String(answer.searched ?? "").trim();
+  if (held.length === 0 && !searched) {
     return '<div class="cite"><div class="where"><span>no citation recorded</span></div></div>';
   }
-  return held.map((one) => {
+  const lines = held.map((one) => {
     const range = one.to && one.to !== one.from ? `${one.from}-${one.to}` : one.from;
     return `<div class="cite"><div class="where">` +
       `<span>${escaped(one.path)}:${escaped(range)}</span>` +
       `<span class="grade">${escaped(one.grade ?? "")}</span></div>` +
       (one.quote ? `<pre>${escaped(one.quote)}</pre>` : "") +
       `</div>`;
-  }).join("");
+  });
+  // An absence has no line to show, so the answer says what was looked for and where, which a reader
+  // can look for again.
+  const looked = searched
+    ? [`<div class="cite"><div class="where"><span>What was searched</span>` +
+       `<span class="grade">nothing found</span></div><p class="looked">${escaped(searched)}</p></div>`]
+    : [];
+  return [...lines, ...looked].join("");
 }
 
 // What closes it, or why nothing here can. A clause the deploying organisation owns has a
@@ -310,9 +318,9 @@ function opening(document, answers, packs, asked) {
     ["Identifier", "The standard's own number for it, and the short name beside it."],
     ["Asked", "The question put to the repository, in italics, so a reader can judge whether the status answers it."],
     ["Answer", "What the repository evidences, and why it is this status and not the one either side of it."],
-    ["Where it rests", "The file and lines, on the grey bar, with the line itself under them and how strong it is at the right."],
+    ["Where it rests", "The file and lines, on the grey bar, with the line itself under them and how strong it is at the right. Where the answer is that something is absent, what was searched for and where, so anybody can look again."],
     ["Status", "Gap, Partial, Covered, Org-level or Not applicable, on the coloured tag at the right."],
-    ["Checked", "Beside the model that read it: verified where a second check confirmed the cited lines support the answer, asserted where nothing confirmed it."],
+    ["Checked", "Beside the model that read it: verified where a second check confirmed the answer against the repository, asserted where nothing confirmed it."],
     ["What to do", `What closes it, on the orange bar. Where the organisation owns ${called(noun.one)}, it carries why the code cannot answer it.`],
   ];
   if (marks.length > 0) {

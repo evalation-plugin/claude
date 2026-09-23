@@ -232,8 +232,11 @@ at step 4, and the findings, at step 6.
    looked for. A concern with nothing wrong still gets its row, because a clean row and a concern
    nobody read are the same thing to a reader otherwise.
 
-   Every answer says why it is that status and not the one either side of it. Covered carries its
-   evidence. Everything else carries a corrective step. Org-level and not applicable carry a
+   Every answer says why it is that status and not the one either side of it, and carries something
+   a person can check. Covered carries its evidence. An answer resting on something being absent,
+   with no line to cite, says in `searched`, in plain words, what was looked for and where and that
+   none of it was found, so the person reading it can look again. Everything else carries a
+   corrective step. Org-level and not applicable carry a
    justification. Never answer an entry from `answered`: the pack settled it, and only org-level can
    be settled without reading, because it is the one status that is a fact about the clause and not
    about the tree.
@@ -294,11 +297,11 @@ at step 4, and the findings, at step 6.
    "Would you like this session to independently verify the findings of the Evalation review packs?
    It uses the model this session runs on and spends no pack credits. Verification status will be
    recorded in the reports generated." Never call it a second reading or a rerun: that reads as the
-   packs being run again and charged again. Then say in a sentence how it works: each claim that
-   cites lines, covered answers and findings alike, is handed with those lines to a reader that
-   starts fresh, which says whether the lines support it, so a confirmed claim reads as verified and
-   the rest stay asserted. Say roughly what it costs: one short reading per twelve claims, on their
-   own model. Ask every run, since the spend is per run and never assumed.
+   packs being run again and charged again. Then say in a sentence how it works: every claim the
+   reading made, answers and findings alike, is handed with the lines it cites to a reader that
+   starts fresh, which checks it against the repository and says whether it holds, so a confirmed
+   claim reads as verified and the rest stay asserted. Say roughly what it costs: one reading per
+   twelve claims, on their own model. Ask every run, since the spend is per run and never assumed.
 
    On a no, run nothing and move on. Every claim stays asserted, which is what it already was.
 
@@ -311,12 +314,12 @@ at step 4, and the findings, at step 6.
    Then for each batch it names, 1 to the count, start a fresh subagent that holds nothing of this
    run, so a claim is never checked by the reading that made it. Several at once is fine, since
    each batch keeps its answers apart. Give each one this task and nothing more: run
-   `${CLAUDE_PLUGIN_ROOT}/bin/evalation-verify grid <written> <n>`, judge every row from what it
-   prints alone, opening nothing else, and pass its answer lines to
-   `${CLAUDE_PLUGIN_ROOT}/bin/evalation-verify record <written> <n>` on standard input. Where
-   `record` answers `may_ask_again`, start one more fresh subagent for that batch the same way.
-   `grid` shows only the rows still unanswered and refuses a third ask, so a row missed twice stays
-   asserted.
+   `${CLAUDE_PLUGIN_ROOT}/bin/evalation-verify grid <written> <n>`, check every row the way it says,
+   reading the repository only through the `evalation-read` commands it names, and pass its answer
+   lines to `${CLAUDE_PLUGIN_ROOT}/bin/evalation-verify record <written> <n>` on standard input.
+   Where `record` answers `may_ask_again`, start one more fresh subagent for that batch the same way.
+   A batch is answered twice at most, so a row missed twice stays asserted. Printing a grid answers
+   nothing, so looking at one here costs its reader nothing.
 
    Then write every answer onto the file, naming the model this session runs on as it names itself:
 
