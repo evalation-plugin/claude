@@ -78,15 +78,14 @@ at step 4, and the findings, at step 6.
    and the next against another, so the packs are a choice per run and never assumed. The packs the
    person names are what step 2 is given. Nothing is counted until step 2, so asking costs nothing.
 
-   **Say what this run will spend before they answer.** It spends one pack credit for each pack it
-   reads, and `${CLAUDE_PLUGIN_ROOT}/bin/evalation-status` prints how many credits are left. Name
-   both numbers. Where the selection is larger than the balance, say so here: the run is refused
-   whole, with no part of it served, so they choose between topping up and narrowing the selection,
-   and this is the moment to find that out.
+   **Say what this run will spend in the question itself.** It spends one pack credit for each pack
+   it reads, and `${CLAUDE_PLUGIN_ROOT}/bin/evalation-status` prints how many credits are left. Name
+   both numbers in the question and nowhere else. Where the selection is larger than the balance,
+   say so there: the run is refused whole, with no part of it served, so they choose between topping
+   up and narrowing the selection, and this is the moment to find that out.
 
-   Then say what is about to happen and how long it will take, in a sentence or two. Reading a
-   repository against ten entries takes minutes, not seconds, and a person who was not told that
-   will think it has hung.
+   Once they answer, start the run with no announcement. They chose the packs and were told the
+   cost, so a line restating either says nothing new.
 
 2. **Start the run.**
 
@@ -201,10 +200,13 @@ at step 4, and the findings, at step 6.
    where a control would have to sit.
 
    **`scan` is what the tools found**, fenced like everything else, since a rule name or a package
-   description is somebody's writing too. Each finding carries a key. Take each one worth reporting
-   back to the file it names, decide whether it is reachable in this codebase and what it means
-   here, and write your own finding with its own citation, naming that key in `scanned`. A key no
-   scan holds is refused at step 7, so never write one you were not shown.
+   description is somebody's writing too. Each finding carries a key. **Every critical and high
+   result is reported**, one finding each: take it back to the file it names, decide whether it is
+   reachable in this codebase and what it means here, and write your own finding with its own
+   citation, naming that key in `scanned`. Whether it is reachable sets the severity you give it,
+   and never whether it is reported. Report a medium or low result where it matters here. Step 7
+   refuses a run that leaves a critical or high result unreported, and a key no scan holds, so never
+   write one you were not shown.
 
    Then `search` and `outline` to find the lines that matter, and `read` for the range around them.
    **A whole read of a long file is refused, naming the ranges to ask for instead**: taking a three
