@@ -233,6 +233,12 @@ const CORRECTING = new Set(["not-confirmed", "cannot-tell"]);
 const ROUNDS = 2;
 const GROUP = 6;
 const roundsOf = (item) => (item.corrected === true ? 1 : Number(item.corrected) || 0);
+
+/** The claim's history with this round added: what the verifier said and how the reader answered it. */
+const withRound = (was, answer, reason) => [
+  ...(was.history ?? []),
+  { round: roundsOf(was) + 1, verdict: was.verification?.verdict, why: was.verification?.why, by: was.verification?.by, answer, ...(reason ? { reason } : {}) },
+];
 const correctionFolder = (source) => `${source}.correct`;
 const correctionPlan = (source) => `${correctionFolder(source)}/plan.json`;
 const correctionPart = (source, n) => `${correctionFolder(source)}/${n}.json`;
@@ -267,8 +273,9 @@ function correction(source, n) {
   const shown = [...ids].map((id) => {
     const item = { ...byId.get(id) };
     const verdict = item.verification;
-    for (const key of ["verification", "confirmed", "model"]) delete item[key];
-    return [`ITEM ${id}`, `  as written: ${JSON.stringify(item)}`,
+    const earlier = (item.history ?? []).map((one) => `  round ${one.round}, the verifier found it ${one.verdict}: ${one.why}`);
+    for (const key of ["verification", "confirmed", "model", "history"]) delete item[key];
+    return [`ITEM ${id}`, `  as written: ${JSON.stringify(item)}`, ...earlier,
       `  the verifier found it ${verdict.verdict}: ${verdict.why}`].join("\n");
   });
   return [
@@ -332,7 +339,7 @@ function corrected(document, ids, part) {
       }
       if (one.stands !== undefined) {
         if (!String(one.stands).trim()) done.refused.push(`${one.id}: said to stand with no reason`);
-        copy[list][at] = { ...was, corrected: roundsOf(was) + 1, confirmed: "asserted" };
+        copy[list][at] = { ...was, corrected: roundsOf(was) + 1, confirmed: "asserted", history: withRound(was, "stands", String(one.stands).trim()) };
         delete copy[list][at].verification;
         done.stands += 1;
         continue;
@@ -342,7 +349,7 @@ function corrected(document, ids, part) {
         done.refused.push(`${one.id}: a correction keeps its pack and its ${list === "answers" ? "entry" : "concern"}`);
         continue;
       }
-      copy[list][at] = { ...one, id: was.id, model: was.model, corrected: roundsOf(was) + 1, confirmed: "asserted" };
+      copy[list][at] = { ...one, id: was.id, model: was.model, corrected: roundsOf(was) + 1, confirmed: "asserted", history: withRound(was, "corrected") };
       delete copy[list][at].verification;
       done.corrected += 1;
     }
