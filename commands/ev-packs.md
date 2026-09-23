@@ -35,7 +35,9 @@ Four packs is four credits every time that selection is run.
    never offer a pack the fetch did not return.
 
 4. **Ask which packs they want**, using this host's own question interface where it has one, offering
-   exactly what the catalogue returned. Name each pack by its `title` exactly as served, so SOC 2
+   exactly what the catalogue returned, in the alphabetical order it returned them. Where the
+   interface holds fewer options than there are packs, split them across questions in that same
+   order. Name each pack by its `title` exactly as served, so SOC 2
    reads "SOC 2 Trust Services Criteria" and never `soc2`. The handle is what `set` takes and never
    what a person is shown. Say what each pack is in one line, in their words and not ours, so
    somebody choosing between SOC 2 and ISO 27001 can tell which they need.

@@ -101,6 +101,36 @@ function evidence(answer) {
   return [...lines, ...looked].join("");
 }
 
+// What each result is called on the page, and its colour: found in the colour of a control that
+// holds, missing in the colour of a total gap, and an item out of reach in grey.
+const RESULT = {
+  found: ["found", colourOf("covered")],
+  missing: ["missing", colourOf("total-gap")],
+  "does-not-apply": ["does not apply", CHROME.faint],
+};
+
+/**
+ * An entry that lists what to look for, item by item: what was sought, whether it was found, and
+ * under it the lines it was found in, the account of the search, or why it does not apply. The
+ * status above is the count of these, so a reader can check the count.
+ */
+function items(answer, list) {
+  return list.map((want, at) => {
+    const row = answer.looked_for?.[at] ?? {};
+    const [word, colour] = RESULT[row.result] ?? ["not answered", CHROME.faint];
+    const under = row.result === "found"
+      ? (row.evidence ?? []).map((one) => {
+        const range = one.to && one.to !== one.from ? `${one.from}-${one.to}` : one.from;
+        return `<div class="at"><span>${escaped(one.path)}:${escaped(range)}</span>` +
+          `<span class="grade">${escaped(one.grade ?? "")}</span></div>` +
+          (one.quote ? `<pre>${escaped(one.quote)}</pre>` : "");
+      }).join("")
+      : `<p class="looked">${escaped(row.result === "missing" ? row.searched : row.why)}</p>`;
+    return `<div class="cite item"><div class="where"><span>${at + 1}. ${escaped(want.find)}</span>` +
+      `<span class="grade" style="color:${colour}">${word}</span></div>${under}</div>`;
+  }).join("");
+}
+
 // What closes it, or why nothing here can. A clause the deploying organisation owns has a
 // justification and no remedy, and printing an empty fix bar under it would read as work somebody
 // forgot to write down.
@@ -128,7 +158,9 @@ function entry(answer, asked, pack) {
   const body = [
     clause?.intent ? `<p class="asked">${escaped(clause.intent)}</p>` : "",
     answer.because ? `<p class="because">${escaped(answer.because)}</p>` : "",
-    answer.from === "authored" ? "" : evidence(answer),
+    answer.from === "authored" ? ""
+      : clause?.looks_for?.length && Array.isArray(answer.looked_for) ? items(answer, clause.looks_for)
+      : evidence(answer),
     closing(answer),
   ].join("");
 

@@ -36,6 +36,9 @@ const GRADES = ["executable", "configuration", "assertion"];
 const SEVERITIES = ["critical", "high", "medium", "low", "info", "positive"];
 const STANDS_ALONE = ["executable", "configuration"];
 
+// What a reading records against each thing an entry looks for.
+const RESULTS = ["found", "missing", "does-not-apply"];
+
 // A positive finding says a control is working. Its remedy field is printed under "What to keep",
 // and an order opening it is read as an order: "Keep the second guard" tells a reader to keep one
 // thing and leaves them working out what happens to the first. The control is not a list of parts
@@ -212,6 +215,13 @@ function checked(document, where) {
     }
   }
 
+  const lists = new Map();
+  for (const pack of document.packs ?? []) {
+    for (const one of pack.entries_asked ?? []) {
+      if (Array.isArray(one.looks_for) && one.looks_for.length > 0) lists.set(`${pack.pack}/${one.identifier}`, one.looks_for);
+    }
+  }
+
   const answered = new Set();
   for (const answer of document.answers ?? []) {
     const named = `${answer.pack}/${answer.entry}`;
@@ -250,16 +260,21 @@ function checked(document, where) {
       continue;
     }
 
-    // Something a person can check, whatever the status. An absence has no lines to cite, so it says
-    // what was looked for and where, which a person can look for again. An answer with neither asks
-    // its reader to take it on trust.
-    if (evidence.length === 0 && !searched) {
+    const list = lists.get(named);
+    if (list) {
+      said.push(...followed(named, answer, list, where));
+    } else if (evidence.length === 0 && !searched) {
+      // Something a person can check, whatever the status. An absence has no lines to cite, so it
+      // says what was looked for and where, which a person can look for again. An answer with
+      // neither asks its reader to take it on trust.
       said.push(`${named}: ${answer.status} and cites nothing a person could check. Cite the lines it rests ` +
         "on, or say in searched what was looked for and where, and that none of it was found");
     }
 
     if (answer.status === "covered") {
-      if (evidence.length === 0) {
+      if (list) {
+        // Each item found carries its own evidence, checked by followed.
+      } else if (evidence.length === 0) {
         said.push(`${named}: covered and cites nothing, and covered owes its evidence`);
       } else if (!evidence.some((one) => STANDS_ALONE.includes(one.grade))) {
         said.push(
@@ -376,6 +391,61 @@ function checked(document, where) {
 }
 
 /**
+ * An answer to an entry that lists what to look for, held to that list. One row per item in the
+ * entry's order, each found with its lines, missing with an account of the search, or not applying
+ * with the reason. The status is then a count: every item that applies found is covered, none is a
+ * total gap, and anything between is a partial gap. Two readings of one repository once found the
+ * same facts and gave seven SOC 2 criteria different statuses, since an open question left the line
+ * between statuses to each of them.
+ */
+function followed(named, answer, list, where) {
+  const said = [];
+  if (answer.status === "org-level") {
+    said.push(`${named}: org-level, and the pack has this entry read from the repository. Answer each thing it looks for`);
+    return said;
+  }
+  const rows = answer.looked_for;
+  if (!Array.isArray(rows) || rows.length !== list.length) {
+    said.push(`${named}: looked_for holds ${Array.isArray(rows) ? rows.length : "no"} rows, and the entry ` +
+      `lists ${list.length} things to look for. Give one row per item, in the entry's order`);
+    return said;
+  }
+  const counted = { found: 0, missing: 0, "does-not-apply": 0 };
+  rows.forEach((row, at) => {
+    const item = `${named} item ${at + 1}`;
+    if (!RESULTS.includes(row?.result)) {
+      said.push(`${item}: result ${JSON.stringify(row?.result)} is not one of ${RESULTS.join(", ")}`);
+      return;
+    }
+    counted[row.result] += 1;
+    const evidence = row.evidence ?? [];
+    for (const one of evidence) cited(where, one, said);
+    if (row.result === "found") {
+      if (evidence.length === 0) {
+        said.push(`${item}: found and cites nothing. Cite the lines it was found in`);
+      } else if (list[at].proof === "runs" && !evidence.some((one) => STANDS_ALONE.includes(one.grade))) {
+        said.push(`${item}: found in writing alone, and this item asks for something that runs. A document ` +
+          "saying it exists is not it, so it is missing, with what was found said in searched");
+      }
+    } else if (row.result === "missing") {
+      if (!String(row.searched ?? "").trim()) {
+        said.push(`${item}: missing with no account of the search. Say in searched what was looked for and where`);
+      }
+    } else if (!String(row.why ?? "").trim()) {
+      said.push(`${item}: said not to apply with no reason. Say in why what about this repository puts it out of reach`);
+    }
+  });
+  const applies = rows.length - counted["does-not-apply"];
+  const owed = applies === 0 ? "not-applicable"
+    : counted.found === applies ? "covered"
+    : counted.found === 0 ? "total-gap" : "partial-gap";
+  if (answer.status !== owed) {
+    said.push(`${named}: ${answer.status}, and it found ${counted.found} of the ${applies} items that apply, which makes it ${owed}`);
+  }
+  return said;
+}
+
+/**
  * What to call a finding in a refusal. Its identity is composed after the checks pass, so at this
  * point most findings have none, and every message naming one said "undefined". What a person needs
  * to find it in their own answers file is the concern it answers.
@@ -450,7 +520,7 @@ function skeleton(served, readBy) {
         kind: body.kind ?? one.kind,
         ...pick(body, ["title", "version", "entry_noun", "sections"]),
         selected: entries.map((entry) => entry.identifier),
-        entries_asked: entries.map((entry) => pick(entry, ["identifier", "title", "intent", "section", "obligation", "note"])),
+        entries_asked: entries.map((entry) => pick(entry, ["identifier", "title", "intent", "looks_for", "section", "obligation", "note"])),
       };
     }),
     answers: [...(served.answered ?? [])],
@@ -486,7 +556,7 @@ function groupOf(served, n) {
   if (!one) fail(`no-such-group: ${n}, and this run has ${all.length}`);
   return {
     ...one,
-    entries: one.entries.map((entry) => pick(entry, ["identifier", "title", "intent", "section", "locator", "obligation", "note"])),
+    entries: one.entries.map((entry) => pick(entry, ["identifier", "title", "intent", "looks_for", "section", "locator", "obligation", "note"])),
     owes: one.kind === "concern-set"
       ? "one accounted row per concern saying what was looked for, and a finding for each weakness or working control found"
       : "one answer per entry",
@@ -530,6 +600,18 @@ function shape() {
     "  has no lines to cite, searched says in plain words what was looked for and where, and that none",
     "  of it was found, so a person can look again: \"Looked in the CI workflows and the release",
     "  scripts for image signing, checksums or provenance records, and found none.\"",
+    "  An entry carrying looks_for is answered item by item, in looked_for, one row per item in order:",
+    '    {"result":"found","evidence":[<citation>]}',
+    '    {"result":"missing","searched":"what was looked for and where, and what was found instead"}',
+    '    {"result":"does-not-apply","why":"what about this repository puts the item out of reach"}',
+    `  An item whose proof is runs is found only with a citation graded ${STANDS_ALONE.join(" or ")}. A`,
+    "  document saying it exists makes it missing. An item whose proof is written is found in a document.",
+    "  The status is a count of the items that apply: all found is covered, none found is total-gap,",
+    "  anything between is partial-gap, and none applying is not-applicable. It is never org-level.",
+    "  Judge each item by its words. An item naming a thing is found where the repository has that",
+    "  thing, and places that lack it go in because and the remedy. An item saying each is found only",
+    "  where it holds for each one.",
+    "  An entry without looks_for:",
     `  covered owes at least one citation graded ${STANDS_ALONE.join(" or ")}. Prose alone is partial-gap.`,
     "  Every status but covered owes a remedy: what to change in this code, naming no rule.",
     `  ${EXEMPT.join(" and ")} owe a justification.`,
