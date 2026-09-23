@@ -35,7 +35,8 @@ description: Evalation seat status. Shows whether the seat is live, what is sele
    - Seat not live for any other reason: report the reason the status gave. A clock more than five
      minutes out refuses every ask on its own, so say that where the reason points at the proof.
    - Live with no packs selected: say what a pack is in one line and offer `/ev-packs`.
-   - Live with packs selected: name them, say what a run against them spends and what is left, and
+   - Live with packs selected: name them by their titles from
+     `${CLAUDE_PLUGIN_ROOT}/bin/evalation-packs titles`, never by handle, say what a run against them spends and what is left, and
      say `/ev-run` reads a repository against them.
    - Live with fewer credits than the selection has packs: say both numbers and that a run is
      refused whole, with no part of it served, so the choice is to top up or to select fewer packs.

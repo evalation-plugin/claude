@@ -20,7 +20,7 @@ EV_HOME="${EVALATION_HOME:-$HOME/.evalation}"
 SELECTION="$EV_HOME/packs.json"
 
 usage() {
-  echo "usage: evalation-packs [show|list|set <pack> [<pack>...]]" >&2
+  echo "usage: evalation-packs [show|list|titles|set <pack> [<pack>...]]" >&2
   exit 2
 }
 
@@ -39,6 +39,13 @@ list() {
   "$DIR/evalation-ask" /packs '{}'
 }
 
+# Each pack's handle beside the title a person is shown, without the entries the whole catalogue
+# carries.
+titles() {
+  command -v jq >/dev/null 2>&1 || { echo "missing-jq" >&2; exit 1; }
+  list | jq -c '[.packs[] | {pack, title: .body.title}]'
+}
+
 # The selection is composed whole before anything is written, so a malformed argument fails with the
 # previous selection still standing rather than half of a new one on disk. It is the selection rather
 # than a history of it: what was assessed against on a given day rides with that day's findings.
@@ -54,6 +61,7 @@ set_packs() {
 case "${1:-show}" in
   show) show ;;
   list) list ;;
+  titles) titles ;;
   set) shift; set_packs "$@" ;;
   *) usage ;;
 esac

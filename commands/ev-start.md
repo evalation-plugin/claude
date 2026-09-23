@@ -77,8 +77,8 @@ and announce it afterwards.
    ${CLAUDE_PLUGIN_ROOT}/bin/evalation-packs show
    ```
 
-   Where nothing is selected, go to step 5 without remarking on it. Where something is, name what it
-   is.
+   Where nothing is selected, go to step 5 without remarking on it. Where something is, name each
+   pack by its title from `${CLAUDE_PLUGIN_ROOT}/bin/evalation-packs titles`, never by handle.
 
 5. **Take them through choosing**, if nothing is selected.
 

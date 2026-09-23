@@ -1,6 +1,6 @@
 ---
 description: Read this repository against the packs you selected, and write down what it evidences.
-allowed-tools: Bash(evalation-read:*), Bash(evalation-run:*), Bash(evalation-packs show:*), Bash(evalation-status:*), Bash(evalation-scan show:*), Bash(evalation-scan install:*), Bash(evalation-scan decline:*), Bash(evalation-scan run:*), Bash(evalation-findings:*), Bash(evalation-verify:*), Bash(evalation-score:*), Bash(evalation-deliver:*), Bash(evalation-report:*)
+allowed-tools: Bash(evalation-read:*), Bash(evalation-run:*), Bash(evalation-packs show:*), Bash(evalation-packs titles:*), Bash(evalation-status:*), Bash(evalation-scan show:*), Bash(evalation-scan install:*), Bash(evalation-scan decline:*), Bash(evalation-scan run:*), Bash(evalation-findings:*), Bash(evalation-verify:*), Bash(evalation-score:*), Bash(evalation-deliver:*), Bash(evalation-report:*)
 ---
 
 <!--
@@ -9,7 +9,7 @@ searching, no general shell, no network. Repository content reaches it only thro
 `evalation-read`, which fences what it returns, so a reading cannot open a file outside the
 perimeter even if something in the tree persuades it to try.
 
-`evalation-packs` is granted at `show` alone and `evalation-status` whole. Both are named by step 1,
+`evalation-packs` is granted at `show` and `titles` alone and `evalation-status` whole. Both are named by step 1,
 both read the selection and the balance and nothing of the repository, and a person being asked what
 a run will spend should not have to approve the reading of their own balance to be told.
 
@@ -64,7 +64,8 @@ at step 4, and the findings, at step 6.
    means the target is no git checkout, or names no main to compare with.
 
    Then show the recorded selection first, from
-   `${CLAUDE_PLUGIN_ROOT}/bin/evalation-packs show`, as the default, and let the person confirm it,
+   `${CLAUDE_PLUGIN_ROOT}/bin/evalation-packs show`, as the default, naming each pack by its title
+   from `${CLAUDE_PLUGIN_ROOT}/bin/evalation-packs titles` and never by its handle, and let the person confirm it,
    narrow it or name others. A consultant assesses one client's tree against one set of obligations
    and the next against another, so the packs are a choice per run and never assumed. The packs the
    person names are what step 2 is given. Nothing is counted until step 2, so asking costs nothing.
