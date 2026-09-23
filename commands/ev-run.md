@@ -290,11 +290,14 @@ at step 4, and the findings, at step 6.
    than the check.** A citation that will not verify is one that was not read from the file, and the
    remedy is to open the file and read it, never to soften the claim until it passes.
 
-8. **Ask whether they want a second reading of the findings, and wait for the answer.** Show what
-   is named first, from `${CLAUDE_PLUGIN_ROOT}/bin/evalation-verifier show`. Say in a sentence what
-   it is: a cheaper model is handed each finding and the exact lines it rests on, and says whether
-   those lines support it, so a confirmed finding reads as verified in the report and the rest stay
-   as asserted. Say that it runs on a model command of their own and is their spend, name the
+8. **Ask whether they want the findings verified, and wait for the answer.** Show what is named
+   first, from `${CLAUDE_PLUGIN_ROOT}/bin/evalation-verifier show`. Ask it in these words: "Would
+   you like a second model to independently verify the findings of the Evalation review packs? It
+   runs on your own model account and spends no pack credits. Verification status will be recorded
+   in the reports generated." Never call it a second reading or a rerun: that reads as the packs
+   being run again and charged again. Then say in a sentence how it works: a cheaper model is handed
+   each finding and the exact lines it rests on, and says whether those lines support it, so a
+   confirmed finding reads as verified in the report and the rest stay as asserted. Say that it runs on a model command of their own and is their spend, name the
    command that would run, the one named or the default the tool prints, and say roughly what it
    costs: one short reading per twelve findings. Offer three answers: yes with that command, yes with
    a command of their own, or no for this run. Ask every run, since the spend is per run and never
