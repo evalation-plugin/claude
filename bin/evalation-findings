@@ -228,6 +228,7 @@ function checked(document, where) {
 
     const evidence = answer.evidence ?? [];
     for (const one of evidence) cited(where, one, said);
+    const searched = String(answer.searched ?? "").trim();
 
     // Settled by the pack rather than by a reading. It owes its justification like any org-level
     // answer and owes nothing else: there is no evidence to cite because no repository could have
@@ -247,6 +248,14 @@ function checked(document, where) {
         said.push(`${named}: answered from the pack with no justification`);
       }
       continue;
+    }
+
+    // Something a person can check, whatever the status. An absence has no lines to cite, so it says
+    // what was looked for and where, which a person can look for again. An answer with neither asks
+    // its reader to take it on trust.
+    if (evidence.length === 0 && !searched) {
+      said.push(`${named}: ${answer.status} and cites nothing a person could check. Cite the lines it rests ` +
+        "on, or say in searched what was looked for and where, and that none of it was found");
     }
 
     if (answer.status === "covered") {
@@ -328,6 +337,7 @@ function checked(document, where) {
     }
 
     if (finding.at) cited(where, finding.at, said);
+    else said.push(`${nameOf(finding)}: a finding with no citation, which nobody can check. Every finding cites the lines it rests on`);
   }
 
   // Every word a customer reads, against the part of the writing standard a machine can decide.
@@ -511,9 +521,13 @@ function shape() {
     "",
     "An answer, one per entry of a standard:",
     '  {"pack":"soc2","entry":"CC6.1","status":"<status>","because":"...","evidence":[<citation>],',
-    '   "remedy":"...","justification":"..."}',
+    '   "searched":"...","remedy":"...","justification":"..."}',
     `  status is one of ${STATUSES.join(", ")}.`,
     "  because says what was looked at, what was found, and why this status and not the one either side.",
+    "  Every answer carries something a person can check. Where it rests on something being absent and",
+    "  has no lines to cite, searched says in plain words what was looked for and where, and that none",
+    "  of it was found, so a person can look again: \"Looked in the CI workflows and the release",
+    "  scripts for image signing, checksums or provenance records, and found none.\"",
     `  covered owes at least one citation graded ${STANDS_ALONE.join(" or ")}. Prose alone is partial-gap.`,
     "  Every status but covered owes a remedy: what to change in this code, naming no rule.",
     `  ${EXEMPT.join(" and ")} owe a justification.`,
@@ -535,6 +549,8 @@ function shape() {
     `  grade is one of ${GRADES.join(", ")}: code that performs the control or tests it, a setting`,
     "  something is shown to read, or prose claiming it. The quote appears within those lines,",
     "  whitespace aside. Quote the name a secret is set against, never its value.",
+    "",
+    "Every finding carries its citation in at. A finding nobody can check is refused.",
     "",
     "Every sentence a customer reads (because, justification, observed, required, title):",
     `  ${WRITING_STANDARD}`,

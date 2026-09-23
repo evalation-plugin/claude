@@ -243,8 +243,8 @@ function reviewFindings(document) {
     legend: {
       priority: "P0 do first · P1 near-term · P2 should-fix · P3 cleanup / low.",
       result:
-        "Scanned by a deterministic run · verified where a second check confirmed the cited " +
-        "lines · asserted where nothing confirmed it.",
+        "Scanned by a deterministic run · verified where a second check confirmed the finding " +
+        "against the repository · asserted where nothing confirmed it.",
     },
     categories,
   };

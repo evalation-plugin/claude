@@ -249,13 +249,14 @@ function list(root, pattern) {
   return paged(found, `${found.length} paths`);
 }
 
-function search(root, pattern, glob) {
-  let held;
-  try {
-    held = new RegExp(pattern, "i");
-  } catch (thrown) {
-    fail(`that is not a usable pattern: ${thrown.message}`);
-  }
+/**
+ * Every line a pattern matches in the files a glob admits, as path, line and text. The one search
+ * both the reading and the findings check run, so an absence the reading recorded is re-run exactly
+ * as it ran. Throws on a pattern that does not compile. `limit` stops early where a caller needs only
+ * to know whether anything matched.
+ */
+function found(root, pattern, glob, limit = LINES * 4) {
+  const held = new RegExp(pattern, "i");
   const holds = matching(glob);
   const out = [];
   for (const path of walk(root)) {
@@ -269,11 +270,21 @@ function search(root, pattern, glob) {
       continue;
     }
     text.split("\n").forEach((line, at) => {
-      if (held.test(line)) out.push(`${shown}:${at + 1}: ${line.trim().slice(0, 160)}`);
+      if (held.test(line)) out.push({ path: shown, line: at + 1, text: line.trim().slice(0, 160) });
     });
-    if (out.length > LINES * 4) break;
+    if (out.length > limit) break;
   }
-  return paged(out, `${out.length} matches`);
+  return out;
+}
+
+function search(root, pattern, glob) {
+  let out;
+  try {
+    out = found(root, pattern, glob);
+  } catch (thrown) {
+    fail(`that is not a usable pattern: ${thrown.message}`);
+  }
+  return paged(out.map((one) => `${one.path}:${one.line}: ${one.text}`), `${out.length} matches`);
 }
 
 /** What one file defines, with the line each definition starts at, so a range can be asked for. */
@@ -414,7 +425,7 @@ function main() {
   process.stdout.write(`${answer()}\n`);
 }
 
-module.exports = { fenced, plain, map, list, search, outline, read };
+module.exports = { fenced, plain, map, list, search, found, outline, read };
 
 if (require.main === module) {
   try {
