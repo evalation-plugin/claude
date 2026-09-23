@@ -102,7 +102,32 @@ function target(where) {
   return { kind: remote ? "repository" : "directory", repository: named, head, remote, inside };
 }
 
+/**
+ * Which branch the tree has checked out against the repository's main, from the clone alone. A run
+ * assesses main, so a person is warned before it reads anything else. Null where the target is no
+ * git checkout or names no main, since there is nothing to compare. A null branch is a commit on no
+ * branch.
+ */
+function branchOf(where) {
+  if (quietly("git", ["rev-parse", "--is-inside-work-tree"], where) !== "true") return null;
+  const origin = quietly("git", ["symbolic-ref", "--short", "refs/remotes/origin/HEAD"], where);
+  const main = origin
+    ? origin.replace(/^origin\//, "")
+    : ["main", "master"].find((one) => quietly("git", ["rev-parse", "--verify", "--quiet", `refs/heads/${one}`], where));
+  if (!main) return null;
+  const branch = quietly("git", ["symbolic-ref", "--short", "--quiet", "HEAD"], where);
+  return { branch, main, on_main: branch === main };
+}
+
 function main() {
+  // Asks the server nothing and counts nothing, so the command can ask it before a run and again
+  // when a stopped run resumes.
+  if (process.argv[2] === "--branch") {
+    const at = process.argv[3] || process.cwd();
+    process.stdout.write(JSON.stringify(branchOf(at) ?? { branch: null, main: null, on_main: null }) + "\n");
+    return;
+  }
+
   const where = process.argv[2] || process.cwd();
   const wanted = process.argv.slice(3).filter((one) => one.trim() !== "");
 
@@ -180,6 +205,6 @@ function main() {
   );
 }
 
-module.exports = { target };
+module.exports = { target, branchOf };
 
 if (require.main === module) main();

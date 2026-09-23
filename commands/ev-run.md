@@ -46,7 +46,24 @@ at step 4, and the findings, at step 6.
 
 ## What to do
 
-1. **Ask which packs to run, and wait for the answer.** Show the recorded selection first, from
+1. **Check which branch the tree is on, then ask which packs to run, and wait for the answer.**
+   First:
+
+   ```
+   ${CLAUDE_PLUGIN_ROOT}/bin/evalation-run --branch <target>
+   ```
+
+   It asks the server nothing and counts nothing. A run assesses the repository's main branch, and
+   the tree on disk is whatever is checked out. Where `on_main` is false, say in one sentence that
+   this run is about to read `branch` in place of `main`, naming both, or a commit on no branch
+   where `branch` is null. Offer two answers: go on and read it, or stop and wait until the branch
+   is merged or removed. On stop, end the run there. Nothing was read and nothing was counted. Never
+   switch the branch yourself, since that changes the repository. When the person comes back to the
+   run, in this conversation or a new one, run this check again before anything else and warn again
+   if the tree is still off main. Where `on_main` is true or null, say nothing about branches: null
+   means the target is no git checkout, or names no main to compare with.
+
+   Then show the recorded selection first, from
    `${CLAUDE_PLUGIN_ROOT}/bin/evalation-packs show`, as the default, and let the person confirm it,
    narrow it or name others. A consultant assesses one client's tree against one set of obligations
    and the next against another, so the packs are a choice per run and never assumed. The packs the
