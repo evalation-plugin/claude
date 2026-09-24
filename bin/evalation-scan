@@ -178,6 +178,26 @@ function within(root, path) {
   return said && !said.startsWith("..") ? said : path;
 }
 
+/** The direct dependencies an indirect package is reached through, as name and version, at most four. */
+function broughtBy(id, packages, parents) {
+  const found = [];
+  const seen = new Set([id]);
+  const queue = [...(parents.get(id) ?? [])];
+  while (queue.length > 0 && found.length < 4) {
+    const at = queue.shift();
+    if (seen.has(at)) continue;
+    seen.add(at);
+    const one = packages.get(at);
+    if (!one) continue;
+    if (["direct", "root", "workspace"].includes(String(one.Relationship ?? "").toLowerCase())) {
+      if (String(one.Relationship).toLowerCase() === "direct") found.push(`${one.Name} ${one.Version}`);
+      continue;
+    }
+    queue.push(...(parents.get(at) ?? []));
+  }
+  return found;
+}
+
 /**
  * The adapters. Each says how to start its tool and how to read what it printed, and each returns
  * findings in the one shape the rest of this file and the reading ever see. A tool the table does
@@ -187,13 +207,25 @@ function within(root, path) {
 const ADAPTERS = {
   trivy: {
     phase: "sca",
-    argv: (target) => ["fs", "--scanners", "vuln", "--format", "json", "--quiet", target],
+    // Every package listed, so the scan knows which the repository depends on itself and which came
+    // in through another. An advisory carries neither, and read from it every result was direct.
+    argv: (target) => ["fs", "--scanners", "vuln", "--list-all-pkgs", "--format", "json", "--quiet", target],
     read: (out, root) => {
       const held = JSON.parse(out || "{}");
       const found = [];
       for (const result of held.Results ?? []) {
+        const packages = new Map((result.Packages ?? []).map((one) => [one.ID, one]));
+        const parents = new Map();
+        for (const one of result.Packages ?? []) {
+          for (const child of one.DependsOn ?? []) {
+            if (!parents.has(child)) parents.set(child, []);
+            parents.get(child).push(one.ID);
+          }
+        }
         for (const one of result.Vulnerabilities ?? []) {
           const version = one.InstalledVersion ?? "";
+          const own = packages.get(one.PkgID);
+          const direct = !own || ["direct", "root", "workspace"].includes(String(own.Relationship ?? "direct").toLowerCase());
           found.push({
             key: `sca:${one.PkgName}@${version}:${one.VulnerabilityID}`,
             severity: severityOf(one.Severity),
@@ -201,7 +233,12 @@ const ADAPTERS = {
             package: one.PkgName,
             version,
             fixed: one.FixedVersion ?? null,
-            transitive: String(one.Relationship ?? "").toLowerCase() === "indirect",
+            transitive: !direct,
+            // Said outright, so a report can tell a scan that knew from an older one that did not.
+            relation: direct ? "direct" : "indirect",
+            // The packages this repository depends on directly that bring an indirect one in, which is
+            // what has to move when upgrading the repository's own dependencies cannot reach it.
+            ...(direct ? {} : { via: broughtBy(one.PkgID, packages, parents) }),
             at: { path: within(root, result.Target) },
             // What the weakness is and what it lets somebody do: the advisory's title, then the opening
             // of its description, which is where an advisory says what an attacker gains.
