@@ -29,7 +29,7 @@ const { mkdirSync, readFileSync } = require("node:fs");
 const { join, resolve } = require("node:path");
 
 const { print } = require("../lib/print.js");
-const { named: phaseNamed, upgradeTo } = require("../lib/scans.js");
+const { compared, named: phaseNamed, upgradeTo } = require("../lib/scans.js");
 const { consequences, remedies } = require("../lib/weaknesses.js");
 const { keepFindings, reportsFolder, reviewName } = require("../lib/reports.js");
 const { CHROME, css, escaped, paginator, scanResults } = require("../lib/sheet.js");
@@ -448,6 +448,7 @@ function scanFindings(document, packs, asked) {
     consequences,
     remedies,
     upgradeTo,
+    compared,
   });
 }
 

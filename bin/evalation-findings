@@ -829,7 +829,7 @@ function main() {
     if (read.length > 0) {
       document.scan.relevant = (scan.document.findings ?? [])
         .filter((one) => read.includes(one.phase))
-        .map((one) => pick(one, ["key", "phase", "severity", "title", "package", "version", "fixed", "transitive", "at", "body", "link", "cwe"]));
+        .map((one) => pick(one, ["key", "phase", "severity", "title", "package", "version", "fixed", "transitive", "relation", "via", "at", "body", "link", "cwe"]));
     }
   }
 
