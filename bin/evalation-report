@@ -126,7 +126,9 @@ function scanned(want, row, scan) {
     const ran = (scan?.phases ?? []).find((one) => one.phase === want.phase);
     return `<p class="looked">${escaped(ran && !ran.ran ? `The ${phase} did not run: ${ran.why}.` : `The ${phase} was not run over this repository in this run.`)}</p>`;
   }
-  const all = (scan?.relevant ?? []).filter((one) => one.phase === want.phase);
+  // Counted once per result, as the table lists them. The same advisory in two lockfiles is one.
+  const seen = new Set();
+  const all = (scan?.relevant ?? []).filter((one) => one.phase === want.phase && !seen.has(one.key) && seen.add(one.key));
   const floor = want.at_least ? SEVERITY.indexOf(want.at_least) : SEVERITY.length - 1;
   const over = all.filter((one) => SEVERITY.indexOf(one.severity) >= 0 && SEVERITY.indexOf(one.severity) <= floor);
   const listed = all.length > 0 ? " Each is listed under Scanner results at the end of this pack." : "";

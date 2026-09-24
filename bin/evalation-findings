@@ -55,7 +55,10 @@ function scanSays(want, scan, since) {
     return { result: "not-checked", over: [], why: !scan || !fresh ? "no scan was run over this tree in this run" : `the ${phaseNamed(want.phase)} did not run: ${phase?.why ?? "it was not in the scan"}` };
   }
   const floor = want.at_least ? SEVERITY.indexOf(want.at_least) : SEVERITY.length - 1;
-  const over = (scan.findings ?? []).filter((one) => one.phase === want.phase && SEVERITY.indexOf(one.severity) >= 0 && SEVERITY.indexOf(one.severity) <= floor);
+  // Counted once per result. The same advisory in two lockfiles is one weakness, not two.
+  const seen = new Set();
+  const over = (scan.findings ?? []).filter((one) => one.phase === want.phase && SEVERITY.indexOf(one.severity) >= 0 &&
+    SEVERITY.indexOf(one.severity) <= floor && !seen.has(one.key) && seen.add(one.key));
   return { result: over.length === 0 ? "found" : "missing", over };
 }
 
@@ -826,7 +829,7 @@ function main() {
     if (read.length > 0) {
       document.scan.relevant = (scan.document.findings ?? [])
         .filter((one) => read.includes(one.phase))
-        .map((one) => pick(one, ["key", "phase", "severity", "title", "package", "version", "fixed", "transitive", "at"]));
+        .map((one) => pick(one, ["key", "phase", "severity", "title", "package", "version", "fixed", "transitive", "at", "body", "link"]));
     }
   }
 

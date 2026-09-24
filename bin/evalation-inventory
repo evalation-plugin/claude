@@ -15,8 +15,9 @@
 "use strict";
 
 const { execFileSync } = require("node:child_process");
-const { readdirSync, readFileSync, statSync } = require("node:fs");
-const { extname, join } = require("node:path");
+const { readFileSync, statSync } = require("node:fs");
+const { basename, extname, join } = require("node:path");
+const { filesOf } = require("../lib/tree.js");
 
 // What a file extension is written in. A list rather than a guess from content, because a guess is
 // wrong quietly and a list is wrong loudly: an extension nothing here names is counted as other and
@@ -42,13 +43,6 @@ const LANGUAGES = {
 // already knows agree. Markup stays in: a repository of templates and stylesheets is written in them.
 const NOT_A_LANGUAGE = new Set(["JSON", "YAML", "TOML", "Markdown"]);
 
-// Not the work. A vendored dependency, a build output and a lockfile are all in the tree and none of
-// them is what somebody wrote, so counting them makes a small project read as a large one.
-const SKIP = new Set([
-  ".git", "node_modules", "vendor", "target", "dist", "build", "out", ".next", ".nuxt",
-  "__pycache__", ".venv", "venv", ".tox", "coverage", ".cache", ".terraform", "Pods",
-]);
-
 function quietly(command, args, where) {
   try {
     return execFileSync(command, args, {
@@ -62,21 +56,8 @@ function quietly(command, args, where) {
 }
 
 function walk(from, at, held) {
-  let entries;
-  try {
-    entries = readdirSync(from, { withFileTypes: true });
-  } catch {
-    return;
-  }
-  for (const entry of entries) {
-    if (SKIP.has(entry.name)) continue;
-    const path = join(from, entry.name);
-    if (entry.isDirectory()) {
-      walk(path, at + 1, held);
-      continue;
-    }
-    if (!entry.isFile()) continue;
-
+  for (const path of filesOf(from)) {
+    const entry = { name: basename(path) };
     let size = 0;
     try {
       size = statSync(path).size;
