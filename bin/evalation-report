@@ -29,6 +29,7 @@ const { mkdirSync, readFileSync } = require("node:fs");
 const { join, resolve } = require("node:path");
 
 const { print } = require("../lib/print.js");
+const { readingOf } = require("../lib/prose.js");
 const { cardOf, compared, compatible, named: phaseNamed, upgradeTo } = require("../lib/scans.js");
 const { consequences, remedies } = require("../lib/weaknesses.js");
 const { keepFindings, reportsFolder, reviewName } = require("../lib/reports.js");
@@ -380,18 +381,18 @@ function opening(document, answers, packs, asked) {
   const noun = nounAcross(packs);
   const marks = grades(asked);
   const parts = [
-    ["Identifier", "The standard's own number for it, and the short name beside it."],
-    ["Asked", "The question put to the repository, in italics, so a reader can judge whether the status answers it."],
-    ["Answer", "What the repository evidences, and why it is this status and not the one either side of it."],
-    ["Where it rests", "The file and lines, on the grey bar, with the line itself under them and how strong it is at the right. Where the answer is that something is absent, what was searched for and where, so anybody can look again."],
-    ["Looked for", "Where the standard's part lists what it looks for, each item numbered with found, missing or does not apply at the right, and the status is the count of them. An item marked scanned was settled by a scanner run over this repository during the reading, and every result of that scan is listed under Scanner results at the end, worst first."],
-    ["Status", "Gap, Partial, Covered, Org-level or Not applicable, on the coloured tag at the right."],
-    ["Checked", "Beside the model that read it: verified where a second check confirmed the answer against the repository, asserted where nothing confirmed it."],
-    ["What to do", `What closes it, on the orange bar. Where the organisation owns ${called(noun.one)}, it carries why the code cannot answer it.`],
+    ["Identifier", `The standard's number and short name for the ${noun.one}.`],
+    ["Asked", "The question put to the repository, in italics."],
+    ["Answer", "What the repository shows, and why that earns this status."],
+    ["Where it rests", "The file and lines on the grey bar, the quoted line under them, and how strong the evidence is on the right. For something missing, the search we made, so anyone can repeat it."],
+    ["Looked for", "The things the standard looks for, numbered, each marked found, missing or does not apply. The status follows from how many were found. An item marked scanned was settled by a scanner run during the review, and the scanner's results are listed at the end."],
+    ["Status", "Gap, Partial, Covered, Org-level or Not applicable, on the coloured tag."],
+    ["Checked", "Next to the model that read it: verified if a second check confirmed the answer against the repository, asserted if nothing did."],
+    ["What to do", `The fix, on the orange bar. For ${called(noun.one)} the organisation owns, the reason the code cannot answer it.`],
   ];
   if (marks.length > 0) {
     parts.push(["In scope",
-      `Whether this standard assesses the ${noun.one} in every audit or only where a level was elected, on the small tag after the name. What each word means is below.`]);
+      `The small tag after the name says whether the standard assesses this ${noun.one} in every audit or only where the customer chose it. The words are explained below.`]);
   }
 
   return `<div class="block">
@@ -400,20 +401,19 @@ ${tally(answers)}
 </div>
 <div class="block">
 <h2>The work done</h2>
-<p class="intro">${read} of these ${answers.length} ${escaped(noun.many)} were answered by reading this
-repository, and every one of those names the file and lines it rests on. The rest were settled by the
-pack because no repository could evidence them, and each says so where it appears. Nothing was
-executed and nothing was changed. Open the repository at the commit named, go to the lines a claim
-cites, and read them.</p>
-<p class="intro">This reads the repository as it stands at one commit. That is evidence of how a
-control is designed and whether the code implements it. It is not evidence that a control operated
-over a period, which takes records across months that no repository holds at a commit. Where a
-standard separates the two, this supports the first.</p>
+<p class="intro">We read the repository and answered ${read} of the ${answers.length}
+${escaped(noun.many)} from its code and files. Each answer cites the lines it rests on, or for
+something missing, the search that did not find it. ${answers.length - read === 0 ? "" : `The other
+${answers.length - read} are about how the organisation runs, which a repository does not record, so
+the pack answers them and says so on each one. `}We read the code without running it and changed
+nothing.</p>
+<p class="intro">A review like this shows how each control is designed and whether the code puts it in
+place. Some standards also ask whether a control worked over a period of months. That takes records
+from those months, which a repository does not keep, so this report cannot answer it.</p>
 </div>
 <div class="block last">
 <h2>Reading ${escaped(called(noun.one))}</h2>
-<p class="lede">Every ${escaped(noun.one)} that follows is laid out the same way. This is a key, not
-an entry.</p>
+<p class="lede">Each ${escaped(noun.one)} below follows this layout.</p>
 <dl class="key wide">${parts
   .map(([name, meaning]) => `<dt>${escaped(name)}</dt><dd>${escaped(meaning)
     .replace(/\b(verified|asserted)\b/g, (word) => `<span style="color:${STANDING[word]}">${word}</span>`)}</dd>`).join("")}</dl>
@@ -439,9 +439,8 @@ function scanFindings(document, packs, asked) {
   }
   return scanResults({
     findings: (document.scan?.relevant ?? []).filter((one) => bears.has(one.phase)),
-    intro: "Every result of the scans this pack's criteria read, grouped by library or by rule, worst first. " +
-      "A criterion's item counts only the severities its words name, so a result here can bear on a " +
-      "criterion without counting against it.",
+    intro: "Each card is a package or rule the scanners flagged, most severe first. An item counts only " +
+      "the severities it names, so a card can bear on an item and leave its result unchanged.",
     tagWord: "Bears on",
     tagOf: (one) => bears.get(one.phase) ?? [],
     phaseOf: phaseNamed,
@@ -556,7 +555,8 @@ function main() {
     const own = answers.filter((one) => one.pack === pack);
     const alone = { ...document, packs: (document.packs ?? []).filter((one) => one.pack === pack) };
     const out = join(folder, `${reviewName(document, pack)} Evidence Pack.pdf`);
-    const done = print(page(alone, own, asked), `${out.replace(/\.pdf$/, "")}.html`, out, { run: document.run });
+    const done = print(page(alone, own, asked), `${out.replace(/\.pdf$/, "")}.html`, out, { run: document.run },
+      readingOf(document));
     return {
       pack,
       written: done.printed ? out : done.page,

@@ -65,8 +65,8 @@ function settled(packs) {
         status: "org-level",
         from: "authored",
         because:
-          `${entry.title}: no repository can evidence this, so it was answered from the pack and ` +
-          "nothing in the tree was read for it.",
+          `${entry.title} is about how the organisation runs, which a repository does not record, ` +
+          "so the pack answers it.",
         justification: entry.justification,
       });
     }

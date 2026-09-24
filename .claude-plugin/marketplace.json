@@ -9,7 +9,7 @@
     {
       "name": "evalation-plugin",
       "source": "./",
-      "description": "Reads a repository against the packs you select, compliance, regulation and hardening, and reports what it evidences with a citation for every claim. It changes nothing, findings are written locally and never leave the machine, and the methodology is served against an entitled seat rather than shipped. Run /ev-start and it takes you through the rest one step at a time.",
+      "description": "Reads a repository against the compliance, regulation and hardening packs you select, and reports what it evidences, citing the code for every claim. It changes nothing, and the findings stay on your machine. Run /ev-start to be taken through it one step at a time.",
       "keywords": [
         "evalation",
         "compliance",

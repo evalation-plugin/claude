@@ -19,15 +19,14 @@ once and reported under each pack's own citation.
 
 ## What it reports
 
-Every entry gets one of five statuses, and each one says what it means by itself rather than leaving
-it to be interpreted:
+Every entry gets one of five statuses:
 
-- **covered**, resting on evidence that ran or that a machine reads, never on prose alone
-- **partial gap**, something standing that does not carry the whole entry, which is where a control
-  the repository only claims lands
-- **total gap**, evidenced as absent
-- **org-level**, a control the deploying organisation owns and no repository could evidence
-- **not applicable**, which does not bear here at all
+- **Covered**, resting on code or configuration that runs, never on documentation alone
+- **Partial**, where some of what the entry asks for is there, including a control the repository
+  only describes
+- **Gap**, where the repository shows it is missing
+- **Org-level**, a control the organisation owns, which no repository records
+- **Not applicable**, where the entry does not apply to this repository
 
 The last two read as an exemption to whoever receives the report, so each owes a justification and is
 refused without one.
@@ -55,13 +54,13 @@ The authorisation code comes back to a port on your own machine. There is no pag
 in the sign-in, which means nothing of ours to be phished by and nothing that needs inbound access to
 the machine you are working on.
 
-A second machine is a second installation and takes its own activation. One account holds as many as
-it needs, and what is billed is usage rather than seats.
+A second machine is a second installation and takes its own activation. One account can hold as many
+installations as it needs, and billing counts pack credits used.
 
 ## What is encrypted, and what is not
 
-What we serve is encrypted to your installation, so nothing between us and you can read it: not an
-edge, not a proxy on your network, not anything inspecting traffic on the way. The pack's name, kind
+What we serve is encrypted to your installation, so nothing between us and you can read it, including
+a proxy on your network or anything else inspecting traffic on the way. The pack's name, kind
 and entry count stay readable, because those are what you choose between and none of them is the
 thing being protected. The entries are the work, and those are sealed.
 
@@ -69,9 +68,8 @@ Your installation holds two keys with one job each. One proves an ask came from 
 what comes back. Neither leaves the operating system's own store, and we hold only the public halves,
 so our own records being read gives an attacker nothing they could use.
 
-Losing the second one is recoverable rather than terminal: `/ev-rotate` is authenticated by the
-first, so the key that proves who is asking still works when the key that reads what comes back is
-gone.
+If you lose the second key, `/ev-rotate` replaces it. The first key signs that request, so it still
+works when the key that reads what comes back is gone.
 
 ## How an installation proves it is itself
 
@@ -81,8 +79,8 @@ installation and cannot impersonate one, and a captured proof stops working with
 
 The key lives in the operating system's own store: the Keychain on macOS, Credential Manager on
 Windows, the desktop keyring on Linux. Where a machine has none, and a server nobody is sitting at
-often has none, it goes in a file only its owner can read, and a file that cannot be confirmed private
-is refused rather than read. The settings name where it is and never hold it, which is what makes them
+often has none, it goes in a file only its owner can read. The plugin refuses to read a key file it
+cannot confirm is private. The settings name where it is and never hold it, which is what makes them
 safe to read out, paste into a ticket or keep in a repository.
 
 Settings are read from `EVALATION_LOCAL` if it is set, then `~/.evalation/evalation.local`, then
@@ -94,8 +92,7 @@ never breaks an installation and no customer configuration carries our hosting a
 
 Your code does not. The findings do not. A run reads your tree locally and writes its findings
 locally, and what crosses the wire is the request for the methodology and the record that a run
-happened. The methodology is served against an entitled seat rather than shipped, so nothing of it
-sits on your disk and it stops working when the entitlement does.
+happened. The packs are served to your installation for each run.
 
 ## What this plugin holds
 

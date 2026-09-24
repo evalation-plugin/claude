@@ -845,17 +845,17 @@ function deck(document, into, options = {}) {
     "{{ a genuine strength to keep }}",
     held.strengths.length
       ? held.strengths.map((one) => oneLine(one, 120))
-      : ["No positive controls were recorded in this run, so nothing here is credited as holding."],
+      : ["We found no controls working as intended."],
   );
   trimUnused(closing, "{{ a genuine strength to keep }}");
   // What each tier is worth to a reader: how much work it is, which parts of the system it lands in,
   // and what the tier means. Not the findings themselves, which are the detail's, and not a list of
   // identifiers, which is neither: an identifier a reader cannot look up here tells them nothing.
   const MEANS = {
-    p0: "do first: these change what the system guarantees",
-    p1: "near-term: bounded fixes that close the material risk",
-    p2: "should-fix: depth that raises the floor",
-    p3: "cleanup: low-cost tidying, no risk carried",
+    p0: "do first: a control is missing",
+    p1: "near-term: a control is in place and fails",
+    p2: "should-fix: weaknesses that make the system easier to break",
+    p3: "cleanup: small fixes with little risk attached",
   };
 
   fillInOrder(
@@ -942,7 +942,7 @@ function deck(document, into, options = {}) {
   // Delivered as a document rather than as the template it was filled from, so what a reader is
   // handed prints the same everywhere and cannot be edited into something the run never said.
   const page = render(file, ASSETS);
-  const done = print(page, `${into.replace(/\.pdf$/, "")}.html`, into, options.seal);
+  const done = print(page, `${into.replace(/\.pdf$/, "")}.html`, into, options.seal, options.theirs);
   return { slides: file.slides.length, findings: held.findings, ...done };
 }
 

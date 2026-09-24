@@ -294,14 +294,14 @@ function opening(document) {
       (word) => `<span style="color:${standing(word)}">${word}</span>`);
 
   const parts = [
-    ["Id", escaped("The stable id: the discipline's prefix and a number. It survives a re-run, so the same weakness found again carries the same id.")],
-    ["Headline", escaped("What was found, in one sentence. Anything more sits under it.")],
-    ["Severity", escaped("Critical through Info, on the coloured tag at the right. Positive marks a control found working.")],
-    ["Priority", escaped(legend.priority ?? "P0 first through P3 last.")],
-    ["Model", escaped("What produced the finding.")],
-    ["Where it rests", escaped("The file and lines the finding was read from, on the grey bar, so the exact place can be opened.")],
+    ["Id", escaped("The discipline's prefix and the finding's place in the priority order.")],
+    ["Headline", escaped("What was found, in one sentence, with the detail under it.")],
+    ["Severity", escaped("Critical to Info, on the coloured tag. Positive marks a control found working.")],
+    ["Priority", escaped(legend.priority ?? "P0 first to P3 last.")],
+    ["Model", escaped("The model that found it.")],
+    ["Where it rests", escaped("The file and lines on the grey bar.")],
     ["Standing", standings],
-    ["What to do", escaped("The fix, on the orange bar, stated concretely enough to act on.")],
+    ["What to do", escaped("The fix, on the orange bar.")],
   ];
 
   return `<div class="block">
@@ -320,7 +320,7 @@ ${scanned(document)}
 </div>
 <div class="block last">
 <h2>Reading a finding</h2>
-<p class="lede">Every finding that follows is laid out the same way. This is a key, not a finding.</p>
+<p class="lede">Each finding below follows this layout.</p>
 <dl class="key">${parts
   .map(([name, meaning]) => `<dt>${escaped(name)}</dt><dd>${meaning}</dd>`).join("")}</dl>
 </div>`;
@@ -336,8 +336,8 @@ function page(document) {
     // output is read here in one place. A result a card cites names that card.
     scanResults({
       findings: document.scan?.relevant ?? [],
-      intro: "Every result of the scans, grouped by library or by rule, worst first. A card names the " +
-        "findings above that cite it, where any do.",
+      intro: "Each card is a package or rule the scanners flagged, most severe first. A card names any " +
+        "finding above that rests on it.",
       tagWord: "Cited in",
       tagOf: (one) => reported[one.key] ?? [],
       phaseOf: named,
@@ -370,9 +370,9 @@ ${css()}
 ${paginator({ title: document.title ?? "Evalation Hardening Review", subtitle: document.subtitle ?? "", foot })}`;
 }
 
-function detail(document, into, seal) {
+function detail(document, into, seal, theirs = []) {
   const html = page(document);
-  return print(html, `${into.replace(/\.pdf$/, "")}.html`, into, seal);
+  return print(html, `${into.replace(/\.pdf$/, "")}.html`, into, seal, theirs);
 }
 
 module.exports = { detail };
