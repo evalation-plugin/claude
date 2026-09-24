@@ -29,9 +29,10 @@ const { mkdirSync, readFileSync } = require("node:fs");
 const { join, resolve } = require("node:path");
 
 const { print } = require("../lib/print.js");
-const { named: phaseNamed, whereOf } = require("../lib/scans.js");
+const { named: phaseNamed, upgradeTo } = require("../lib/scans.js");
+const { consequences } = require("../lib/weaknesses.js");
 const { keepFindings, reportsFolder, reviewName } = require("../lib/reports.js");
-const { CHROME, css, escaped, paginator, scanTable } = require("../lib/sheet.js");
+const { CHROME, css, escaped, paginator, scanResults } = require("../lib/sheet.js");
 
 // The vocabulary, in the order a reader should meet it: what is wrong first, what is right after,
 // and what is nobody's or somebody else's last. Coverage is this pack's own, as severity is the
@@ -436,15 +437,16 @@ function scanFindings(document, packs, asked) {
       if (!bears.get(want.phase).includes(entry.identifier)) bears.get(want.phase).push(entry.identifier);
     }
   }
-  return scanTable({
+  return scanResults({
     findings: (document.scan?.relevant ?? []).filter((one) => bears.has(one.phase)),
-    intro: "Every result of the scans this pack's criteria read, at every severity, worst first. A " +
-      "criterion's item counts only the severities its words name, so a result listed here can bear " +
-      "on a criterion without counting against it.",
-    last: "Bears on",
-    lastOf: (one) => bears.get(one.phase).join(", "),
+    intro: "Every result of the scans this pack's criteria read, grouped by library or by rule, worst first. " +
+      "A criterion's item counts only the severities its words name, so a result here can bear on a " +
+      "criterion without counting against it.",
+    tagWord: "Bears on",
+    tagOf: (one) => bears.get(one.phase) ?? [],
     phaseOf: phaseNamed,
-    whereOf,
+    consequences,
+    upgradeTo,
   });
 }
 

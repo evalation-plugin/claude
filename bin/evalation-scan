@@ -38,6 +38,7 @@ const { basename, dirname, isAbsolute, join, relative, resolve } = require("node
 
 const { SCANS } = require("../lib/scans.js");
 const { copied } = require("../lib/tree.js");
+const { cwesOf } = require("../lib/weaknesses.js");
 
 const HOME = process.env.EVALATION_HOME || join(homedir(), ".evalation");
 const SETTINGS = process.env.EVALATION_LOCAL || join(HOME, "evalation.local");
@@ -199,6 +200,8 @@ const ADAPTERS = {
             // of its description, which is where an advisory says what an attacker gains.
             body: [one.Title, opening(one.Description)].filter(Boolean).join(". "),
             link: one.PrimaryURL ?? null,
+            // The class of weakness, which is what says what an attacker could do with it.
+            cwe: cwesOf(one.CweIDs ?? []),
           });
         }
       }
@@ -252,6 +255,7 @@ const ADAPTERS = {
         title: `${String(one.check_id).split(".").pop()} in ${at}`,
         at: { path: at, from, to: one.end?.line ?? from },
         body: String(one.extra?.message ?? "").replace(/\s+/g, " ").trim(),
+        cwe: cwesOf(one.extra?.metadata?.cwe ?? []),
       };
     }),
   },
@@ -277,6 +281,8 @@ const ADAPTERS = {
         title: `${one.RuleID} in ${at}`,
         at: { path: at, from: one.StartLine, to: one.EndLine ?? one.StartLine },
         body: `${one.Description ?? one.RuleID}${one.Commit ? `, in commit ${one.Commit}` : ""}.`,
+        // A committed credential, whatever the rule that found it.
+        cwe: ["CWE-798"],
       };
     }),
   },

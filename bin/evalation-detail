@@ -27,8 +27,9 @@ const { readFileSync } = require("node:fs");
 const { resolve } = require("node:path");
 
 const { print } = require("../lib/print.js");
-const { named, whereOf } = require("../lib/scans.js");
-const { CHROME, css, escaped, paginator, scanTable } = require("../lib/sheet.js");
+const { named, upgradeTo } = require("../lib/scans.js");
+const { consequences } = require("../lib/weaknesses.js");
+const { CHROME, css, escaped, paginator, scanResults } = require("../lib/sheet.js");
 
 // Severity is this report's own: the evidence pack owns coverage colours and this owns severity,
 // and neither writes into the other. The page itself is the shared one.
@@ -332,14 +333,15 @@ function page(document) {
     (document.categories ?? []).map(section).join("") +
     // Every scanner result, so the cards stay with the concerns the pack asks about and the tools'
     // output is read here in one place. A result a card cites names that card.
-    scanTable({
+    scanResults({
       findings: document.scan?.relevant ?? [],
-      intro: "Every result of the scans, at every severity, worst first. Cited in names the finding above " +
-        "that cites the result, where one does.",
-      last: "Cited in",
-      lastOf: (one) => (reported[one.key] ?? []).join(", "),
+      intro: "Every result of the scans, grouped by library or by rule, worst first. A card names the " +
+        "findings above that cite it, where any do.",
+      tagWord: "Cited in",
+      tagOf: (one) => reported[one.key] ?? [],
       phaseOf: named,
-      whereOf,
+      consequences,
+      upgradeTo,
     });
 
   return `<!doctype html><meta charset="utf-8"><title>${escaped(document.title ?? "")}</title>
