@@ -30,7 +30,7 @@ const { join, resolve } = require("node:path");
 
 const { print } = require("../lib/print.js");
 const { named: phaseNamed, upgradeTo } = require("../lib/scans.js");
-const { consequences } = require("../lib/weaknesses.js");
+const { consequences, remedies } = require("../lib/weaknesses.js");
 const { keepFindings, reportsFolder, reviewName } = require("../lib/reports.js");
 const { CHROME, css, escaped, paginator, scanResults } = require("../lib/sheet.js");
 
@@ -446,6 +446,7 @@ function scanFindings(document, packs, asked) {
     tagOf: (one) => bears.get(one.phase) ?? [],
     phaseOf: phaseNamed,
     consequences,
+    remedies,
     upgradeTo,
   });
 }
