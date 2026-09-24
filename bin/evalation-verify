@@ -77,7 +77,7 @@ function claims(document) {
   }
   for (const finding of document.findings ?? []) {
     if (!finding.at) continue;
-    held.push({ id: finding.id, item: finding, claimed: `${finding.pack} ${finding.concern}, ${finding.severity}: ${finding.title}`, because: finding.observed, cites: [finding.at] });
+    held.push({ id: finding.id, item: finding, claimed: `${finding.pack} ${finding.concern}, ${finding.severity}: ${finding.title}`, because: [finding.observed, finding.below_scan && `Rated below the scanner because ${finding.below_scan}`].filter(Boolean).join(" "), cites: [finding.at] });
   }
   // Every claim in one shape, whatever it came from, so nothing reading a claim meets a field that
   // one kind carries and the other does not. A finding once had no items and stopped the grid.

@@ -26,6 +26,7 @@ const { basename, join, resolve } = require("node:path");
 
 const { synthesise } = require("../lib/synthesise.js");
 const { keepFindings, reportsFolder, reviewName } = require("../lib/reports.js");
+const { cardWorst } = require("../lib/scans.js");
 const { inventory } = require("./evalation-inventory");
 const { deck } = require("./evalation-deck");
 const { detail } = require("./evalation-detail");
@@ -114,6 +115,16 @@ function corroboration(finding, ingested) {
   return finding.confirmed === "verified" ? "verified" : "asserted";
 }
 
+// Why a finding is rated below the scanner's card for the same package, said beside it, since a
+// reader sees both ratings in one document.
+function belowScan(one, results) {
+  if (!one.scanned || !String(one.below_scan ?? "").trim()) return "";
+  const result = results.find((each) => each.key === one.scanned);
+  const worst = result ? cardWorst(result, results, RANK.map((sev) => sev.toLowerCase())) : null;
+  const reason = String(one.below_scan).trim();
+  return worst ? `Rated below the scanner's ${worst}: ${reason}` : reason;
+}
+
 // Where the finding rests, to the line. A run cites a range, and a reader handed the file alone has
 // to search a thousand lines for the thing the finding is about.
 function cited(at) {
@@ -174,6 +185,7 @@ function reviewFindings(document) {
       sev: known.sev,
       model: withoutVendor(one.model) || readBy,
       finding: one.observed,
+      below: belowScan(one, document.scan?.relevant ?? []),
       remediation: one.required,
       result: corroboration(one, ingested),
       location: cited(one.at),

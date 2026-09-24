@@ -27,7 +27,7 @@ const { readFileSync } = require("node:fs");
 const { resolve } = require("node:path");
 
 const { print } = require("../lib/print.js");
-const { compared, compatible, named, upgradeTo } = require("../lib/scans.js");
+const { cardOf, compared, compatible, named, upgradeTo } = require("../lib/scans.js");
 const { consequences, remedies } = require("../lib/weaknesses.js");
 const { CHROME, css, escaped, paginator, scanResults } = require("../lib/sheet.js");
 
@@ -123,6 +123,7 @@ function entry(one, lens) {
 
   const body = [
     rest ? `<p class="because">${escaped(rest)}</p>` : "",
+    one.below ? `<p class="because">${escaped(one.below)}</p>` : "",
     one.location
       ? `<div class="cite"><div class="where"><span>${escaped(one.location)}</span>` +
         `<span class="grade" style="color:${standing(one.result)}">` +
@@ -345,6 +346,7 @@ function page(document) {
       upgradeTo,
       compared,
       compatible,
+      cardOf,
     });
 
   return `<!doctype html><meta charset="utf-8"><title>${escaped(document.title ?? "")}</title>
