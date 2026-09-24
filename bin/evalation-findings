@@ -24,7 +24,7 @@ const { existsSync, mkdirSync, readFileSync, writeFileSync } = require("node:fs"
 const { join, resolve, relative, isAbsolute } = require("node:path");
 const { homedir } = require("node:os");
 
-const { named: phaseNamed, newestFor, phasesRead } = require("../lib/scans.js");
+const { cardOf, cardWorst, named: phaseNamed, newestFor, phasesRead } = require("../lib/scans.js");
 const { facing, held, own } = require("../lib/prose.js");
 
 const STATUSES = ["covered", "partial-gap", "total-gap", "org-level", "not-applicable"];
@@ -150,6 +150,21 @@ function cited(where, one, said) {
   if (!GRADES.includes(one.grade)) {
     said.push(`${one.path}:${from}: graded ${JSON.stringify(one.grade)}, which is not one of ${GRADES.join(", ")}`);
   }
+}
+
+// A finding resting on a scanner result is rated at least as the scanner rates that result's card,
+// since both sit in one document and a lower rating with nothing said reads as a miscount. It may
+// rate lower when below_scan says what in this repository makes it less exposed, and the verifier
+// checks that reason like any other claim.
+function rated(finding, results) {
+  const result = results.find((one) => one.key === finding.scanned);
+  const worst = result ? cardWorst(result, results, SEVERITY) : null;
+  const at = SEVERITY.indexOf(finding.severity);
+  if (!worst || at < 0 || at <= SEVERITY.indexOf(worst)) return [];
+  if (String(finding.below_scan ?? "").trim()) return [];
+  return [`${finding.id ?? finding.concern}: rated ${finding.severity}, and the scanner rates ` +
+    `${cardOf(result).name} ${worst}. Rate it ${worst}, or say in below_scan what in this repository ` +
+    "makes it less exposed than the scanner rates it"];
 }
 
 // Every answer and finding names only entries of its own pack. Each pack is delivered as its own
@@ -433,8 +448,12 @@ function checked(document, where) {
   if (claimed.length > 0) {
     const held = newestFor(where);
     const keys = new Set((held?.document.findings ?? []).map((one) => one.key));
+    const results = held?.document.findings ?? [];
     for (const one of claimed) {
-      if (keys.has(one.scanned)) continue;
+      if (keys.has(one.scanned)) {
+        said.push(...rated(one, results));
+        continue;
+      }
       said.push(`${one.id ?? one.concern}: says a tool found it, naming ${JSON.stringify(one.scanned)}, ` +
         (held
           ? "which no finding in the newest scan of this target carries"
@@ -690,12 +709,16 @@ function shape() {
     "",
     "A finding, for a weakness or a working control in a concern set:",
     '  {"pack":"hardening","concern":"SEC01","severity":"<severity>","title":"...","observed":"...",',
-    '   "required":"...","at":<citation>,"scanned":"<scan key, only where a tool found it>"}',
+    '   "required":"...","at":<citation>,"scanned":"<scan key, only where a tool found it>",',
+    '   "below_scan":"<only where rated below the scanner>"}',
     `  severity is one of ${SEVERITIES.join(", ")}.`,
     "  observed says what is there, what is at risk and what happens if it is left. required says what",
     "  closes it. A positive finding's required is printed under \"What to keep\" and never opens on",
     `  ${ORDERS.join(", ")}: say what the control is and what would break it.`,
     "  scanned names a key `evalation-read <target> scan` printed, and nothing else.",
+    "  A scanned finding is rated at least the worst severity the scan gives any result for that",
+    "  package, or for that rule where it is no package. Rated lower, below_scan says what in this",
+    "  repository makes it less exposed, such as a package that only runs while the site is built.",
     "",
     "An accounted row, one per concern of a concern set, found or not:",
     '  {"pack":"hardening","concern":"SEC01","because":"what was looked for, where, and what was found"}',
