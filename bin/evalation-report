@@ -129,7 +129,7 @@ function scanned(want, row, scan) {
   const all = (scan?.relevant ?? []).filter((one) => one.phase === want.phase);
   const floor = want.at_least ? SEVERITY.indexOf(want.at_least) : SEVERITY.length - 1;
   const over = all.filter((one) => SEVERITY.indexOf(one.severity) >= 0 && SEVERITY.indexOf(one.severity) <= floor);
-  const listed = all.length > 0 ? " Each is listed under Scan findings at the end of this pack." : "";
+  const listed = all.length > 0 ? " Each is listed under Scanner results at the end of this pack." : "";
   const said = row.result === "found"
     ? `The ${phase} ran over this repository and found nothing${level}` +
       (all.length > 0 ? `, and ${all.length} below that.` : ".")
@@ -381,7 +381,7 @@ function opening(document, answers, packs, asked) {
     ["Asked", "The question put to the repository, in italics, so a reader can judge whether the status answers it."],
     ["Answer", "What the repository evidences, and why it is this status and not the one either side of it."],
     ["Where it rests", "The file and lines, on the grey bar, with the line itself under them and how strong it is at the right. Where the answer is that something is absent, what was searched for and where, so anybody can look again."],
-    ["Looked for", "Where the standard's part lists what it looks for, each item numbered with found, missing or does not apply at the right, and the status is the count of them. An item marked scanned was settled by a scanner run over this repository during the reading, and every finding of that scan is listed under Scan findings at the end, worst first."],
+    ["Looked for", "Where the standard's part lists what it looks for, each item numbered with found, missing or does not apply at the right, and the status is the count of them. An item marked scanned was settled by a scanner run over this repository during the reading, and every result of that scan is listed under Scanner results at the end, worst first."],
     ["Status", "Gap, Partial, Covered, Org-level or Not applicable, on the coloured tag at the right."],
     ["Checked", "Beside the model that read it: verified where a second check confirmed the answer against the repository, asserted where nothing confirmed it."],
     ["What to do", `What closes it, on the orange bar. Where the organisation owns ${called(noun.one)}, it carries why the code cannot answer it.`],
@@ -436,8 +436,8 @@ function scanFindings(document, packs, asked) {
   }
   return scanTable({
     findings: (document.scan?.relevant ?? []).filter((one) => bears.has(one.phase)),
-    intro: "Every finding of the scans this pack's criteria read, at every severity, worst first. A " +
-      "criterion's item counts only the severities its words name, so a finding listed here can bear " +
+    intro: "Every result of the scans this pack's criteria read, at every severity, worst first. A " +
+      "criterion's item counts only the severities its words name, so a result listed here can bear " +
       "on a criterion without counting against it.",
     last: "Bears on",
     lastOf: (one) => bears.get(one.phase).join(", "),
