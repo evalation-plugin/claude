@@ -27,7 +27,7 @@ const { readFileSync } = require("node:fs");
 const { resolve } = require("node:path");
 
 const { print } = require("../lib/print.js");
-const { compared, named, upgradeTo } = require("../lib/scans.js");
+const { compared, compatible, named, upgradeTo } = require("../lib/scans.js");
 const { consequences, remedies } = require("../lib/weaknesses.js");
 const { CHROME, css, escaped, paginator, scanResults } = require("../lib/sheet.js");
 
@@ -344,6 +344,7 @@ function page(document) {
       remedies,
       upgradeTo,
       compared,
+      compatible,
     });
 
   return `<!doctype html><meta charset="utf-8"><title>${escaped(document.title ?? "")}</title>
