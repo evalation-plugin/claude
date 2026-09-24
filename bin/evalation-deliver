@@ -212,6 +212,9 @@ function reviewFindings(document) {
   }
 
   const repository = document.target?.repository ?? "";
+  // The count the deck and the summary give, which leaves out the controls found working. Those are
+  // counted beside it as positive.
+  const weaknesses = (document.findings ?? []).filter((one) => one.severity !== "positive").length;
   const models = [...new Set((document.findings ?? [])
     .map((one) => withoutVendor(one.model) || readBy)
     .filter(Boolean))].sort();
@@ -227,7 +230,7 @@ function reviewFindings(document) {
       // what the assessment did not do.
       intro: [
         `The repository was read across ${categories.length} independent disciplines, which ` +
-        `produced ${(document.findings ?? []).length} findings.`,
+        `produced ${weaknesses} findings and ${(document.findings ?? []).length - weaknesses} positive controls.`,
 
         "Each discipline was read on its own and answered on its own, so no discipline's result " +
         "rests on another's, and a discipline that found nothing still has a section here: read and " +
@@ -243,7 +246,7 @@ function reviewFindings(document) {
         "rests on, so any finding can be checked against the code directly, and the same repository " +
         "read again at the same governance revision returns the same findings.",
       ].join(" "),
-      finding_count: (document.findings ?? []).length,
+      finding_count: weaknesses,
       models,
     },
     legend: {

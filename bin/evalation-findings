@@ -25,7 +25,7 @@ const { join, resolve, relative, isAbsolute } = require("node:path");
 const { homedir } = require("node:os");
 
 const { named: phaseNamed, newestFor, phasesRead } = require("../lib/scans.js");
-const { facing, held } = require("../lib/prose.js");
+const { facing, held, own } = require("../lib/prose.js");
 
 const STATUSES = ["covered", "partial-gap", "total-gap", "org-level", "not-applicable"];
 const EXEMPT = ["org-level", "not-applicable"];
@@ -150,6 +150,36 @@ function cited(where, one, said) {
   if (!GRADES.includes(one.grade)) {
     said.push(`${one.path}:${from}: graded ${JSON.stringify(one.grade)}, which is not one of ${GRADES.join(", ")}`);
   }
+}
+
+// Every answer and finding names only entries of its own pack. Each pack is delivered as its own
+// document, so another pack's entry named in one is a reference its reader cannot follow. An
+// identifier made only of digits is left alone, since "4.1" reads the same as a version.
+function crossed(document) {
+  const owners = new Map();
+  for (const pack of document.packs ?? []) {
+    for (const one of pack.entries_asked ?? []) {
+      const id = String(one.identifier ?? "");
+      if (!/[A-Za-z]/.test(id)) continue;
+      owners.set(id, [...(owners.get(id) ?? []), pack.pack]);
+    }
+  }
+  if (owners.size === 0) return [];
+  const ids = [...owners.keys()].sort((a, b) => b.length - a.length)
+    .map((id) => id.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+  const named = new RegExp(`(?<![\\w.])(${ids.join("|")})(?!\\w)`, "g");
+  const said = [];
+  for (const list of ["answers", "findings"]) {
+    for (const field of facing({ [list]: document[list] })) {
+      const pack = document[list][Number(field.at.split("/")[1])]?.pack;
+      for (const [, id] of own(field.text).matchAll(named)) {
+        if (owners.get(id).includes(pack)) continue;
+        said.push(`${field.at}: names ${id}, an entry of ${owners.get(id).join(" and ")}, in the ${pack} ` +
+          "pack. Each pack is read on its own, so say in words what that entry records.");
+      }
+    }
+  }
+  return said;
 }
 
 function checked(document, where) {
@@ -394,6 +424,7 @@ function checked(document, where) {
         `it holds to the writing standard: ${JSON.stringify(field.text.trim().slice(0, 90))}`);
     }
   }
+  said.push(...crossed(document));
 
   // A finding saying a tool found it names a key the scan of this target actually holds. The report
   // prints that as "scanned", which is the strongest provenance it can claim, so it is the one most
@@ -677,9 +708,10 @@ function shape() {
     "",
     "Every finding carries its citation in at. A finding nobody can check is refused.",
     "",
-    "Every sentence a customer reads (because, justification, observed, required, title):",
+    "Every sentence a customer reads (because, justification, remedy, observed, required, title):",
     `  ${WRITING_STANDARD}`,
-    `  Refused where a machine can tell: ${RULES.map((one) => one.rule).join(", ")}, and a credential.`,
+    `  Refused where a machine can tell: ${RULES.map((one) => one.rule).join(", ")}, a credential,`,
+    "  and an entry of another pack named by its identifier, since each pack is delivered on its own.",
     "  Anything in backticks or double quotes is the repository's own and is left alone.",
   ].join("\n");
 }
