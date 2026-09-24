@@ -20,6 +20,7 @@ const { execFileSync } = require("node:child_process");
 const { existsSync, statSync } = require("node:fs");
 const { basename, join, resolve } = require("node:path");
 const { phasesRead } = require("../lib/scans.js");
+const { checkoutsIn } = require("../lib/tree.js");
 
 const here = __dirname;
 
@@ -137,7 +138,10 @@ function main() {
   // when a stopped run resumes.
   if (process.argv[2] === "--branch") {
     const at = process.argv[3] || process.cwd();
-    process.stdout.write(JSON.stringify(branchOf(at) ?? { branch: null, main: null, on_main: null }) + "\n");
+    process.stdout.write(JSON.stringify({
+      ...(branchOf(at) ?? { branch: null, main: null, on_main: null }),
+      holds: checkoutsIn(at),
+    }) + "\n");
     return;
   }
 
