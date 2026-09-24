@@ -27,6 +27,7 @@ const { basename, join, resolve } = require("node:path");
 const { synthesise } = require("../lib/synthesise.js");
 const { keepFindings, reportsFolder, reviewName } = require("../lib/reports.js");
 const { cardWorst } = require("../lib/scans.js");
+const { readingOf } = require("../lib/prose.js");
 const { inventory } = require("./evalation-inventory");
 const { deck } = require("./evalation-deck");
 const { detail } = require("./evalation-detail");
@@ -241,31 +242,25 @@ function reviewFindings(document) {
       // it: how much was read, how it was read, what a row carries, how the rows are ordered, and
       // what the assessment did not do.
       intro: [
-        `The repository was read across ${categories.length} independent disciplines, which ` +
-        `produced ${weaknesses} findings and ${(document.findings ?? []).length - weaknesses} positive controls.`,
+        `We read the repository against ${categories.length} disciplines and found ${weaknesses} ` +
+        `findings, along with ${(document.findings ?? []).length - weaknesses} controls working as intended.`,
 
-        "Each discipline was read on its own and answered on its own, so no discipline's result " +
-        "rests on another's, and a discipline that found nothing still has a section here: read and " +
-        "clean is a different claim from not read, and a report that dropped the section would make " +
-        "them look the same.",
+        "Each discipline has its own section, and one that found nothing still gets a section so a " +
+        "reader can see it was read.",
 
-        "Every finding is a section of its own carrying a priority tier, the model that produced " +
-        "it, what was found, the file it rests on, how far a second reading stood behind it, and " +
-        "what closes it. Findings are grouped by discipline and ordered by priority within it, so " +
-        "reading down a discipline is reading the work in the order it should be done.",
+        "Within a section, findings run in priority order. Each names the model that found it, the " +
+        "file and lines it rests on, whether a second check confirmed it, and the fix.",
 
-        "Nothing was executed and nothing was changed. Every finding cites the file and lines it " +
-        "rests on, so any finding can be checked against the code directly, and the same repository " +
-        "read again at the same governance revision returns the same findings.",
+        "We read the code without running it and changed nothing.",
       ].join(" "),
       finding_count: weaknesses,
       models,
     },
     legend: {
-      priority: "P0 do first · P1 near-term · P2 should-fix · P3 cleanup / low.",
+      priority: "P0 do first · P1 near-term · P2 should-fix · P3 cleanup.",
       result:
-        "Scanned by a deterministic run · verified where a second check confirmed the finding " +
-        "against the repository · asserted where nothing confirmed it.",
+        "Scanned if a scanner found it · verified if a second check confirmed it against the " +
+        "repository · asserted if nothing did.",
     },
     categories,
   };
@@ -310,8 +305,9 @@ function deliver(source, named, target) {
   const findings = join(into, `${name} Detail.pdf`);
 
   const seal = { run: document.run };
-  const one = deck(shaped, pack, { seal });
-  const two = detail(shaped, findings, seal);
+  const theirs = readingOf(document);
+  const one = deck(shaped, pack, { seal, theirs });
+  const two = detail(shaped, findings, seal, theirs);
 
   return {
     into, pack, findings,
