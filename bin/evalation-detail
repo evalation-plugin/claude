@@ -28,7 +28,7 @@ const { resolve } = require("node:path");
 
 const { print } = require("../lib/print.js");
 const { named, upgradeTo } = require("../lib/scans.js");
-const { consequences } = require("../lib/weaknesses.js");
+const { consequences, remedies } = require("../lib/weaknesses.js");
 const { CHROME, css, escaped, paginator, scanResults } = require("../lib/sheet.js");
 
 // Severity is this report's own: the evidence pack owns coverage colours and this owns severity,
@@ -341,6 +341,7 @@ function page(document) {
       tagOf: (one) => reported[one.key] ?? [],
       phaseOf: named,
       consequences,
+      remedies,
       upgradeTo,
     });
 
