@@ -22,10 +22,11 @@
 "use strict";
 
 const { randomBytes } = require("node:crypto");
-const { readdirSync, readFileSync, statSync } = require("node:fs");
+const { readFileSync, statSync } = require("node:fs");
 const { extname, join, relative, resolve, sep } = require("node:path");
 
 const { newestFor, said } = require("../lib/scans.js");
+const { filesOf } = require("../lib/tree.js");
 
 // What a whole read may run to before the range has to be named. A file past this is answered with
 // its shape and the ranges to ask for, because a reading that takes the whole file to find one
@@ -35,13 +36,6 @@ const WHOLE = 400;
 // What one answer may run to. A bound here is what keeps a search across a large tree from becoming
 // the tree, and paging is how the rest is reached.
 const LINES = 200;
-
-// Not the work. A vendored dependency, a build output and a lockfile are in the tree and none of
-// them is what somebody wrote, so reading them tells a reviewer nothing about this repository.
-const SKIP = new Set([
-  ".git", "node_modules", "vendor", "target", "dist", "build", "out", ".next", ".nuxt",
-  "__pycache__", ".venv", "venv", ".tox", "coverage", ".cache", ".terraform", "Pods",
-]);
 
 const LANGUAGES = {
   ".ts": "TypeScript", ".tsx": "TypeScript", ".js": "JavaScript", ".jsx": "JavaScript",
@@ -130,20 +124,8 @@ function fenced(what, body) {
   ].join("\n");
 }
 
-function walk(root, held = []) {
-  let entries;
-  try {
-    entries = readdirSync(root, { withFileTypes: true });
-  } catch {
-    return held;
-  }
-  for (const entry of entries) {
-    if (SKIP.has(entry.name)) continue;
-    const path = join(root, entry.name);
-    if (entry.isDirectory()) walk(path, held);
-    else if (entry.isFile()) held.push(path);
-  }
-  return held;
+function walk(root) {
+  return filesOf(root);
 }
 
 function within(root, path) {

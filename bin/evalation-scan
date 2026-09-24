@@ -37,6 +37,7 @@ const { homedir, tmpdir } = require("node:os");
 const { basename, dirname, isAbsolute, join, relative, resolve } = require("node:path");
 
 const { SCANS } = require("../lib/scans.js");
+const { copied } = require("../lib/tree.js");
 
 const HOME = process.env.EVALATION_HOME || join(homedir(), ".evalation");
 const SETTINGS = process.env.EVALATION_LOCAL || join(HOME, "evalation.local");
@@ -150,6 +151,15 @@ function severityOf(said) {
   return LADDER.includes(word) ? word : (SPOKEN[word] ?? "negligible");
 }
 
+/** The first sentences of an advisory's description, up to about three hundred characters. */
+function opening(text) {
+  const flat = String(text ?? "").replace(/\s+/g, " ").trim();
+  if (flat.length <= 300) return flat;
+  const cut = flat.slice(0, 300);
+  const end = cut.lastIndexOf(". ");
+  return end > 80 ? cut.slice(0, end + 1) : `${cut.slice(0, cut.lastIndexOf(" "))}…`;
+}
+
 // Where a tool says a thing is, said as the repository says it. A tool that answers in absolute
 // paths writes the person's home directory into a file that becomes a PDF, and names a path the
 // reading cannot open, since the one command it holds takes a path inside the tree.
@@ -185,7 +195,10 @@ const ADAPTERS = {
             fixed: one.FixedVersion ?? null,
             transitive: String(one.Relationship ?? "").toLowerCase() === "indirect",
             at: { path: within(root, result.Target) },
-            body: [one.Title, one.PrimaryURL].filter(Boolean).join(" "),
+            // What the weakness is and what it lets somebody do: the advisory's title, then the opening
+            // of its description, which is where an advisory says what an attacker gains.
+            body: [one.Title, opening(one.Description)].filter(Boolean).join(". "),
+            link: one.PrimaryURL ?? null,
           });
         }
       }
@@ -380,9 +393,20 @@ function scan(target, only = null) {
   const isRepository = existsSync(join(root, ".git"));
   const before = witness(root);
 
-  const ran = Object.entries(held.phases)
-    .filter(([phase]) => !only || only.includes(phase))
-    .map(([phase, named]) => runPhase(phase, named, root, isRepository, held.declined));
+  // The tools read a directory, and handed the checkout they read everything in it: a customer run
+  // counted one advisory 34 times, once for the repository and once for each editor worktree
+  // checked out inside it. So they read a copy holding the repository's files and nothing else. The
+  // secret scan of a git checkout reads its history, which is the repository's own.
+  const copy = copied(root);
+  let ran;
+  try {
+    ran = Object.entries(held.phases)
+      .filter(([phase]) => !only || only.includes(phase))
+      .map(([phase, named]) => runPhase(phase, named, phase === "secret" && isRepository ? root : copy.path,
+        phase === "secret" && isRepository, held.declined));
+  } finally {
+    copy.done();
+  }
 
   const after = witness(root);
   if (before !== null && after !== null && before !== after) {
