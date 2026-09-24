@@ -79,7 +79,9 @@ function claims(document) {
     if (!finding.at) continue;
     held.push({ id: finding.id, item: finding, claimed: `${finding.pack} ${finding.concern}, ${finding.severity}: ${finding.title}`, because: finding.observed, cites: [finding.at] });
   }
-  return held;
+  // Every claim in one shape, whatever it came from, so nothing reading a claim meets a field that
+  // one kind carries and the other does not. A finding once had no items and stopped the grid.
+  return held.map((one) => ({ items: [], cites: [], searched: "", ...one }));
 }
 
 /** What each entry looks for, by pack and entry, where the pack lists it. */
