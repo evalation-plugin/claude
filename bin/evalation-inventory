@@ -15,33 +15,29 @@
 "use strict";
 
 const { execFileSync } = require("node:child_process");
-const { readFileSync, statSync } = require("node:fs");
-const { basename, extname, join } = require("node:path");
+const { closeSync, openSync, readFileSync, readSync, statSync } = require("node:fs");
+const { join, resolve } = require("node:path");
 const { filesOf } = require("../lib/tree.js");
+const { attributesOf, counted, languageOf } = require("../lib/linguist.js");
 
-// What a file extension is written in. A list rather than a guess from content, because a guess is
-// wrong quietly and a list is wrong loudly: an extension nothing here names is counted as other and
-// says so, rather than being attributed to whatever it most resembles.
-const LANGUAGES = {
-  ".ts": "TypeScript", ".tsx": "TypeScript", ".js": "JavaScript", ".jsx": "JavaScript",
-  ".mjs": "JavaScript", ".cjs": "JavaScript", ".py": "Python", ".rs": "Rust", ".go": "Go",
-  ".java": "Java", ".kt": "Kotlin", ".swift": "Swift", ".rb": "Ruby", ".php": "PHP",
-  ".cs": "C#", ".c": "C", ".h": "C", ".cpp": "C++", ".cc": "C++", ".hpp": "C++",
-  ".scala": "Scala", ".ex": "Elixir", ".exs": "Elixir", ".erl": "Erlang", ".clj": "Clojure",
-  ".sh": "Shell", ".bash": "Shell", ".zsh": "Shell", ".ps1": "PowerShell",
-  ".sql": "SQL", ".html": "HTML", ".css": "CSS", ".scss": "CSS", ".vue": "Vue", ".svelte": "Svelte",
-  ".tf": "Terraform", ".yml": "YAML", ".yaml": "YAML", ".json": "JSON", ".toml": "TOML",
-  ".md": "Markdown", ".dart": "Dart", ".lua": "Lua", ".r": "R", ".m": "Objective-C",
-};
+// The language split is measured by GitHub Linguist's rules, in lib/linguist.js, so the bar in the pack
+// and the bar the customer already knows on their repository's page agree as far as a measurement
+// taken without asking GitHub can. Data and prose are counted as files and as lines, since they are
+// part of the tree, and kept out of the split, which answers what the code is written in.
 
-// What the language split leaves out, which is what the host a customer already reads leaves out: a
-// repository is not 16% Markdown and 6% JSON to anybody looking at what it is written in. Data and
-// prose are counted as files and as lines, because they are part of the tree, and they are kept out
-// of the split, because the split answers a different question.
-//
-// It is the host's own rule rather than one of ours, so the bar in the pack and the bar the customer
-// already knows agree. Markup stays in: a repository of templates and stylesheets is written in them.
-const NOT_A_LANGUAGE = new Set(["JSON", "YAML", "TOML", "Markdown"]);
+/** The start of a file, which is all the #! line and Linguist's rules read. */
+function headOf(path) {
+  let handle;
+  try {
+    handle = openSync(path, "r");
+    const buffer = Buffer.alloc(65536);
+    return buffer.toString("utf8", 0, readSync(handle, buffer, 0, buffer.length, 0));
+  } catch {
+    return "";
+  } finally {
+    if (handle !== undefined) closeSync(handle);
+  }
+}
 
 function quietly(command, args, where) {
   try {
@@ -57,7 +53,6 @@ function quietly(command, args, where) {
 
 function walk(from, at, held) {
   for (const path of filesOf(from)) {
-    const entry = { name: basename(path) };
     let size = 0;
     try {
       size = statSync(path).size;
@@ -66,17 +61,17 @@ function walk(from, at, held) {
     }
     held.files += 1;
     held.bytes += size;
-    held.paths.push(path.slice(held.root.length + 1));
+    const rel = path.slice(held.root.length + 1);
+    held.paths.push(rel);
 
+    const head = headOf(path);
+    const written = languageOf(rel, head, null);
+    const named = counted(rel, head, held.attributes.get(rel));
     // Counted as other and carried on with. Returning here abandons the whole walk at the first file
-    // in an extension nothing names, which measured one repository as a single file in no language.
-    const named = LANGUAGES[extname(entry.name).toLowerCase()];
-    if (!named) {
-      held.other += size;
-      continue;
-    }
-
-    held.byLanguage[named] = (held.byLanguage[named] ?? 0) + size;
+    // in no language the split counts, which measured one repository as a single file in no language.
+    if (named) held.byLanguage[named] = (held.byLanguage[named] ?? 0) + size;
+    else held.other += size;
+    if (!written) continue;
 
     // Lines are counted only for what is small enough to be somebody's writing. A generated file of
     // a hundred thousand lines is in the tree and is not what anybody wrote, and counting it makes
@@ -160,13 +155,14 @@ function dependencies(where, paths) {
 }
 
 function inventory(where) {
-  const held = { files: 0, bytes: 0, lines: 0, other: 0, byLanguage: {}, paths: [], root: where };
+  const held = { files: 0, bytes: 0, lines: 0, other: 0, byLanguage: {}, paths: [], root: resolve(where) };
+  held.attributes = attributesOf(where, filesOf(where).map((one) => one.slice(resolve(where).length + 1)));
   walk(where, 0, held);
 
   // The split is over what the tree is written in, so the share is of those bytes and not of every
   // byte in the tree. Taking the percentage over everything and then hiding the rows nobody counts
   // leaves a bar whose segments do not reach the end.
-  const written = Object.entries(held.byLanguage).filter(([name]) => !NOT_A_LANGUAGE.has(name));
+  const written = Object.entries(held.byLanguage);
   const total = written.reduce((sum, [, bytes]) => sum + bytes, 0);
   const languages = written
     .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
