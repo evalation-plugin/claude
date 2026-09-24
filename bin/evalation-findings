@@ -149,7 +149,7 @@ function cited(where, one, said) {
   }
 }
 
-function checked(document, where, { whole = false } = {}) {
+function checked(document, where) {
   const said = [];
 
   // What each pack answers decides what completeness means for it. A standard answers coverage, so
@@ -408,25 +408,6 @@ function checked(document, where, { whole = false } = {}) {
     }
   }
 
-  // Every critical and high scanner result is reported where a concern set was read, one finding per
-  // key. Left to the reading, a run left two critical advisories, one in the sign-in library,
-  // unreported with no reason given. Whether a result is reachable sets its severity, never whether
-  // it appears. Held on the whole file only, since a reader's group holds part of the findings.
-  if (whole && answersFindings.size > 0) {
-    const held = newestFor(where);
-    if (held && (!document.at || String(held.document.at) >= String(document.at))) {
-      const named = new Set(claimed.map((one) => one.scanned));
-      const left = (held.document.findings ?? [])
-        .filter((one) => ["critical", "high"].includes(one.severity) && !named.has(one.key));
-      if (left.length > 0) {
-        said.push(`${left.length} critical or high scanner result${left.length === 1 ? "" : "s"} reported by no ` +
-          "finding. Report each as a finding of its own naming its key in scanned, with the severity its " +
-          `reach in this codebase gives it: ${left.slice(0, 6).map((one) => one.key).join(", ")}` +
-          (left.length > 6 ? `, and ${left.length - 6} more` : ""));
-      }
-    }
-  }
-
   return said;
 }
 
@@ -680,8 +661,7 @@ function shape() {
     "  observed says what is there, what is at risk and what happens if it is left. required says what",
     "  closes it. A positive finding's required is printed under \"What to keep\" and never opens on",
     `  ${ORDERS.join(", ")}: say what the control is and what would break it.`,
-    "  scanned names a key `evalation-read <target> scan` printed, and nothing else. Every critical and",
-    "  high key is named by a finding of its own, and the whole file is refused while one is left out.",
+    "  scanned names a key `evalation-read <target> scan` printed, and nothing else.",
     "",
     "An accounted row, one per concern of a concern set, found or not:",
     '  {"pack":"hardening","concern":"SEC01","because":"what was looked for, where, and what was found"}',
@@ -792,7 +772,7 @@ function main() {
     );
   }
 
-  const offences = checked(document, where, { whole: true });
+  const offences = checked(document, where);
   if (offences.length > 0) {
     fail(
       `observed: ${offences.length} thing${offences.length === 1 ? "" : "s"} in this run cannot be ` +

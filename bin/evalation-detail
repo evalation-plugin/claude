@@ -330,15 +330,14 @@ function page(document) {
   const reported = document.scan?.reported ?? {};
   const blocks = opening(document) +
     (document.categories ?? []).map(section).join("") +
-    // Every scanner finding, whether or not the reading took it up, so a reader can see what the tools
-    // found and which of it became a finding here. A result the reading judged not to bear on this
-    // codebase is still listed, as not reported.
+    // Every scanner result, so the cards stay with the concerns the pack asks about and the tools'
+    // output is read here in one place. A result a card cites names that card.
     scanTable({
       findings: document.scan?.relevant ?? [],
-      intro: "Every finding of the scans, at every severity, worst first. Reported as names the finding " +
-        "above that took it up. Not reported means the reading judged it not to bear on this codebase.",
-      last: "Reported as",
-      lastOf: (one) => (reported[one.key] ?? []).join(", ") || "not reported",
+      intro: "Every result of the scans, at every severity, worst first. Cited in names the finding above " +
+        "that cites the result, where one does.",
+      last: "Cited in",
+      lastOf: (one) => (reported[one.key] ?? []).join(", "),
       phaseOf: named,
       whereOf,
     });

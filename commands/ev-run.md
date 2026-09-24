@@ -200,13 +200,12 @@ at step 4, and the findings, at step 6.
    where a control would have to sit.
 
    **`scan` is what the tools found**, fenced like everything else, since a rule name or a package
-   description is somebody's writing too. Each finding carries a key. **Every critical and high
-   result is reported**, one finding each: take it back to the file it names, decide whether it is
-   reachable in this codebase and what it means here, and write your own finding with its own
-   citation, naming that key in `scanned`. Whether it is reachable sets the severity you give it,
-   and never whether it is reported. Report a medium or low result where it matters here. Step 7
-   refuses a run that leaves a critical or high result unreported, and a key no scan holds, so never
-   write one you were not shown.
+   description is somebody's writing too. Each result carries a key. **Every result is listed in
+   the Scanner results table the reports end on, so a finding is never written to list one.** A
+   finding answers a concern the pack asks about. Where a scanner result is what shows a concern's
+   weakness, take it back to the file it names, decide whether it is reachable in this codebase and
+   what it means here, and write the concern's finding with its own citation, naming that key in
+   `scanned`. A key no scan holds is refused at step 7, so never write one you were not shown.
 
    Then `search` and `outline` to find the lines that matter, and `read` for the range around them.
    **A whole read of a long file is refused, naming the ranges to ask for instead**: taking a three
