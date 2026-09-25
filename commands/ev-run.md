@@ -91,25 +91,38 @@ something to report.
    pull the latest changes, or go on and read it as it stands. A clone nobody pulled reads as a
    project that stopped, which the history measures would report. Never pull yourself.
 
-   Then show the recorded selection first, from
-   `${CLAUDE_PLUGIN_ROOT}/bin/evalation-packs show`, as the default, naming each pack by its title
-   from `${CLAUDE_PLUGIN_ROOT}/bin/evalation-packs titles` and never by its handle, in the alphabetical
-   order `titles` prints them in, and let the person confirm it,
-   narrow it or name others. A consultant assesses one client's tree against one set of obligations
-   and the next against another, so the packs are a choice per run and never assumed. The packs the
-   person names are what step 2 is given. Nothing is counted until step 2, so asking costs nothing.
+   Then ask which packs to read, naming each pack by its title from
+   `${CLAUDE_PLUGIN_ROOT}/bin/evalation-packs titles` and never by its handle, in the alphabetical
+   order `titles` prints them in. The first question has one answer, from these options:
+   - "Run my usual packs", naming the recorded selection from
+     `${CLAUDE_PLUGIN_ROOT}/bin/evalation-packs show`, left out where nothing is recorded
+   - "Choose from a list of available packs"
+   - "Add my own questions": a custom pack of their questions alone, which costs no pack credits, or
+     extra questions added to a pack, charged as that pack is
 
-   In the same question, offer the person's own questions: a custom pack of their questions alone,
-   which costs no pack credits, or extra questions added to a pack they chose, charged as that pack
-   is. Where they want either, stop and have them run `/ev-questions`, which drafts the questions with
-   them, turns any website claims into questions and gives back a file. Pass each such file to step
-   2 with `--questions <file>`. A run of a custom pack alone names no packs at all.
+   The follow-up is multi-select, so the person ticks as many packs as they want, and no option ever
+   combines packs. On the usual packs, it lists the recorded packs so they can drop any. On the list,
+   it lists every pack `titles` prints. Put four packs to a question, headed by their place in the
+   list ("Packs 1-4"), at most four questions at once, and ask again for the rest. The packs ticked
+   are the selection.
+
+   A consultant assesses one client's tree against one set of obligations and the next against
+   another, so the packs are a choice per run and never assumed. The packs the person ticks are what
+   step 2 is given. Nothing is counted until step 2, so asking costs nothing.
+
+   On "Add my own questions", stop and have them run `/ev-questions`, which drafts the questions with
+   them, turns any website claims into questions and gives back a file. Pass each such file to step 2
+   with `--questions <file>`. A file of extra questions names its pack, which the run reads. When they
+   come back, ask the first question again with "Only my questions" in place of "Add my own
+   questions", so they can add packs or run their questions alone. A run of a custom pack alone names
+   no packs at all.
 
    **Say what this run will spend in the question itself.** It spends one pack credit for each pack
    it reads, and `${CLAUDE_PLUGIN_ROOT}/bin/evalation-status` prints how many credits are left. Name
-   both numbers in the question and nowhere else. Where the selection is larger than the balance,
-   say so there: the run is refused whole, with no part of it served, so they choose between topping
-   up and narrowing the selection, and this is the moment to find that out.
+   both numbers in each pack question and nowhere else. Where the packs ticked are more than the
+   balance, ask again before step 2 with the same options: the run is refused whole, with no part of
+   it served, so they choose between topping up and narrowing the selection, and this is the moment
+   to find that out.
 
    Once they answer, start the run with no announcement. They chose the packs and were told the
    cost, so a line restating either says nothing new.
@@ -154,6 +167,9 @@ something to report.
    Whether a pinned version carries a known advisory is a lookup against a database that moved this
    morning, and no reading answers it from memory. One tool per phase answers that class of question, and on
    a machine where the only thing installed is this plugin, none of them is here yet.
+
+   Where none is missing, say that all of them are installed, in those words and no more, and go on
+   to step 4.
 
    `show` says which are missing and the command that would fetch each. Ask once, naming every
    missing tool, what each one looks for, and that it is their machine and their choice. Say what
