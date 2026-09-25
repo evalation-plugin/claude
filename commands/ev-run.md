@@ -386,9 +386,8 @@ something to report.
    ${CLAUDE_PLUGIN_ROOT}/bin/evalation-verify apply <written> "<model>"
    ```
 
-   Run `plan` once per round and never to see what is left, since the counts `record` and `apply`
-   print already say so. If the verifying stops part way, apply what was recorded, then plan again: a
-   claim already answered is skipped. `plan` refuses while recorded answers wait to be applied.
+   If the verifying stops part way, plan again: a claim already answered is skipped, whether or not
+   its answer was applied, and `apply` writes every answer recorded.
 
    **Then send back what the verifier did not confirm.** A claim found wrong, or one the verifier
    could not settle, goes back to a reader to be fixed against the repository, twice at most:

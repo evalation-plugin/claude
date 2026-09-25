@@ -21,8 +21,8 @@
 // difference with no model in it. A batch is answered twice at most, the second time for the rows the
 // first answer missed, and anything still missing stays asserted. Printing a grid is not an answer.
 //
-// **Resumable.** Each answer is kept beside the file as it is recorded, so stopping part way loses
-// nothing already answered, and planning again skips every claim already carrying a verdict.
+// **Resumable.** Each answer is kept beside the file by claim as it is recorded, so stopping part way
+// loses nothing already answered, and planning again skips every claim answered, applied or not.
 "use strict";
 
 const { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } = require("node:fs");
@@ -64,7 +64,7 @@ function keep(path, value) {
 
 const folderOf = (source) => `${source}.verify`;
 const planOf = (source) => `${folderOf(source)}/plan.json`;
-const answersOf = (source, n) => `${folderOf(source)}/${n}.json`;
+const answersOf = (source, held, n) => `${folderOf(source)}/answers-${held.round ?? 1}-${n}.json`;
 
 /**
  * Every claim the reading made, keyed by the id evalation-findings gave it. An answer citing nothing
@@ -118,14 +118,12 @@ function itemShown(tree, one, at) {
 }
 
 function plan(source, where, again) {
-  const kept = existsSync(folderOf(source)) ? readdirSync(folderOf(source)).filter((one) => /^\d+\.json$/.test(one)) : [];
-  if (kept.length > 0) {
-    fail(`unapplied: batches ${kept.map((one) => one.replace(".json", "")).sort((a, b) => a - b).join(", ")} hold recorded answers, and planning again would delete them. ` +
-      `Run evalation-verify apply ${source} "<model>" first, then plan again to verify what is left`);
-  }
   const document = readJson(source, "findings");
   const every = claims(document);
-  const left = again ? every : every.filter((one) => !one.item.verification || one.item.verification.verdict === "unanswered");
+  // Answers recorded and not yet applied are kept by claim, so a new plan leaves their claims out.
+  const pending = answered(source);
+  const left = every.filter((one) => !pending[one.id])
+    .filter((one) => again || !one.item.verification || one.item.verification.verdict === "unanswered");
   // Filled by printed length as well as by rows, so every grid is shown to its verifier whole.
   const room = SHOWN - guide(where).length;
   const batches = [];
@@ -141,9 +139,10 @@ function plan(source, where, again) {
       size += length;
     }
   }
-  rmSync(folderOf(source), { recursive: true, force: true });
   mkdirSync(folderOf(source), { recursive: true, mode: 0o700 });
-  keep(planOf(source), { tree: where, batches, asked: batches.map(() => 0) });
+  // A new plan numbers its batches from 1 again, so its answers go in files of this round alone.
+  const round = (existsSync(planOf(source)) ? Number(readJson(planOf(source), "plan").round) || 1 : 0) + 1;
+  keep(planOf(source), { tree: where, round, batches, asked: batches.map(() => 0) });
   return { batches: batches.length, claims: left.length, answered_before: every.length - left.length };
 }
 
@@ -152,8 +151,16 @@ function loaded(source) {
   return readJson(planOf(source), "plan");
 }
 
-function recorded(source, n) {
-  return existsSync(answersOf(source, n)) ? readJson(answersOf(source, n), "answers") : {};
+/** One batch's answers, by claim id. */
+function recorded(source, held, n) {
+  return existsSync(answersOf(source, held, n)) ? readJson(answersOf(source, held, n), "answers") : {};
+}
+
+/** Every answer recorded and not yet applied, from any plan, by claim id. */
+function answered(source) {
+  if (!existsSync(folderOf(source))) return {};
+  const files = readdirSync(folderOf(source)).filter((one) => /^answers-.*\.json$/.test(one));
+  return Object.assign({}, ...files.map((one) => readJson(join(folderOf(source), one), "answers")));
 }
 
 function batchOf(held, n) {
@@ -175,8 +182,8 @@ function cited(where, one) {
 function grid(source, n) {
   const held = loaded(source);
   const ids = batchOf(held, n);
-  const done = recorded(source, n);
-  const rows = ids.map((id, i) => ({ id, row: i + 1 })).filter((one) => !done[one.row]);
+  const done = answered(source);
+  const rows = ids.map((id, i) => ({ id, row: i + 1 })).filter((one) => !done[one.id]);
   if (rows.length === 0) return `Batch ${n} is answered whole.`;
   // Printing a grid asks nothing. Only an answer recorded against it counts, so a person or a session
   // looking at a batch never uses up the asks its reader needs.
@@ -249,17 +256,18 @@ function guide(tree) {
 function record(source, n, said) {
   const held = loaded(source);
   const ids = batchOf(held, n);
-  const done = recorded(source, n);
+  const done = recorded(source, held, n);
   for (const line of String(said).split("\n")) {
     const found = line.match(/^\s*ROW\s+(\d+)\s*:\s*(CONFIRMED|NOT-CONFIRMED|CANNOT-TELL)\s*\|?\s*(.*)$/i);
     if (!found) continue;
     const row = Number(found[1]);
-    if (row >= 1 && row <= ids.length) done[row] = { verdict: found[2].toUpperCase(), why: found[3].trim() };
+    if (row >= 1 && row <= ids.length) done[ids[row - 1]] = { verdict: found[2].toUpperCase(), why: found[3].trim() };
   }
-  keep(answersOf(source, n), done);
+  keep(answersOf(source, held, n), done);
   held.asked[n - 1] += 1;
   keep(planOf(source), held);
-  const missing = ids.map((_, i) => i + 1).filter((row) => !done[row]);
+  const every = answered(source);
+  const missing = ids.map((id, i) => ({ id, row: i + 1 })).filter((one) => !every[one.id]).map((one) => one.row);
   return { batch: n, answered: ids.length - missing.length, missing, asked: held.asked[n - 1], may_ask_again: missing.length > 0 && held.asked[n - 1] < ASKS };
 }
 
@@ -268,23 +276,22 @@ function apply(source, model) {
   const document = readJson(source, "findings");
   const byId = new Map(claims(document).map((one) => [one.id, one.item]));
   const counted = { CONFIRMED: 0, "NOT-CONFIRMED": 0, "CANNOT-TELL": 0, unanswered: 0 };
-  held.batches.forEach((ids, at) => {
-    const done = recorded(source, at + 1);
-    ids.forEach((id, i) => {
-      const item = byId.get(id);
-      if (!item) return;
-      const said = done[i + 1];
-      if (!said) {
-        counted.unanswered += 1;
-        item.confirmed = "asserted";
-        item.verification = { verdict: "unanswered", why: "the verifying reader did not answer this row" };
-        return;
-      }
-      counted[said.verdict] += 1;
-      item.confirmed = said.verdict === "CONFIRMED" ? "verified" : "asserted";
-      item.verification = { verdict: said.verdict.toLowerCase(), why: said.why, by: model };
-    });
-  });
+  // Every answer recorded under any plan, and every claim the last plan asked about.
+  const done = answered(source);
+  for (const id of new Set([...Object.keys(done), ...held.batches.flat()])) {
+    const item = byId.get(id);
+    if (!item) continue;
+    const said = done[id];
+    if (!said) {
+      counted.unanswered += 1;
+      item.confirmed = "asserted";
+      item.verification = { verdict: "unanswered", why: "the verifying reader did not answer this row" };
+      continue;
+    }
+    counted[said.verdict] += 1;
+    item.confirmed = said.verdict === "CONFIRMED" ? "verified" : "asserted";
+    item.verification = { verdict: said.verdict.toLowerCase(), why: said.why, by: model };
+  }
   document.verified_by = model;
   keep(source, document);
   rmSync(folderOf(source), { recursive: true, force: true });

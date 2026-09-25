@@ -1,13 +1,13 @@
 // A verifier reads its grid whole or not at all: a command's output past about 30,000 characters is
 // saved to a file the agent holds no tool to open, and five of a customer's seventeen batches were
 // lost that way. Planning again also once deleted twelve batches of recorded answers before they
-// were applied.
+// were applied, which answers kept by claim make harmless.
 "use strict";
 
 const test = require("node:test");
 const assert = require("node:assert");
 const { spawnSync } = require("node:child_process");
-const { mkdirSync, mkdtempSync, writeFileSync } = require("node:fs");
+const { mkdirSync, mkdtempSync, readFileSync, writeFileSync } = require("node:fs");
 const { tmpdir } = require("node:os");
 const { join } = require("node:path");
 
@@ -40,12 +40,16 @@ test("every batch's grid is shown to its verifier whole", () => {
   }
 });
 
-test("planning again keeps answers recorded and not yet applied", () => {
+test("planning again keeps answers recorded and not yet applied, each on its own claim", () => {
   const { tree, file } = written();
   verify(["plan", file, tree]);
   verify(["record", file, "1"], "ROW 1: CONFIRMED | The cited lines hold it.");
   const again = verify(["plan", file, tree]);
-  assert.notStrictEqual(again.status, 0);
-  assert.match(again.stderr, /apply/);
-  assert.match(verify(["grid", file, "1"]).stdout, /^ROW 2/);
+  assert.strictEqual(again.status, 0, again.stderr);
+  // The new plan leaves out the claim answered, so its first row is another claim.
+  verify(["record", file, "1"], "ROW 1: NOT-CONFIRMED | The lines do not hold it.");
+  assert.strictEqual(verify(["apply", file, "a model"]).status, 0);
+  const findings = new Map(JSON.parse(readFileSync(file, "utf8")).findings.map((one) => [one.id, one.verification.verdict]));
+  assert.strictEqual(findings.get("f-0"), "confirmed");
+  assert.strictEqual(findings.get("f-1"), "not-confirmed");
 });
