@@ -55,6 +55,9 @@ at step 4, and the findings, at step 6.
 are, and no blank placeholder lines. While readers or scanners work, say nothing until there is
 something to report.
 
+**Ask every question through the host's question interface**, the AskUserQuestion tool in Claude
+Code, with each answer one of its options. Never write a question and its answers as a list in text.
+
 ## What to do
 
 1. **Check which branch the tree is on, then ask which packs to run, and wait for the answer.**

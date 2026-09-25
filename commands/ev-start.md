@@ -28,6 +28,9 @@ to happen cannot agree to it. Lead with what they get, not with how it works.
 **One step at a time.** Do the next thing and say what follows. Never run the whole sequence silently
 and announce it afterwards.
 
+**Ask every question through the host's question interface**, the AskUserQuestion tool in Claude
+Code, with each answer one of its options. Never write a question and its answers as a list in text.
+
 ## What to do
 
 1. **Open with what this is and what happens next**, in a sentence or two. Not what you are about to
