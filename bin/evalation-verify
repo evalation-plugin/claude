@@ -407,21 +407,20 @@ function corrected(document, ids, part) {
   return { copy, done };
 }
 
-function correct(source, n, file) {
-  const held = correctionPlanned(source);
-  const ids = groupIds(held, n);
-  const part = readJson(file, "correction");
-  const { copy, done } = corrected(readJson(source, "findings"), ids, part);
-  const { checked } = require("./evalation-findings");
-  // Checked with every rule the whole file meets, held to this group's items, so an older answer
-  // elsewhere in the file never stands in the way of a correction here.
-  const ids_ = new Set(ids);
-  const answers = copy.answers.filter((one) => ids_.has(one.id));
-  const findings = copy.findings.filter((one) => ids_.has(one.id));
-  const accounted = (copy.accounted ?? []).filter((one) => ids_.has(one.id));
+/**
+ * The file as one correction group is checked: the group's answers, findings and concern rows, the
+ * entries and concerns they belong to, and the row of each concern a corrected finding belongs to,
+ * so a finding's concern is one the check knows was read.
+ */
+function focusOf(copy, ids) {
+  const held = new Set(ids);
+  const answers = copy.answers.filter((one) => held.has(one.id));
+  const findings = copy.findings.filter((one) => held.has(one.id));
+  const concerns = new Set(findings.map((one) => `${one.pack}/${one.concern}`));
+  const accounted = (copy.accounted ?? []).filter((one) => held.has(one.id) || concerns.has(`${one.pack}/${one.concern}`));
   const entries = new Set([...answers.map((one) => `${one.pack}/${one.entry}`),
-    ...accounted.map((one) => `${one.pack}/${one.concern}`)]);
-  const focus = {
+    ...accounted.map((one) => `${one.pack}/${one.concern}`), ...concerns]);
+  return {
     ...copy,
     packs: (copy.packs ?? []).map((pack) => ({
       ...pack,
@@ -432,7 +431,17 @@ function correct(source, n, file) {
     findings,
     accounted,
   };
-  const said = [...done.refused, ...checked(focus, held.tree)];
+}
+
+function correct(source, n, file) {
+  const held = correctionPlanned(source);
+  const ids = groupIds(held, n);
+  const part = readJson(file, "correction");
+  const { copy, done } = corrected(readJson(source, "findings"), ids, part);
+  const { checked } = require("./evalation-findings");
+  // Checked with every rule the whole file meets, held to this group's items, so an older answer
+  // elsewhere in the file never stands in the way of a correction here.
+  const said = [...done.refused, ...checked(focusOf(copy, ids), held.tree)];
   if (said.length > 0) fail(`observed: ${said.length} thing${said.length === 1 ? "" : "s"} in correction ${n} to fix:\n  ${said.join("\n  ")}`);
   keep(correctionPart(source, n), part);
   return { group: n, corrected: done.corrected, withdrawn: done.withdrawn, stands: done.stands };
@@ -499,4 +508,6 @@ function main() {
   process.stdout.write(JSON.stringify(out, null, 2) + "\n");
 }
 
-main();
+module.exports = { focusOf };
+
+if (require.main === module) main();
