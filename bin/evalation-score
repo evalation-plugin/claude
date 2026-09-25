@@ -6,10 +6,9 @@
 // does. This file holds the arithmetic and none of the numbers, which is why it can be read by anyone
 // without giving away how anything is scored.
 //
-// **The same findings always produce the same score.** There is no model in this and nothing about it
-// depends on when it ran, so two assessments of one repository are comparable, and a score that moved
-// means the repository moved. A score computed differently from one report to the next is a number
-// rather than a measure.
+// **The same item results always produce the same score.** There is no model in this and nothing about
+// it depends on when it ran. A concern that lists what it looks for is counted from those items, so
+// two readings that mark the items alike score alike, however they word their findings.
 //
 // What a deliverable then shows is the score, the grade and the per-category bars. Never the load, the
 // decay, the weights or the bands, because those are what was served.
@@ -138,7 +137,33 @@ function main() {
     const category = String(row.concern ?? "").match(/^[A-Z]+/)?.[0] ?? "Other";
     if (!byCategory.has(category)) byCategory.set(category, []);
   }
+  // A concern whose pack lists what it looks for is counted from its item rows: a missing item costs
+  // the severity the pack gives it, a found one counts as a strength, and one that does not apply
+  // counts for nothing. Its findings are then the account of what was found and are not counted
+  // again. Two readings that agree on the items give one score however they word or split their
+  // findings, which counting findings never did. A concern with no list is counted from findings.
+  const lists = new Map();
+  for (const pack of document.packs ?? []) {
+    if (pack.pack !== rubric.pack) continue;
+    for (const one of pack.entries_asked ?? []) {
+      if (Array.isArray(one.looks_for) && one.looks_for.length > 0) lists.set(one.identifier, one.looks_for);
+    }
+  }
+  const itemised = new Set();
+  for (const row of read) {
+    const list = lists.get(row.concern);
+    if (!list || !Array.isArray(row.looked_for) || row.looked_for.length !== list.length) continue;
+    itemised.add(row.concern);
+    const category = String(row.concern ?? "").match(/^[A-Z]+/)?.[0] ?? "Other";
+    row.looked_for.forEach((item, at) => {
+      if (item?.result === "found") byCategory.get(category).push({ severity: "positive" });
+      else if (item?.result === "missing" || item?.result === "not-checked") {
+        byCategory.get(category).push({ severity: list[at].severity ?? "info" });
+      }
+    });
+  }
   for (const one of scoring) {
+    if (itemised.has(one.concern)) continue;
     const category = String(one.concern ?? "").match(/^[A-Z]+/)?.[0] ?? "Other";
     if (!byCategory.has(category)) byCategory.set(category, []);
     byCategory.get(category).push(one);

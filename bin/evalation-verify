@@ -75,6 +75,14 @@ function claims(document) {
     const items = Array.isArray(answer.looked_for) ? list.map((want, at) => ({ ...want, ...answer.looked_for[at] })) : [];
     held.push({ id: answer.id, item: answer, claimed: `${answer.pack} ${answer.entry} is ${answer.status}`, because: answer.because, items, cites: answer.evidence ?? [], searched: String(answer.searched ?? "").trim() });
   }
+  // A concern's items are what the hardness score counts, so they are checked like an answer's.
+  for (const row of document.accounted ?? []) {
+    const list = lists.get(`${row.pack}/${row.concern}`);
+    if (!list || !Array.isArray(row.looked_for) || !row.id) continue;
+    const items = list.map((want, at) => ({ ...want, ...row.looked_for[at] }));
+    const found = items.filter((one) => one.result === "found").length;
+    held.push({ id: row.id, item: row, claimed: `${row.pack} ${row.concern}: ${found} of ${items.length} items found`, because: row.because, items, searched: String(row.searched ?? "").trim() });
+  }
   for (const finding of document.findings ?? []) {
     if (!finding.at) continue;
     held.push({ id: finding.id, item: finding, claimed: `${finding.pack} ${finding.concern}, ${finding.severity}: ${finding.title}`, because: [finding.observed, finding.below_scan && `Rated below the scanner because ${finding.below_scan}`].filter(Boolean).join(" "), cites: [finding.at] });
@@ -338,7 +346,8 @@ function correction(source, n) {
     '  Withdraw a finding that does not hold at all: {"id":"...","withdrawn":"why it does not hold"}.',
     '  Say it stands, where the verifier was wrong: {"id":"...","stands":"why it holds as written"}.',
     "",
-    'Write them as {"answers":[...],"findings":[...]} and pass that file to',
+    'Write them as {"answers":[...],"findings":[...],"accounted":[...]}, a concern\'s row going in',
+    "accounted, and pass that file to",
     `  evalation-verify correct <findings.json> ${n} <file>`,
     "until it holds. A correction is verified again, once, and never softened to pass: a claim that",
     "is not true is fixed or withdrawn.",
@@ -365,7 +374,7 @@ function corrected(document, ids, part) {
       const was = copy[list][at];
       if (one.withdrawn !== undefined) {
         if (list !== "findings") {
-          done.refused.push(`${one.id}: an answer is never withdrawn, since every entry owes one. Correct it`);
+          done.refused.push(`${one.id}: an answer or a concern's row is never withdrawn, since every one is owed. Correct it`);
           continue;
         }
         if (!String(one.withdrawn).trim()) done.refused.push(`${one.id}: withdrawn with no reason`);
@@ -393,6 +402,7 @@ function corrected(document, ids, part) {
   };
   settle("answers", part.answers);
   settle("findings", part.findings);
+  settle("accounted", part.accounted);
   for (const id of allowed) done.refused.push(`${id}: in this group and not addressed`);
   return { copy, done };
 }
@@ -408,17 +418,19 @@ function correct(source, n, file) {
   const ids_ = new Set(ids);
   const answers = copy.answers.filter((one) => ids_.has(one.id));
   const findings = copy.findings.filter((one) => ids_.has(one.id));
-  const entries = new Set(answers.map((one) => `${one.pack}/${one.entry}`));
+  const accounted = (copy.accounted ?? []).filter((one) => ids_.has(one.id));
+  const entries = new Set([...answers.map((one) => `${one.pack}/${one.entry}`),
+    ...accounted.map((one) => `${one.pack}/${one.concern}`)]);
   const focus = {
     ...copy,
     packs: (copy.packs ?? []).map((pack) => ({
       ...pack,
-      selected: pack.kind === "concern-set" ? [] : (pack.selected ?? []).filter((one) => entries.has(`${pack.pack}/${one}`)),
+      selected: (pack.selected ?? []).filter((one) => entries.has(`${pack.pack}/${one}`)),
       entries_asked: (pack.entries_asked ?? []).filter((one) => entries.has(`${pack.pack}/${one.identifier}`)),
     })),
     answers,
     findings,
-    accounted: [],
+    accounted,
   };
   const said = [...done.refused, ...checked(focus, held.tree)];
   if (said.length > 0) fail(`observed: ${said.length} thing${said.length === 1 ? "" : "s"} in correction ${n} to fix:\n  ${said.join("\n  ")}`);
