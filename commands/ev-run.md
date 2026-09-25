@@ -203,16 +203,15 @@ something to report.
    plugin's own files to work the format out.
 
    **Read in groups, one reader each.** `evalation-findings groups run.json` splits `to_read` into
-   groups of about twenty entries, each within one pack. Where there is more than one group, start one
-   subagent per group, several at once, and give each the same task: print the methodology with
-   `evalation-findings methodology run.json` and never open `run.json` itself, since it holds the
-   customer's own questions unfenced, print its group with `evalation-findings group run.json <n>`,
-   where any customer questions arrive inside a fence, read the repository for
-   those entries through `evalation-read` alone, write its answers, findings and accounted rows as
-   `part-<n>.json` in the scratch folder in the format `shape` prints, and run
-   `evalation-findings part run.json <n> part-<n>.json <target>` until it holds. A part that holds is
-   one the whole check will accept, so a reader fixes its own part and nothing is fixed after the
-   merge. Where there is one group, read it here the same way.
+   groups of about twenty entries, each within one pack. Start one `evalation-plugin:reader` agent per
+   group, several at once, and give each the run file's path, its group number, the target and
+   `${CLAUDE_PLUGIN_ROOT}/bin` as where the commands are. Use that agent and never a general one: it
+   holds only the shell, and the plugin's gate lets it run Evalation's reading commands one at a
+   time and nothing else, so repository content reaches it only through the fence. It prints the
+   methodology and its group, reads through `evalation-read`, and hands in its part on standard input
+   with `evalation-findings part run.json <n> - <target>` until it holds, which keeps the part as
+   `part-<n>.json` beside the run file. A part that holds is one the whole check will accept, so a
+   reader fixes its own part and nothing is fixed after the merge.
 
    ```
    ${CLAUDE_PLUGIN_ROOT}/bin/evalation-read <target> map
@@ -354,13 +353,14 @@ something to report.
    ${CLAUDE_PLUGIN_ROOT}/bin/evalation-verify plan <written> <target>
    ```
 
-   Then for each batch it names, 1 to the count, start a fresh subagent that holds nothing of this
-   run, so a claim is never checked by the reading that made it. Several at once is fine, since
-   each batch keeps its answers apart. Give each one this task and nothing more: run
-   `${CLAUDE_PLUGIN_ROOT}/bin/evalation-verify grid <written> <n>`, check every row the way it says,
-   reading the repository only through the `evalation-read` commands it names, and pass its answer
-   lines to `${CLAUDE_PLUGIN_ROOT}/bin/evalation-verify record <written> <n>` on standard input.
-   Where `record` answers `may_ask_again`, start one more fresh subagent for that batch the same way.
+   Then for each batch it names, 1 to the count, start a fresh `evalation-plugin:verifier` agent,
+   which holds nothing of this run, so a claim is never checked by the reading that made it. Several
+   at once is fine, since each batch keeps its answers apart. Give each one the findings file's
+   path, its batch number, the target and `${CLAUDE_PLUGIN_ROOT}/bin` as where the commands are, and
+   nothing more. It prints its grid, checks every row through `evalation-read`, and records its
+   verdicts on standard input with `evalation-verify record <written> <n>`. Use that agent and never
+   a general one, for the reason the readers are.
+   Where `record` answers `may_ask_again`, start one more fresh verifier for that batch the same way.
    A batch is answered twice at most, so a row missed twice stays asserted. Printing a grid answers
    nothing, so looking at one here costs its reader nothing.
 
@@ -379,13 +379,13 @@ something to report.
    ${CLAUDE_PLUGIN_ROOT}/bin/evalation-verify corrections <written> <target>
    ```
 
-   For each group it names, start a fresh subagent and give it this task and nothing more: run
-   `${CLAUDE_PLUGIN_ROOT}/bin/evalation-verify correction <written> <n>`, do what it says for every
-   item, reading the repository only through the `evalation-read` commands it names, write the
-   corrections to a file in the scratch folder, and run
-   `${CLAUDE_PLUGIN_ROOT}/bin/evalation-verify correct <written> <n> <file>` until it holds. A
-   reader corrects a claim, withdraws a finding that does not hold at all, or says with its reason
-   that a claim stands. Then write every group's corrections onto the file:
+   For each group it names, start a fresh `evalation-plugin:corrector` agent and give it the findings
+   file's path, its group number, the target and `${CLAUDE_PLUGIN_ROOT}/bin` as where the commands
+   are, and nothing more. It prints its group with `evalation-verify correction <written> <n>`, reads
+   through `evalation-read`, and hands in its corrections on standard input with
+   `evalation-verify correct <written> <n> -` until they hold. A corrector corrects a claim,
+   withdraws a finding that does not hold at all, or says with its reason that a claim stands. Then
+   write every group's corrections onto the file:
 
    ```
    ${CLAUDE_PLUGIN_ROOT}/bin/evalation-verify corrected <written>

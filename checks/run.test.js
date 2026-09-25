@@ -81,10 +81,9 @@ function read(tree, second) {
   const parts = groups.map((one) => {
     const group = JSON.parse(sh("evalation-findings", ["group", runFile, String(one.group)]));
     if (group.pack === "custom") assert.match(group.customer, /<<<CUSTOMER-QUESTIONS [0-9a-f]+/);
-    const file = join(work, `part-${second ? 2 : 1}-${one.group}.json`);
-    writeFileSync(file, JSON.stringify(partFor(group, second)));
-    sh("evalation-findings", ["part", runFile, String(one.group), file, tree]);
-    return file;
+    // Handed on standard input, as an Evalation reader hands it, and kept by the command once it holds.
+    sh("evalation-findings", ["part", runFile, String(one.group), "-", tree], JSON.stringify(partFor(group, second)));
+    return join(work, `part-${one.group}.json`);
   });
   const merged = sh("evalation-findings", ["merge", runFile, "--read-by", "Opus 5.5", ...parts]);
   return JSON.parse(sh("evalation-findings", ["-", tree], merged)).written;
@@ -119,9 +118,7 @@ function verify(written, tree) {
       const list = id.startsWith("f-") ? "findings" : id.startsWith("c-") ? "accounted" : "answers";
       answer[list].push({ id, stands: "Read again against the lines cited, and it holds." });
     }
-    const file = join(work, `correction-${at + 1}.json`);
-    writeFileSync(file, JSON.stringify(answer));
-    sh("evalation-verify", ["correct", written, String(at + 1), file]);
+    sh("evalation-verify", ["correct", written, String(at + 1), "-"], JSON.stringify(answer));
   });
   sh("evalation-verify", ["corrected", written]);
 }

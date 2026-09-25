@@ -1,0 +1,45 @@
+#!/usr/bin/env node
+// evalation-gate - what Evalation's own agents may run.
+//
+// The reader, verifier and corrector read somebody else's repository, and anything in it may have
+// been written to steer them. Each holds the shell and no other tool, and this hook, which the plugin
+// ships, lets their shell run one Evalation reading command at a time: no second command, no pipe,
+// no substitution and no redirect but a heredoc handing a command its answer. Repository content then
+// reaches them only through evalation-read's fence. The person's own session, and any other agent,
+// pass untouched, since this binds only the agents the plugin defines.
+"use strict";
+
+const { readFileSync } = require("node:fs");
+
+const OURS = /^evalation-plugin:/;
+// The verbs an agent's task names, and none that write the run: merging, applying and delivering are
+// the session's.
+const COMMANDS = /^\s*\S*evalation-(read\s|findings\s+(group|part|methodology|shape)\b|verify\s+(grid|record|correction|correct)\b)/;
+// A second command, a pipe, a substitution or an output redirect, outside the heredoc body.
+const JOINED = /[;&|`]|\$\(|>|<(?!<)/;
+
+function refused(reason) {
+  process.stderr.write(
+    `${reason}. This agent holds only Evalation's reading commands: evalation-read to read the repository, ` +
+      "evalation-findings to print its group and hand in its part, and evalation-verify to print and answer " +
+      "its grid or correction, one at a time.\n",
+  );
+  process.exit(2);
+}
+
+let call;
+try {
+  call = JSON.parse(readFileSync(0, "utf8"));
+} catch {
+  // empty-catch:allow: a hook given nothing it can read decides nothing, and the session's own gates stand.
+  process.exit(0);
+}
+if (!OURS.test(String(call.agent_type ?? ""))) process.exit(0);
+if (call.tool_name !== "Bash") refused(`${call.tool_name} is not a tool this agent holds`);
+
+const command = String(call.tool_input?.command ?? "");
+// The command line itself, with a heredoc's body taken out, since the body is data the command reads.
+const line = command.replace(/<<\s*'?(\w+)'?\n[\s\S]*?\n\1\s*$/, "").trim();
+if (!COMMANDS.test(`${line} `)) refused(`"${line.slice(0, 60)}" is not an Evalation reading command`);
+if (JOINED.test(line)) refused(`"${line.slice(0, 60)}" joins, pipes or redirects commands`);
+process.exit(0);
