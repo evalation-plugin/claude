@@ -364,12 +364,70 @@ function history(root, isRepository, named) {
   if (!named.enabled) return { phase: "history", tool: "git", ran: false, why: "it is turned off", findings: [] };
   if (!isRepository) return { phase: "history", tool: "git", ran: false, why: "the target has no git history", findings: [] };
   try {
-    const out = execFileSync("git", ["-C", root, "log", "--since=12 months ago", "--no-merges", "--format=%aE"],
-      { encoding: "utf8", maxBuffer: 64 * 1024 * 1024, stdio: ["ignore", "pipe", "ignore"] });
-    return { phase: "history", tool: "git", ran: true, findings: authorship(out) };
+    const git = (...args) => execFileSync("git", ["-C", root, ...args],
+      { encoding: "utf8", maxBuffer: 256 * 1024 * 1024, stdio: ["ignore", "pipe", "ignore"] });
+    const commits = git("log", "--since=12 months ago", "--no-merges", "--format=%x1e%aI%x1f%aE", "--name-only")
+      .split("\x1e").filter((one) => one.trim()).map((one) => {
+        const [head, ...files] = one.split("\n");
+        const [at, who] = head.split("\x1f");
+        return { at, who, files: files.filter(Boolean) };
+      });
+    const tags = git("for-each-ref", "refs/tags", "--format=%(creatordate:iso-strict)").split("\n").filter(Boolean);
+    const tracked = git("ls-files").split("\n").filter(Boolean);
+    return { phase: "history", tool: "git", ran: true,
+      findings: [...authorship(commits.map((one) => one.who).join("\n")), ...measured({ commits, tags, tracked, now: Date.now() })] };
   } catch (thrown) {
     return { phase: "history", tool: "git", ran: false, why: `git could not read the history: ${thrown.message}`, findings: [] };
   }
+}
+
+const DAY = 86400000;
+
+/**
+ * What a year of history says beyond who wrote it, each a number with a threshold: how often the team
+ * tagged a release, which top-level areas nobody changed, which rest on one person, and whether the
+ * last three months ran at under half the pace of the nine before.
+ */
+function measured({ commits, tags, tracked, now }) {
+  const found = [];
+  const within = (at, days) => now - Date.parse(at) <= days * DAY;
+  const releases = tags.filter((at) => within(at, 365)).length;
+  if (releases < 4) {
+    found.push({ key: "history:releases", phase: "history", severity: releases === 0 ? "medium" : "low", at: { path: "git tags" },
+      title: releases === 0 ? "No releases tagged in a year" : "Few releases tagged in a year",
+      body: `${releases} ${releases === 1 ? "release was" : "releases were"} tagged in the last twelve months.` });
+  }
+  const areaOf = (path) => (path.includes("/") ? path.split("/")[0] : null);
+  const areas = [...new Set(tracked.map(areaOf).filter(Boolean))].sort();
+  const touched = new Map(areas.map((one) => [one, []]));
+  for (const one of commits) {
+    for (const area of new Set(one.files.map(areaOf).filter(Boolean))) touched.get(area)?.push(one.who);
+  }
+  const dormant = areas.filter((one) => touched.get(one).length === 0);
+  if (dormant.length > 0) {
+    found.push({ key: "history:dormant", phase: "history", severity: "low", at: { path: "git history" },
+      title: "Areas nobody changed in a year",
+      body: `Nobody changed ${dormant.slice(0, 6).join(", ")}${dormant.length > 6 ? ` or ${dormant.length - 6} more` : ""} in the last twelve months.` });
+  }
+  for (const [area, who] of touched) {
+    if (who.length < 10) continue;
+    const counts = new Map();
+    for (const one of who) counts.set(one, (counts.get(one) ?? 0) + 1);
+    const share = Math.round((Math.max(...counts.values()) / who.length) * 100);
+    if (share >= 80) {
+      found.push({ key: `history:area:${area}`, phase: "history", severity: "medium", at: { path: area },
+        title: `An area resting on one person in ${area}`,
+        body: `Of ${who.length} commits to ${area} in the last twelve months, one person made ${share}% of them.` });
+    }
+  }
+  const recent = commits.filter((one) => within(one.at, 90)).length / 3;
+  const before = commits.filter((one) => !within(one.at, 90) && within(one.at, 365)).length / 9;
+  if (before >= 4 && recent < before / 2) {
+    found.push({ key: "history:slowing", phase: "history", severity: "medium", at: { path: "git history" },
+      title: "Changes slowed in the last three months",
+      body: `The last three months ran at ${Math.round(recent)} commits a month, down from ${Math.round(before)} a month in the nine before.` });
+  }
+  return found;
 }
 
 /** What the tree was before and after, where git can say. A scan that moved anything is a scan that changed what it measured. */
@@ -673,6 +731,6 @@ function main() {
   }
 }
 
-module.exports = { authorship, scan };
+module.exports = { authorship, measured, scan };
 
 if (require.main === module) main();
