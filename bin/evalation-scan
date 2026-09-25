@@ -61,6 +61,7 @@ const DEFAULTS = {
   sbom: { enabled: true, tool: "syft" },
   sast: { enabled: true, tool: "semgrep" },
   secret: { enabled: true, tool: "gitleaks" },
+  history: { enabled: true, tool: "git" },
 };
 
 const FLOOR = "low";
@@ -332,6 +333,45 @@ const ADAPTERS = {
   },
 };
 
+/**
+ * How concentrated the last twelve months of commits are in one person, from one address per line of
+ * git log. Only the shares are kept: a name or an address is somebody's personal data and says
+ * nothing a buyer needs. One person holding most of the work is the risk a buyer asks about.
+ */
+function authorship(out) {
+  const counts = new Map();
+  for (const one of String(out).split("\n").map((line) => line.trim().toLowerCase()).filter(Boolean)) {
+    counts.set(one, (counts.get(one) ?? 0) + 1);
+  }
+  const total = [...counts.values()].reduce((sum, one) => sum + one, 0);
+  const at = { path: "git history" };
+  if (total === 0) {
+    return [{ key: "history:quiet", phase: "history", severity: "medium", title: "No commits in a year", at,
+      body: "No commits in the last twelve months, so nobody has changed this code for a year." }];
+  }
+  const share = Math.round((Math.max(...counts.values()) / total) * 100);
+  const severity = counts.size === 1 || share >= 80 ? "high" : share >= 50 ? "medium" : null;
+  if (!severity) return [];
+  return [{
+    key: "history:concentration", phase: "history", severity, at,
+    title: counts.size === 1 ? "Every commit made by one person" : "Most commits made by one person",
+    body: `Of ${total} commits in the last twelve months, the most active person made ${share}% of them, across ${counts.size} ${counts.size === 1 ? "person" : "people"}.`,
+  }];
+}
+
+/** The history phase, read from the checkout itself, since the copy the other tools read has none. */
+function history(root, isRepository, named) {
+  if (!named.enabled) return { phase: "history", tool: "git", ran: false, why: "it is turned off", findings: [] };
+  if (!isRepository) return { phase: "history", tool: "git", ran: false, why: "the target has no git history", findings: [] };
+  try {
+    const out = execFileSync("git", ["-C", root, "log", "--since=12 months ago", "--no-merges", "--format=%aE"],
+      { encoding: "utf8", maxBuffer: 64 * 1024 * 1024, stdio: ["ignore", "pipe", "ignore"] });
+    return { phase: "history", tool: "git", ran: true, findings: authorship(out) };
+  } catch (thrown) {
+    return { phase: "history", tool: "git", ran: false, why: `git could not read the history: ${thrown.message}`, findings: [] };
+  }
+}
+
 /** What the tree was before and after, where git can say. A scan that moved anything is a scan that changed what it measured. */
 function witness(target) {
   try {
@@ -452,8 +492,10 @@ function scan(target, only = null) {
   try {
     ran = Object.entries(held.phases)
       .filter(([phase]) => !only || only.includes(phase))
-      .map(([phase, named]) => runPhase(phase, named, phase === "secret" && isRepository ? root : copy.path,
-        phase === "secret" && isRepository, held.declined));
+      .map(([phase, named]) => (phase === "history"
+        ? history(root, isRepository, named)
+        : runPhase(phase, named, phase === "secret" && isRepository ? root : copy.path,
+          phase === "secret" && isRepository, held.declined)));
   } finally {
     copy.done();
   }
@@ -511,7 +553,7 @@ function show(only = null) {
     phases: Object.fromEntries(Object.entries(held.phases).filter(([phase]) => !only || only.includes(phase)).map(([phase, named]) => [phase, {
       ...named,
       on_this_machine: onThisMachine(named.tool),
-      adapter: Boolean(ADAPTERS[named.tool]),
+      adapter: Boolean(ADAPTERS[named.tool]) || phase === "history",
       declined: held.declined.includes(named.tool),
       install_with: onThisMachine(named.tool) ? null : installer(named.tool).said,
     }])),
@@ -631,6 +673,6 @@ function main() {
   }
 }
 
-module.exports = { scan };
+module.exports = { authorship, scan };
 
 if (require.main === module) main();
