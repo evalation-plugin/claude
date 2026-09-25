@@ -485,7 +485,7 @@ function followed(named, answer, list, where, scan, since) {
     return said;
   }
   const owed = itemsOf(named, answer.looked_for, list, where, scan, since, said);
-  if (owed && answer.status !== owed) said.push(`${named}: ${answer.status}, and ${owed.said}, which makes it ${owed.status}`);
+  if (owed && answer.status !== owed.status) said.push(`${named}: ${answer.status}, and ${owed.said}, which makes it ${owed.status}`);
   return said;
 }
 
