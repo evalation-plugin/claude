@@ -90,6 +90,12 @@ at step 4, and the findings, at step 6.
    and the next against another, so the packs are a choice per run and never assumed. The packs the
    person names are what step 2 is given. Nothing is counted until step 2, so asking costs nothing.
 
+   In the same question, offer the person's own questions: a custom pack of their questions alone,
+   which costs no pack credits, or extra questions added to a pack they chose, charged as that pack
+   is. Where they want either, stop and have them run `/ev-questions`, which drafts the questions with
+   them, turns any website claims into questions and gives back a file. Pass each such file to step
+   2 with `--questions <file>`. A run of a custom pack alone names no packs at all.
+
    **Say what this run will spend in the question itself.** It spends one pack credit for each pack
    it reads, and `${CLAUDE_PLUGIN_ROOT}/bin/evalation-status` prints how many credits are left. Name
    both numbers in the question and nowhere else. Where the selection is larger than the balance,
@@ -102,7 +108,7 @@ at step 4, and the findings, at step 6.
 2. **Start the run.**
 
    ```
-   ${CLAUDE_PLUGIN_ROOT}/bin/evalation-run <target> [pack ...]
+   ${CLAUDE_PLUGIN_ROOT}/bin/evalation-run <target> [pack ...] [--questions <file> ...]
    ```
 
    The target is the repository to read, and the working directory where none is named. The packs
@@ -189,8 +195,10 @@ at step 4, and the findings, at step 6.
 
    **Read in groups, one reader each.** `evalation-findings groups run.json` splits `to_read` into
    groups of about twenty entries, each within one pack. Where there is more than one group, start one
-   subagent per group, several at once, and give each the same task: read the methodology in
-   `run.json`, print its group with `evalation-findings group run.json <n>`, read the repository for
+   subagent per group, several at once, and give each the same task: print the methodology with
+   `evalation-findings methodology run.json` and never open `run.json` itself, since it holds the
+   customer's own questions unfenced, print its group with `evalation-findings group run.json <n>`,
+   where any customer questions arrive inside a fence, read the repository for
    those entries through `evalation-read` alone, write its answers, findings and accounted rows as
    `part-<n>.json` in the scratch folder in the format `shape` prints, and run
    `evalation-findings part run.json <n> part-<n>.json <target>` until it holds. A part that holds is

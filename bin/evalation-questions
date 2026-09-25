@@ -1,0 +1,54 @@
+#!/usr/bin/env node
+// evalation-questions - a customer's own questions, checked and kept for the next run.
+//
+//   evalation-questions check <file>            prints each problem, or that the set holds
+//   evalation-questions save <file> [--replace] keeps the set under its name on this machine
+//   evalation-questions list                    the names of the sets kept here
+//   evalation-questions path <name>             where a kept set is, to pass to evalation-run --questions
+"use strict";
+
+const { readFileSync } = require("node:fs");
+const { homedir } = require("node:os");
+const { join } = require("node:path");
+const { load, problems, save, saved } = require("../lib/questions.js");
+
+const HOME = process.env.EVALATION_HOME || join(homedir(), ".evalation");
+
+function fail(reason) {
+  process.stderr.write(`${reason}\n`);
+  process.exit(1);
+}
+
+function read(file) {
+  try {
+    return JSON.parse(readFileSync(file, "utf8"));
+  } catch (thrown) {
+    return fail(`unreadable-questions: ${file} (${thrown.message})`);
+  }
+}
+
+const [verb, arg, flag] = process.argv.slice(2);
+if (verb === "check") {
+  const wrong = problems(read(arg));
+  if (wrong.length > 0) fail(`${wrong.length} to fix:\n  ${wrong.join("\n  ")}`);
+  process.stdout.write("holds\n");
+} else if (verb === "save") {
+  try {
+    const set = read(arg);
+    save(HOME, set, { replace: flag === "--replace" });
+    process.stdout.write(`kept as ${set.name}\n`);
+  } catch (thrown) {
+    fail(thrown.message);
+  }
+} else if (verb === "list") {
+  process.stdout.write(`${JSON.stringify(saved(HOME))}\n`);
+} else if (verb === "path") {
+  try {
+    load(HOME, arg);
+    process.stdout.write(`${join(HOME, "questions", `${arg}.json`)}\n`);
+  } catch (thrown) {
+    fail(`no-such-set: ${arg} (${thrown.message})`);
+  }
+} else {
+  fail("usage: evalation-questions check <file> | save <file> [--replace] | list | path <name>");
+}
