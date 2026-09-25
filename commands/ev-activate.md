@@ -12,6 +12,9 @@ window opens on their own provider's sign-in page, they sign in there, and the w
 No password comes near us. Their machine makes two keys and keeps both private halves, so nothing
 that could impersonate them ever leaves it.
 
+**Ask every question through the host's question interface**, the AskUserQuestion tool in Claude
+Code, with each answer one of its options. Never write a question and its answers as a list in text.
+
 ## What to do
 
 1. **Ask which provider.** Google and Microsoft are the two. Ask even where one was named earlier in

@@ -15,6 +15,9 @@ answers the way it answers a pack's own: a plain question and a numbered list of
 so its answer is counted from items and a later run on the same set answers it alike. That is what a
 run adds over asking directly, so never skip the list.
 
+**Ask every question through the host's question interface**, the AskUserQuestion tool in Claude
+Code, with each answer one of its options. Never write a question and its answers as a list in text.
+
 ## 1. Where the questions go
 
 Ask which of these, in one question:

@@ -12,6 +12,9 @@ founder claims of it. Any number may be selected, and selecting several is the o
 A run spends one pack credit for each pack it reads, so what is selected here is what a run costs.
 Four packs is four credits every time that selection is run.
 
+**Ask every question through the host's question interface**, the AskUserQuestion tool in Claude
+Code, with each answer one of its options. Never write a question and its answers as a list in text.
+
 ## What to do
 
 1. **Show what is selected now.**
@@ -34,7 +37,7 @@ Four packs is four credits every time that selection is run.
    means the server could not be reached: say so plainly and stop. Never invent a catalogue, and
    never offer a pack the fetch did not return.
 
-4. **Ask which packs they want**, using this host's own question interface where it has one, offering
+4. **Ask which packs they want**, offering
    exactly what the catalogue returned, in the alphabetical order it returned them. Where the
    interface holds fewer options than there are packs, split them across questions in that same
    order. Name each pack by its `title` exactly as served, so SOC 2
