@@ -21,6 +21,7 @@ const { readFileSync, writeFileSync } = require("node:fs");
 const { join, resolve } = require("node:path");
 
 const pptx = require("../lib/pptx.js");
+const { changeNotes, dated } = require("../lib/changes.js");
 const { render } = require("../lib/slides.js");
 const { print } = require("../lib/print.js");
 const { assure } = require("../lib/assure.js");
@@ -133,6 +134,8 @@ function model(document) {
     bars: hardness.lenses ?? hardness.bars ?? [],
     exec: document.exec_summary ?? {},
     commentary: document.commentary ?? {},
+    changes: document.changes ?? null,
+    changesPack: document.changes_pack ?? "",
     risk: document.risk_path ?? {},
     strengths: document.strengths ?? [],
     roadmap: document.roadmap ?? {},
@@ -255,6 +258,25 @@ function trimUnused(slide, token) {
 //
 // Each block keeps its own drawing and moves as a whole, so the accent bar beside a block travels
 // with it and nothing has to know which piece is which.
+/**
+ * A slide with fixed words of the template replaced, each matched by a shape's whole text, since a
+ * title is not a token and its apostrophe is written differently in the part than it reads.
+ */
+function retitled(xml, words) {
+  const edits = [];
+  for (const shape of pptx.shapes(xml)) {
+    const to = words[shape.text.trim()];
+    if (to === undefined) continue;
+    let first = true;
+    edits.push({ shape, body: shape.body.replace(/<a:t>[^<]*<\/a:t>/g, () => {
+      const run = first ? `<a:t>${pptx.escaped(to)}</a:t>` : "<a:t></a:t>";
+      first = false;
+      return run;
+    }) });
+  }
+  return pptx.rewrite(xml, edits);
+}
+
 function spread(slide) {
   let xml = slide.xml;
   const all = pptx.shapes(xml);
@@ -298,7 +320,10 @@ function spread(slide) {
   const gap = Math.max(140_000,
     Math.floor((room - tallest * groups.length) / Math.max(1, groups.length - 1)));
 
-  const step = tallest + gap;
+  // Never wider than the template's own pitch unless the words need it. A slide with two blocks spread
+  // them over the whole height, with the second at the foot and nothing between.
+  const pitch = tops[1] - tops[0];
+  const step = Math.min(tallest + gap, Math.max(pitch, tallest + 140_000));
   const at = groups.map((one, n) => from + step * n);
 
   // Nothing is moved where the blocks would not fit: the template's own pitch is better than a page
@@ -731,6 +756,9 @@ function deck(document, into, options = {}) {
 
   // 4 - the honest read on how it is built.
   const commentary = slides[3];
+  // What moved since the last run, on a copy of this slide placed after it, retitled and filled from
+  // the same comparison the detail opens with. A deck with no earlier run has no such slide.
+  const since = held.changes ? pptx.duplicateSlide(file, { xml: commentary.xml, number: commentary.number }, 3) : null;
   commentary.xml = pptx.fill(commentary.xml, type);
   // One block, or several. A single headline and body is what the synthesis writes when it has one
   // thing to say, and reading that as a block per field prints the field names at a reader.
@@ -745,6 +773,18 @@ function deck(document, into, options = {}) {
   );
   trimUnused(commentary, "{{ Strength or risk headline }}");
   spread(commentary);
+
+  if (since) {
+    since.xml = retitled(pptx.fill(since.xml, type), {
+      "What we think of how it's built": `What changed since ${dated(held.changes.since)}`,
+      COMMENTARY: "SINCE LAST RUN",
+    });
+    const notes = changeNotes(held.changes, held.changesPack);
+    fillInOrder(since, "{{ Strength or risk headline }}", notes.map((one) => one.headline));
+    fillInOrder(since, "{{ 2-3 sentence honest assessment; concrete and specific, not pitched. }}", notes.map((one) => one.body));
+    trimUnused(since, "{{ Strength or risk headline }}");
+    spread(since);
+  }
 
   // 5 - one number, its grade, and where it came from.
   const score = slides[4];
