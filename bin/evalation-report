@@ -173,8 +173,8 @@ function closing(answer) {
     return `<div class="did"><b>What to do</b>${escaped(answer.remedy)}</div>`;
   }
   if (answer.justification) {
-    return `<div class="did"><b>Why this is not the code's to answer</b>` +
-      `${escaped(answer.justification)}</div>`;
+    const label = answer.status === "not-applicable" ? "Why this does not apply" : "Why this is not the code's to answer";
+    return `<div class="did"><b>${label}</b>${escaped(answer.justification)}</div>`;
   }
   return "";
 }

@@ -285,9 +285,11 @@ function checked(document, where) {
 
   const scanHeld = newestFor(where)?.document ?? null;
   const lists = new Map();
+  const settledBy = new Map();
   for (const pack of document.packs ?? []) {
     for (const one of pack.entries_asked ?? []) {
       if (Array.isArray(one.looks_for) && one.looks_for.length > 0) lists.set(`${pack.pack}/${one.identifier}`, one.looks_for);
+      settledBy.set(`${pack.pack}/${one.identifier}`, one);
     }
   }
 
@@ -309,16 +311,18 @@ function checked(document, where) {
     for (const one of evidence) cited(where, one, said);
     const searched = String(answer.searched ?? "").trim();
 
-    // Settled by the pack rather than by a reading. It owes its justification like any org-level
-    // answer and owes nothing else: there is no evidence to cite because no repository could have
-    // carried any, and a corrective step would be asking a customer to fix somebody else's job in
-    // their code.
+    // Settled by the pack: an entry the organisation owns, or one not in force. It owes its
+    // justification and nothing else, since no repository was read for it. Only an entry the reading
+    // was never asked can be settled so, and a reading cannot settle one it was given this way.
     if (answer.from === "authored") {
-      if (answer.status !== "org-level") {
-        said.push(
-          `${named}: answered from the pack as ${answer.status}, and only org-level can be settled ` +
-            "without reading, because whether anything else holds depends on the tree",
-        );
+      // What the pack itself settles this entry as. A run from before the pack's flags were carried
+      // knows only org-level.
+      const entry = settledBy.get(named);
+      const owed = entry?.in_force === false ? "not-applicable" : "org-level";
+      if (entry?.bears_on === "repository" && entry?.in_force !== false) {
+        said.push(`${named}: answered from the pack, and the pack has this entry read from the repository`);
+      } else if (answer.status !== owed) {
+        said.push(`${named}: answered from the pack as ${answer.status}, and the pack settles it as ${owed}`);
       }
       if (evidence.length > 0) {
         said.push(`${named}: answered from the pack and cites the tree, which nothing read`);
@@ -618,7 +622,7 @@ function skeleton(served, readBy) {
         kind: body.kind ?? one.kind,
         ...pick(body, ["title", "version", "entry_noun", "sections"]),
         selected: entries.map((entry) => entry.identifier),
-        entries_asked: entries.map((entry) => pick(entry, ["identifier", "title", "intent", "looks_for", "section", "obligation", "note"])),
+        entries_asked: entries.map((entry) => pick(entry, ["identifier", "title", "intent", "looks_for", "section", "obligation", "note", "bears_on", "in_force"])),
       };
     }),
     answers: [...(served.answered ?? [])],

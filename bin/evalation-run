@@ -58,6 +58,19 @@ function settled(packs) {
   const held = [];
   for (const pack of packs) {
     for (const entry of pack.body?.entries ?? []) {
+      // A clause the standard still prints and nobody can enforce, such as one a court set aside, is
+      // kept so a reader sees it was considered, and it applies to no repository while that holds.
+      if (entry.in_force === false) {
+        held.push({
+          pack: pack.pack,
+          entry: entry.identifier,
+          status: "not-applicable",
+          from: "authored",
+          because: `${entry.title} is not in force, so the pack answers it.`,
+          justification: entry.justification,
+        });
+        continue;
+      }
       if (entry.bears_on !== "organisation") continue;
       held.push({
         pack: pack.pack,
@@ -78,7 +91,7 @@ function settled(packs) {
 function reading(packs) {
   return packs.map((pack) => ({
     pack: pack.pack,
-    entries: (pack.body?.entries ?? []).filter((one) => one.bears_on !== "organisation"),
+    entries: (pack.body?.entries ?? []).filter((one) => one.bears_on !== "organisation" && one.in_force !== false),
   }));
 }
 
