@@ -9,7 +9,8 @@
 // pass untouched, since this binds only the agents the plugin defines.
 "use strict";
 
-const { readFileSync } = require("node:fs");
+const { readFileSync, realpathSync } = require("node:fs");
+const { resolve, sep } = require("node:path");
 
 const OURS = /^evalation-plugin:/;
 // The verbs an agent's task names, and none that write the run: merging, applying and delivering are
@@ -44,4 +45,28 @@ const command = String(call.tool_input?.command ?? "");
 const line = command.replace(/<<\s*'?(\w+)'?\n[\s\S]*?\n\1\s*$/, "").trim();
 if (!COMMANDS.test(`${line} `)) refused(`"${line.slice(0, 60)}" is not an Evalation reading command`);
 if (JOINED.test(line)) refused(`"${line.slice(0, 60)}" joins, pipes or redirects commands`);
+
+// evalation-read reads whatever folder it is named, so its target must lie within the folder the
+// session opened in. A target the shell would expand (~, $, a glob) is refused, since the text judged
+// here is not the path the shell would pass.
+if (/^\s*\S*evalation-read\s/.test(line)) {
+  const target = line.match(/evalation-read\s+(?:'([^']*)'(?=\s|$)|"([^"$`\\]*)"(?=\s|$)|([^\s'"]+)(?=\s|$))/);
+  const named = target ? target[1] ?? target[2] ?? target[3] : line.replace(/^\s*\S*evalation-read\s+/, "").split(/\s/)[0];
+  const home = String(call.cwd ?? "");
+  const outside = () => refused(`"${named}" is outside the folder this session opened in`);
+  if (!target || !home || (target[3] !== undefined && /[~$*?[\]{}\\]/.test(named))) outside();
+  const inside = real(home);
+  const at = real(resolve(home, named));
+  if (at !== inside && !at.startsWith(inside + sep)) outside();
+}
 process.exit(0);
+
+/** The path with every link resolved, or as written where it does not exist on this machine. */
+function real(path) {
+  try {
+    return realpathSync(path);
+  } catch {
+    // empty-catch:allow: a path that does not exist cannot lead anywhere, so its written form is judged.
+    return resolve(path);
+  }
+}

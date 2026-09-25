@@ -4,8 +4,9 @@
 
 const test = require("node:test");
 const assert = require("node:assert");
-const { execFileSync } = require("node:child_process");
-const { mkdirSync, writeFileSync } = require("node:fs");
+const { execFileSync, spawnSync } = require("node:child_process");
+const { mkdirSync, mkdtempSync, symlinkSync, writeFileSync } = require("node:fs");
+const { tmpdir } = require("node:os");
 const { join } = require("node:path");
 const { repository } = require("./fixture.js");
 const { filesOf } = require("../lib/tree.js");
@@ -35,6 +36,19 @@ test("a search finds a package in a lockfile, and passes binary files by", () =>
   const said = execFileSync(READ, [at, "search", "quinn"], { encoding: "utf8" });
   assert.match(said, /services\/Cargo\.lock:2:/);
   assert.doesNotMatch(said, /logo\.png/);
+});
+
+test("a link in the repository to a file outside it is not read", () => {
+  const at = tree();
+  const outside = mkdtempSync(join(tmpdir(), "evalation-outside-"));
+  writeFileSync(join(outside, "id_rsa"), "PRIVATE KEY\n");
+  symlinkSync(outside, join(at, "notes"));
+  for (const verb of ["read", "outline"]) {
+    const ran = spawnSync(READ, [at, verb, "notes/id_rsa"], { encoding: "utf8" });
+    assert.notStrictEqual(ran.status, 0, verb);
+    assert.doesNotMatch(ran.stdout, /PRIVATE KEY/, verb);
+    assert.match(ran.stderr, /outside the tree being read/, verb);
+  }
 });
 
 test("a concern set runs git history only where one of its items asks for it", () => {
