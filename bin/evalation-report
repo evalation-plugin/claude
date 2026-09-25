@@ -28,12 +28,16 @@
 const { mkdirSync, readFileSync } = require("node:fs");
 const { join, resolve } = require("node:path");
 
+const { homedir } = require("node:os");
+const { changes, changesSection, earlierFor } = require("../lib/changes.js");
 const { print } = require("../lib/print.js");
 const { readingOf } = require("../lib/prose.js");
 const { cardOf, compared, compatible, named: phaseNamed, upgradeTo } = require("../lib/scans.js");
 const { consequences, remedies } = require("../lib/weaknesses.js");
 const { keepFindings, reportsFolder, reviewName } = require("../lib/reports.js");
 const { CHROME, css, escaped, paginator, scanResults } = require("../lib/sheet.js");
+
+const HOME = process.env.EVALATION_HOME || join(homedir(), ".evalation");
 
 // The vocabulary, in the order a reader should meet it: what is wrong first, what is right after,
 // and what is nobody's or somebody else's last. Coverage is this pack's own, as severity is the
@@ -463,7 +467,10 @@ function page(document, answers, asked) {
     byPack.get(one.pack).push(one);
   }
 
-  const blocks = opening(document, answers, packs, asked) + [...byPack.entries()].map(([pack, held]) => {
+  // What moved since the last run of this repository kept on this machine, where there is one.
+  const since = changes(document, earlierFor(document, HOME));
+  const blocks = opening(document, answers, packs, asked) +
+    [...byPack.keys()].map((pack) => changesSection(since, pack)).join("") + [...byPack.entries()].map(([pack, held]) => {
     const one = packs.find((each) => each.pack === pack);
     const noun = nounOf(one);
     // The pack's own name leads a section heading only where the report covers more than one. With
@@ -572,4 +579,6 @@ function main() {
   process.stdout.write(`${JSON.stringify({ folder, packs: written }, null, 2)}\n`);
 }
 
-main();
+module.exports = { page };
+
+if (require.main === module) main();

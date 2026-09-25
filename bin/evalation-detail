@@ -30,6 +30,7 @@ const { print } = require("../lib/print.js");
 const { cardOf, compared, compatible, named, upgradeTo } = require("../lib/scans.js");
 const { consequences, remedies } = require("../lib/weaknesses.js");
 const { CHROME, css, escaped, paginator, scanResults } = require("../lib/sheet.js");
+const { changesSection } = require("../lib/changes.js");
 
 // Severity is this report's own: the evidence pack owns coverage colours and this owns severity,
 // and neither writes into the other. The page itself is the shared one.
@@ -330,7 +331,7 @@ function page(document) {
   const foot = `${document.title ?? "Evalation Hardening Review"}. Engineering / SDLC findings.`;
 
   const reported = document.scan?.reported ?? {};
-  const blocks = opening(document) +
+  const blocks = opening(document) + changesSection(document.changes ?? null, document.changes_pack ?? "") +
     (document.categories ?? []).map(section).join("") +
     // Every scanner result, so the cards stay with the concerns the pack asks about and the tools'
     // output is read here in one place. A result a card cites names that card.

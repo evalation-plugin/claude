@@ -24,7 +24,11 @@
 const { existsSync, mkdirSync, readFileSync, writeFileSync } = require("node:fs");
 const { basename, join, resolve } = require("node:path");
 
+const { homedir } = require("node:os");
+const { changes, earlierFor } = require("../lib/changes.js");
 const { synthesise } = require("../lib/synthesise.js");
+
+const HOME = process.env.EVALATION_HOME || join(homedir(), ".evalation");
 const { keepFindings, reportsFolder, reviewName } = require("../lib/reports.js");
 const { cardWorst } = require("../lib/scans.js");
 const { readingOf } = require("../lib/prose.js");
@@ -266,6 +270,13 @@ function reviewFindings(document) {
   };
 
   if (document.scan) built.scan = { ...document.scan, reported };
+
+  // What moved since the last run of this repository kept on this machine, and which pack it is for.
+  const since = changes(document, earlierFor(document, HOME));
+  if (since) {
+    built.changes = since;
+    built.changes_pack = (document.packs ?? []).find((one) => one.kind === "concern-set")?.pack ?? "";
+  }
 
   if (document.hardness) {
     built.hardness = { score: document.hardness.score, grade: document.hardness.grade };
