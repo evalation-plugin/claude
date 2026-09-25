@@ -51,6 +51,10 @@ words or the plugin's to get past a check.
 changed the thing being measured. Two files are written, both outside it: what the scanners found,
 at step 4, and the findings, at step 6.
 
+**Write to the person in plain text.** No HTML tags such as `<br>`, which the terminal prints as they
+are, and no blank placeholder lines. While readers or scanners work, say nothing until there is
+something to report.
+
 ## What to do
 
 1. **Check which branch the tree is on, then ask which packs to run, and wait for the answer.**
