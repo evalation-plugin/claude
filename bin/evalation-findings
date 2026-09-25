@@ -56,9 +56,11 @@ function scanSays(want, scan, since) {
     return { result: "not-checked", over: [], why: !scan || !fresh ? "no scan was run over this tree in this run" : `the ${phaseNamed(want.phase)} did not run: ${phase?.why ?? "it was not in the scan"}` };
   }
   const floor = want.at_least ? SEVERITY.indexOf(want.at_least) : SEVERITY.length - 1;
-  // Counted once per result. The same advisory in two lockfiles is one weakness, not two.
+  // Counted once per result. The same advisory in two lockfiles is one weakness, not two. An item
+  // naming a rule is settled by that rule's results alone, so one phase can answer several items.
   const seen = new Set();
-  const over = (scan.findings ?? []).filter((one) => one.phase === want.phase && SEVERITY.indexOf(one.severity) >= 0 &&
+  const ruled = (one) => !want.rule || one.key === want.rule || String(one.key).startsWith(`${want.rule}:`);
+  const over = (scan.findings ?? []).filter((one) => one.phase === want.phase && ruled(one) && SEVERITY.indexOf(one.severity) >= 0 &&
     SEVERITY.indexOf(one.severity) <= floor && !seen.has(one.key) && seen.add(one.key));
   return { result: over.length === 0 ? "found" : "missing", over };
 }

@@ -144,7 +144,9 @@ function branchOf(where) {
     : ["main", "master"].find((one) => quietly("git", ["rev-parse", "--verify", "--quiet", `refs/heads/${one}`], where));
   if (!main) return null;
   const branch = quietly("git", ["symbolic-ref", "--short", "--quiet", "HEAD"], where);
-  return { branch, main, on_main: branch === main };
+  // When the newest commit on disk was made. A clone nobody pulled reads as a project that stopped.
+  const newest = quietly("git", ["log", "-1", "--format=%cI"], where) || null;
+  return { branch, main, on_main: branch === main, newest };
 }
 
 function main() {

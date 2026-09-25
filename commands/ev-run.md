@@ -86,6 +86,11 @@ something to report.
    if the tree is still off main. Where `on_main` is true or null, say nothing about branches: null
    means the target is no git checkout, or names no main to compare with.
 
+   Where `newest`, the date of the newest commit on disk, is more than 14 days ago, say in one
+   sentence that the clone's newest commit is from that date, and ask whether to stop so they can
+   pull the latest changes, or go on and read it as it stands. A clone nobody pulled reads as a
+   project that stopped, which the history measures would report. Never pull yourself.
+
    Then show the recorded selection first, from
    `${CLAUDE_PLUGIN_ROOT}/bin/evalation-packs show`, as the default, naming each pack by its title
    from `${CLAUDE_PLUGIN_ROOT}/bin/evalation-packs titles` and never by its handle, in the alphabetical

@@ -37,7 +37,7 @@ function scanned(tree, findings, at = "2026-09-25T00:00:00.000Z") {
   mkdirSync(join(home, "scans"), { recursive: true });
   writeFileSync(join(home, "scans", `${at.replace(/[:.]/g, "-")}.json`), JSON.stringify({
     target: { path: tree }, at,
-    phases: ["sca", "sast", "secret"].map((phase) => ({ phase, ran: true })),
+    phases: ["sca", "sast", "secret", "history"].map((phase) => ({ phase, ran: true })),
     findings,
   }));
 }
