@@ -253,7 +253,10 @@ at step 4, and the findings, at step 6.
 
    **An entry carrying `looks_for` is answered item by item.** Look for each item, record it found,
    missing or not applying in `looked_for`, and the status is the count `shape` gives. The count is
-   the status, so settle each item as its words say and never lean an item to reach a status.
+   the status, so settle each item as its words say and never lean an item to reach a status. A
+   concern carrying `looks_for` records its items the same way, in its `accounted` row, and the
+   hardness score is counted from those rows: each missing item costs the severity the pack gives
+   it. Its findings then say what was found and what fixes it.
 
    Every answer says why it is that status and not the one either side of it, and carries something
    a person can check. Covered carries its evidence. An answer resting on something being absent,

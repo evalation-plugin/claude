@@ -381,6 +381,8 @@ function checked(document, where) {
       said.push(`${named}: accounted for with nothing said about what was looked at`);
     }
     if (!concerns.has(named)) said.push(`${named}: accounted for and never selected`);
+    const list = lists.get(named);
+    if (list) itemsOf(named, row.looked_for, list, where, scanHeld, document.at, said);
   }
   for (const one of [...concerns].sort()) {
     if (!accountedFor.has(one)) {
@@ -478,11 +480,21 @@ function followed(named, answer, list, where, scan, since) {
     said.push(`${named}: org-level, and the pack has this entry read from the repository. Answer each thing it looks for`);
     return said;
   }
-  const rows = answer.looked_for;
+  const owed = itemsOf(named, answer.looked_for, list, where, scan, since, said);
+  if (owed && answer.status !== owed) said.push(`${named}: ${answer.status}, and ${owed.said}, which makes it ${owed.status}`);
+  return said;
+}
+
+/**
+ * One row per item of a list, in the list's order, each held to what its result owes, and the status
+ * the rows count to. Null where the rows do not match the list. A concern set's row is held the same
+ * way, since the hardness score is counted from its items.
+ */
+function itemsOf(named, rows, list, where, scan, since, said) {
   if (!Array.isArray(rows) || rows.length !== list.length) {
     said.push(`${named}: looked_for holds ${Array.isArray(rows) ? rows.length : "no"} rows, and the entry ` +
       `lists ${list.length} things to look for. Give one row per item, in the entry's order`);
-    return said;
+    return null;
   }
   const counted = { found: 0, missing: 0, "does-not-apply": 0 };
   rows.forEach((row, at) => {
@@ -523,13 +535,12 @@ function followed(named, answer, list, where, scan, since) {
     }
   });
   const applies = rows.length - counted["does-not-apply"];
-  const owed = applies === 0 ? "not-applicable"
-    : counted.found === applies ? "covered"
-    : counted.found === 0 ? "total-gap" : "partial-gap";
-  if (answer.status !== owed) {
-    said.push(`${named}: ${answer.status}, and it found ${counted.found} of the ${applies} items that apply, which makes it ${owed}`);
-  }
-  return said;
+  return {
+    status: applies === 0 ? "not-applicable"
+      : counted.found === applies ? "covered"
+      : counted.found === 0 ? "total-gap" : "partial-gap",
+    said: `it found ${counted.found} of the ${applies} items that apply`,
+  };
 }
 
 /**
@@ -722,6 +733,10 @@ function shape() {
     "",
     "An accounted row, one per concern of a concern set, found or not:",
     '  {"pack":"hardening","concern":"SEC01","because":"what was looked for, where, and what was found"}',
+    "  A concern carrying looks_for adds looked_for, one row per item in order, exactly as an entry's.",
+    "  The hardness score is counted from those rows: a missing item costs its severity, a found one earns",
+    "  credit. Findings still say what was found and what fixes it: a finding for each missing item worth",
+    "  telling, at that item's severity or the scanner's where it rests on a scanner result.",
     "",
     "A citation:",
     `  {"path":"relative/to/tree.ts","from":10,"to":14,"quote":"...","grade":"<grade>"}`,
@@ -844,6 +859,11 @@ function main() {
   for (const answer of document.answers ?? []) {
     if (!answer.id) answer.id = namedAnswer(document, answer);
     if (!answer.confirmed) answer.confirmed = "asserted";
+  }
+  // A concern's row is a claim the verifier checks where its concern lists items, since the hardness
+  // score is counted from them, so it is named the way an answer is: by its pack and concern.
+  for (const row of document.accounted ?? []) {
+    if (!row.id) row.id = digested("c-", [document.target?.repository ?? "", row.pack ?? "", row.concern ?? ""]);
   }
   for (const finding of document.findings ?? []) {
     if (!finding.id) finding.id = namedFinding(document, finding);
