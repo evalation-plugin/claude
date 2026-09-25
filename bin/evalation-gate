@@ -35,6 +35,8 @@ try {
   process.exit(0);
 }
 if (!OURS.test(String(call.agent_type ?? ""))) process.exit(0);
+// Handing its answer back to the session reads and runs nothing.
+if (call.tool_name === "SubagentHandback") process.exit(0);
 if (call.tool_name !== "Bash") refused(`${call.tool_name} is not a tool this agent holds`);
 
 const command = String(call.tool_input?.command ?? "");

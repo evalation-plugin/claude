@@ -36,6 +36,10 @@ test("an Evalation agent is refused anything else, with the reason", () => {
   assert.ok(!gate({ tool_name: "Read", tool_input: { file_path: "/repo/x" }, agent_type: "evalation-plugin:reader" }).allowed);
 });
 
+test("an Evalation agent hands its answer back to the session", () => {
+  assert.ok(gate({ tool_name: "SubagentHandback", tool_input: { message: "Batch 7 recorded." }, agent_type: "evalation-plugin:verifier" }).allowed);
+});
+
 test("the session's own calls and other agents' calls pass the gate", () => {
   assert.ok(gate({ tool_name: "Bash", tool_input: { command: "ls" } }).allowed);
   assert.ok(bash("ls", "general-purpose").allowed);
