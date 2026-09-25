@@ -121,6 +121,22 @@ function main() {
     );
   }
 
+  const { score: overall, grade, bars } = hardness(document, rubric);
+
+  // Written onto the findings file, because the score is a fact about that assessment and belongs
+  // with it. What is written is the answer and never the rubric: a findings file carrying the weights
+  // would put the methodology on disk, which is the whole thing this arrangement exists to avoid.
+  document.hardness = { score: overall, grade, bars };
+  writeFileSync(resolve(source), JSON.stringify(document, null, 2) + "\n");
+
+  process.stdout.write(JSON.stringify({ score: overall, grade, bars }, null, 2) + "\n");
+}
+
+/** The score, its grade and each category's bar, from a run and the rubric it was served. */
+function hardness(document, rubric) {
+  const scoring = (document.findings ?? []).filter((one) => one.pack === rubric.pack);
+  const read = (document.accounted ?? []).filter((one) => one.pack === rubric.pack);
+
   // Every category that was read, whether or not anything was found in it.
   //
   // A category read and found clean scores at the ceiling and counts, because finding nothing after
@@ -194,15 +210,9 @@ function main() {
   }
 
   const overall = denominator > 0 ? Math.round(numerator / denominator) : 0;
-  const grade = graded(overall, rubric.grades);
-
-  // Written onto the findings file, because the score is a fact about that assessment and belongs
-  // with it. What is written is the answer and never the rubric: a findings file carrying the weights
-  // would put the methodology on disk, which is the whole thing this arrangement exists to avoid.
-  document.hardness = { score: overall, grade, bars };
-  writeFileSync(resolve(source), JSON.stringify(document, null, 2) + "\n");
-
-  process.stdout.write(JSON.stringify({ score: overall, grade, bars }, null, 2) + "\n");
+  return { score: overall, grade: graded(overall, rubric.grades), bars };
 }
 
-main();
+module.exports = { hardness };
+
+if (require.main === module) main();
