@@ -168,6 +168,9 @@ something to report.
    morning, and no reading answers it from memory. One tool per phase answers that class of question, and on
    a machine where the only thing installed is this plugin, none of them is here yet.
 
+   Where none is missing, say that all of them are installed, in those words and no more, and go on
+   to step 4.
+
    `show` says which are missing and the command that would fetch each. Ask once, naming every
    missing tool, what each one looks for, and that it is their machine and their choice. Say what
    goes in the report either way: a tool they install checks its area, and a tool they decline leaves
