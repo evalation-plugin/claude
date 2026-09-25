@@ -52,7 +52,8 @@ show, with the person's agreement, or left out. For each question that stays, dr
 - Where a question asks what a scanner measures, use exactly one of these items:
   `{"find":"No known critical or high advisories in the pinned dependencies","proof":"scan","phase":"sca","at_least":"high"}`,
   `{"find":"No critical or high code weaknesses found by static analysis","proof":"scan","phase":"sast","at_least":"high"}`,
-  `{"find":"No credentials committed to the repository","proof":"scan","phase":"secret"}`.
+  `{"find":"No credentials committed to the repository","proof":"scan","phase":"secret"}`,
+  `{"find":"No one person making most of the last year's commits","proof":"scan","phase":"history","at_least":"medium"}`.
 
 Write in plain English with New Zealand spelling, no dashes, no semicolons and no "rather than".
 

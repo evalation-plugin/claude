@@ -39,6 +39,14 @@ test("each question is held to the rules a pack's entry is", () => {
   assert.match(said, /X9 title: empty/);
 });
 
+test("a question may ask what git history shows, settled by the history phase", () => {
+  const asked = question("Q1", { looks_for: [
+    { find: "Code owners named for each main area", proof: "runs" },
+    { find: "No one person making most of the last year's commits", proof: "scan", phase: "history", at_least: "medium" },
+  ] });
+  assert.deepStrictEqual(problems(set([asked])), []);
+});
+
 test("a set with no questions, or none at all, is refused", () => {
   assert.match(problems(set([])).join(), /no questions/);
   assert.match(problems({}).join(), /no name/);
