@@ -43,9 +43,10 @@ function fail(reason) {
   process.exit(1);
 }
 
+// "-" is standard input, which is how an Evalation agent holding no tool to write files hands its answer.
 function readJson(path, what) {
   try {
-    return JSON.parse(readFileSync(path, "utf8"));
+    return JSON.parse(readFileSync(path === "-" ? 0 : path, "utf8"));
   } catch (thrown) {
     fail(`unreadable-${what}: ${path} (${thrown.message})`);
   }

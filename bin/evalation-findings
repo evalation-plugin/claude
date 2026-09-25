@@ -21,7 +21,7 @@
 
 const { createHash } = require("node:crypto");
 const { existsSync, mkdirSync, readFileSync, writeFileSync } = require("node:fs");
-const { join, resolve, relative, isAbsolute } = require("node:path");
+const { dirname, join, resolve, relative, isAbsolute } = require("node:path");
 const { homedir } = require("node:os");
 
 const { cardOf, cardWorst, named: phaseNamed, newestFor, phasesRead } = require("../lib/scans.js");
@@ -822,12 +822,15 @@ function verbs(argv) {
     const [run, n, file, tree] = rest;
     let part;
     try {
-      part = JSON.parse(readFileSync(file, "utf8"));
+      part = JSON.parse(readFileSync(file === "-" ? 0 : file, "utf8"));
     } catch (thrown) {
       fail(`unreadable-part: ${thrown.message}`);
     }
     const said = partChecked(served(run), Number(n), part, resolve(tree || process.cwd()));
     if (said.length > 0) fail(`observed: ${said.length} thing${said.length === 1 ? "" : "s"} in part ${n} to fix:`, said);
+    // A part handed on standard input is kept beside the run once it holds, so a reader holding no
+    // tool to write files leaves its part where the merge reads it.
+    if (file === "-") writeFileSync(join(dirname(resolve(run)), `part-${Number(n)}.json`), JSON.stringify(part, null, 2) + "\n");
     process.stdout.write(`part ${n} holds: ${(part.answers ?? []).length} answers, ${(part.findings ?? []).length} findings, ${(part.accounted ?? []).length} accounted\n`);
     return true;
   }
