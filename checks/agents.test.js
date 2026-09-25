@@ -15,7 +15,7 @@ function gate(call) {
   const ran = spawnSync(GATE, [], { input: JSON.stringify({ hook_event_name: "PreToolUse", ...call }), encoding: "utf8" });
   return { allowed: ran.status === 0, said: ran.stderr };
 }
-const bash = (command, agent = "evalation-plugin:reader") => gate({ tool_name: "Bash", tool_input: { command }, agent_type: agent, agent_id: "a-1" });
+const bash = (command, agent = "evalation-plugin:reader", cwd = "/repo") => gate({ tool_name: "Bash", tool_input: { command }, agent_type: agent, agent_id: "a-1", cwd });
 
 test("an Evalation agent runs one Evalation command", () => {
   assert.ok(bash("/x/bin/evalation-read /repo search 'quinn' 'services/*'").allowed);
@@ -34,6 +34,21 @@ test("an Evalation agent is refused anything else, with the reason", () => {
     assert.match(said.said, /only Evalation's reading commands/, command);
   }
   assert.ok(!gate({ tool_name: "Read", tool_input: { file_path: "/repo/x" }, agent_type: "evalation-plugin:reader" }).allowed);
+});
+
+test("an Evalation agent reads the folder the session opened in and nothing outside it", () => {
+  assert.ok(bash("/x/bin/evalation-read /repo/services map").allowed);
+  assert.ok(bash("/x/bin/evalation-read . map").allowed);
+  assert.ok(bash("/x/bin/evalation-read '/repo' read src/a.js 1 20").allowed);
+  for (const command of ["/x/bin/evalation-read /elsewhere/tool-results read b1.txt 1 200",
+    "/x/bin/evalation-read /repo/../etc map", "/x/bin/evalation-read / map", "/x/bin/evalation-read ~ map",
+    "/x/bin/evalation-read $HOME/.ssh map", "/x/bin/evalation-read \"$HOME\" map", "/x/bin/evalation-read '/repo'/../etc map",
+    "/x/bin/evalation-read /repository map", "/x/bin/evalation-read .. map"]) {
+    const said = bash(command);
+    assert.ok(!said.allowed, command);
+    assert.match(said.said, /outside the folder this session opened in/, command);
+  }
+  assert.ok(!bash("/x/bin/evalation-read /repo map", "evalation-plugin:reader", "").allowed);
 });
 
 test("an Evalation agent hands its answer back to the session", () => {

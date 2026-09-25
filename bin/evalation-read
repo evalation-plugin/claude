@@ -21,7 +21,7 @@
 // this command and no other, so the question of what else the machine could reach does not arise.
 "use strict";
 
-const { readFileSync, statSync } = require("node:fs");
+const { readFileSync, realpathSync, statSync } = require("node:fs");
 const { extname, join, relative, resolve, sep } = require("node:path");
 
 const { fenced: fence, plain } = require("../lib/fence.js");
@@ -109,10 +109,18 @@ function walk(root) {
   return filesOf(root);
 }
 
+// Judged with every link resolved, so a link the repository holds cannot lead a reading outside it.
 function within(root, path) {
   const at = resolve(root, path);
-  const inside = resolve(root);
-  if (at !== inside && !at.startsWith(inside + sep)) {
+  const inside = realpathSync(root);
+  let real;
+  try {
+    real = realpathSync(at);
+  } catch {
+    // empty-catch:allow: a path that does not exist opens nothing, and lines() says it could not be read.
+    real = at;
+  }
+  if (real !== inside && !real.startsWith(inside + sep)) {
     fail(`${path} is outside the tree being read`,
       "name a path inside the target, since this run reads that tree and nothing else");
   }
