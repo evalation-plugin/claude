@@ -91,25 +91,38 @@ something to report.
    pull the latest changes, or go on and read it as it stands. A clone nobody pulled reads as a
    project that stopped, which the history measures would report. Never pull yourself.
 
-   Then show the recorded selection first, from
-   `${CLAUDE_PLUGIN_ROOT}/bin/evalation-packs show`, as the default, naming each pack by its title
-   from `${CLAUDE_PLUGIN_ROOT}/bin/evalation-packs titles` and never by its handle, in the alphabetical
-   order `titles` prints them in, and let the person confirm it,
-   narrow it or name others. A consultant assesses one client's tree against one set of obligations
-   and the next against another, so the packs are a choice per run and never assumed. The packs the
-   person names are what step 2 is given. Nothing is counted until step 2, so asking costs nothing.
+   Then ask which packs to read, in one multi-select question, naming each pack by its title from
+   `${CLAUDE_PLUGIN_ROOT}/bin/evalation-packs titles` and never by its handle. Its options, in order:
+   - each pack in the recorded selection from `${CLAUDE_PLUGIN_ROOT}/bin/evalation-packs show`, one
+     option per pack, in the alphabetical order `titles` prints them in, or one option for the whole
+     recorded selection where it holds more than two packs
+   - "Choose from a list of available packs"
+   - "Add my own questions": a custom pack of their questions alone, which costs no pack credits, or
+     extra questions added to a pack they chose, charged as that pack is
 
-   In the same question, offer the person's own questions: a custom pack of their questions alone,
-   which costs no pack credits, or extra questions added to a pack they chose, charged as that pack
-   is. Where they want either, stop and have them run `/ev-questions`, which drafts the questions with
-   them, turns any website claims into questions and gives back a file. Pass each such file to step
-   2 with `--questions <file>`. A run of a custom pack alone names no packs at all.
+   Offer no combinations of packs as options, since the person ticks as many as they want. Where
+   nothing is recorded, the recorded packs are left out.
+
+   Where they tick "Choose from a list of available packs", ask a second time with every pack
+   `titles` prints except those already ticked, in its alphabetical order, as multi-select questions
+   of four packs each, headed by their place in the list ("Packs 1-4"). Ask at most four such
+   questions at once, and ask again for the rest. The packs ticked in both answers are the selection.
+
+   A consultant assesses one client's tree against one set of obligations and the next against
+   another, so the packs are a choice per run and never assumed. The packs the person ticks are what
+   step 2 is given. Nothing is counted until step 2, so asking costs nothing.
+
+   Where they tick "Add my own questions", stop and have them run `/ev-questions`, which drafts the
+   questions with them, turns any website claims into questions and gives back a file. Keep the packs
+   they ticked for when they come back. Pass each such file to step 2 with `--questions <file>`. A
+   run of a custom pack alone names no packs at all.
 
    **Say what this run will spend in the question itself.** It spends one pack credit for each pack
    it reads, and `${CLAUDE_PLUGIN_ROOT}/bin/evalation-status` prints how many credits are left. Name
-   both numbers in the question and nowhere else. Where the selection is larger than the balance,
-   say so there: the run is refused whole, with no part of it served, so they choose between topping
-   up and narrowing the selection, and this is the moment to find that out.
+   both numbers in each pack question and nowhere else. Where the packs ticked are more than the
+   balance, ask again before step 2 with the same options: the run is refused whole, with no part of
+   it served, so they choose between topping up and narrowing the selection, and this is the moment
+   to find that out.
 
    Once they answer, start the run with no announcement. They chose the packs and were told the
    cost, so a line restating either says nothing new.
