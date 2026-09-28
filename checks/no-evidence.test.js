@@ -52,8 +52,12 @@ test("infrastructure code is found by what the files are, and a compose file for
 test("with no infrastructure code, an item that could be held elsewhere is no evidence found, and the status leaves it out", () => {
   assert.deepStrictEqual(about(checked(asking(bare, [found(), { result: "no-evidence" }], "covered"), bare)), []);
   assert.deepStrictEqual(about(checked(asking(bare, [found(), missing()], "partial-gap"), bare)), [
-    "soc2/CC6.1 item 2: missing, and no infrastructure code was found in what this run read, which settles this item as no-evidence",
+    "soc2/CC6.1 item 2: missing, and no infrastructure code was found in what this run read, so it is found in the code or no-evidence",
   ]);
+});
+
+test("with no infrastructure code, an item the code itself shows is still found", () => {
+  assert.deepStrictEqual(about(checked(asking(bare, [found(), found()], "covered"), bare)), []);
 });
 
 test("an item the code should hold is never no evidence found", () => {
