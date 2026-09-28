@@ -571,7 +571,7 @@ function main() {
       signed: done.signed === true,
       ...(done.unsigned ? { unsigned: `marked "Signature missing, document cannot be verified": ${done.unsigned}` } : {}),
       entries: own.length,
-      cited: own.filter((one) => (one.evidence ?? []).length > 0).length,
+      cited: citing(own),
       by_status: counted(own),
     };
   });
@@ -579,6 +579,10 @@ function main() {
   process.stdout.write(`${JSON.stringify({ folder, packs: written }, null, 2)}\n`);
 }
 
-module.exports = { page };
+function citing(answers) {
+  return answers.filter((one) => [one, ...(one.looked_for ?? [])].some((row) => (row.evidence ?? []).length > 0)).length;
+}
+
+module.exports = { citing, page };
 
 if (require.main === module) main();

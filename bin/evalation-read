@@ -26,7 +26,7 @@ const { extname, join, relative, resolve, sep } = require("node:path");
 
 const { fenced: fence, plain } = require("../lib/fence.js");
 const { newestFor, said } = require("../lib/scans.js");
-const { filesOf } = require("../lib/tree.js");
+const { filesOf, inRepository } = require("../lib/tree.js");
 
 // What a whole read may run to before the range has to be named. A file past this is answered with
 // its shape and the ranges to ask for, because a reading that takes the whole file to find one
@@ -164,7 +164,7 @@ function map(root) {
       continue;
     }
     byLanguage.set(named, (byLanguage.get(named) ?? 0) + 1);
-    sized.push({ path: relative(root, path), size });
+    sized.push({ path: inRepository(root,path), size });
   }
 
   // Which files the rest of the tree names most. A file everything reaches is where a control would
@@ -214,7 +214,7 @@ function map(root) {
 function list(root, pattern) {
   const holds = matching(pattern);
   const found = walk(root)
-    .map((one) => relative(root, one))
+    .map((one) => inRepository(root,one))
     .filter((one) => holds(one))
     .sort();
   return paged(found, `${found.length} paths`);
@@ -231,7 +231,7 @@ function found(root, pattern, glob, limit = LINES * 4) {
   const holds = matching(glob);
   const out = [];
   for (const path of walk(root)) {
-    const shown = relative(root, path);
+    const shown = inRepository(root,path);
     if (!holds(shown)) continue;
     // Every text file, a lockfile among them, since a claim about a dependency is checked there. A
     // binary file, one holding a NUL, is passed by, since its bytes read as nothing a person wrote.
@@ -277,14 +277,14 @@ function outline(root, path) {
   });
   return paged(
     out.length ? out : ["no definitions recognised in this file"],
-    `${relative(root, at)}, ${held.length} lines`,
+    `${inRepository(root,at)}, ${held.length} lines`,
   );
 }
 
 function read(root, path, from, to) {
   const at = within(root, path);
   const held = lines(at);
-  const shown = relative(root, at);
+  const shown = inRepository(root,at);
 
   if (from === undefined) {
     // A whole read past the bound is refused with the shape of the file and the ranges to ask for,

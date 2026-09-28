@@ -16,7 +16,7 @@ const VERIFY = join(__dirname, "..", "bin", "evalation-verify");
 const SHOWN = 30000;
 
 function verify(args, input) {
-  return spawnSync(VERIFY, args, { input, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
+  return spawnSync(process.execPath, [VERIFY, ...args], { input, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
 }
 
 /** A findings file of thirty findings, each citing forty long lines. */

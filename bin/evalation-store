@@ -61,18 +61,13 @@ const stores = {
     reachable: () => can("powershell", ["-NoProfile", "-Command", "$PSVersionTable.PSVersion.Major"]),
     keep: (service, account, value) =>
       powershell(
-        `$b=[Convert]::FromBase64String('${b64(value)}');` +
-          `$s=[System.Text.Encoding]::UTF8.GetString($b);` +
-          `cmdkey /generic:${target(service, account)} /user:evalation /pass:$s | Out-Null`,
+        `${VAULT}$s=[System.Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('${b64(value)}'));` +
+          `$v.Add((New-Object Windows.Security.Credentials.PasswordCredential('${target(service, account)}','evalation',$s)))`,
       ),
     held: (service, account) =>
-      powershell(
-        `$c=[Windows.Security.Credentials.PasswordVault,Windows.Security.Credentials,ContentType=WindowsRuntime];` +
-          `$v=New-Object Windows.Security.Credentials.PasswordVault;` +
-          `($v.Retrieve('${target(service, account)}','evalation')).Password`,
-      ).trim(),
+      powershell(`${VAULT}$c=$v.Retrieve('${target(service, account)}','evalation');$c.RetrievePassword();$c.Password`).trim(),
     forget: (service, account) =>
-      powershell(`cmdkey /delete:${target(service, account)} | Out-Null`),
+      powershell(`${VAULT}$v.Remove($v.Retrieve('${target(service, account)}','evalation'))`),
   },
 
   // Linux and the BSDs. libsecret is what a desktop keyring exposes, and where no keyring is running
@@ -88,6 +83,9 @@ const stores = {
       run("secret-tool", ["clear", "service", service, "account", account]),
   },
 };
+
+const VAULT = "[void][Windows.Security.Credentials.PasswordVault,Windows.Security.Credentials,ContentType=WindowsRuntime];" +
+  "$v=New-Object Windows.Security.Credentials.PasswordVault;";
 
 function b64(value) {
   return Buffer.from(value, "utf8").toString("base64");

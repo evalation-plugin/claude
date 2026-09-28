@@ -20,14 +20,12 @@
 "use strict";
 
 const { generateKeyPairSync } = require("node:crypto");
-const { execFileSync } = require("node:child_process");
 const { readFileSync } = require("node:fs");
 const { homedir } = require("node:os");
 const { join } = require("node:path");
+const { runScript } = require("../lib/script.js");
 
 const store = require("./evalation-store");
-
-const here = __dirname;
 
 /**
  * The names this installation's receiving keys are kept under, read from the settings rather than
@@ -66,7 +64,7 @@ function fail(reason) {
 
 function ask(path, body) {
   try {
-    return JSON.parse(execFileSync(join(here, "evalation-ask"), [path, JSON.stringify(body)], {
+    return JSON.parse(runScript("evalation-ask", [path, JSON.stringify(body)], {
       encoding: "utf8",
       stdio: ["ignore", "pipe", "pipe"],
     }));

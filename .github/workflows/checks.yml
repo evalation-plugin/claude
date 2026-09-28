@@ -7,10 +7,21 @@ on:
 
 jobs:
   checks:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - if: runner.os == 'Linux'
+        run: sudo apt-get install -y poppler-utils
+      - if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          C:\msys64\usr\bin\pacman.exe -S --noconfirm --needed mingw-w64-x86_64-poppler
+          "C:\msys64\mingw64\bin" | Out-File -FilePath $env:GITHUB_PATH -Append
       - run: node --test "checks/*.test.js"

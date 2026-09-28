@@ -1,64 +1,33 @@
-#!/usr/bin/env bash
-# evalation-status - where this installation stands, asked rather than assumed.
-#
-# There is no local answer to whether a seat is live. It is proven by the server verifying a
-# signature it holds the public half of, so the only honest way to report it is to sign an ask and
-# see what comes back. Reading a cached answer would report a seat that lapsed an hour ago as live.
-#
-# It asks what this installation would pin, because that is the cheapest call that proves all three
-# things at once: the key is right, the seat is live, and the server is reachable.
-#
-# It names a state on the first line and exits 0 whenever it worked out which one. Having established
-# that nothing is set up yet is this command doing its job rather than failing at it, and exiting
-# non-zero for it put a red error in front of every person who had just installed the plugin and done
-# nothing wrong. The state is what a caller reads, so nothing has to match on prose that may be
-# reworded.
-set -uo pipefail
+#!/usr/bin/env node
+"use strict";
 
-DIR="$(cd "$(dirname "$0")" && pwd)"
+const { runScript } = require("../lib/script.js");
 
-# A file of its own each time. A fixed name under a shared temporary directory is one any other
-# account on the machine can read or plant, and two people running this at once would each read the
-# other's reason.
-SAID="$(mktemp)"
-trap 'rm -f "$SAID"' EXIT
+function ask(path) {
+  return JSON.parse(runScript("evalation-ask", [path, "{}"], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }));
+}
 
-if ANSWER="$("$DIR/evalation-ask" /pin '{}' 2>"$SAID")"; then
-  printf 'state: live\n'
-  printf 'seat: live\n'
-  printf 'released revision: %s\n' \
-    "$(printf '%s' "$ANSWER" | /usr/bin/python3 -c 'import json,sys; print(json.load(sys.stdin)["revision"])')"
+function main() {
+  let pinned;
+  try {
+    pinned = ask("/pin");
+  } catch (thrown) {
+    const reason = String(thrown.stderr || thrown.message).trim();
+    if (/no-settings:|no-installation:|no-key:|unreadable-key-reference:/.test(reason)) {
+      process.stdout.write(`state: not-set-up\nseat: not set up on this machine yet\ndetail: ${reason}\n`);
+    } else if (/unreachable:/.test(reason)) {
+      process.stdout.write(`state: unreachable\nseat: unknown, because the server could not be reached\ndetail: ${reason}\n`);
+    } else {
+      process.stdout.write(`state: not-live\nseat: not live\nreason: ${reason}\n`);
+    }
+    return;
+  }
+  process.stdout.write(`state: live\nseat: live\nreleased revision: ${pinned.revision}\n`);
+  try {
+    process.stdout.write(`pack credits left: ${ask("/runs").remaining}\n`);
+  } catch {
+    return;
+  }
+}
 
-  # What is left to spend, which only the server can answer. A run spends one credit for each pack it
-  # reads, so somebody choosing five packs against three credits is refused whole, and the place to
-  # learn that is before they choose. The seat is live either way, so a balance that cannot be read
-  # prints nothing and never turns a live seat into a failure.
-  if LEFT="$("$DIR/evalation-ask" /runs '{}' 2>/dev/null)"; then
-    printf 'pack credits left: %s\n' \
-      "$(printf '%s' "$LEFT" | /usr/bin/python3 -c 'import json,sys; print(json.load(sys.stdin)["remaining"])')"
-  fi
-  exit 0
-fi
-
-REASON="$(cat "$SAID")"
-
-# Told apart because a person needs opposite things said to them. Nothing set up is where everybody
-# starts and the answer is to sign in. Anything else is a seat that exists and will not serve.
-case "$REASON" in
-  *no-settings:*|*no-installation:*|*no-key:*|*unreadable-key-reference:*)
-    printf 'state: not-set-up\n'
-    printf 'seat: not set up on this machine yet\n'
-    printf 'detail: %s\n' "$REASON"
-    ;;
-  *unreachable:*)
-    printf 'state: unreachable\n'
-    printf 'seat: unknown, because the server could not be reached\n'
-    printf 'detail: %s\n' "$REASON"
-    ;;
-  *)
-    printf 'state: not-live\n'
-    printf 'seat: not live\n'
-    printf 'reason: %s\n' "$REASON"
-    ;;
-esac
-exit 0
+main();
