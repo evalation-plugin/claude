@@ -102,7 +102,7 @@ function fail(reason, offences) {
  * words existed somewhere.
  */
 function cited(where, one, said) {
-  if (isAbsolute(one.path) || one.path.split("/").includes("..")) {
+  if (isAbsolute(one.path) || one.path.split(/[\\/]/).includes("..")) {
     said.push(`${one.path}: a citation names a path outside the tree it read`);
     return;
   }

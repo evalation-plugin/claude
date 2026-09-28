@@ -21,7 +21,7 @@ const env = { ...process.env, EVALATION_HOME: home, HOME: work,
 
 /** One command as a session runs it, refused loudly with what it printed. */
 function sh(command, args, input) {
-  const ran = spawnSync(join(BIN, command), args, { env, input, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
+  const ran = spawnSync(process.execPath, [join(BIN, command), ...args], { env, input, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
   if (ran.status !== 0) throw new Error(`${command} ${args[0] ?? ""} refused:\n${ran.stderr}${ran.stdout}`);
   return ran.stdout;
 }

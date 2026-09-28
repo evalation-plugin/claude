@@ -34,10 +34,10 @@ const { execFileSync } = require("node:child_process");
 const { existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync,
   statSync, writeFileSync } = require("node:fs");
 const { homedir, tmpdir } = require("node:os");
-const { basename, dirname, isAbsolute, join, relative, resolve } = require("node:path");
+const { basename, dirname, isAbsolute, join, resolve } = require("node:path");
 
 const { SCANS } = require("../lib/scans.js");
-const { copied } = require("../lib/tree.js");
+const { copied, inRepository } = require("../lib/tree.js");
 const { cwesOf } = require("../lib/weaknesses.js");
 
 const HOME = process.env.EVALATION_HOME || join(homedir(), ".evalation");
@@ -175,7 +175,7 @@ function opening(text) {
 function within(root, path) {
   if (!path) return path;
   const full = isAbsolute(path) ? path : join(root, path);
-  const said = relative(root, full);
+  const said = inRepository(root, full);
   return said && !said.startsWith("..") ? said : path;
 }
 

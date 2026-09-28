@@ -12,7 +12,7 @@ const ROOT = join(__dirname, "..");
 const GATE = join(ROOT, "bin", "evalation-gate");
 
 function gate(call) {
-  const ran = spawnSync(GATE, [], { input: JSON.stringify({ hook_event_name: "PreToolUse", ...call }), encoding: "utf8" });
+  const ran = spawnSync(process.execPath, [GATE], { input: JSON.stringify({ hook_event_name: "PreToolUse", ...call }), encoding: "utf8" });
   return { allowed: ran.status === 0, said: ran.stderr };
 }
 const bash = (command, agent = "evalation-plugin:reader", cwd = "/repo") => gate({ tool_name: "Bash", tool_input: { command }, agent_type: agent, agent_id: "a-1", cwd });

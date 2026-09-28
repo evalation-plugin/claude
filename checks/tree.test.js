@@ -8,7 +8,7 @@ const { cpSync, mkdirSync, mkdtempSync, writeFileSync } = require("node:fs");
 const { tmpdir } = require("node:os");
 const { join } = require("node:path");
 const { repository } = require("./fixture.js");
-const { checkoutsIn, filesOf } = require("../lib/tree.js");
+const { checkoutsIn, filesOf, inRepository } = require("../lib/tree.js");
 
 const git = (cwd, ...args) => execFileSync("git", args, { cwd, stdio: "ignore" });
 
@@ -18,7 +18,7 @@ function folder() {
   git(app, "remote", "add", "origin", "https://github.com/acme/app.git");
   git(app, "worktree", "add", "-q", join(at, "app-feature"), "-b", "feature");
   git(at, "clone", "-q", "--bare", app, join(at, "app.git"));
-  cpSync(app, join(at, "copy"), { recursive: true, filter: (one) => !one.split("/").includes(".git") });
+  cpSync(app, join(at, "copy"), { recursive: true, filter: (one) => !one.split(/[\\/]/).includes(".git") });
   mkdirSync(join(at, "hg", ".hg"), { recursive: true });
   writeFileSync(join(at, "hg", ".hg", "store"), "x");
   writeFileSync(join(at, "hg", "x.py"), "x");
@@ -40,7 +40,7 @@ test("a checkout holds no other repositories", () => {
 
 test("reading a folder whole takes each checkout's tracked files and no worktree or metadata", () => {
   const at = folder();
-  const files = filesOf(at).map((one) => one.slice(at.length + 1)).sort();
+  const files = filesOf(at).map((one) => inRepository(at, one)).sort();
   assert.deepStrictEqual(files, ["app/README.md", "app/package.json", "app/src/auth.js",
     "copy/README.md", "copy/package.json", "copy/src/auth.js", "hg/x.py"].sort());
 });

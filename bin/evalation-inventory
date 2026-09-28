@@ -17,7 +17,7 @@
 const { execFileSync } = require("node:child_process");
 const { closeSync, openSync, readFileSync, readSync, statSync } = require("node:fs");
 const { join, resolve } = require("node:path");
-const { filesOf } = require("../lib/tree.js");
+const { filesOf, inRepository } = require("../lib/tree.js");
 const { attributesOf, counted, languageOf } = require("../lib/linguist.js");
 
 // The language split is measured by GitHub Linguist's rules, in lib/linguist.js, so the bar in the pack
@@ -61,7 +61,7 @@ function walk(from, at, held) {
     }
     held.files += 1;
     held.bytes += size;
-    const rel = path.slice(held.root.length + 1);
+    const rel = inRepository(held.root, path);
     held.paths.push(rel);
 
     const head = headOf(path);
@@ -156,7 +156,7 @@ function dependencies(where, paths) {
 
 function inventory(where) {
   const held = { files: 0, bytes: 0, lines: 0, other: 0, byLanguage: {}, paths: [], root: resolve(where) };
-  held.attributes = attributesOf(where, filesOf(where).map((one) => one.slice(resolve(where).length + 1)));
+  held.attributes = attributesOf(where, filesOf(where).map((one) => inRepository(held.root, one)));
   walk(where, 0, held);
 
   // The split is over what the tree is written in, so the share is of those bytes and not of every
