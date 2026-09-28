@@ -27,8 +27,9 @@ const { homedir } = require("node:os");
 const { cardOf, cardWorst, named: phaseNamed, newestFor, phasesRead } = require("../lib/scans.js");
 const { facing, held, own } = require("../lib/prose.js");
 const { fenced } = require("../lib/fence.js");
+const { infrastructureIn } = require("../lib/infrastructure.js");
 
-const STATUSES = ["covered", "partial-gap", "total-gap", "org-level", "not-applicable"];
+const STATUSES = ["covered", "partial-gap", "total-gap", "no-evidence", "org-level", "not-applicable"];
 const EXEMPT = ["org-level", "not-applicable"];
 const GRADES = ["executable", "configuration", "assertion"];
 
@@ -39,7 +40,7 @@ const STANDS_ALONE = ["executable", "configuration"];
 
 // What a reading records against each thing an entry looks for. Not checked is only for an item the
 // scan settles, where the scan did not run.
-const RESULTS = ["found", "missing", "does-not-apply", "not-checked"];
+const RESULTS = ["found", "missing", "does-not-apply", "not-checked", "no-evidence"];
 
 // A scanner's severities, worst first. An item the scan settles names the lowest that counts.
 const SEVERITY = ["critical", "high", "medium", "low", "info"];
@@ -497,13 +498,20 @@ function followed(named, answer, list, where, scan, since) {
  * the rows count to. Null where the rows do not match the list. A concern set's row is held the same
  * way, since the hardness score is counted from its items.
  */
+const infrastructureHeld = new Map();
+
+function infrastructureOf(where) {
+  if (!infrastructureHeld.has(where)) infrastructureHeld.set(where, infrastructureIn(where));
+  return infrastructureHeld.get(where);
+}
+
 function itemsOf(named, rows, list, where, scan, since, said) {
   if (!Array.isArray(rows) || rows.length !== list.length) {
     said.push(`${named}: looked_for holds ${Array.isArray(rows) ? rows.length : "no"} rows, and the entry ` +
       `lists ${list.length} things to look for. Give one row per item, in the entry's order`);
     return null;
   }
-  const counted = { found: 0, missing: 0, "does-not-apply": 0 };
+  const counted = { found: 0, missing: 0, "does-not-apply": 0, "no-evidence": 0 };
   rows.forEach((row, at) => {
     const item = `${named} item ${at + 1}`;
     if (!RESULTS.includes(row?.result)) {
@@ -511,6 +519,22 @@ function itemsOf(named, rows, list, where, scan, since, said) {
       return;
     }
     counted[row.result === "not-checked" ? "missing" : row.result] += 1;
+    if (list[at].needs === "infrastructure") {
+      const held = infrastructureOf(where);
+      if (held.length === 0 && (row.result === "missing" || row.result === "not-checked")) {
+        said.push(`${item}: ${row.result}, and no infrastructure code was found in what this run read, so it is found in the code or no-evidence`);
+        return;
+      }
+      if (held.length > 0 && row.result === "no-evidence") {
+        const shown = held.slice(0, 3).join(", ") + (held.length > 3 ? ` and ${held.length - 3} more` : "");
+        said.push(`${item}: no-evidence, and this run read infrastructure code (${shown}), so answer it from that code`);
+        return;
+      }
+      if (row.result === "no-evidence") return;
+    } else if (row.result === "no-evidence") {
+      said.push(`${item}: no-evidence, which only an item the pack marks as possibly held outside the code can be`);
+      return;
+    }
     if (list[at].proof === "scan") {
       const says = scanSays(list[at], scan, since);
       if (row.result !== says.result) {
@@ -541,12 +565,13 @@ function itemsOf(named, rows, list, where, scan, since, said) {
       said.push(`${item}: said not to apply with no reason. Say in why what about this repository puts it out of reach`);
     }
   });
-  const applies = rows.length - counted["does-not-apply"];
+  const applies = rows.length - counted["does-not-apply"] - counted["no-evidence"];
+  const elsewhere = counted["no-evidence"] > 0 ? `, with ${counted["no-evidence"]} held to no evidence found` : "";
   return {
-    status: applies === 0 ? "not-applicable"
+    status: applies === 0 ? (counted["no-evidence"] > 0 ? "no-evidence" : "not-applicable")
       : counted.found === applies ? "covered"
       : counted.found === 0 ? "total-gap" : "partial-gap",
-    said: `it found ${counted.found} of the ${applies} items that apply`,
+    said: `it found ${counted.found} of the ${applies} items that apply${elsewhere}`,
   };
 }
 
@@ -745,8 +770,14 @@ function shape() {
     "  says: found where its phase ran and holds nothing at the item's at_least severity or above,",
     '  missing where it holds some, and {"result":"not-checked"} where the phase did not run. Read it',
     "  from `evalation-read <target> scan`. A not-checked item counts as missing.",
-    "  The status is a count of the items that apply: all found is covered, none found is total-gap,",
-    "  anything between is partial-gap, and none applying is not-applicable. It is never org-level.",
+    '  An item carrying "needs":"infrastructure" could be held outside the code. Where',
+    "  `evalation-read <target> map` says infrastructure code: none found, the item is found where the",
+    '  code itself shows it and {"result":"no-evidence"} where it does not, never missing. Where it',
+    "  lists infrastructure files, answer the item like any other. No other item is ever no-evidence:",
+    "  what the code should hold is found or missing.",
+    "  The status is a count of the items that apply, leaving out does-not-apply and no-evidence: all",
+    "  found is covered, none found is total-gap, anything between is partial-gap. With none applying,",
+    "  it is no-evidence where any item is no-evidence and not-applicable otherwise. It is never org-level.",
     "  Judge each item by its words. An item naming a thing is found where the repository has that",
     "  thing, and places that lack it go in because and the remedy. An item saying each is found only",
     "  where it holds for each one.",

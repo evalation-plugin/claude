@@ -46,6 +46,7 @@ const STATUSES = [
   ["total-gap", "Gap", "G", "#FB3B4E"],
   ["partial-gap", "Partial", "P", "#FFB020"],
   ["covered", "Covered", "C", "#35C46A"],
+  ["no-evidence", "No evidence found", "E", "#A7B4CC"],
   ["org-level", "Org-level", "O", "#8FA2C6"],
   ["not-applicable", "Not applicable", "N", "#6F82AB"],
 ];
@@ -115,6 +116,7 @@ const RESULT = {
   missing: ["missing", colourOf("total-gap")],
   "does-not-apply": ["does not apply", CHROME.faint],
   "not-checked": ["not checked", colourOf("partial-gap")],
+  "no-evidence": ["no evidence found", colourOf("no-evidence")],
 };
 
 // Severities worst first, the order a scanner's findings are listed in under an item.
@@ -163,6 +165,8 @@ function items(answer, list, scan) {
           `<span class="grade">${escaped(one.grade ?? "")}</span></div>` +
           (one.quote ? `<pre>${escaped(one.quote)}</pre>` : "");
       }).join("")
+      : row.result === "no-evidence"
+      ? `<p class="looked">${escaped("No infrastructure code was found in what this run read, so this may be held where the run could not see it.")}</p>`
       : `<p class="looked">${escaped(row.result === "missing" ? row.searched : row.why)}</p>`;
     return `<div class="cite item"><div class="where"><span>${at + 1}. ${escaped(want.find)}</span>` +
       `<span>${tag}<span class="grade" style="color:${colour}">${word}</span></span></div>${under}</div>`;
