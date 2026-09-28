@@ -18,6 +18,7 @@ const { execFileSync } = require("node:child_process");
 const { closeSync, openSync, readFileSync, readSync, statSync } = require("node:fs");
 const { join, resolve } = require("node:path");
 const { filesOf, inRepository } = require("../lib/tree.js");
+const { solutionOf } = require("../lib/solution.js");
 const { attributesOf, counted, languageOf } = require("../lib/linguist.js");
 
 // The language split is measured by GitHub Linguist's rules, in lib/linguist.js, so the bar in the pack
@@ -174,9 +175,15 @@ function inventory(where) {
     // A language under half a percent prints as 0% beside the bar, which reads as a fault.
     .filter((one) => one.share >= 0.5);
 
-  const commits = quietly("git", ["rev-list", "--count", "HEAD"], where);
-  const since = quietly("git", ["log", "--reverse", "--format=%as", "--max-count=1"], where);
-  const contributors = quietly("git", ["shortlog", "-sn", "--all", "--no-merges"], where);
+  const solution = solutionOf(where);
+  const clones = solution ? solution.repositories.filter((one) => one.vcs === "git").map((one) => join(resolve(where), one.folder)) : [where];
+  const each = (args) => clones.map((dir) => quietly("git", args, dir)).filter(Boolean);
+  const tallied = each(["rev-list", "--count", "HEAD"]);
+  const commits = tallied.length > 0 ? String(tallied.reduce((sum, one) => sum + Number(one), 0)) : "";
+  const since = each(["log", "--reverse", "--format=%as", "--max-count=1"]).sort()[0] ?? "";
+  const people = new Set(each(["shortlog", "-sn", "--all", "--no-merges"])
+    .flatMap((one) => one.split("\n")).map((line) => line.replace(/^\s*\d+\s+/, "").trim()).filter(Boolean));
+  const contributors = [...people].join("\n");
 
   // Keyed by the label the pack prints. A label whose rule found nothing is left out rather than
   // shown as zero, because a repository with no Terraform and a repository nobody measured for
@@ -189,6 +196,7 @@ function inventory(where) {
     LANGUAGES: written.length,
   };
   if (commits) counts.COMMITS = Number(commits);
+  if (solution) counts.REPOSITORIES = solution.repositories.length;
 
   const declared = dependencies(where, held.paths);
   if (declared) counts.DEPENDENCIES = declared;

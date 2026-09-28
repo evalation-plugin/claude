@@ -36,8 +36,13 @@ const { cardOf, compared, compatible, named: phaseNamed, upgradeTo } = require("
 const { consequences, remedies } = require("../lib/weaknesses.js");
 const { keepFindings, reportsFolder, reviewName } = require("../lib/reports.js");
 const { CHROME, css, escaped, paginator, scanResults } = require("../lib/sheet.js");
+const { readBlock, shownPath } = require("../lib/solution.js");
 
 const HOME = process.env.EVALATION_HOME || join(homedir(), ".evalation");
+
+let target = null;
+
+const here = () => (target?.kind === "solution" ? "this solution" : "this repository");
 
 // The vocabulary, in the order a reader should meet it: what is wrong first, what is right after,
 // and what is nobody's or somebody else's last. Coverage is this pack's own, as severity is the
@@ -95,7 +100,7 @@ function evidence(answer) {
   const lines = held.map((one) => {
     const range = one.to && one.to !== one.from ? `${one.from}-${one.to}` : one.from;
     return `<div class="cite"><div class="where">` +
-      `<span>${escaped(one.path)}:${escaped(range)}</span>` +
+      `<span>${escaped(shownPath(target, one.path))}:${escaped(range)}</span>` +
       `<span class="grade">${escaped(one.grade ?? "")}</span></div>` +
       (one.quote ? `<pre>${escaped(one.quote)}</pre>` : "") +
       `</div>`;
@@ -132,7 +137,7 @@ function scanned(want, row, scan) {
   const level = want.at_least ? ` at ${want.at_least} or above` : "";
   if (row.result === "not-checked") {
     const ran = (scan?.phases ?? []).find((one) => one.phase === want.phase);
-    return `<p class="looked">${escaped(ran && !ran.ran ? `The ${phase} did not run: ${ran.why}.` : `The ${phase} was not run over this repository in this run.`)}</p>`;
+    return `<p class="looked">${escaped(ran && !ran.ran ? `The ${phase} did not run: ${ran.why}.` : `The ${phase} was not run over ${here()} in this run.`)}</p>`;
   }
   // Counted once per result, as the table lists them. The same advisory in two lockfiles is one.
   const seen = new Set();
@@ -141,7 +146,7 @@ function scanned(want, row, scan) {
   const over = all.filter((one) => SEVERITY.indexOf(one.severity) >= 0 && SEVERITY.indexOf(one.severity) <= floor);
   const listed = all.length > 0 ? " Each is listed under Scanner results at the end of this pack." : "";
   const said = row.result === "found"
-    ? `The ${phase} ran over this repository and found nothing${level}` +
+    ? `The ${phase} ran over ${here()} and found nothing${level}` +
       (all.length > 0 ? `, and ${all.length} below that.` : ".")
     : `The ${phase} found ${over.length}${level}` + (all.length > over.length ? `, of ${all.length} in all.` : ".");
   return `<p class="looked">${escaped(said + listed)}</p>`;
@@ -161,7 +166,7 @@ function items(answer, list, scan) {
       : row.result === "found"
       ? (row.evidence ?? []).map((one) => {
         const range = one.to && one.to !== one.from ? `${one.from}-${one.to}` : one.from;
-        return `<div class="at"><span>${escaped(one.path)}:${escaped(range)}</span>` +
+        return `<div class="at"><span>${escaped(shownPath(target, one.path))}:${escaped(range)}</span>` +
           `<span class="grade">${escaped(one.grade ?? "")}</span></div>` +
           (one.quote ? `<pre>${escaped(one.quote)}</pre>` : "");
       }).join("")
@@ -248,7 +253,7 @@ function section(part, answers, asked, noun, scan) {
     ? `<span class="obligation ${part.obligation}">${escaped(part.obligation)}</span>`
     : "";
   const count = answers.length === 1 ? noun.one : noun.many;
-  const blurb = [`${answers.length} ${count} assessed against this repository.`, part.note]
+  const blurb = [`${answers.length} ${count} assessed against ${here()}.`, part.note]
     .filter(Boolean).join(" ");
 
   // The heading travels with its first entry. Left to break on its own it lands at the foot of a
@@ -390,12 +395,12 @@ function opening(document, answers, packs, asked) {
   const marks = grades(asked);
   const parts = [
     ["Identifier", `The standard's number and short name for the ${noun.one}.`],
-    ["Asked", "The question put to the repository, in italics."],
-    ["Answer", "What the repository shows, and why that earns this status."],
-    ["Where it rests", "The file and lines on the grey bar, the quoted line under them, and how strong the evidence is on the right. For something missing, the search we made, so anyone can repeat it."],
-    ["Looked for", "The things the standard looks for, numbered, each marked found, missing or does not apply. The status follows from how many were found. An item marked scanned was settled by a scanner run during the review, and the scanner's results are listed at the end."],
-    ["Status", "Gap, Partial, Covered, Org-level or Not applicable, on the coloured tag."],
-    ["Checked", "Next to the model that read it: verified if a second check confirmed the answer against the repository, asserted if nothing did."],
+    ["Asked", `The question put to ${document.target?.kind === "solution" ? "the solution" : "the repository"}, in italics.`],
+    ["Answer", `What ${document.target?.kind === "solution" ? "the repositories show" : "the repository shows"}, and why that earns this status.`],
+    ["Where it rests", (document.target?.kind === "solution" ? "The repository, file and lines" : "The file and lines") + " on the grey bar, the quoted line under them, and how strong the evidence is on the right. For something missing, the search we made, so anyone can repeat it."],
+    ["Looked for", "The things the standard looks for, numbered, each marked found, missing, no evidence found or does not apply. The status follows from how many were found. An item marked scanned was settled by a scanner run during the review, and the scanner's results are listed at the end."],
+    ["Status", "Gap, Partial, Covered, No evidence found, Org-level or Not applicable, on the coloured tag. No evidence found marks something a team may hold outside the code, such as network rules in a cloud console, where the run read no infrastructure code. It is left out of the count."],
+    ["Checked", `Next to the model that read it: verified if a second check confirmed the answer against the ${document.target?.kind === "solution" ? "repositories" : "repository"}, asserted if nothing did.`],
     ["What to do", `The fix, on the orange bar. For ${called(noun.one)} the organisation owns, the reason the code cannot answer it.`],
   ];
   if (marks.length > 0) {
@@ -403,14 +408,18 @@ function opening(document, answers, packs, asked) {
       `The small tag after the name says whether the standard assesses this ${noun.one} in every audit or only where the customer chose it. The words are explained below.`]);
   }
 
+  const whole = document.target?.kind === "solution"
+    ? `the ${(document.target.repositories ?? []).length} repositories of this solution together`
+    : "the repository";
   return `<div class="block">
 ${facts(document, answers, packs)}
 ${tally(answers)}
 </div>
+${readBlock(document.target)}
 <div class="block">
 <h2>The work done</h2>
-<p class="intro">We read the repository and answered ${read} of the ${answers.length}
-${escaped(noun.many)} from its code and files. Each answer cites the lines it rests on, or for
+<p class="intro">We read ${escaped(whole)} and answered ${read} of the ${answers.length}
+${escaped(noun.many)} from ${document.target?.kind === "solution" ? "their" : "its"} code and files. Each answer cites the lines it rests on, or for
 something missing, the search that did not find it. ${answers.length - read === 0 ? "" : `The other
 ${answers.length - read} are about how the organisation runs, which a repository does not record, so
 the pack answers them and says so on each one. `}We read the code without running it and changed
@@ -458,12 +467,14 @@ function scanFindings(document, packs, asked) {
     compared,
     compatible,
     cardOf,
+    shown: (path) => shownPath(target, path),
   });
 }
 
 function page(document, answers, asked) {
   const repository = document.target?.repository ?? "";
   const packs = document.packs ?? [];
+  target = document.target ?? null;
 
   const byPack = new Map();
   for (const one of answers) {
@@ -488,7 +499,9 @@ function page(document, answers, asked) {
   }).join("") + scanFindings(document, [...byPack.keys()], asked);
 
   const title = "Evalation Evidence Pack";
-  const subtitle = `What this repository evidences · Repo: ${repository}`;
+  const subtitle = document.target?.kind === "solution"
+    ? `What this solution evidences · Solution: ${repository}`
+    : `What this repository evidences · Repo: ${repository}`;
   const foot = `${title}. Assessed ${dated(document.at)} at governance revision ` +
     `${document.revision ?? ""}.`;
 

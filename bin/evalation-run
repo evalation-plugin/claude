@@ -22,7 +22,7 @@ const { basename, resolve } = require("node:path");
 const { extended, packOf, problems } = require("../lib/questions.js");
 const { phasesRead } = require("../lib/scans.js");
 const { runScript } = require("../lib/script.js");
-const { checkoutsIn } = require("../lib/tree.js");
+const { choose, solutionOf } = require("../lib/solution.js");
 
 
 function fail(reason) {
@@ -123,6 +123,17 @@ function quietly(command, args, cwd) {
  * never by asking the host: the run reaches no host.
  */
 function target(where) {
+  const solution = solutionOf(where);
+  if (solution) {
+    return {
+      kind: "solution",
+      repository: solution.name ?? basename(resolve(where)),
+      name: solution.name ?? basename(resolve(where)),
+      path: solution.root,
+      repositories: solution.repositories,
+      left_out: solution.left_out,
+    };
+  }
   const remote = quietly("git", ["remote", "get-url", "origin"], where);
   const head = quietly("git", ["rev-parse", "HEAD"], where);
   const inside = quietly("git", ["rev-parse", "--is-inside-work-tree"], where) === "true";
@@ -156,8 +167,19 @@ function main() {
     const at = process.argv[3] || process.cwd();
     process.stdout.write(JSON.stringify({
       ...(branchOf(at) ?? { branch: null, main: null, on_main: null }),
-      holds: checkoutsIn(at),
+      solution: solutionOf(at),
     }) + "\n");
+    return;
+  }
+  if (process.argv[2] === "--solution") {
+    const at = process.argv[3];
+    if (!at || !solutionOf(at)) fail(`no-solution: ${at ?? "no folder named"} holds no repositories to read together`);
+    const rest = process.argv.slice(4);
+    const name = rest[rest.indexOf("--name") + 1];
+    if (rest.indexOf("--name") < 0 || !String(name ?? "").trim()) fail("no-name: name the solution with --name, the folder's name where the customer chose it");
+    const leave = rest.flatMap((one, index) => (rest[index - 1] === "--leave" ? [one] : []));
+    choose(at, { name, leave });
+    process.stdout.write(JSON.stringify(solutionOf(at)) + "\n");
     return;
   }
 

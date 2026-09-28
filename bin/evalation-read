@@ -28,6 +28,7 @@ const { fenced: fence, plain } = require("../lib/fence.js");
 const { newestFor, said } = require("../lib/scans.js");
 const { filesOf, inRepository } = require("../lib/tree.js");
 const { infrastructureIn } = require("../lib/infrastructure.js");
+const { placeOf, solutionOf } = require("../lib/solution.js");
 
 // What a whole read may run to before the range has to be named. A file past this is answered with
 // its shape and the ranges to ask for, because a reading that takes the whole file to find one
@@ -125,6 +126,11 @@ function within(root, path) {
     fail(`${path} is outside the tree being read`,
       "name a path inside the target, since this run reads that tree and nothing else");
   }
+  const solution = solutionOf(root);
+  if (solution && !placeOf({ kind: "solution", repositories: solution.repositories }, inRepository(root, at)).repository) {
+    fail(`${inRepository(root, at)} is not in a repository this run reads`,
+      `name a path in one of ${solution.repositories.map((one) => one.folder).join(", ")}, since each repository is read once and a copy never`);
+  }
   return at;
 }
 
@@ -199,7 +205,17 @@ function map(root) {
 
   // Fenced like everything else. A path is the repository's own text: a file named to read as an
   // instruction is content somebody chose, and a map handed over bare is a way past the perimeter.
+  const solution = solutionOf(root);
+  const width = Math.max(0, ...(solution?.repositories ?? []).map((one) => one.folder.length));
   return fenced(`the shape of ${relative(process.cwd(), root) || root}`, [
+    ...(solution ? [
+      "repositories read as one solution:",
+      ...solution.repositories.map((one) => `  ${one.folder.padEnd(width)}  ${one.repository}`),
+      "Each path starts with its repository's folder. Answer across all of them: an item is found in",
+      "whichever repository holds it, and missing only where no repository holds it, with searched",
+      "naming the repositories searched.",
+      "",
+    ] : []),
     `${sized.length} source files in ${languages.length} languages.`,
     "",
     "languages:",

@@ -31,6 +31,7 @@ const { cardOf, compared, compatible, named, upgradeTo } = require("../lib/scans
 const { consequences, remedies } = require("../lib/weaknesses.js");
 const { CHROME, css, escaped, paginator, scanResults } = require("../lib/sheet.js");
 const { changesSection } = require("../lib/changes.js");
+const { readBlock, shownPath } = require("../lib/solution.js");
 
 // Severity is this report's own: the evidence pack owns coverage colours and this owns severity,
 // and neither writes into the other. The page itself is the shared one.
@@ -237,7 +238,7 @@ function scanned(document) {
   const phases = document.scan?.phases ?? [];
   if (!phases.length) {
     return `<div class="block"><h2>What the tools checked</h2>
-<p class="none">No scan was run over this repository.</p></div>`;
+<p class="none">No scan was run over ${document.solution ? "this solution" : "this repository"}.</p></div>`;
   }
 
   const rows = phases.map((one) => {
@@ -300,7 +301,7 @@ function opening(document) {
     ["Severity", escaped("Critical to Info, on the coloured tag. Positive marks a control found working.")],
     ["Priority", escaped(legend.priority ?? "P0 first to P3 last.")],
     ["Model", escaped("The model that found it.")],
-    ["Where it rests", escaped("The file and lines on the grey bar.")],
+    ["Where it rests", escaped(document.solution ? "The repository, file and lines on the grey bar." : "The file and lines on the grey bar.")],
     ["Standing", standings],
     ["What to do", escaped("The fix, on the orange bar.")],
   ];
@@ -310,6 +311,7 @@ ${facts(document)}
 ${tally(document)}
 ${score}
 </div>
+${readBlock(document.solution)}
 <div class="block">
 <h2>The work done</h2>
 <p class="intro">${escaped(meta.intro ?? "")}</p>
@@ -348,6 +350,7 @@ function page(document) {
       compared,
       compatible,
       cardOf,
+      shown: (path) => shownPath(document.solution, path),
     });
 
   return `<!doctype html><meta charset="utf-8"><title>${escaped(document.title ?? "")}</title>

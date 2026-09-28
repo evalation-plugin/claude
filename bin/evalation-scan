@@ -38,6 +38,7 @@ const { basename, dirname, isAbsolute, join, resolve } = require("node:path");
 
 const { SCANS } = require("../lib/scans.js");
 const { copied, inRepository } = require("../lib/tree.js");
+const { solutionOf } = require("../lib/solution.js");
 const { cwesOf } = require("../lib/weaknesses.js");
 
 const HOME = process.env.EVALATION_HOME || join(homedir(), ".evalation");
@@ -381,6 +382,57 @@ function history(root, isRepository, named) {
   }
 }
 
+function placed(found, one) {
+  const area = String(found.key).startsWith("history:area:");
+  return {
+    ...found,
+    key: area ? `history:area:${one.folder}/${found.key.slice("history:area:".length)}` : `${found.key}:${one.folder}`,
+    at: { ...found.at, path: `${one.folder}/${found.at?.path ?? ""}` },
+    title: area
+      ? `${String(found.title).split(" in ")[0]} in ${one.repository}, ${found.key.slice("history:area:".length)}`
+      : `${found.title} in ${one.repository}`,
+  };
+}
+
+function historyAcross(root, solution, named) {
+  const held = solution.repositories.filter((one) => one.vcs === "git");
+  if (held.length === 0) return history(root, false, named);
+  const each = held.map((one) => ({ one, said: history(join(root, one.folder), true, named) }));
+  const ran = each.filter(({ said }) => said.ran);
+  const missed = each.filter(({ said }) => !said.ran);
+  if (ran.length === 0) return { phase: "history", tool: "git", ran: false, why: missed.map(({ one, said }) => `${one.repository}: ${said.why}`).join("; "), findings: [] };
+  return {
+    phase: "history", tool: "git", ran: true,
+    ...(missed.length > 0 ? { why: `not read in ${missed.map(({ one, said }) => `${one.repository} (${said.why})`).join(", ")}` } : {}),
+    findings: ran.flatMap(({ one, said }) => said.findings.map((found) => placed(found, one))),
+  };
+}
+
+function secretAcross(root, solution, named, declined, copy) {
+  const each = solution.repositories.map((one) => {
+    const git = one.vcs === "git";
+    const said = runPhase("secret", named, join(git ? root : copy, one.folder), git, declined);
+    const findings = said.findings.map((found) => {
+      const path = `${one.folder}/${found.at?.path ?? ""}`;
+      return {
+        ...found,
+        key: String(found.key).replace(`:${found.at?.path}:`, `:${path}:`),
+        title: String(found.title).replace(` in ${found.at?.path}`, ` in ${path}`),
+        at: { ...found.at, path },
+      };
+    });
+    return { one, said: { ...said, findings } };
+  });
+  const ran = each.filter(({ said }) => said.ran);
+  if (ran.length === 0) return { ...each[0].said, findings: [] };
+  const missed = each.filter(({ said }) => !said.ran);
+  return {
+    ...ran[0].said,
+    ...(missed.length > 0 ? { why: `not read in ${missed.map(({ one, said }) => `${one.repository} (${said.why})`).join(", ")}` } : {}),
+    findings: ran.flatMap(({ said }) => said.findings),
+  };
+}
+
 const DAY = 86400000;
 
 /**
@@ -539,7 +591,11 @@ function scan(target, only = null) {
 
   const held = phases();
   const isRepository = existsSync(join(root, ".git"));
-  const before = witness(root);
+  const solution = isRepository ? null : solutionOf(root);
+  const watched = () => (solution
+    ? solution.repositories.filter((one) => one.vcs === "git").map((one) => `${one.folder}\n${witness(join(root, one.folder)) ?? ""}`).join("\n")
+    : witness(root));
+  const before = watched();
 
   // The tools read a directory, and handed the checkout they read everything in it: a customer run
   // counted one advisory 34 times, once for the repository and once for each editor worktree
@@ -551,14 +607,16 @@ function scan(target, only = null) {
     ran = Object.entries(held.phases)
       .filter(([phase]) => !only || only.includes(phase))
       .map(([phase, named]) => (phase === "history"
-        ? history(root, isRepository, named)
+        ? (solution ? historyAcross(root, solution, named) : history(root, isRepository, named))
+        : phase === "secret" && solution
+        ? secretAcross(root, solution, named, held.declined, copy.path)
         : runPhase(phase, named, phase === "secret" && isRepository ? root : copy.path,
           phase === "secret" && isRepository, held.declined)));
   } finally {
     copy.done();
   }
 
-  const after = witness(root);
+  const after = watched();
   if (before !== null && after !== null && before !== after) {
     fail("the target changed while it was being scanned, so nothing was written. A scan that moves " +
       "the tree has changed the thing it measured.");

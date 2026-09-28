@@ -100,6 +100,14 @@ function oneLine(text, limit) {
   return `${(at > limit * 0.6 ? cut.slice(0, at) : cut).trimEnd()}…`;
 }
 
+function labelled(document) {
+  const name = document.tenant ?? "";
+  if (!document.solution) return name;
+  const held = (document.solution.repositories ?? []).map((one) => one.repository);
+  const listed = `${name} · ${held.join(", ")}`;
+  return listed.length <= 105 ? listed : `${name} · ${held.length} repositories`;
+}
+
 function model(document) {
   const cats = document.categories ?? [];
   const findings = cats.flatMap((one) => one.findings ?? []);
@@ -122,7 +130,8 @@ function model(document) {
   return {
     title: document.title ?? "Evalation Hardening Review",
     subtitle: document.subtitle ?? "",
-    tenant: document.tenant ?? "",
+    tenant: labelled(document),
+    solution: Boolean(document.solution),
     auditType: "Hardening Review",
     // Weaknesses only. A control found working is counted where the verdict names it, and counting it
     // here too put 147 on the cover beside commentary that says 108.
@@ -591,7 +600,7 @@ function deck(document, into, options = {}) {
 
   // 2 - what the tree is. Measured, so it owes nothing to anybody's account of the codebase.
   const glance = slides[1];
-  glance.xml = pptx.fill(glance.xml, type);
+  glance.xml = pptx.fill(glance.xml, held.solution ? { ...type, "Repository at a glance": "Solution at a glance" } : type);
   if (held.overview) {
     let xml = glance.xml;
     const languages = held.overview.languages ?? [];

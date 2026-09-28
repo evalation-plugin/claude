@@ -67,17 +67,35 @@ Code, with each answer one of its options. Never write a question and its answer
    ${CLAUDE_PLUGIN_ROOT}/bin/evalation-run --branch <target>
    ```
 
-   It asks the server nothing and counts nothing. Where `holds` lists two or more places between its
-   repositories, the target is a folder holding several checkouts or copies, and reading it reads
-   each of them. Before anything else, name each repository and its places in one short list: the
-   folder, its branch where it is not the main one, and "a copy of <folder> with no version control"
-   for a place with `copy_of`. Ask whether to read one of them or all of them together, with one
-   answer per place where they fit and one for all, or where they do not, one for all and one to
-   name a place. Say that all together reads every copy, so a copy's findings appear once for each,
-   the run takes longer, and pack credits are the same either way, and that worktrees are left out
-   whichever is chosen. On one place, it is the target from here on, and this check runs again on
-   it. On all, the folder stays the target. Where `holds` is null or lists one place, say nothing
-   about it.
+   It asks the server nothing and counts nothing. Where `solution` is not null, the target is a
+   folder holding several repositories, and the run reads them together as one solution: every
+   answer draws on whichever repository holds the evidence, and each repository is read once.
+   Before anything else:
+
+   - Name each repository in `solution.repositories` in one short list: its name, its folder where
+     that differs, its branch where `on_main` is false, and the date of its newest commit where
+     `newest` is more than 14 days ago. Then name each folder in `solution.left_out` with its `why`,
+     and say that a copy or a second clone of a repository is never read.
+   - Ask which repositories to read. With four or fewer, one question allowing several answers, each
+     repository an option. With more, one question: read all of them, or leave some out, and on
+     leave some out, ask which by folder.
+   - Ask what to call the solution in the reports, with the folder's name as one answer, and let
+     the person type another.
+   - Save both, naming each folder to leave out:
+
+     ```
+     ${CLAUDE_PLUGIN_ROOT}/bin/evalation-run --solution <target> --name "<name>" [--leave <folder> ...]
+     ```
+
+   - Where any repository read has `on_main` false, say in one sentence which repositories are on
+     which branch in place of their main, and ask whether to go on or stop until they are back on
+     main. Where any has `newest` more than 14 days ago, say which, and ask whether to stop so they
+     can pull the latest changes or go on as they stand. Never switch a branch or pull yourself.
+
+   Pack credits are the same whether one repository or many are read. The folder stays the target
+   from here on, and the branch paragraphs below are for a single repository.
+
+   Where `solution` is null, the target is one repository.
 
    A run assesses the repository's main branch, and
    the tree on disk is whatever is checked out. Where `on_main` is false, say in one sentence that
