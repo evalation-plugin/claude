@@ -27,6 +27,7 @@ const { extname, join, relative, resolve, sep } = require("node:path");
 const { fenced: fence, plain } = require("../lib/fence.js");
 const { newestFor, said } = require("../lib/scans.js");
 const { filesOf, inRepository } = require("../lib/tree.js");
+const { infrastructureIn } = require("../lib/infrastructure.js");
 
 // What a whole read may run to before the range has to be named. A file past this is answered with
 // its shape and the ranges to ask for, because a reading that takes the whole file to find one
@@ -194,6 +195,7 @@ function map(root) {
   const languages = [...byLanguage.entries()].sort((a, b) => b[1] - a[1]);
   const largest = [...sized].sort((a, b) => b.size - a.size).slice(0, 15);
   const central = [...named.entries()].sort((a, b) => b[1] - a[1]).slice(0, 15);
+  const infrastructure = infrastructureIn(root);
 
   // Fenced like everything else. A path is the repository's own text: a file named to read as an
   // instruction is content somebody chose, and a map handed over bare is a way past the perimeter.
@@ -208,6 +210,11 @@ function map(root) {
     "",
     "most referenced by other files:",
     ...central.filter(([, n]) => n > 0).map(([path, n]) => `  ${String(n).padStart(5)}  ${path}`),
+    "",
+    ...(infrastructure.length === 0
+      ? ["infrastructure code: none found"]
+      : ["infrastructure code:", ...infrastructure.slice(0, 30).map((path) => `  ${path}`),
+        ...(infrastructure.length > 30 ? [`  and ${infrastructure.length - 30} more, listed with evalation-read <target> list`] : [])]),
   ].join("\n"));
 }
 
