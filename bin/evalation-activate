@@ -20,13 +20,13 @@
 "use strict";
 
 const { generateKeyPairSync, randomBytes, createHash } = require("node:crypto");
-const { execFileSync, spawn } = require("node:child_process");
+const { execFileSync } = require("node:child_process");
 const store = require("./evalation-store");
+const { spawnScript } = require("../lib/script.js");
 const { existsSync, mkdirSync, writeFileSync } = require("node:fs");
 const { join, dirname } = require("node:path");
 const { homedir, hostname, userInfo } = require("node:os");
 
-const here = __dirname;
 const SERVICE = "evalation";
 const SERVER = "https://api.evalation.ai";
 const base = process.env.EVALATION_SERVER || SERVER;
@@ -217,7 +217,7 @@ async function main() {
   const verifier = b64url(randomBytes(32));
   const challenge = b64url(createHash("sha256").update(verifier, "ascii").digest());
 
-  const listener = spawn(join(here, "evalation-loopback"), { stdio: ["ignore", "pipe", "inherit"] });
+  const listener = spawnScript("evalation-loopback", [], { stdio: ["ignore", "pipe", "inherit"] });
   const bound = await awaited(listener, /port=(\d+)/, "the listener stopped before it bound a port")
     .catch((thrown) => fail(thrown.message));
 
@@ -229,9 +229,9 @@ async function main() {
 
   process.stderr.write(`signing in with ${provider}\n`);
   try {
-    execFileSync(process.platform === "darwin" ? "open" : "xdg-open", [started.authorization_url], {
-      stdio: ["ignore", "ignore", "ignore"],
-    });
+    const [opener, ...args] = process.platform === "darwin" ? ["open"]
+      : process.platform === "win32" ? ["rundll32", "url.dll,FileProtocolHandler"] : ["xdg-open"];
+    execFileSync(opener, [...args, started.authorization_url], { stdio: ["ignore", "ignore", "ignore"] });
   } catch {
     process.stderr.write(`could not open a browser. Sign in here:\n${started.authorization_url}\n`);
   }

@@ -18,12 +18,12 @@
 const { randomBytes } = require("node:crypto");
 const { execFileSync } = require("node:child_process");
 const { existsSync, readFileSync, statSync } = require("node:fs");
-const { basename, join, resolve } = require("node:path");
+const { basename, resolve } = require("node:path");
 const { extended, packOf, problems } = require("../lib/questions.js");
 const { phasesRead } = require("../lib/scans.js");
+const { runScript } = require("../lib/script.js");
 const { checkoutsIn } = require("../lib/tree.js");
 
-const here = __dirname;
 
 function fail(reason) {
   process.stderr.write(reason + "\n");
@@ -33,7 +33,7 @@ function fail(reason) {
 function ask(path, body) {
   try {
     return JSON.parse(
-      execFileSync(join(here, "evalation-ask"), [path, JSON.stringify(body)], {
+      runScript("evalation-ask", [path, JSON.stringify(body)], {
         encoding: "utf8",
         stdio: ["ignore", "pipe", "pipe"],
       }),
@@ -191,7 +191,7 @@ function main() {
   if (packs.length === 0 && sets.length === 0) {
     try {
       const shown = JSON.parse(
-        execFileSync(join(here, "evalation-packs"), ["show"], {
+        runScript("evalation-packs", ["show"], {
           encoding: "utf8",
           stdio: ["ignore", "pipe", "ignore"],
         }),

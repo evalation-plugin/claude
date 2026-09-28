@@ -7,8 +7,7 @@
 // file after signing, which is how an editor saves a change.
 "use strict";
 
-const { execFileSync } = require("node:child_process");
-const { join } = require("node:path");
+const { runScript } = require("../lib/script.js");
 const { signedRanges } = require("../lib/sign.js");
 
 const file = process.argv[2];
@@ -31,7 +30,7 @@ if (!read) {
 
 let said;
 try {
-  said = JSON.parse(execFileSync(join(__dirname, "evalation-ask"), ["/verify", JSON.stringify({ digest: read.digest })], {
+  said = JSON.parse(runScript("evalation-ask", ["/verify", JSON.stringify({ digest: read.digest })], {
     encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"],
     timeout: 60_000,

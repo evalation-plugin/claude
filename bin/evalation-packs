@@ -1,74 +1,49 @@
-#!/usr/bin/env bash
-# evalation-packs - what this installation assesses against, and where that choice is kept.
-#
-# A pack is one subject a run is pointed at: a published standard, a set of concerns of ours, or a
-# composition of either authored for one use. Which packs exist is served against an entitled seat
-# and never shipped here, so the catalogue is a fetch and this file carries none of it.
-#
-# The selection is the customer's and is kept where they can read it, paste it into a ticket and
-# keep it beside the findings, because what was assessed against is evidence in its own right. It is
-# deliberately not in the repository being assessed: that repository is the subject, and writing our
-# configuration into it would change the thing we are here not to touch.
-#
-# Fails closed like everything else on this side. An inactive seat prints a reason and exits
-# non-zero with empty stdout, never a fabricated catalogue.
-set -euo pipefail
+#!/usr/bin/env node
+"use strict";
 
-DIR="$(cd "$(dirname "$0")" && pwd)"
+const { existsSync, mkdirSync, readFileSync, writeFileSync } = require("node:fs");
+const { homedir } = require("node:os");
+const { join } = require("node:path");
+const { runScript } = require("../lib/script.js");
 
-EV_HOME="${EVALATION_HOME:-$HOME/.evalation}"
-SELECTION="$EV_HOME/packs.json"
+const HOME = process.env.EVALATION_HOME || join(homedir(), ".evalation");
+const SELECTION = join(HOME, "packs.json");
 
-usage() {
-  echo "usage: evalation-packs [show|list|titles|set <pack> [<pack>...]]" >&2
-  exit 2
+function usage() {
+  process.stderr.write("usage: evalation-packs [show|list|titles|set <pack> [<pack>...]]\n");
+  process.exit(2);
 }
 
-show() {
-  if [ -f "$SELECTION" ]; then
-    cat "$SELECTION"
-  else
-    printf '{"packs":[]}\n'
-  fi
+const byTitle = (a, b) => (a.toLowerCase() < b.toLowerCase() ? -1 : a.toLowerCase() > b.toLowerCase() ? 1 : 0);
+
+function list() {
+  let served;
+  try {
+    served = JSON.parse(runScript("evalation-ask", ["/packs", "{}"], { encoding: "utf8", stdio: ["ignore", "pipe", "inherit"] }));
+  } catch {
+    process.exit(1);
+  }
+  served.packs = [...(served.packs ?? [])].sort((a, b) => byTitle(a.body?.title ?? a.pack, b.body?.title ?? b.pack));
+  return served;
 }
 
-# The catalogue is served against an entitled seat and never shipped here, so this is a fetch and
-# this file carries none of it. The ask is signed like every other, and what comes back is what the
-# revision this installation is served holds. The packs come back in alphabetical order of their
-# titles, the order a person is offered them in, so every run offers them the same way.
-list() {
-  local served
-  served="$("$DIR/evalation-ask" /packs '{}')"
-  if command -v jq >/dev/null 2>&1; then
-    printf '%s\n' "$served" | jq '.packs |= sort_by(.body.title // .pack | ascii_downcase)'
-  else
-    printf '%s\n' "$served"
-  fi
+function main() {
+  const [what = "show", ...rest] = process.argv.slice(2);
+  if (what === "show") {
+    process.stdout.write(existsSync(SELECTION) ? readFileSync(SELECTION, "utf8") : '{"packs":[]}\n');
+  } else if (what === "list") {
+    process.stdout.write(`${JSON.stringify(list(), null, 2)}\n`);
+  } else if (what === "titles") {
+    process.stdout.write(`${JSON.stringify(list().packs.map((one) => ({ pack: one.pack, title: one.body?.title ?? null })))}\n`);
+  } else if (what === "set") {
+    if (rest.length === 0) usage();
+    const body = `${JSON.stringify({ packs: rest, chosen: new Date().toISOString().replace(/\.\d{3}Z$/, "Z") }, null, 2)}\n`;
+    mkdirSync(HOME, { recursive: true });
+    writeFileSync(SELECTION, body);
+    process.stdout.write(body);
+  } else {
+    usage();
+  }
 }
 
-# Each pack's handle beside the title a person is shown, without the entries the whole catalogue
-# carries.
-titles() {
-  command -v jq >/dev/null 2>&1 || { echo "missing-jq" >&2; exit 1; }
-  list | jq -c '[.packs[] | {pack, title: .body.title}] | sort_by(.title // .pack | ascii_downcase)'
-}
-
-# The selection is composed whole before anything is written, so a malformed argument fails with the
-# previous selection still standing rather than half of a new one on disk. It is the selection rather
-# than a history of it: what was assessed against on a given day rides with that day's findings.
-set_packs() {
-  [ "$#" -gt 0 ] || usage
-  command -v jq >/dev/null 2>&1 || { echo "missing-jq" >&2; exit 1; }
-  BODY="$(printf '%s\n' "$@" | jq -R . | jq -s '{packs: ., chosen: (now | todate)}')"
-  mkdir -p "$EV_HOME"
-  printf '%s\n' "$BODY" > "$SELECTION"
-  printf '%s\n' "$BODY"
-}
-
-case "${1:-show}" in
-  show) show ;;
-  list) list ;;
-  titles) titles ;;
-  set) shift; set_packs "$@" ;;
-  *) usage ;;
-esac
+main();
