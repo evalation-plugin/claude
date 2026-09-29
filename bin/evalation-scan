@@ -408,18 +408,45 @@ const ADAPTERS = {
   },
 };
 
-/**
- * How concentrated the last twelve months of commits are in one person, from one address per line of
- * git log. Only the shares are kept: a name or an address is somebody's personal data and says
- * nothing a buyer needs. One person holding most of the work is the risk a buyer asks about.
- */
-const botAccount = (address) => /\[bot\]@/.test(address);
+const botAccount = (name, address) =>
+  /\[bot\]/.test(name) || /\[bot\]@/.test(address) || /^bot@/.test(address) || /(^|[\s_-])bot$/.test(name);
 
+/**
+ * The person behind each commit's author, or null for a bot. Addresses sharing an author name are one
+ * person, since one person commonly commits from a work address and a code host's private address.
+ */
+function people(authors) {
+  const root = new Map();
+  const find = (key) => {
+    while (root.get(key) !== key) key = root.get(key);
+    return key;
+  };
+  const join = (a, b) => {
+    for (const key of [a, b]) if (!root.has(key)) root.set(key, key);
+    root.set(find(a), find(b));
+  };
+  const keys = authors.map(({ name = "", address = "" }) => {
+    const [named, at] = [name.trim().toLowerCase(), address.trim().toLowerCase()];
+    if (botAccount(named, at)) return null;
+    join(`@${at}`, named ? `=${named}` : `@${at}`);
+    return `@${at}`;
+  });
+  return keys.map((one) => one && find(one));
+}
+
+/**
+ * How concentrated the last twelve months of commits are in one person, from one author per line of
+ * git log, as a name and an address split by \x1f, or an address alone. Only the shares are kept: a
+ * name or an address is somebody's personal data and says nothing a buyer needs. One person holding
+ * most of the work is the risk a buyer asks about.
+ */
 function authorship(out) {
+  const authors = String(out).split("\n").filter((one) => one.trim()).map((line) => {
+    const [name, address] = line.includes("\x1f") ? line.split("\x1f") : ["", line];
+    return { name, address };
+  });
   const counts = new Map();
-  for (const one of String(out).split("\n").map((line) => line.trim().toLowerCase()).filter((line) => line && !botAccount(line))) {
-    counts.set(one, (counts.get(one) ?? 0) + 1);
-  }
+  for (const one of people(authors).filter(Boolean)) counts.set(one, (counts.get(one) ?? 0) + 1);
   const total = [...counts.values()].reduce((sum, one) => sum + one, 0);
   const at = { path: "git history" };
   if (total === 0) {
@@ -443,16 +470,18 @@ function history(root, isRepository, named) {
   try {
     const git = (...args) => execFileSync("git", ["-C", root, ...args],
       { encoding: "utf8", maxBuffer: 256 * 1024 * 1024, stdio: ["ignore", "pipe", "ignore"] });
-    const commits = git("log", "--since=12 months ago", "--no-merges", "--format=%x1e%aI%x1f%aE", "--name-only")
+    const commits = git("log", "--since=12 months ago", "--no-merges", "--format=%x1e%aI%x1f%aE%x1f%aN", "--name-only")
       .split("\x1e").filter((one) => one.trim()).map((one) => {
         const [head, ...files] = one.split("\n");
-        const [at, who] = head.split("\x1f");
-        return { at, who, files: files.filter(Boolean) };
+        const [at, address, name] = head.split("\x1f");
+        return { at, address, name, files: files.filter(Boolean) };
       });
+    const who = people(commits);
+    const byPeople = commits.map((one, n) => ({ ...one, who: who[n] })).filter((one) => one.who);
     const tags = git("for-each-ref", "refs/tags", "--format=%(creatordate:iso-strict)").split("\n").filter(Boolean);
     const tracked = git("ls-files").split("\n").filter(Boolean);
     return { phase: "history", tool: "git", ran: true,
-      findings: [...authorship(commits.map((one) => one.who).join("\n")), ...measured({ commits, tags, tracked, now: Date.now() })] };
+      findings: [...authorship(commits.map((one) => `${one.name}\x1f${one.address}`).join("\n")), ...measured({ commits: byPeople, tags, tracked, now: Date.now() })] };
   } catch (thrown) {
     return { phase: "history", tool: "git", ran: false, reason: "failed", why: `git could not read the history: ${thrown.message}`, findings: [] };
   }
