@@ -38,8 +38,8 @@ try {
   process.exit(0);
 }
 const named = JSON.stringify(call.tool_input ?? {});
-if (named.includes("questions-checked.json")) {
-  process.stderr.write("questions-checked.json holds the question checker's verdicts, and only evalation-questions verdict writes it. Start the question-checker agent on the draft.\n");
+if (named.includes("questions-checked.json") || named.includes("checker-stamp.json")) {
+  process.stderr.write("questions-checked.json and checker-stamp.json hold the question checker's verdicts, and only evalation-questions verdict writes them. Start the question-checker agent on the draft.\n");
   process.exit(2);
 }
 if (VERDICT.test(String(call.tool_input?.command ?? "")) && call.agent_type !== CHECKER) {
@@ -56,6 +56,10 @@ const command = String(call.tool_input?.command ?? "");
 const line = command.replace(/<<\s*'?(\w+)'?\n[\s\S]*?\n\1\s*$/, "").trim();
 if (!COMMANDS.test(`${line} `)) refused(`"${line.slice(0, 60)}" is not an Evalation reading command`);
 if (JOINED.test(line)) refused(`"${line.slice(0, 60)}" joins, pipes or redirects commands`);
+if (call.agent_type === CHECKER && VERDICT.test(line)) {
+  const { pluginHome } = require("../lib/home.js");
+  require("../lib/questions.js").stamp(pluginHome(), call.agent_id);
+}
 
 // evalation-read reads whatever folder it is named, so its target must lie within the folder the
 // session opened in. A target the shell would expand (~, $, a glob) is refused, since the text judged

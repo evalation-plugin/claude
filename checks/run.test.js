@@ -13,7 +13,7 @@ const { tmpdir } = require("node:os");
 const { join } = require("node:path");
 const { home, repository } = require("./fixture.js");
 const { served } = require("../bin/evalation-run");
-const { grid } = require("../lib/questions.js");
+const { grid, stamp } = require("../lib/questions.js");
 
 const BIN = join(__dirname, "..", "bin");
 const work = mkdtempSync(join(tmpdir(), "evalation-run-"));
@@ -74,6 +74,7 @@ function read(tree, second) {
   const setFile = join(work, "questions.json");
   writeFileSync(setFile, JSON.stringify(questions));
   const passed = grid(home, questions).rows.flatMap((row) => row.criteria.map((one) => `${row.label} ${one.id}: ${one.fault === "YES" ? "NO" : "YES"}`));
+  stamp(home, "question-checker");
   sh("evalation-questions", ["verdict", setFile], passed.join("\n"));
   sh("evalation-questions", ["check", setFile]);
   const run = served({ run: second ? "run-second" : "run-first", packs, revision: "1.82", skill: "Read the repository.", remaining: 9, rubrics: [rubric] }, [questions]);

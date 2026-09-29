@@ -132,7 +132,15 @@ or that question where the fault is on the question itself, and drop a question 
 two items. Then show the set, and above it one plain line for each thing removed, naming the criterion
 it broke in plain words, such as "Removed Q3's alert item, which held two conditions". The person is
 never handed a flag to decide. On "Change something" afterwards, put back what they ask for,
-reworded, and recheck it the same way. Never show a set until `check` prints `holds`.
+reworded, and recheck it the same way. Never show a set until `check` prints `holds`, or names only
+rows "passed without the question checker".
+
+A row named "passed without the question checker" has a pass the question-checker agent did not
+record, so nothing independent checked it. Show the set, then ask "Some of these questions were
+passed without the independent checker. How would you like to go on?", naming those questions, with
+the answers "Check them again", which starts a fresh question-checker, and "Save them as they are",
+described as: saved without an independent check. Only on "Save them as they are", save with
+`save <file> --unchecked`, adding `--replace` where it changes a saved set.
 
 Then show the whole set, every question with its list, and ask "Save this set as written?", with the
 answers "Save it" and "Change something". On "Change something", ask what, make the changes across
