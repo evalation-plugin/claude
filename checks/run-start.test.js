@@ -293,7 +293,7 @@ test("a catalogue larger than a mebibyte is read whole, so the scan question is 
   const ran = await started(machine(), held.address().port, "--scan", "soc2");
   held.close();
   assert.strictEqual(ran.code, 0, ran.stderr);
-  assert.deepStrictEqual(JSON.parse(ran.stdout), { wanted: true, phases: ["sca"], for: ["SOC 2 Trust Services Criteria"] });
+  assert.deepStrictEqual(JSON.parse(ran.stdout), { wanted: true, phases: ["sca"], for: ["SOC 2 Trust Services Criteria"], asks_domains: false });
 });
 
 test("packs that cannot be read for the scan question say so plainly, with no pack credits used", async () => {
@@ -358,9 +358,9 @@ test("whether the chosen packs want the scanners is known before anything is spe
   const iso = JSON.parse((await started(home, port, "--scan", "iso27001")).stdout);
   const none = await started(home, port, "--scan");
   held.close();
-  assert.deepStrictEqual(soc2, { wanted: true, phases: ["sca"], for: ["SOC 2 Trust Services Criteria"] });
+  assert.deepStrictEqual(soc2, { wanted: true, phases: ["sca"], for: ["SOC 2 Trust Services Criteria"], asks_domains: false });
   assert.strictEqual(iso.wanted, false);
-  assert.deepStrictEqual(JSON.parse(none.stdout), { wanted: false, phases: [], for: [] });
+  assert.deepStrictEqual(JSON.parse(none.stdout), { wanted: false, phases: [], for: [], asks_domains: false });
   assert.strictEqual(asked.length, 0);
   assert.ok(!existsSync(join(home, "runs")));
 });

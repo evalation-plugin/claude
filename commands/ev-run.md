@@ -255,8 +255,19 @@ and each answer's label says what choosing it does.
 
 3. **Run the scanners over the tree, before anything is spent.**
 
+   Where `--scan` printed `asks_domains` true, first ask which email domains are the company's:
+
    ```
-   evalation-scan run <target> --phases <phases>
+   evalation-scan domains <target>
+   ```
+
+   It prints `asks`, a question to ask with AskUserQuestion unchanged, or `said`, a line to show
+   where the history offers no domain. Take the domains ticked and any the person typed, leaving out
+   None of these, joined with commas below as `<domains>`. Where `asks_domains` is false, leave
+   `--domains` off.
+
+   ```
+   evalation-scan run <target> --phases <phases> --domains <domains>
    ```
 
    It runs before the reading so that what it found is in front of you while you answer the
