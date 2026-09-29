@@ -12,7 +12,7 @@
 const { readFileSync } = require("node:fs");
 const { pluginHome } = require("../lib/home.js");
 const { join } = require("node:path");
-const { dropFromAccount, fetched, keepOnAccount, listed, problems, save } = require("../lib/questions.js");
+const { CRITERIA, dropFromAccount, fetched, keepOnAccount, listed, problems, review, save } = require("../lib/questions.js");
 
 const HOME = pluginHome();
 
@@ -64,6 +64,10 @@ if (verb === "check") {
   } catch (thrown) {
     fail(`not-dropped: ${arg} (${thrown.message})`);
   }
+} else if (verb === "criteria") {
+  process.stdout.write(`${CRITERIA.join("\n")}\n`);
+} else if (verb === "review") {
+  process.stdout.write(`${review(read(arg))}\n`);
 } else {
-  fail("usage: evalation-questions check <file> | save <file> [--replace] | list | path <name> | keep-on-account <name> | drop-from-account <name>");
+  fail("usage: evalation-questions check <file> | criteria | review <file> | save <file> [--replace] | list | path <name> | keep-on-account <name> | drop-from-account <name>");
 }

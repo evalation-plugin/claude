@@ -60,9 +60,15 @@ test("the session's own calls and other agents' calls pass the gate", () => {
   assert.ok(bash("ls", "general-purpose").allowed);
 });
 
-test("the plugin ships the three agents with the shell alone, and the gate as a hook", () => {
+test("the question checker runs the review of a draft and nothing else", () => {
+  assert.ok(bash("evalation-questions review /tmp/draft.json", "evalation-plugin:question-checker").allowed);
+  assert.strictEqual(bash("evalation-questions save /tmp/draft.json", "evalation-plugin:question-checker").allowed, false);
+  assert.strictEqual(bash("cat /tmp/draft.json", "evalation-plugin:question-checker").allowed, false);
+});
+
+test("the plugin ships the four agents with the shell alone, and the gate as a hook", () => {
   const agents = readdirSync(join(ROOT, "agents")).filter((one) => one.endsWith(".md")).sort();
-  assert.deepStrictEqual(agents, ["corrector.md", "reader.md", "verifier.md"]);
+  assert.deepStrictEqual(agents, ["corrector.md", "question-checker.md", "reader.md", "verifier.md"]);
   for (const one of agents) {
     const head = readFileSync(join(ROOT, "agents", one), "utf8").split("---")[1];
     assert.match(head, /^tools: Bash$/m, one);
