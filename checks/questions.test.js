@@ -12,6 +12,8 @@ const { dropFromAccount, extended, extensible, fetched, fromAccount, keepOnAccou
 const { groupOf, methodology } = require("../bin/evalation-findings");
 const { served } = require("../bin/evalation-run");
 
+const OURS = { name: "Evalation's own questions.", attribution: "Evalation" };
+
 const question = (id, extra = {}) => ({
   identifier: id, title: "Payments are recorded", intent: "Where does this repository record each payment it takes?",
   looks_for: [
@@ -61,7 +63,7 @@ test("the custom pack is built locally, marks every entry the customer's, and na
 });
 
 test("extra questions join one of our own packs in a section of their own, named after their set", () => {
-  const servedPack = { pack: "cyber-insurance", kind: "standard", body: { kind: "standard", version_is_ours: true, title: "Cyber insurance",
+  const servedPack = { pack: "cyber-insurance", kind: "standard", body: { kind: "standard", version_is_ours: true, licence: OURS, title: "Cyber insurance",
     sections: [{ identifier: "S1", title: "Sign-in and access" }], entries: [{ identifier: "Q1", section: "S1" }, { identifier: "INS01", section: "S1" }] } };
   const grown = extended(servedPack, set([question("Q2")], { pack: "cyber-insurance" }));
   assert.deepStrictEqual(grown.body.entries.map((one) => one.identifier), ["Q1", "INS01", "Board-check.Q2"]);
@@ -72,7 +74,7 @@ test("extra questions join one of our own packs in a section of their own, named
 });
 
 test("two sets for one pack each print in a sub-section of their own, and each may hold a Q1", () => {
-  const servedPack = { pack: "cyber-insurance", kind: "standard", body: { kind: "standard", version_is_ours: true, title: "Cyber insurance",
+  const servedPack = { pack: "cyber-insurance", kind: "standard", body: { kind: "standard", version_is_ours: true, licence: OURS, title: "Cyber insurance",
     sections: [{ identifier: "S1", title: "Sign-in and access" }], entries: [{ identifier: "CYB01", section: "S1" }] } };
   const once = extended(servedPack, set([question("Q1")], { name: "Broker questions", pack: "cyber-insurance" }));
   const twice = extended(once, set([question("Q1")], { name: "Board questions", pack: "cyber-insurance" }));
@@ -87,7 +89,7 @@ test("two sets for one pack each print in a sub-section of their own, and each m
 test("a user provided question's card prints the number its set gave it", () => {
   const { page } = require("../bin/evalation-report");
   const { skeletonOf } = require("../bin/evalation-findings");
-  const served = extended({ pack: "cyber-insurance", kind: "standard", body: { kind: "standard", version_is_ours: true, title: "Cyber insurance",
+  const served = extended({ pack: "cyber-insurance", kind: "standard", body: { kind: "standard", version_is_ours: true, licence: OURS, title: "Cyber insurance",
     sections: [{ identifier: "S1", title: "Sign-in" }], entries: [] } }, set([question("Q1")], { name: "Broker questions", pack: "cyber-insurance" }));
   const kept = skeletonOf({ run: "run-0123456789ab", at: "2026-09-29T00:00:00.000Z", packs: [{ pack: served.pack, kind: "standard", body: served.body }] });
   const asked = new Map(kept.packs[0].entries_asked.map((one) => [`cyber-insurance/${one.identifier}`, one]));
@@ -151,12 +153,15 @@ test("a pack holding a published standard's clauses takes no extra questions, an
   const soc2 = { pack: "soc2", kind: "standard", body: { kind: "standard", version_is_ours: false, title: "SOC 2", entries: [{ identifier: "CC6.1" }] } };
   assert.throws(() => extended(soc2, set([question("Q1")], { pack: "soc2" })), /SOC 2 keeps the published standard's own clauses, so it takes no extra questions/);
   assert.strictEqual(extensible(soc2.body), false);
-  assert.strictEqual(extensible({ kind: "concern-set", version_is_ours: true }), false);
-  assert.strictEqual(extensible({ kind: "standard", version_is_ours: true }), true);
+  assert.strictEqual(extensible({ kind: "concern-set", version_is_ours: true, licence: OURS }), false);
+  assert.strictEqual(extensible({ kind: "standard", version_is_ours: true, licence: OURS }), true);
+  assert.strictEqual(extensible({ kind: "standard", version_is_ours: true,
+    licence: { name: "CC BY-SA 4.0", attribution: "OWASP GenAI Security Project, Agentic Security Initiative" } }), false,
+  "a pack whose edition we date but whose questions are another body's takes none");
 });
 
 test("a pack with no sections keeps its own entries under its title, and the extra questions under theirs", () => {
-  const ours = { pack: "investment-diligence", kind: "standard", body: { kind: "standard", version_is_ours: true, title: "Investment due diligence", entries: [{ identifier: "INV01" }] } };
+  const ours = { pack: "investment-diligence", kind: "standard", body: { kind: "standard", version_is_ours: true, licence: OURS, title: "Investment due diligence", entries: [{ identifier: "INV01" }] } };
   const grown = extended(ours, set([question("Q1")], { pack: "investment-diligence" }));
   assert.deepStrictEqual(grown.body.sections.map((one) => one.title), ["Investment due diligence", "User provided questions: Board check"]);
   assert.deepStrictEqual(grown.body.entries.map((one) => one.section), [grown.body.sections[0].identifier, grown.body.sections[1].identifier]);
