@@ -28,6 +28,7 @@ const { cardOf, cardWorst, named: phaseNamed, newestFor, phasesRead } = require(
 const { facing, held, own } = require("../lib/prose.js");
 const { fenced } = require("../lib/fence.js");
 const { infrastructureIn } = require("../lib/infrastructure.js");
+const { placeOf, solutionOf } = require("../lib/solution.js");
 
 const STATUSES = ["covered", "partial-gap", "total-gap", "no-evidence", "org-level", "not-applicable"];
 const EXEMPT = ["org-level", "not-applicable"];
@@ -110,6 +111,11 @@ function cited(where, one, said) {
   const path = resolve(where, one.path);
   if (relative(where, path).startsWith("..")) {
     said.push(`${one.path}: a citation resolves outside the tree it read`);
+    return;
+  }
+  const solution = solutionHeld(where);
+  if (solution && !placeOf({ kind: "solution", repositories: solution.repositories }, one.path).repository) {
+    said.push(`${one.path}: cited from a folder this run does not read`);
     return;
   }
   if (!existsSync(path)) {
@@ -499,6 +505,12 @@ function followed(named, answer, list, where, scan, since) {
  * way, since the hardness score is counted from its items.
  */
 const infrastructureHeld = new Map();
+const solutionsHeld = new Map();
+
+function solutionHeld(where) {
+  if (!solutionsHeld.has(where)) solutionsHeld.set(where, solutionOf(where));
+  return solutionsHeld.get(where);
+}
 
 function infrastructureOf(where) {
   if (!infrastructureHeld.has(where)) infrastructureHeld.set(where, infrastructureIn(where));

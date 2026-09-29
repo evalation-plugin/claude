@@ -38,9 +38,8 @@ test("a checkout holds no other repositories", () => {
   assert.strictEqual(checkoutsIn(repository()), null);
 });
 
-test("reading a folder whole takes each checkout's tracked files and no worktree or metadata", () => {
+test("reading a folder whole takes each checkout's tracked files once, and no copy, worktree or metadata", () => {
   const at = folder();
   const files = filesOf(at).map((one) => inRepository(at, one)).sort();
-  assert.deepStrictEqual(files, ["app/README.md", "app/package.json", "app/src/auth.js",
-    "copy/README.md", "copy/package.json", "copy/src/auth.js", "hg/x.py"].sort());
+  assert.deepStrictEqual(files, ["app/README.md", "app/package.json", "app/src/auth.js", "hg/x.py"].sort());
 });

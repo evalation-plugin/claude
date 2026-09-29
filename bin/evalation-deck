@@ -25,6 +25,7 @@ const { changeNotes, dated } = require("../lib/changes.js");
 const { render } = require("../lib/slides.js");
 const { print } = require("../lib/print.js");
 const { assure } = require("../lib/assure.js");
+const { readSlides } = require("../lib/solution.js");
 
 const ASSETS = resolve(__dirname, "..", "reporting", "assets");
 const TEMPLATE = join(ASSETS, "review-deck-template.pptx");
@@ -100,6 +101,14 @@ function oneLine(text, limit) {
   return `${(at > limit * 0.6 ? cut.slice(0, at) : cut).trimEnd()}…`;
 }
 
+function labelled(document) {
+  const name = document.tenant ?? "";
+  if (!document.solution) return name;
+  const held = (document.solution.repositories ?? []).map((one) => one.repository);
+  const listed = `${name} · ${held.join(", ")}`;
+  return listed.length <= 105 ? listed : `${name} · ${held.length} repositories`;
+}
+
 function model(document) {
   const cats = document.categories ?? [];
   const findings = cats.flatMap((one) => one.findings ?? []);
@@ -122,7 +131,8 @@ function model(document) {
   return {
     title: document.title ?? "Evalation Hardening Review",
     subtitle: document.subtitle ?? "",
-    tenant: document.tenant ?? "",
+    tenant: labelled(document),
+    solution: document.solution ?? null,
     auditType: "Hardening Review",
     // Weaknesses only. A control found working is counted where the verdict names it, and counting it
     // here too put 147 on the cover beside commentary that says 108.
@@ -591,7 +601,7 @@ function deck(document, into, options = {}) {
 
   // 2 - what the tree is. Measured, so it owes nothing to anybody's account of the codebase.
   const glance = slides[1];
-  glance.xml = pptx.fill(glance.xml, type);
+  glance.xml = pptx.fill(glance.xml, held.solution ? { ...type, "Repository at a glance": "Solution at a glance" } : type);
   if (held.overview) {
     let xml = glance.xml;
     const languages = held.overview.languages ?? [];
@@ -756,6 +766,7 @@ function deck(document, into, options = {}) {
 
   // 4 - the honest read on how it is built.
   const commentary = slides[3];
+  const untouched = { xml: commentary.xml, number: commentary.number };
   // What moved since the last run, on a copy of this slide placed after it, retitled and filled from
   // the same comparison the detail opens with. A deck with no earlier run has no such slide.
   const since = held.changes ? pptx.duplicateSlide(file, { xml: commentary.xml, number: commentary.number }, 3) : null;
@@ -785,6 +796,18 @@ function deck(document, into, options = {}) {
     trimUnused(since, "{{ Strength or risk headline }}");
     spread(since);
   }
+
+  readSlides(held.solution).forEach((page, at) => {
+    const read = pptx.duplicateSlide(file, untouched, 1 + at);
+    read.xml = retitled(pptx.fill(read.xml, type), {
+      "What we think of how it's built": at === 0 ? "Repositories read" : "Repositories read, continued",
+      COMMENTARY: "REPOSITORIES",
+    });
+    fillInOrder(read, "{{ Strength or risk headline }}", page.map((one) => one.headline));
+    fillInOrder(read, "{{ 2-3 sentence honest assessment; concrete and specific, not pitched. }}", page.map((one) => one.body));
+    trimUnused(read, "{{ Strength or risk headline }}");
+    spread(read);
+  });
 
   // 5 - one number, its grade, and where it came from.
   const score = slides[4];

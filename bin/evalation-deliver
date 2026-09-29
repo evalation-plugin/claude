@@ -35,6 +35,9 @@ const { readingOf } = require("../lib/prose.js");
 const { inventory } = require("./evalation-inventory");
 const { deck } = require("./evalation-deck");
 const { detail } = require("./evalation-detail");
+const { shownPath } = require("../lib/solution.js");
+
+let target = null;
 
 // What a deliverable calls each discipline. The rubric weights these same keys, so a name here that
 // the rubric does not weight is a section that cannot be scored.
@@ -135,13 +138,14 @@ function belowScan(one, results) {
 function cited(at) {
   if (!at) return "";
   if (typeof at === "string") return at;
-  const path = at.path ?? at.file ?? "";
+  const path = shownPath(target, at.path ?? at.file ?? "");
   const from = at.from ?? at.line;
   if (!from) return path;
   return at.to && at.to !== from ? `${path}:${from}-${at.to}` : `${path}:${from}`;
 }
 
 function reviewFindings(document) {
+  target = document.target ?? null;
   const ingested = new Set((document.ingested ?? []).map((one) => one.id ?? one));
   const readBy = withoutVendor(document.read_by);
 
@@ -236,17 +240,22 @@ function reviewFindings(document) {
     .map((one) => withoutVendor(one.model) || readBy)
     .filter(Boolean))].sort();
 
+  const solution = document.target?.kind === "solution" ? document.target : null;
+  const whole = solution ? `the ${(solution.repositories ?? []).length} repositories of this solution together` : "the repository";
   const built = {
     title: "Evalation Hardening Review",
-    subtitle: `Detailed findings by discipline · Repo: ${repository}`,
+    subtitle: solution
+      ? `Detailed findings by discipline · Solution: ${repository}`
+      : `Detailed findings by discipline · Repo: ${repository}`,
     tenant: repository,
+    solution,
     generated_at: String(document.at ?? "").slice(0, 10).replace(/-/g, ""),
     meta: {
       // What was done, in enough detail that a reader can weigh the report before reading a row of
       // it: how much was read, how it was read, what a row carries, how the rows are ordered, and
       // what the assessment did not do.
       intro: [
-        `We read the repository against ${categories.length} disciplines and found ${weaknesses} ` +
+        `We read ${whole} against ${categories.length} disciplines and found ${weaknesses} ` +
         `findings, along with ${(document.findings ?? []).length - weaknesses} controls working as intended.`,
 
         "Each discipline has its own section, and one that found nothing still gets a section so a " +
@@ -264,7 +273,7 @@ function reviewFindings(document) {
       priority: "P0 do first · P1 near-term · P2 should-fix · P3 cleanup.",
       result:
         "Scanned if a scanner found it · verified if a second check confirmed it against the " +
-        "repository · asserted if nothing did.",
+        `${solution ? "repositories" : "repository"} · asserted if nothing did.`,
     },
     categories,
   };
