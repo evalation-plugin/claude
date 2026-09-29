@@ -29,7 +29,9 @@ First look at the sets already kept, with `${CLAUDE_PLUGIN_ROOT}/bin/evalation-q
 which names each set on this machine or on the account, with its pack, its size and where it is
 kept. Ask "Would you like to change a saved set, or write a new one?", with an answer per saved set,
 "Change <name>", and "Write a new set". A set the list marks `refused` came back from the account
-failing its check: say so and never offer it.
+failing its check: say so and never offer it. Where no set is kept, ask nothing here and open with
+these words: "You have no saved question sets yet, so we'll write your first one." Never say the
+person has only one choice.
 
 On "Change <name>", run `evalation-questions path <name>`, read the file it names, and show the
 whole set. Ask what they would like changed, make every change they ask for across the set, and go
@@ -132,16 +134,16 @@ Write the set as one JSON file, `{"name": "<its name>", "pack": "custom" or the 
 such as "Broker questions", and never names the repository this session is open in or anything in
 it. A name the person gives is used as they give it, whatever it names.
 
-**Recheck it before anyone sees it.** First tell the person, in one plain line with the real counts,
-what happens and why it takes a while, such as: "Checking your 7 questions and their 30 requirements
-against the rules for a question set. A separate checker that did not write them does this, so each
-question is judged independently, and it takes a few minutes." Count the questions and the
-requirements from the file. Questions kept as the organisation's are not checked, so leave them out
-of the count. Then start one `question-checker` for each question, all at once, each told the file's
-path and its own question, such as Q3, so the questions are checked side by side. Each answers every
-numbered criterion for its question and that question's items, and the plugin records its verdicts
-against the words it judged. As each checker finishes, tell the person one line, such as "Q3
-checked (3 of 7)", and say nothing else about the check: no rounds and no checker's findings. Then run
+**Recheck it before anyone sees it.** First tell the person, in these words and nothing more:
+"Checking your questions against the rules for a question set. A separate checker that did not write
+them judges each question on its own, so this takes a few minutes." Quote no counts of questions or
+requirements, since a person cannot tell where a number comes from. Then start
+one `question-checker` for each question that has items, all at once, each told the file's path and its
+own question, such as Q3, so the questions are checked side by side. Each answers every numbered
+criterion for its question and that question's items, and the plugin records its verdicts against
+the words it judged. As each checker finishes, tell the person one line, such as "Q3 checked", and
+say nothing else about the check: no numbers, no rounds and no checker's findings. Every message to
+the person is plain English with no dashes and no semicolons. Then run
 `evalation-questions check <file>`, which names each row not yet checked and each fault, with the
 criterion and the words that break it. Reword every row it names and start a fresh checker for each
 question that changed, which is asked only the rows whose words changed, since a row keeps its
