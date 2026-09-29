@@ -74,7 +74,72 @@ test("a run refused for want of credit says both numbers in one plain line, and 
   const ran = await started(machine(), held.address().port, tree, "soc2", "iso27001");
   held.close();
   assert.strictEqual(ran.code, 1);
-  assert.strictEqual(ran.stderr, "This run reads 2 packs, which needs 2 pack credits, and you have 1. It did not start, and no pack credits were used.\n");
+  assert.strictEqual(ran.stderr, "This run reads 2 packs, which needs 2 pack credits, and you have 1. It did not start, and no pack credits were used. " +
+    "To buy more pack credits, email support@evalation.ai, then run /ev-run again, or choose fewer packs.\n");
+});
+
+function routed(answers) {
+  const held = createServer((req, res) => {
+    req.resume();
+    req.on("end", () => {
+      res.writeHead(200, { "content-type": "application/json", connection: "close" });
+      res.end(JSON.stringify(answers[req.url] ?? {}));
+    });
+  });
+  held.unref();
+  return new Promise((resolve) => held.listen(0, "127.0.0.1", () => resolve(held)));
+}
+
+const HARDENING = { pack: "hardening", kind: "concern-set", title: "Evalation Hardening Review", entries: [] };
+
+test("the pack questions come from the run command ready to ask, with the balance, the usual packs and the sets in the catalogue's words", async () => {
+  const home = machine();
+  const held = await routed({ "/pin": {}, "/runs": { remaining: 3 }, "/sets": { sets: [] },
+    "/packs": { revision: "1.86", packs: [{ pack: "soc2", body: SOC2 }, { pack: "iso27001", body: ISO }, { pack: "hardening", body: HARDENING }] } });
+  const port = held.address().port;
+  const asked = async (...args) => {
+    const ran = await started(home, port, "--say", ...args);
+    assert.strictEqual(ran.code, 0, ran.stderr);
+    return ran.stdout.startsWith("{") ? JSON.parse(ran.stdout).questions : ran.stdout;
+  };
+  const [full] = await asked("packs", tree);
+  assert.strictEqual(full.question, "Which packs should this run read? Tick each pack to read. Each one uses a pack credit, and you have 3. " +
+    "Reading takes a while and uses a good part of your Claude usage.");
+  assert.deepStrictEqual(full.options.map((one) => one.label), ["Evalation Hardening Review", "ISO/IEC 27001", "SOC 2 Trust Services Criteria"]);
+  writeFileSync(join(home, "packs.json"), JSON.stringify({ packs: ["soc2", "hardening"] }));
+  mkdirSync(join(home, "questions"), { recursive: true });
+  const question = { identifier: "Q1", title: "Sign in", asked: "do we check who is signed in", intent: "Where does this repository check who is signed in?",
+    looks_for: [{ find: "A check of the signed-in session", proof: "runs" }] };
+  writeFileSync(join(home, "questions", "Board.json"), JSON.stringify({ name: "Board", pack: "custom", questions: [question] }));
+  writeFileSync(join(home, "questions", "Board two.json"), JSON.stringify({ name: "Board two", pack: "custom", questions: [question, question] }));
+  const { target } = require("../bin/evalation-run");
+  const [first] = await asked("packs", tree);
+  assert.strictEqual(first.question, `Which packs should this run read for ${target(tree).repository}? Each pack uses one pack credit, and you have 3. ` +
+    "Reading takes a while and uses a good part of your Claude usage.");
+  assert.strictEqual(first.header, "Packs");
+  assert.strictEqual(first.multiSelect, false);
+  assert.deepStrictEqual(first.options, [
+    { label: "Run my usual packs", description: "SOC 2 Trust Services Criteria and Evalation Hardening Review. Uses 2 pack credits." },
+    { label: "Choose which packs to run", description: "Tick any packs from the full list." },
+    { label: "Only my questions", description: "No Evalation pack is read and no pack credits are used, so the run answers your own questions and nothing else." },
+  ]);
+  const [usual] = await asked("usual");
+  assert.strictEqual(usual.header, "Usual");
+  assert.ok(usual.multiSelect);
+  assert.deepStrictEqual(usual.options.map((one) => one.label), ["SOC 2 Trust Services Criteria", "Evalation Hardening Review"]);
+  const [all] = await asked("all");
+  assert.strictEqual(all.question, "Which packs should this run read? Tick each pack to read. Each one uses a pack credit, and you have 3.");
+  const [only] = await asked("only");
+  assert.deepStrictEqual(only.options, [{ label: "Board", description: "One question." }, { label: "Board two", description: "2 questions." }]);
+  assert.strictEqual(await asked("sets", "soc2"), "SOC 2 Trust Services Criteria can also take your own questions, written with /ev-questions before a run.\n");
+  writeFileSync(join(home, "questions", "Broker.json"), JSON.stringify({ name: "Broker", pack: "soc2", questions: [question, question] }));
+  const [one] = await asked("sets", "soc2");
+  assert.strictEqual(one.question, "Use your question set \"Broker\" with SOC 2 Trust Services Criteria? No extra pack credits.");
+  assert.deepStrictEqual(one.options, [{ label: "Use Broker", description: "2 questions." },
+    { label: "Read the pack alone", description: "Only the pack's own questions are read." }]);
+  assert.strictEqual(await asked("short", "4"), "You have 3 pack credits and chose 4 packs. To buy more pack credits, email support@evalation.ai, " +
+    "then run /ev-run again, or choose fewer packs.\n");
+  held.close();
 });
 
 test("a run the server counts writes its own run file and rubric, and prints where they are", async () => {

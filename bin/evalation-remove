@@ -6,7 +6,7 @@ const { homedir } = require("node:os");
 const { join } = require("node:path");
 const { runScript } = require("../lib/script.js");
 const { pluginHome } = require("../lib/home.js");
-const { openBy, placesOf, pluginConversations, removal, reportsIn } = require("../lib/remove.js");
+const { keysNamed, openBy, placesNamed, placesOf, pluginConversations, removal, reportsIn, reportsNamed, setsAsked } = require("../lib/remove.js");
 const store = require("./evalation-store");
 
 const HOME = pluginHome();
@@ -21,14 +21,23 @@ function fail(reason) {
 const [verb, ...flags] = process.argv.slice(2);
 if (verb === "folders") {
   const others = pluginConversations(CLAUDE, { here: HERE }).filter((one) => one.id !== HERE);
+  const reports = reportsIn(HOME);
+  const places = placesOf(others);
   process.stdout.write(`${JSON.stringify({
     home_exists: existsSync(HOME),
-    reports: reportsIn(HOME),
+    reports,
+    reports_named: reportsNamed(reports),
     conversations: others.length,
-    places: placesOf(others),
+    places,
+    places_named: placesNamed(places),
     open: others.filter((one) => one.live).length,
     open_by: openBy(CLAUDE, HERE),
   }, null, 2)}\n`);
+} else if (verb === "sets") {
+  const listing = require("../lib/questions.js").listed(HOME);
+  if (listing.account === "unreachable") fail("unreachable: the account's question sets could not be read");
+  const asked = setsAsked(listing);
+  process.stdout.write(asked ? `${JSON.stringify(asked)}\n` : "none\n");
 } else if (verb === "run") {
   try {
     const done = removal({
@@ -46,10 +55,10 @@ if (verb === "folders") {
       forget: (service, account) => store.forget(service, account),
       held: (service, account) => store.chosen().held(service, account),
     });
-    process.stdout.write(`${JSON.stringify(done, null, 2)}\n`);
+    process.stdout.write(`${JSON.stringify({ ...done, keys_named: done.keys_left.length > 0 ? keysNamed(done.keys_left) : null }, null, 2)}\n`);
   } catch (thrown) {
     fail(`${thrown.reason === "unreachable" ? "unreachable" : "refused"}: nothing was removed (${thrown.message})`);
   }
 } else {
-  fail("usage: evalation-remove folders | run [--clear-history]");
+  fail("usage: evalation-remove folders | sets | run [--clear-history]");
 }

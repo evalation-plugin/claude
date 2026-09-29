@@ -11,6 +11,7 @@ const { join } = require("node:path");
 require("./fixture.js");
 const { held } = require("../lib/prose.js");
 const { WAITING } = require("../bin/evalation-activate");
+const { entries } = require("../lib/say.js");
 
 const ACTIVATE = join(__dirname, "..", "bin", "evalation-activate");
 const COMMAND = readFileSync(join(__dirname, "..", "commands", "ev-activate.md"), "utf8");
@@ -87,39 +88,58 @@ test("settings naming no installation, or a sign-in key of the wrong size, count
   }
 });
 
+const LINES = entries();
+const FLAT = COMMAND.replace(/\s+/g, " ");
+const escaped = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+function line(marker) {
+  const at = FLAT.match(new RegExp(`${escaped(marker)}[^\`]*\`evalation-say ([a-z0-9.-]+)`));
+  assert.ok(at, `${marker} names a line from the catalogue`);
+  assert.ok(LINES[at[1]], `${at[1]} is a line the plugin holds`);
+  return LINES[at[1]];
+}
+
+const PROVIDERS = ["Google, including Google Workspace work accounts", "Microsoft, personal or work accounts"];
+const answers = (one) => one.options.map((each) => [each.label, each.description]);
+
 test("the sign-in command text says what it can keep true on every machine, and answers every line the script prints", () => {
-  const flat = COMMAND.replace(/\s+/g, " ");
-  assert.doesNotMatch(flat, /kept in this machine's password store/);
-  assert.match(flat, /`sign-in-unclear`[^`]*"[^"]*nothing was changed[^"]*"/);
-  assert.match(flat, /Never mention keys, installations or digital signatures to them\./);
-  assert.match(flat, /"Which account will you sign in with now\? This machine stays signed in with the account you choose\."/);
-  assert.match(flat, /"Which account will you sign in with\? This machine stays signed in with the account you choose\."/);
-  assert.doesNotMatch(flat, /"Sign in again\?"/);
-  assert.match(flat, /`state: not-set-up`: go on to step 2/);
+  assert.doesNotMatch(FLAT, /kept in this machine's password store/);
+  assert.match(line("`sign-in-unclear`").say, /nothing was changed/);
+  assert.match(FLAT, /Never mention keys, installations or digital signatures to them\./);
+  const which = "Which account will you sign in with? This machine stays signed in with the account you choose.";
+  const now = "Which account will you sign in with now? This machine stays signed in with the account you choose.";
+  const google = ["Sign in with Google", PROVIDERS[0]];
+  const microsoft = ["Sign in with Microsoft", PROVIDERS[1]];
+  const stop = ["Stop for now", "Leave this machine signed out. Nothing was created."];
+  assert.deepStrictEqual([line("Ask which provider").ask, answers(line("Ask which provider"))], [which, [google, microsoft]]);
+  assert.deepStrictEqual([line("offer Microsoft first").ask, answers(line("offer Microsoft first"))], [which, [microsoft, google]]);
+  assert.deepStrictEqual([line("Google was not the one declined").ask, answers(line("Google was not the one declined"))], [now, [google, microsoft, stop]]);
+  assert.deepStrictEqual([line("Microsoft was not the one declined").ask, answers(line("Microsoft was not the one declined"))], [now, [microsoft, google, stop]]);
+  assert.doesNotMatch(FLAT, /Sign in again\?/);
+  assert.match(FLAT, /`state: not-set-up`: go on to step 2/);
 });
 
 test("the sign-in command text shows the address at once, hears the person during the wait, and words every line the same way each run", () => {
-  const flat = COMMAND.replace(/\s+/g, " ");
-  assert.match(flat, /`sign-in address:`/);
-  assert.match(flat, /"No browser opened, so open this address to sign in:"/);
-  assert.match(flat, /"A browser should now show the sign-in page\. If it does not, open this address:"/);
-  assert.match(flat, /"It waits up to five minutes\. If the page shows an error in place of a sign-in page, tell me what it says\."/);
-  assert.match(flat, /Where their message says what the browser showed/);
-  assert.doesNotMatch(flat, /press Esc/);
-  assert.match(flat, /`state: live` or `state: unreachable`: say "This machine is already signed in to Evalation\."/);
-  assert.match(flat, /`state: not-live`: run `\/ev-account` and say nothing of your own/);
-  assert.match(flat, /"This machine needs to sign in to Evalation again\. Your pack credits and reports are kept\."/);
-  assert.match(flat, /`unreachable`[^`]*"Evalation could not be reached, so nothing was created\. Check this machine is online, then run \/ev-activate again\. If it still fails, contact support@evalation\.ai\."/);
-  assert.match(flat, /"That way to sign in is not offered yet\."/);
-  assert.doesNotMatch(flat, /answers "Google"/);
-  for (const label of ["Sign in with Google", "Sign in with Microsoft"]) {
-    assert.strictEqual(flat.split(`"${label}", described as`).length - 1, 2, label);
-  }
-  assert.match(flat, /"Stop for now", described as/);
-  assert.match(flat, /header "Sign in"/);
-  assert.match(flat, /"To use Evalation on another computer, sign in there with the same account\. It costs nothing extra\."/);
-  assert.ok(flat.includes("Your sign-in stays on this machine, and only your login on this computer can use it."));
-  assert.doesNotMatch(flat, /password store(?! \(Keychain on a Mac\))(?! Evalation can use)/);
+  assert.match(FLAT, /`sign-in address:`/);
+  assert.strictEqual(line("`could not open a browser`").say, "No browser opened, so open this address to sign in:");
+  assert.strictEqual(line("where no such line follows").say, "A browser should now show the sign-in page. If it does not, open this address:");
+  assert.strictEqual(line("wait for it to end").say, "It waits up to five minutes. If the page shows an error in place of a sign-in page, tell me what it says.");
+  assert.match(FLAT, /Where their message says what the browser showed/);
+  assert.doesNotMatch(FLAT, /press Esc/);
+  assert.strictEqual(line("`state: live` or `state: unreachable`").say, "This machine is already signed in to Evalation.");
+  assert.match(FLAT, /`state: not-live`: run `\/ev-account` and say nothing of your own/);
+  assert.strictEqual(line("`sign-in: damaged`").say, "This machine needs to sign in to Evalation again. Your pack credits and reports are kept.");
+  assert.strictEqual(line("**`unreachable`**").say, "Evalation could not be reached, so nothing was created. Check this machine is online, then run /ev-activate again. If it still fails, contact support@evalation.ai.");
+  assert.strictEqual(line("any other way to sign in").say, "That way to sign in is not offered yet.");
+  assert.deepStrictEqual(line("Say once, beside the question").say, "Other ways to sign in are not offered yet. If you have neither account, contact support@evalation.ai.");
+  assert.deepStrictEqual(answers(line("**`stopped`**")).map((one) => one[0]), ["Tell you what the browser showed", "Sign in again", "Stop for now"]);
+  const asked = Object.entries(LINES).filter(([name, one]) => name.startsWith("ev-activate.") && one.ask);
+  assert.ok(asked.length >= 5);
+  assert.deepStrictEqual(asked.filter(([, one]) => one.header !== "Sign in").map(([name]) => name), []);
+  assert.strictEqual(line("Then show").say, "To use Evalation on another computer, sign in there with the same account. It costs nothing extra.");
+  assert.ok(line("Say what signing in is").say.includes("Your sign-in stays on this machine, and only your login on this computer can use it."));
+  const words = [FLAT, ...Object.entries(LINES).filter(([name]) => name.startsWith("ev-activate.")).map(([, one]) => JSON.stringify(one))].join(" ");
+  assert.doesNotMatch(words, /password store(?! \(Keychain on a Mac\))(?! Evalation can use)/);
 });
 
 test("the sign-in address is printed before the wait, even where a browser opens", async (t) => {
@@ -167,7 +187,8 @@ test("a machine with nowhere to keep a key is told the folder this machine reall
 });
 
 test("the sign-in command text checks the machine first, waits in the background, and tells a stop apart from the timeout", () => {
-  assert.ok(COMMAND.indexOf("bin/evalation-status") < COMMAND.indexOf("Which account will you sign in with?"));
+  assert.ok(COMMAND.indexOf("evalation-status") < COMMAND.indexOf("evalation-say ev-activate.provider"));
+  assert.ok(COMMAND.indexOf("evalation-say ev-activate.provider") > 0);
   assert.match(COMMAND, /`run_in_background`/);
   assert.doesNotMatch(COMMAND, /360000/);
   assert.match(COMMAND, /`timed-out`/);

@@ -162,6 +162,7 @@ test("a page that fails its check stops the report with one plain line naming th
   assert.strictEqual(report.status, 1);
   assert.match(report.stderr, /^Evalation SOC 2 Trust Services Criteria Evidence Pack\.pdf was not written, because the check made before printing found these faults in its pages:\n {2}an unfilled slot reached the page: "\{\{ repository \}\}"/);
   assert.doesNotMatch(report.stderr, /fault in Evalation|\n\s+at /);
+  assert.match(report.stderr, /\nYour findings are kept, and the reports can be printed once this is fixed, with no new pack credits\.\n$/);
   const deliver = said("evalation-deliver");
   assert.strictEqual(deliver.status, 1);
   assert.match(deliver.stderr, /^Evalation Hardening Review (Pack|Detail)\.pdf was not written, because the check made before printing found these faults in its pages:\n {2}an unfilled slot/);

@@ -30,7 +30,7 @@ const { join, resolve } = require("node:path");
 
 const { pluginHome } = require("../lib/home.js");
 const { changes, changesSection, earlierFor } = require("../lib/changes.js");
-const { print, unsignedThen, unwritten } = require("../lib/print.js");
+const { print, unprintedSaid, unsignedSaid, unsignedThen, unwritten } = require("../lib/print.js");
 const { readingOf } = require("../lib/prose.js");
 const { cardOf, compared, compatible, named: phaseNamed, upgradeTo } = require("../lib/scans.js");
 const { consequences, remedies } = require("../lib/weaknesses.js");
@@ -606,13 +606,19 @@ function main() {
     fail(unwritten(thrown, printedSoFar));
   }
 
-  process.stdout.write(`${JSON.stringify({ folder, packs: written }, null, 2)}\n`);
+  process.stdout.write(`${JSON.stringify({ folder, packs: written, said: said(written, folder) }, null, 2)}\n`);
+}
+
+function said(written, folder) {
+  const pages = written.filter((one) => !one.printed).map((one) => one.written);
+  return [...(pages.length > 0 ? [unprintedSaid(pages, folder)] : []),
+    ...written.filter((one) => one.unsigned).map((one) => unsignedSaid(one.written, one.unsigned))].join("\n");
 }
 
 function citing(answers) {
   return answers.filter((one) => [one, ...(one.looked_for ?? [])].some((row) => (row.evidence ?? []).length > 0)).length;
 }
 
-module.exports = { citing, page };
+module.exports = { citing, page, said };
 
 if (require.main === module) main();

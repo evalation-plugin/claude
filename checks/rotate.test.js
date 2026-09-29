@@ -10,9 +10,25 @@ const { join } = require("node:path");
 const { createPrivateKey, createPublicKey, randomBytes } = require("node:crypto");
 require("./fixture.js");
 
+const { entries } = require("../lib/say.js");
+
 const COMMAND = readFileSync(join(__dirname, "..", "commands", "ev-rotate.md"), "utf8");
 const NOT_REPLACED = "The key was not replaced and the old one still works.";
 const NOT_FINISHED = "The key change did not finish.";
+const LINES = entries();
+const FLAT = COMMAND.replace(/\s+/g, " ");
+const escaped = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+function line(marker, text = FLAT) {
+  const at = text.match(new RegExp(`${escaped(marker)}[^\`]*\`evalation-say ([a-z0-9.-]+)`));
+  assert.ok(at, `${marker} names a line from the catalogue`);
+  assert.ok(LINES[at[1]], `${at[1]} is a line the plugin holds`);
+  return LINES[at[1]].say;
+}
+
+const section = (from, to) => FLAT.slice(FLAT.indexOf(from), FLAT.indexOf(to));
+const NOT_REPLACED_PART = () => section(`**\`${NOT_REPLACED}\`**`, `**\`${NOT_FINISHED}\`**`);
+const NOT_FINISHED_PART = () => section(`**\`${NOT_FINISHED}\`**`, "**`no-settings`**");
 
 function machine() {
   const home = mkdtempSync(join(tmpdir(), "evalation-rotate-"));
@@ -161,17 +177,19 @@ test("a machine whose sign-in key is missing stops before anything is sent and i
   assert.strictEqual(ran.status, 1);
   assert.deepStrictEqual(ran.asked, []);
   assert.match(ran.stderr, /^sign-in-damaged:/);
-  assert.match(COMMAND.replace(/\s+/g, " "), /`sign-in-damaged`[^`]*"This machine's Evalation sign-in is damaged, so the key was not replaced\. Run \/ev-activate to sign in again\."/);
+  assert.strictEqual(line("`sign-in-damaged`"), "This machine's Evalation sign-in is damaged, so the key was not replaced. Run /ev-activate to sign in again.");
 });
 
 test("the command text gives the clock step only for a clock refusal, and sends a machine no longer accepted to support", () => {
   assert.doesNotMatch(COMMAND, /refused 40[13]/);
-  assert.match(COMMAND, /`clock`[^`]*Set this machine's clock/);
-  assert.match(COMMAND, /`refused`[^`]*support@evalation\.ai/);
-  assert.match(COMMAND, /`ended`[^`]*support@evalation\.ai/);
+  for (const part of [NOT_REPLACED_PART(), NOT_FINISHED_PART()]) {
+    assert.match(line("`clock`", part), /^Set this machine's clock/);
+    assert.match(line("`refused`", part), /support@evalation\.ai/);
+    assert.match(line("`ended`", part), /support@evalation\.ai/);
+  }
   const { held } = require("../lib/prose.js");
-  const quoted = [...COMMAND.replace(/\s+/g, " ").matchAll(/"([^"`$]{12,300})"/g)].map((one) => one[1]);
-  assert.deepStrictEqual(quoted.filter((line) => held(line).length > 0), []);
+  const names = [...COMMAND.matchAll(/evalation-say ([a-z0-9.-]+)/g)].map((one) => one[1]);
+  assert.deepStrictEqual(names.filter((name) => !LINES[name] || held(LINES[name].say).length > 0), []);
 });
 
 test("a current key that cannot be read stops before anything is sent", async () => {
@@ -207,20 +225,21 @@ test("a key store that refuses the new key gives a prefixed reason and no stack 
 });
 
 test("the command text says a sentence the script prints only where it is one, and gives a step for every word each sentence can carry", () => {
-  const flat = COMMAND.replace(/\s+/g, " ");
-  assert.match(flat, /Where the first line is one of the two sentences below, say it\./);
-  const notReplaced = flat.slice(flat.indexOf(`**"${NOT_REPLACED}"**`), flat.indexOf(`**"${NOT_FINISHED}"**`));
-  const notFinished = flat.slice(flat.indexOf(`**"${NOT_FINISHED}"**`), flat.indexOf("**`no-settings`**"));
-  assert.doesNotMatch(notReplaced, /`unreachable`/);
-  assert.match(notFinished, /"Other Evalation commands on this machine may not work until it finishes\."/);
-  assert.match(notFinished, /`key-store-refused`: "Check this machine's password store \(Keychain on a Mac\) is unlocked, then run \/ev-rotate again to finish it\."/);
-  assert.doesNotMatch(flat, /password store(?! \(Keychain on a Mac\))/);
+  assert.match(FLAT, /Where the first line is one of the two sentences below, show it exactly as printed\./);
+  assert.ok(NOT_REPLACED_PART().length > 0 && NOT_FINISHED_PART().length > 0);
+  assert.doesNotMatch(NOT_REPLACED_PART(), /`unreachable`/);
+  assert.strictEqual(line("Never say the old key still works.", NOT_FINISHED_PART()), "Other Evalation commands on this machine may not work until it finishes.");
+  assert.strictEqual(line("`key-store-refused`", NOT_FINISHED_PART()), "Check this machine's password store (Keychain on a Mac) is unlocked, then run /ev-rotate again to finish it.");
+  const words = [FLAT, ...Object.entries(LINES).filter(([name]) => name.startsWith("ev-rotate.")).map(([, one]) => one.say)].join(" ");
+  assert.doesNotMatch(words, /password store(?! \(Keychain on a Mac\))/);
+  assert.match(FLAT, /Show the line it prints exactly as printed/);
+  assert.ok(!FLAT.includes("Replaced this machine's key."), "the command shows the script's own line and never quotes it");
 });
 
 test("the command text promises nothing for a lost machine and sends that case to support", () => {
   const description = COMMAND.split("\n").find((line) => line.startsWith("description:"));
   assert.doesNotMatch(description, /lost|left/);
   assert.match(COMMAND, /lost or stolen/);
-  assert.match(COMMAND, /support@evalation\.ai/);
+  assert.match(line("lost or stolen"), /support@evalation\.ai/);
   assert.doesNotMatch(COMMAND, /\bseat\b|Never run it again/);
 });

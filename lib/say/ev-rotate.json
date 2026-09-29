@@ -1,0 +1,16 @@
+{
+  "ev-rotate.lost": { "say": "Email support@evalation.ai and we will switch that machine off." },
+  "ev-rotate.not-replaced-clock": { "say": "Set this machine's clock to the right time, then run /ev-rotate again." },
+  "ev-rotate.not-replaced-key-store": { "say": "Check this machine's password store (Keychain on a Mac) is unlocked, then run /ev-rotate again." },
+  "ev-rotate.not-replaced-other": { "say": "Contact support@evalation.ai and we will fix it." },
+  "ev-rotate.not-finished": { "say": "Other Evalation commands on this machine may not work until it finishes." },
+  "ev-rotate.not-finished-clock": { "say": "Set this machine's clock to the right time, then run /ev-rotate again to finish it." },
+  "ev-rotate.not-finished-unreachable": { "say": "Check this machine is online, then run /ev-rotate again to finish it." },
+  "ev-rotate.not-finished-key-store": { "say": "Check this machine's password store (Keychain on a Mac) is unlocked, then run /ev-rotate again to finish it." },
+  "ev-rotate.not-finished-other": { "say": "Run /ev-rotate again to finish it." },
+  "ev-rotate.not-finished-twice": { "say": "Contact support@evalation.ai and we will finish it." },
+  "ev-rotate.no-settings": { "say": "This machine is not signed in to Evalation yet. Run /ev-activate first." },
+  "ev-rotate.damaged": { "say": "This machine's Evalation sign-in is damaged, so the key was not replaced. Run /ev-activate to sign in again." },
+  "ev-rotate.unclear": { "say": "Evalation could not read this machine's sign-in, so the key was not replaced. Unlock this machine's password store (Keychain on a Mac), then run /ev-rotate again. If it still fails, contact support@evalation.ai." },
+  "ev-rotate.no-key": { "say": "Part of this machine's Evalation sign-in cannot be read, so the key was not replaced. Contact support@evalation.ai and we will fix it." }
+}

@@ -6,12 +6,14 @@ const { pluginHome } = require("../lib/home.js");
 const { join } = require("node:path");
 const { runScript } = require("../lib/script.js");
 const { extensible } = require("../lib/questions.js");
+const { entries, say } = require("../lib/say.js");
+const { held: broken } = require("../lib/prose.js");
 
 const HOME = pluginHome();
 const SELECTION = join(HOME, "packs.json");
 
 function usage() {
-  process.stderr.write("usage: evalation-packs [show|list|titles|set <title> [<title>...]]\n");
+  process.stderr.write("usage: evalation-packs [show|list|titles|chosen|chooser|set <title> [<title>...]]\n");
   process.exit(2);
 }
 
@@ -56,6 +58,47 @@ function list() {
   return served;
 }
 
+function titled(packs) {
+  const questions = Math.ceil(packs.length / 4);
+  const questionOf = (at) => {
+    const size = Math.floor(packs.length / questions);
+    const larger = packs.length % questions;
+    return at < larger * (size + 1) ? Math.floor(at / (size + 1)) + 1 : larger + Math.floor((at - larger * (size + 1)) / size) + 1;
+  };
+  return packs.map((one, at) => ({ pack: one.pack, title: one.body?.title ?? null, summary: (one.body?.summary && broken(one.body.summary).length === 0 ? one.body.summary : null) ?? SUMMARIES[one.pack] ?? null, extensible: extensible(one.body), question: questionOf(at) }));
+}
+
+const selected = () => (existsSync(SELECTION) ? JSON.parse(readFileSync(SELECTION, "utf8")).packs ?? [] : []);
+
+const joined = (items) => (items.length < 2 ? items.join("") : `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`);
+
+function chosen() {
+  const offered = list().packs;
+  const held = entries();
+  const picked = selected();
+  const titles = picked.map((pack) => {
+    const found = offered.find((one) => one.pack === pack);
+    return found ? found.body?.title ?? found.pack : say(held, "ev-packs.gone-pack");
+  });
+  return { titles: picked.length > 0 ? joined(titles) : null, packs: picked.length };
+}
+
+function chooser() {
+  const shown = titled(list().packs);
+  const held = entries();
+  const picked = new Set(selected());
+  const count = shown.reduce((most, one) => Math.max(most, one.question), 0);
+  return Array.from({ length: count }, (_, at) => {
+    const options = shown.filter((one) => one.question === at + 1).map((one) => {
+      const label = one.title ?? one.pack;
+      const summary = one.summary ?? label;
+      return { label, description: picked.has(one.pack) ? `${summary} ${say(held, "ev-packs.chosen-now")}` : summary };
+    });
+    const [asked] = JSON.parse(say(held, "ev-packs.which", { first: options[0].label, last: options[options.length - 1].label }, options)).questions;
+    return { ...asked, header: `${asked.header} ${at + 1}/${count}` };
+  });
+}
+
 function main() {
   const [what = "show", ...rest] = process.argv.slice(2);
   if (what === "show") {
@@ -63,14 +106,11 @@ function main() {
   } else if (what === "list") {
     process.stdout.write(`${JSON.stringify(list(), null, 2)}\n`);
   } else if (what === "titles") {
-    const packs = list().packs;
-    const questions = Math.ceil(packs.length / 4);
-    const questionOf = (at) => {
-      const size = Math.floor(packs.length / questions);
-      const larger = packs.length % questions;
-      return at < larger * (size + 1) ? Math.floor(at / (size + 1)) + 1 : larger + Math.floor((at - larger * (size + 1)) / size) + 1;
-    };
-    process.stdout.write(`${JSON.stringify(packs.map((one, at) => ({ pack: one.pack, title: one.body?.title ?? null, summary: one.body?.summary ?? SUMMARIES[one.pack] ?? null, extensible: extensible(one.body), question: questionOf(at) })))}\n`);
+    process.stdout.write(`${JSON.stringify(titled(list().packs))}\n`);
+  } else if (what === "chosen") {
+    process.stdout.write(`${JSON.stringify(chosen())}\n`);
+  } else if (what === "chooser") {
+    process.stdout.write(`${JSON.stringify({ questions: chooser() })}\n`);
   } else if (what === "set") {
     if (rest.length === 0) usage();
     const offered = list().packs;

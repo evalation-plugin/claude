@@ -63,6 +63,33 @@ test("every name a command asks for is one the plugin holds", () => {
   assert.deepStrictEqual(unknown, []);
 });
 
+const COMMANDS_AT = join(__dirname, "..", "commands");
+const commandFiles = () => require("node:fs").readdirSync(COMMANDS_AT).filter((one) => one.endsWith(".md"));
+
+test("no command writes a line for the person itself, so every line comes from the catalogue", () => {
+  const quoted = commandFiles().flatMap((file) => {
+    const text = readFileSync(join(COMMANDS_AT, file), "utf8").replace(/^---[\s\S]*?\n---\n/, "").replace(/```[\s\S]*?```/g, "").replace(/`[^`]*`/g, "");
+    return [...text.replace(/\s+/g, " ").matchAll(/"([^"]+)"/g)].map((found) => found[1])
+      .filter((one) => one.trim().split(/\s+/).length >= 3).map((one) => `${file}: "${one}"`);
+  });
+  assert.deepStrictEqual(quoted, []);
+});
+
+test("every line in the catalogue is used by a command or a script, and a command that uses one may run it", () => {
+  const { readdirSync } = require("node:fs");
+  const sources = [
+    ...commandFiles().map((one) => readFileSync(join(COMMANDS_AT, one), "utf8")),
+    ...readdirSync(join(__dirname, "..", "bin")).map((one) => readFileSync(join(__dirname, "..", "bin", one), "utf8")),
+    ...readdirSync(join(__dirname, "..", "lib")).filter((one) => one.endsWith(".js")).map((one) => readFileSync(join(__dirname, "..", "lib", one), "utf8")),
+  ].join("\n");
+  assert.deepStrictEqual(Object.keys(entries()).filter((name) => !sources.includes(name)), []);
+  const unallowed = commandFiles().filter((file) => {
+    const text = readFileSync(join(COMMANDS_AT, file), "utf8");
+    return /evalation-say /.test(text) && !/^allowed-tools:.*Bash\(evalation-say:\*\)/m.test(text);
+  });
+  assert.deepStrictEqual(unallowed, []);
+});
+
 test("the command line prints what say gives, and refuses an unknown name with a reason", () => {
   const bin = join(__dirname, "..", "bin", "evalation-say");
   const name = Object.keys(entries())[0];

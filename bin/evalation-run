@@ -68,7 +68,7 @@ function refusal(said) {
   if (/^refused 402:/.test(said) && credit) {
     const asked = Number(credit[1]);
     return { spent: false, said: `This run reads ${packsSaid(asked)}, which needs ${creditsSaid(asked)}, and you have ${credit[2] ?? "none"}. ` +
-      "It did not start, and no pack credits were used." };
+      "It did not start, and no pack credits were used. To buy more pack credits, email support@evalation.ai, then run /ev-run again, or choose fewer packs." };
   }
   if (/^refused 402:/.test(said)) {
     return { spent: false, said: "This machine's access to Evalation has ended, so the run did not start and no pack credits were used. " +
@@ -289,7 +289,62 @@ function lastRun(where) {
   return best;
 }
 
+function jsonOf(script, args) {
+  try {
+    return JSON.parse(runScript(script, args, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }));
+  } catch (thrown) {
+    if (script === "evalation-packs") fail(unlisted(thrown));
+    fail(`${script} ${args.join(" ")} failed: ${String(thrown.stderr || thrown.message).trim().split("\n")[0]}`);
+  }
+}
+
+function credits() {
+  const said = runScript("evalation-status", [], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+  const left = said.match(/^pack credits left: (\S+)$/m);
+  if (!left) fail(`evalation-status gave no balance: ${said.trim().split("\n").join(" | ")}`);
+  return left[1];
+}
+
+function spoken(part, args) {
+  const words = require("../lib/run-say.js");
+  const at = () => args[0] || process.cwd();
+  const solution = () => described(solutionOf(at(), { asChosen: false }));
+  const chosen = () => solutionOf(at());
+  const facts = () => branchOf(at()) ?? fail(`${at()} is no git checkout with a main branch`);
+  const titles = () => jsonOf("evalation-packs", ["titles"]);
+  const sets = () => jsonOf("evalation-questions", ["list"]).sets ?? [];
+  const usual = () => jsonOf("evalation-packs", ["show"]).packs ?? [];
+  const read = () => JSON.parse(readFileSync(at(), "utf8"));
+  const parts = {
+    found: () => words.found(solution()),
+    pick: () => words.pick(solution()),
+    evidence: () => words.evidence(solution()),
+    name: () => words.named(chosen()),
+    branches: () => words.branches(chosen()),
+    copies: () => words.copies(chosen()),
+    "off-main": () => words.offMain(facts()),
+    branch: () => words.branchAsk(facts()),
+    stale: () => words.staleSaid(facts()),
+    packs: () => words.packs({ repository: target(at()).repository, credits: credits(), usual: usual(), titles: titles(), sets: sets() }),
+    usual: () => words.usualAsk({ usual: usual(), titles: titles() }),
+    all: () => words.all({ credits: credits(), titles: titles() }),
+    sets: () => words.setsFor({ pack: args[0], titles: titles(), sets: sets() }),
+    only: () => words.onlySets(sets()),
+    short: () => words.short(credits(), args[0]),
+    reading: () => words.reading(read()),
+    tally: () => words.tally(...args.slice(0, 4)),
+    next: () => words.next(read()),
+  };
+  if (!parts[part]) fail(`usage: evalation-run --say <${Object.keys(parts).join("|")}> [argument ...]`);
+  const said = parts[part]();
+  if (said) process.stdout.write(`${said}\n`);
+}
+
 function main() {
+  if (process.argv[2] === "--say") {
+    spoken(process.argv[3], process.argv.slice(4));
+    return;
+  }
   if (process.argv[2] === "--branch") {
     const at = process.argv[3] || process.cwd();
     process.stdout.write(JSON.stringify({

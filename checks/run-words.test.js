@@ -21,7 +21,7 @@ function machine(brew) {
   }
   const env = { ...process.env, PATH: `${bin}:/usr/bin:/bin`, EVALATION_LOCAL: join(at, "evalation.local"), EVALATION_PLUGIN_HOME: home };
   for (const phase of ["SCA", "SBOM", "SAST", "SECRET", "HISTORY"]) delete env[`EVALATION_${phase}_CMD`];
-  return (...args) => JSON.parse(execFileSync(process.execPath, [join(BIN, "evalation-scan"), ...args], { env, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }));
+  return Object.assign((...args) => JSON.parse(execFileSync(process.execPath, [join(BIN, "evalation-scan"), ...args], { env, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] })), { bin });
 }
 
 const FAILS = "#!/bin/sh\necho 'Error: no formula for this tool' >&2\nexit 1\n";
@@ -92,7 +92,7 @@ test("a scan stopped by the repository changing under it says what to do in one 
   const ran = spawnSync(process.execPath, [join(BIN, "evalation-scan"), "run", tree, "--phases", "secret"], { encoding: "utf8",
     env: { ...process.env, EVALATION_PLUGIN_HOME: home, EVALATION_LOCAL: join(at, "evalation.local"), EVALATION_SECRET_CMD: `${process.execPath} ${mover}` } });
   assert.strictEqual(ran.status, 1);
-  assert.strictEqual(ran.stderr, "Something changed the repository while it was being scanned, so the scan was not kept. Stop whatever is changing it, then run /ev-run again.\n");
+  assert.strictEqual(ran.stderr, "Something changed the repository while it was being scanned, so the scan was not kept and no pack credits were used. Stop whatever is changing it, then run /ev-run again.\n");
 });
 
 test("delivering with no browser names each page to open and says a PDF printed by hand is not signed", () => {
@@ -135,50 +135,60 @@ test("the evidence pack names the repository in full and the question revision, 
   assert.doesNotMatch(html, /governance revision|Repo:/);
 });
 
-test("ev-run says each thing once, in the words the reports use, and asks only what it can ask", () => {
-  const text = require("node:fs").readFileSync(join(__dirname, "..", "commands", "ev-run.md"), "utf8").replace(/\s+/g, " ");
-  const said = [
+const EV_RUN = () => require("node:fs").readFileSync(join(__dirname, "..", "commands", "ev-run.md"), "utf8").replace(/\s+/g, " ");
+
+function catalogue() {
+  const { entries } = require("../lib/say.js");
+  return Object.entries(entries()).filter(([name]) => name.startsWith("ev-run.")).flatMap(([, one]) =>
+    [one.say, one.ask, ...(Array.isArray(one.options) ? one.options.flatMap((each) => [each.label, each.description]) : [])].filter(Boolean)).join(" \n ");
+}
+
+const sayRun = (...args) => spawnSync(process.execPath, [join(BIN, "evalation-run"), "--say", ...args], { encoding: "utf8",
+  env: { ...process.env, EVALATION_PLUGIN_HOME: home } });
+
+test("ev-run's lines keep the words the reports use, held in the catalogue where the command runs them", () => {
+  const lines = catalogue();
+  const held = [
     "can also take your own questions, written with /ev-questions before a run.",
     "without it every claim is marked asserted, meaning one reading found it and nothing checked it.",
-    "\"Each claim is checked against the code before the reports are written. No pack credits are used.\"",
-    "\"The reports are written now, with every claim marked asserted.\"",
-    "Documents/Evalation/<repository>/<date> <HH.MM>",
-    "Of 12 claims, 1 was confirmed against the code.",
-    "\"Packs <k>/<n>\"",
-    "\"Which of your usual packs should this run read? Tick each pack to read.\"",
-    "\"Include all version controlled folders\"",
-    "\"Let me choose which ones to include\"",
+    "Each claim is checked against the code before the reports are written. No pack credits are used.",
+    "The reports are written now, with every claim marked asserted.",
+    "Which of your usual packs should this run read? Tick each pack to read.",
+    "Include all version controlled folders",
+    "Let me choose which ones to include",
     "used only as evidence when judging the version controlled code",
-    "\"A second copy of a repository is never read.\"",
+    "A second copy of a repository is never read.",
     "Running the free security tools over the repositories.",
-    "Where `--scan` fails, show the line it prints as printed and stop.",
-    "${CLAUDE_PLUGIN_ROOT}/bin/evalation-run --titles",
-    "Where `--titles` fails, show the line it prints as printed and stop.",
-    "`${CLAUDE_PLUGIN_ROOT}/bin/evalation-questions path \"<name>\" --run`",
-    "Where `show`, `status`, `evalation-questions list` or `path` fails",
-    "with the same packs and question sets",
-    "Where there are no usual packs and no set written for no pack, skip this question and ask the full list at once",
-    "\"Keep the name <name>\"",
-    "\"The reports name the product <name>.\"",
-    "Your findings are kept, and the reports can be printed once this is fixed, with no new pack credits.",
-    "## Printing a run's reports again",
-    "${CLAUDE_PLUGIN_ROOT}/bin/evalation-run --last <target>",
+    "Keep the name <name>",
+    "The reports name the product <name>.",
     "The ones you choose are read together as one product, for the same pack credits as one repository.",
     "Each pack ticked uses one pack credit.",
     "No extra pack credits.",
-    "Name the balance only in the first pack question and the full list, and say what a tick costs in every question.",
     "Reading takes a while and uses a good part of your Claude usage.",
     "Your own Claude session rereads each claim from scratch on the model you chose.",
-    "\"<tools>, the free security tools this review uses, are already installed.\"",
-    "\"Nothing is read and no pack credits are used. Switch to main, then run /ev-run again.\"",
-    "\"Nothing is read and no pack credits are used. Pull the latest changes, then run /ev-run again.\"",
+    "<tools>, the free security tools this review uses, are already installed.",
+    "Nothing is read and no pack credits are used. Switch to main, then run /ev-run again.",
+    "Nothing is read and no pack credits are used. Pull the latest changes, then run /ev-run again.",
     "This run had already started, so no more pack credits were used.",
-    "`\"pack\":\"custom\"`",
-    "in alphabetical order of their labels",
-    "\"Which folders without version control should this run use as evidence for the code? Tick each one to use.\"",
-    "\"Use your question set \"<set name>\" with <pack title>? No extra pack credits.\"",
-    "joined with commas and a final and",
+    "Which folders without version control should this run use as evidence for the code? Tick each one to use.",
+    "Use your question set \"<set>\" with <pack>? No extra pack credits.",
   ];
+  assert.deepStrictEqual(held.filter((one) => !lines.includes(one)), []);
+  const text = EV_RUN();
+  const said = [
+    "Documents/Evalation/<repository>/<date> <HH.MM>",
+    "Where `--scan` fails, show the line it prints as printed and stop.",
+    "evalation-run --titles",
+    "Where `--titles` fails, show the line it prints as printed and stop.",
+    "`evalation-questions path \"<name>\" --run`",
+    "Where `show`, `status`, `evalation-questions list` or `path` fails",
+    "with the same packs and question sets",
+    "Where there are no usual packs and no set written for no pack",
+    "## Printing a run's reports again",
+    "evalation-run --last <target>",
+    "`\"pack\":\"custom\"`",
+  ];
+  assert.deepStrictEqual(said.filter((one) => !text.includes(one)), []);
   const unsaid = [
     "can also take your own questions. To add some, stop here",
     "mark every claim as not checked",
@@ -201,19 +211,104 @@ test("ev-run says each thing once, in the words the reports use, and asks only w
     "and nowhere else",
     "ask to print them again for signed copies",
   ];
-  assert.deepStrictEqual(said.filter((one) => !text.includes(one)), []);
-  assert.deepStrictEqual(unsaid.filter((one) => text.includes(one)), []);
+  assert.deepStrictEqual(unsaid.filter((one) => `${text} ${lines}`.includes(one)), []);
 });
 
-test("every question ev-run asks names its header", () => {
-  const text = require("node:fs").readFileSync(join(__dirname, "..", "commands", "ev-run.md"), "utf8").replace(/\s+/g, " ");
-  const asks = [...text.matchAll(/\bask (?:once, )?"([^"]+\?)/gi)];
-  assert.ok(asks.length >= 12, `found ${asks.length} questions`);
-  const unheaded = asks.filter((one, at) => {
-    const upTo = asks[at + 1]?.index ?? text.length;
-    return !/\bheaded "(?:[^"<]{1,12}|[^"<]{1,8} <k>\/<n>)"/i.test(text.slice(one.index, Math.min(upTo, one.index + 1200)));
-  }).map((one) => one[1]);
-  assert.deepStrictEqual(unheaded, []);
+test("ev-run writes no question itself, and runs each one the catalogue or a script prints", () => {
+  const text = EV_RUN();
+  assert.doesNotMatch(text, /\bask "|\bheaded "|described as "/i);
+  assert.doesNotMatch(text, /CLAUDE_PLUGIN_ROOT\}\/bin\/evalation/);
+  const verbs = ["found", "pick", "evidence", "name", "branches", "copies", "off-main", "branch", "stale", "packs", "usual", "all",
+    "sets", "only", "short", "reading", "tally", "next"];
+  assert.deepStrictEqual(verbs.filter((one) => !text.includes(`evalation-run --say ${one}`)), []);
+});
+
+test("a branch, a detached commit and a stale copy are each said in the catalogue's words", () => {
+  const git = (cwd, ...args) => execFileSync("git", args, { cwd, stdio: "ignore",
+    env: { ...process.env, GIT_COMMITTER_DATE: "2026-01-01T00:00:00Z", GIT_AUTHOR_DATE: "2026-01-01T00:00:00Z" } });
+  const tree = repository();
+  git(tree, "checkout", "-q", "-b", "feature");
+  git(tree, "-c", "user.email=check@example.com", "-c", "user.name=check", "commit", "-q", "--allow-empty", "-m", "old");
+  assert.strictEqual(sayRun("off-main", tree).stdout, "This run is about to read feature in place of main.\n");
+  const asked = JSON.parse(sayRun("branch", tree).stdout);
+  assert.strictEqual(asked.questions[0].header, "Branch");
+  assert.strictEqual(asked.questions[0].options[0].description, "The report describes feature in place of main.");
+  assert.strictEqual(sayRun("stale", tree).stdout, "The newest change in this copy is from 1 January 2026.\n");
+  git(tree, "checkout", "-q", "--detach");
+  assert.strictEqual(sayRun("off-main", tree).stdout, "This run is about to read a commit on no branch in place of main.\n");
+});
+
+test("the checking's tally is said with its counts in the catalogue's words", () => {
+  assert.strictEqual(sayRun("tally", "12", "1", "1", "0").stdout,
+    "Of 12 claims, 1 was confirmed against the code. 1 was corrected. The rest stay marked asserted in the reports, since no second check confirmed them.\n");
+  assert.strictEqual(sayRun("tally", "5", "5", "0", "0").stdout, "Of 5 claims, 5 were confirmed against the code.\n");
+  assert.strictEqual(sayRun("tally", "4", "0", "3", "2").stdout,
+    "Of 4 claims, none was confirmed against the code. 3 were corrected and 2 withdrawn. The rest stay marked asserted in the reports, since no second check confirmed them.\n");
+  assert.strictEqual(sayRun("tally", "4", "2", "0", "1").stdout,
+    "Of 4 claims, 2 were confirmed against the code. 1 was withdrawn. The rest stay marked asserted in the reports, since no second check confirmed them.\n");
+});
+
+test("the reading line names every pack, and the closing line names the file to work from and what a rerun uses", () => {
+  const { run } = require("./fixture.js");
+  const folder = mkdtempSync(join(tmpdir(), "evalation-said-"));
+  const findings = join(folder, "findings.json");
+  writeFileSync(findings, JSON.stringify(run(repository())));
+  assert.strictEqual(sayRun("next", findings).stdout,
+    "Open Evalation Hardening Review Detail.pdf to work through the fixes. Running /ev-run again after changes uses 2 pack credits.\n");
+  const standard = run(repository());
+  standard.packs = standard.packs.filter((one) => one.pack === "soc2");
+  writeFileSync(findings, JSON.stringify(standard));
+  assert.strictEqual(sayRun("next", findings).stdout,
+    "Open Evalation SOC 2 Trust Services Criteria Evidence Pack.pdf to work through the fixes. Running /ev-run again after changes uses one pack credit.\n");
+  const runFile = join(folder, "run.json");
+  writeFileSync(runFile, JSON.stringify({ target: { kind: "repository" }, packs: [{ pack: "soc2", body: { title: "SOC 2 Trust Services Criteria" } },
+    { pack: "iso27001", body: { title: "ISO/IEC 27001" } }, { pack: "hardening", body: { title: "Evalation Hardening Review" } }] }));
+  assert.strictEqual(sayRun("reading", runFile).stdout,
+    "Reading the repository against SOC 2 Trust Services Criteria, ISO/IEC 27001 and Evalation Hardening Review, in several parts at once. This takes a while.\n");
+});
+
+test("show prints the scanner question ready to ask, or the line to say where none is missing or Homebrew is absent", () => {
+  const tools = (scan, ...names) => {
+    for (const one of names) {
+      writeFileSync(join(scan.bin, one), "#!/bin/sh\n");
+      chmodSync(join(scan.bin, one), 0o755);
+    }
+  };
+  const bare = machine(null);
+  const absent = bare("show", "--phases", "sca,sast");
+  assert.strictEqual(absent.asks, null);
+  assert.strictEqual(absent.said, "Homebrew is not on this machine, so these tools cannot be installed here. The review runs without them and the report lists what was not checked. To add them yourself, see:\nTrivy: https://github.com/aquasecurity/trivy\nSemgrep: https://github.com/semgrep/semgrep");
+  const brewed = machine(FAILS);
+  brewed("install", "trivy");
+  brewed("decline", "semgrep");
+  const two = brewed("show", "--phases", "sca,sast,secret");
+  assert.strictEqual(two.said, null);
+  const asked = two.asks.questions[0];
+  assert.strictEqual(asked.header, "Tools");
+  assert.ok(asked.multiSelect);
+  assert.deepStrictEqual(asked.options.map((one) => one.label), ["Trivy, checks dependencies for known security flaws",
+    "Semgrep, finds risky code patterns", "Gitleaks, finds passwords and keys committed to the code"]);
+  assert.match(asked.options[0].description, new RegExp(`^This could not be installed on ${DATE.source}: .*no formula.*\\.$`));
+  assert.match(asked.options[1].description, new RegExp(`^You chose not to install this on ${DATE.source}\\.$`));
+  assert.strictEqual(asked.options[2].description, "Installs it, so this review can use it.");
+  const one = brewed("show", "--phases", "secret");
+  assert.strictEqual(one.asks.questions[0].header, "Install");
+  assert.match(one.asks.questions[0].question, /^Install Gitleaks with Homebrew\?/);
+  tools(brewed, "trivy", "semgrep");
+  assert.strictEqual(brewed("show", "--phases", "sca,sast").said, "Trivy and Semgrep, the free security tools this review uses, are already installed.");
+  assert.strictEqual(brewed("show", "--phases", "sca").said, "Trivy, the free security tool this review uses, is already installed.");
+});
+
+test("the evidence pack's command prints what to say about a report left unprinted or unsigned", () => {
+  const { said } = require("../bin/evalation-report");
+  const text = said([{ written: "/r/A Evidence Pack.pdf", printed: true, unsigned: "Evalation's server could not be reached",
+    then: "Once this machine is online, run /ev-run print again for signed copies. Printing again uses no pack credits." },
+  { written: "/r/B Evidence Pack.html", printed: false }], "/r");
+  assert.match(text, /A Evidence Pack\.pdf is not signed because Evalation's server could not be reached/);
+  assert.match(text, /Once this machine is online, run \/ev-run print again for signed copies\./);
+  assert.match(text, /B Evidence Pack\.html/);
+  assert.match(text, /printed by hand is not signed/);
+  assert.strictEqual(said([{ written: "/r/A Evidence Pack.pdf", printed: true }], "/r"), "");
 });
 
 test("the branch check names the repository and its folder, so the pack question can say which is read", () => {

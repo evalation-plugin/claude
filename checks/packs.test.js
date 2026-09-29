@@ -9,8 +9,11 @@ const { tmpdir } = require("node:os");
 const { join } = require("node:path");
 const { randomBytes } = require("node:crypto");
 require("./fixture.js");
+const { entries, say } = require("../lib/say.js");
 
 const COMMAND = readFileSync(join(__dirname, "..", "commands", "ev-packs.md"), "utf8");
+const LINES = entries();
+const line = (name, values) => say(LINES, name, values);
 const CATALOGUE = { revision: "1", packs: [
   { pack: "soc2", kind: "standard", body: { title: "SOC 2 Trust Services Criteria", description: "Long and ours." } },
   { pack: "gdpr", kind: "standard", body: { title: "General Data Protection Regulation (GDPR)", summary: "EU rules on handling personal data." } },
@@ -77,25 +80,31 @@ test("titles gives each pack a one-line summary, the served one where there is o
   assert.strictEqual(require("../lib/prose.js").held(soc2.summary).length, 0);
 });
 
-test("the chooser reads the short catalogue, never the whole one, and runs commands in the form its permissions allow", () => {
-  assert.doesNotMatch(COMMAND, /evalation-packs list/);
-  assert.match(COMMAND, /evalation-packs titles/);
+test("the command reads no pack data itself, and runs commands in the form its permissions allow", () => {
+  assert.doesNotMatch(COMMAND, /evalation-packs (list|titles|show)/);
+  assert.match(COMMAND, /evalation-packs chosen/);
+  assert.match(COMMAND, /evalation-packs chooser/);
   assert.doesNotMatch(COMMAND, /CLAUDE_PLUGIN_ROOT/);
   const allowed = COMMAND.match(/^allowed-tools: (.+)$/m)?.[1] ?? "";
-  for (const run of COMMAND.matchAll(/^\s*(evalation-[a-z]+(?: [a-z]+)?)/gm)) {
+  for (const run of COMMAND.matchAll(/(?:^\s*|`)(evalation-[a-z]+(?: [a-z]+)?)/gm)) {
     assert.ok(allowed.split(", ").some((one) => run[1].startsWith(one.replace(/^Bash\(/, "").replace(/:\*\)$/, ""))), run[1]);
   }
 });
 
 test("one pack is one pack credit", () => {
-  assert.match(COMMAND, /one pack credit each time/);
+  assert.strictEqual(line("ev-packs.kept-one", { titles: "SOC 2" }), "Your checks still use SOC 2, one pack credit each time.");
+  assert.match(line("ev-packs.saved-one", { titles: "SOC 2" }), /one pack credit each time/);
+  assert.match(COMMAND, /ev-packs\.kept-one/);
+  assert.match(COMMAND, /ev-packs\.saved-one/);
 });
 
 const flat = COMMAND.replace(/\s+/g, " ");
 
 test("keeping the usual packs says what they cost and what is left", () => {
-  assert.match(flat, /On "Keep these packs"[^.]*, say "Your checks still use <titles>, <M> pack credits each time\. You have <N> pack credits left\."/);
-  assert.doesNotMatch(flat, /Your code is still checked against|Your code will be checked against/);
+  assert.strictEqual(`${line("ev-packs.kept", { titles: "SOC 2", count: 2 })} ${line("ev-packs.credits-left", { credits: 5 })}`,
+    "Your checks still use SOC 2, 2 pack credits each time. You have 5 pack credits left.");
+  assert.match(flat, /On `Keep these packs`, show the lines `evalation-say ev-packs\.kept[^`]*` and `evalation-say ev-packs\.credits-left[^`]*` print/);
+  assert.doesNotMatch(JSON.stringify(LINES), /Your code is still checked against|Your code will be checked against/);
 });
 
 test("set takes the titles a person reads and prints only those titles", async () => {
@@ -109,30 +118,64 @@ test("set takes the titles a person reads and prints only those titles", async (
 });
 
 test("a damaged sign-in is told to sign in again, ahead of the line for a machine never signed in", () => {
-  const damaged = flat.indexOf("`sign-in: damaged` line: say \"This machine's Evalation sign-in is damaged. Run /ev-activate to sign in again.\"");
-  assert.ok(damaged > 0 && damaged < flat.indexOf("This machine is not signed in to Evalation yet."), "the damaged line comes first");
+  assert.strictEqual(line("ev-packs.damaged"), "This machine's Evalation sign-in is damaged. Run /ev-activate to sign in again.");
+  const damaged = flat.indexOf("`sign-in: damaged` line: show `evalation-say ev-packs.damaged`");
+  assert.ok(damaged > 0 && damaged < flat.indexOf("ev-packs.not-signed-in"), "the damaged line comes first");
 });
 
-test("the usual packs are named in the question, and packs chosen now are marked in the chooser", () => {
-  assert.match(flat, /ask "Keep your usual packs, <titles>\?"/);
-  assert.match(flat, /Where `show` named the pack, end its description with "Chosen now\."/);
+test("the chosen packs are named by title in one line, with a pack no longer offered said plainly", async () => {
+  const home = machine();
+  assert.deepStrictEqual(JSON.parse((await packs(home, ["chosen"])).stdout), { titles: null, packs: 0 });
+  writeFileSync(join(home, "packs.json"), JSON.stringify({ packs: ["soc2", "retired", "gdpr"] }));
+  const ran = await packs(home, ["chosen"]);
+  assert.strictEqual(ran.status, 0, ran.stderr);
+  assert.deepStrictEqual(JSON.parse(ran.stdout), { titles: "SOC 2 Trust Services Criteria, a pack Evalation no longer offers and General Data Protection Regulation (GDPR)", packs: 3 });
+  const broken = await packs(home, ["chosen"], "<html>busy</html>");
+  assert.strictEqual(broken.status, 1);
+  assert.match(broken.stderr, /^packs-unreadable: /);
+});
+
+test("the usual packs are named in the question, and packs chosen now are marked in the chooser", async () => {
+  const asked = JSON.parse(line("ev-packs.keep", { titles: "SOC 2 Trust Services Criteria" })).questions[0];
+  assert.strictEqual(asked.question, "Keep your usual packs, SOC 2 Trust Services Criteria?");
+  assert.deepStrictEqual(asked.options.map((one) => one.label), ["Keep these packs", "Choose packs again"]);
+  const home = machine();
+  writeFileSync(join(home, "packs.json"), JSON.stringify({ packs: ["soc2"] }));
+  const ran = await packs(home, ["chooser"]);
+  assert.strictEqual(ran.status, 0, ran.stderr);
+  const [gdpr, soc2] = JSON.parse(ran.stdout).questions[0].options;
+  assert.strictEqual(gdpr.description, "EU rules on handling personal data.");
+  assert.match(soc2.description, /\. Chosen now\.$/);
+});
+
+test("a served summary that breaks the wording rules gives way to the plugin's own, so the chooser still asks", async () => {
+  const served = { revision: "1", packs: [
+    { pack: "soc2", kind: "standard", body: { title: "SOC 2 Trust Services Criteria", summary: "Security; availability" } },
+    { pack: "gdpr", kind: "standard", body: { title: "General Data Protection Regulation (GDPR)", summary: "EU rules on handling personal data." } },
+  ] };
+  const ran = await packs(machine(), ["chooser"], served);
+  assert.strictEqual(ran.status, 0, ran.stderr);
+  const soc2 = JSON.parse(ran.stdout).questions[0].options.find((one) => one.label.startsWith("SOC 2"));
+  assert.strictEqual(soc2.description, "The US security audit most business software customers ask for.");
 });
 
 test("the same packs ticked again, or nothing ticked, change nothing and save nothing", () => {
-  assert.match(flat, /Where they tick nothing in any question, or tick exactly the packs `show` named, run nothing, say "Nothing changed\. Your checks still use <titles>\."[^.]*and go to step 9\./);
+  assert.strictEqual(line("ev-packs.nothing-changed", { titles: "SOC 2" }), "Nothing changed. Your checks still use SOC 2.");
+  assert.match(flat, /Where they tick nothing in any question, or tick exactly the packs `chosen` named, run nothing, show `evalation-say ev-packs\.nothing-changed titles="<titles>"`[^.]*and go to step 9\./);
   assert.match(flat, /Where they pick Other and write that they want none from that question, take it as nothing ticked there\./);
 });
 
 test("a pack list that fails for a reason not named is still explained", () => {
-  assert.match(flat, /Otherwise say the words after the colon in plain words and stop\./);
+  assert.match(flat, /Otherwise show the words after the colon exactly as printed and stop\./);
 });
 
 test("the next step says the person can pick other packs when they run a check", () => {
-  assert.match(flat, /"Next, run \/ev-run to check a repository against these packs\. It also lets you pick other packs for that check alone\."/);
+  assert.strictEqual(line("ev-packs.next"), "Next, run /ev-run to check a repository against these packs. It also lets you pick other packs for that check alone.");
+  assert.match(flat, /`evalation-say ev-packs\.next`/);
 });
 
 test("what a pack is, is said only once the machine is known to be signed in", () => {
-  assert.ok(flat.indexOf("A pack is one thing") > flat.indexOf("state: live"), "the pack line comes after the sign in check passes");
+  assert.ok(flat.indexOf("ev-packs.what-a-pack") > flat.indexOf("state: live"), "the pack line comes after the sign in check passes");
 });
 
 test("titles spreads the packs so every chooser question offers two to four, in alphabetical order", async () => {
@@ -149,18 +192,20 @@ test("titles spreads the packs so every chooser question offers two to four, in 
   }
 });
 
-test("the chooser follows the question titles gives each pack, and its header fits in 12 characters", () => {
-  assert.match(flat, /`question`/);
-  const header = flat.match(/each headed "([^"]+)"/)?.[1] ?? "";
-  assert.ok(header.includes("<k>") && header.includes("<n>"), header);
-  assert.ok(header.replace("<k>", "10").replace("<n>", "10").length <= 12, header);
-});
-
-test("every answer the command offers carries its description", () => {
-  const register = JSON.parse(readFileSync(join(__dirname, "..", "lib", "asked.json"), "utf8")).filter((one) => one.command === "ev-packs");
-  for (const one of register) {
-    const para = COMMAND.split(/\n\s*\n/).map((each) => each.replace(/\s+/g, " ")).find((each) => each.includes(`"${one.asks}"`)) ?? "";
-    assert.doesNotMatch(para, /"[^"]+" and "[^"]+"/, one.asks);
-    if (!/^Which packs/.test(one.asks)) assert.ok((para.match(/"[^"]+", described as "[^"]+"/g) ?? []).length >= 2, one.asks);
+test("the chooser asks one question for each group titles gives, naming its first and last pack, every answer described, each header in 12 characters", async () => {
+  for (const count of [2, 5, 9, 18]) {
+    const catalogue = { revision: "1", packs: Array.from({ length: count }, (_, at) => ({ pack: `p${at}`, kind: "standard", body: { title: `Pack ${String(at).padStart(2, "0")}`, summary: "A pack." } })).reverse() };
+    const ran = await packs(machine(), ["chooser"], catalogue);
+    assert.strictEqual(ran.status, 0, ran.stderr);
+    const { questions } = JSON.parse(ran.stdout);
+    assert.strictEqual(questions.length, Math.ceil(count / 4), `${count} packs`);
+    assert.deepStrictEqual(questions.flatMap((one) => one.options.map((each) => each.label)), catalogue.packs.map((one) => one.body.title).reverse());
+    questions.forEach((one, at) => {
+      const labels = one.options.map((each) => each.label);
+      assert.strictEqual(one.question, `Which packs from ${labels[0]} to ${labels.at(-1)} should each check of your code use?`);
+      assert.strictEqual(one.header, `Packs ${at + 1}/${questions.length}`);
+      assert.ok(one.header.length <= 12 && one.multiSelect && one.options.length >= 2 && one.options.length <= 4);
+      assert.ok(one.options.every((each) => each.description === "A pack."));
+    });
   }
 });

@@ -192,6 +192,39 @@ test("the run command saves the name and the repositories left out, and the bran
   assert.strictEqual(cli("--branch", repository()).solution, null);
 });
 
+test("the folder questions and lines come from the run command ready to ask, in the catalogue's words and alphabetical order", () => {
+  const at = solution();
+  const said = (...args) => execFileSync(process.execPath, [join(__dirname, "..", "bin", "evalation-run"), "--say", ...args], { encoding: "utf8" });
+  const asked = (...args) => JSON.parse(said(...args)).questions;
+  assert.strictEqual(said("found", at), "We found 2 subfolders under version control and one that is not. The ones you choose are read together as one product, " +
+    "for the same pack credits as one repository. A second copy of a repository is never read.\n");
+  const [folders] = asked("pick", at);
+  assert.strictEqual(folders.header, "Folders");
+  assert.ok(folders.multiSelect);
+  assert.deepStrictEqual(folders.options, [{ label: "acme/api", description: "Reads its code from the folder api." },
+    { label: "acme/infra", description: "Reads its code from the folder infra." }]);
+  assert.strictEqual(asked("evidence", at)[0].question, "Use notes as evidence for the version controlled code? No extra pack credits.");
+  mkdirSync(join(at, "docs"));
+  writeFileSync(join(at, "docs", "a.md"), "# A\n");
+  writeFileSync(join(at, "docs", "b.md"), "# B\n");
+  const [evidence] = asked("evidence", at);
+  assert.strictEqual(evidence.header, "Evidence");
+  assert.deepStrictEqual(evidence.options, [{ label: "docs", description: "Holds 2 files, such as a.md." },
+    { label: "notes", description: "Holds one file, runbook.md." }]);
+  const folder = require("node:path").basename(at);
+  assert.deepStrictEqual(asked("name", at)[0].options.map((one) => one.label), [`Use the folder name, ${folder}`, "Use acme"]);
+  choose(at, { name: "Acme platform" });
+  const [name] = asked("name", at);
+  assert.strictEqual(name.header, "Name");
+  assert.deepStrictEqual(name.options[0], { label: "Keep the name Acme platform", description: "The reports name the product Acme platform." });
+  assert.strictEqual(said("branches", at), "");
+  git(join(at, "infra"), "checkout", "-q", "-b", "feature");
+  assert.strictEqual(said("branches", at), "acme/infra is on feature in place of main.\n");
+  execFileSync("git", ["-c", "user.email=check@example.com", "-c", "user.name=check", "commit", "-q", "--allow-empty", "-m", "old"],
+    { cwd: join(at, "infra"), stdio: "ignore", env: { ...process.env, GIT_COMMITTER_DATE: "2026-02-03T00:00:00Z" } });
+  assert.strictEqual(said("copies", at), "The newest change in acme/infra is from 3 February 2026.\n");
+});
+
 test("the solution at a glance counts every repository's commits and contributors, and how many repositories it holds", () => {
   const { inventory } = require("../bin/evalation-inventory");
   const at = solution();

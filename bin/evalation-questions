@@ -13,7 +13,8 @@
 const { existsSync, mkdirSync, readFileSync, writeFileSync } = require("node:fs");
 const { pluginHome } = require("../lib/home.js");
 const { join } = require("node:path");
-const { CRITERIA, dropFromAccount, extensible, fetched, fromAccount, grid, grouped, keepOnAccount, listed, listSaid, saveChecked, saved, verdict, withoutMark } = require("../lib/questions.js");
+const { CRITERIA, approval, claimsQuestion, dropFromAccount, extensible, fetched, fromAccount, grid, grouped, keepOnAccount, listed, listSaid, namesQuestion,
+  packQuestion, saveChecked, saved, setsQuestion, shown, verdict, withoutMark } = require("../lib/questions.js");
 const { runScript } = require("../lib/script.js");
 
 const HOME = pluginHome();
@@ -158,6 +159,25 @@ function main() {
     } catch (thrown) {
       fail(`not-dropped: ${arg} (${thrown.message})`);
     }
+  } else if (verb === "choose-set") {
+    process.stdout.write(`${setsQuestion(listed(HOME), titles(), Number(arg ?? 1))}\n`);
+  } else if (verb === "choose-pack") {
+    let packs = null;
+    try {
+      packs = served(askServer);
+    } catch {
+      packs = null;
+    }
+    process.stdout.write(`${packQuestion(packs, Number(arg ?? 1))}\n`);
+  } else if (verb === "choose-claims" || verb === "choose-name" || verb === "approve" || verb === "show") {
+    try {
+      const out = verb === "choose-claims" ? claimsQuestion(read(arg))
+        : verb === "choose-name" ? namesQuestion([arg, ...flags], listed(HOME).sets.map((one) => one.name))
+          : verb === "approve" ? approval(HOME, read(arg)) : shown(read(arg));
+      process.stdout.write(`${out}\n`);
+    } catch (thrown) {
+      fail(thrown.message);
+    }
   } else if (verb === "criteria") {
     process.stdout.write(`${CRITERIA.map((one) => `${one.id}, for each ${one.about}, a fault where the answer is ${one.fault}: ${one.asks}`).join("\n")}\n`);
   } else if (verb === "grid") {
@@ -168,7 +188,7 @@ function main() {
       .filter(([, rows]) => rows.length > 0).map(([head, rows]) => `${head}\n  ${rows.join("\n  ")}\n`).join("");
     process.stdout.write(said || "Recorded.\n");
   } else {
-    fail("usage: evalation-questions folder | check <file> | criteria | packs | grid <file> [Qn] | verdict <file> [Qn] (answers on stdin) | save <file> [--replace] [--unchecked] | list [--plain] | path <name> [--run] | draft <name> | keep-on-account <name> | drop-from-account <name>");
+    fail("usage: evalation-questions folder | check <file> | criteria | packs | choose-set [page] | choose-pack [page] | choose-claims <file> | choose-name <name> <name> | show <file> | approve <file> |grid <file> [Qn] | verdict <file> [Qn] (answers on stdin) | save <file> [--replace] [--unchecked] | list [--plain] | path <name> [--run] | draft <name> | keep-on-account <name> | drop-from-account <name>");
   }
 }
 

@@ -698,7 +698,7 @@ function scan(target, only = null) {
 
   const after = watched();
   if (before !== null && after !== null && before !== after) {
-    fail("Something changed the repository while it was being scanned, so the scan was not kept. " +
+    fail("Something changed the repository while it was being scanned, so the scan was not kept and no pack credits were used. " +
       "Stop whatever is changing it, then run /ev-run again.");
   }
 
@@ -739,9 +739,39 @@ function scan(target, only = null) {
   return { path, document };
 }
 
+const BREAKS = new RegExp(`\\s*[;${String.fromCharCode(0x2013, 0x2014)}]\\s*`, "g");
+
+function offered(held, only) {
+  const { entries, say } = require("../lib/say.js");
+  const line = (name, values) => say(entries(), name, values);
+  const wanted = Object.entries(held.phases).filter(([phase, named]) => (!only || only.includes(phase)) && named.enabled !== false);
+  const missing = wanted.filter(([, named]) => !onThisMachine(named.tool)).map(([phase, named]) => ({ phase, tool: named.tool }));
+  if (missing.length === 0) {
+    const names = wanted.map(([, named]) => nameOf(named.tool));
+    if (names.length === 0) return { said: null, asks: null };
+    return { asks: null, said: names.length === 1 ? line("ev-run.tool-installed", { tool: names[0] })
+      : line("ev-run.tools-installed", { tools: `${names.slice(0, -1).join(", ")} and ${names.at(-1)}` }) };
+  }
+  if (!onThisMachine(BREW)) {
+    return { asks: null, said: [line("ev-run.no-brew"), ...missing.map((one) => line("ev-run.tool-page", {
+      tool: nameOf(one.tool), page: TOOLS[one.tool]?.page ?? installer(one.tool).said }))].join("\n") };
+  }
+  if (missing.length === 1) return { said: null, asks: JSON.parse(say(entries(), "ev-run.install-one", { tool: nameOf(missing[0].tool) })) };
+  const plain = (text) => String(text).replace(BREAKS, ", ").replace(/\.$/, "");
+  const described = (tool) => {
+    const failed = held.could_not_install[tool];
+    if (failed) return line("ev-run.tool-failed", { date: spoken(failed.on) ?? spoken(today()), why: plain(failed.why) });
+    if (held.declined.includes(tool) && held.declined_on[tool]) return line("ev-run.tool-declined", { date: spoken(held.declined_on[tool]) });
+    return line("ev-run.tool-installs");
+  };
+  return { said: null, asks: JSON.parse(say(entries(), "ev-run.tools", {}, missing.map((one) => ({
+    label: `${nameOf(one.tool)}, ${TOOLS[one.tool]?.does ?? `checks ${CHECKS[one.phase]}`}`, description: described(one.tool) })))) };
+}
+
 function show(only = null) {
   const held = phases();
   process.stdout.write(`${JSON.stringify({
+    ...offered(held, only),
     floor: held.floor,
     drop_transitive_below_floor: held.drop_transitive_below_floor,
     declined: held.declined,

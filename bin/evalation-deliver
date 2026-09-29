@@ -32,7 +32,7 @@ const HOME = pluginHome();
 const { keepFindings, reportsFolder, reviewName } = require("../lib/reports.js");
 const { cardWorst } = require("../lib/scans.js");
 const { readingOf } = require("../lib/prose.js");
-const { unsignedThen, unwritten } = require("../lib/print.js");
+const { unprintedSaid, unsignedSaid, unwritten } = require("../lib/print.js");
 const { inventory } = require("./evalation-inventory");
 const { deck } = require("./evalation-deck");
 const { detail } = require("./evalation-detail");
@@ -347,13 +347,8 @@ function deliver(source, named, target) {
 function said(done) {
   const lines = done.printed
     ? [`Wrote ${basename(done.pack)} and ${basename(done.findings)} into ${done.into}`]
-    : [`No browser was found to print the reports, so they are not signed. Open each of these in a browser and print it to PDF: ` +
-      `${done.pages.map((one) => basename(one)).join(" and ")}, in ${done.into}. A PDF printed by hand is not signed by Evalation. ` +
-      "For signed copies, install Google Chrome, Chromium or Microsoft Edge, then run /ev-run print again. Printing again uses no pack credits."];
-  for (const one of done.unsigned) {
-    lines.push(`${basename(one.file)} is not signed because ${one.why}, and each page says "Signature missing, document cannot be verified". ` +
-      unsignedThen(one.why));
-  }
+    : [unprintedSaid(done.pages, done.into)];
+  for (const one of done.unsigned) lines.push(unsignedSaid(one.file, one.why));
   return `${lines.join("\n")}\n`;
 }
 

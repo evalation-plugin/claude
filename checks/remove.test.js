@@ -7,11 +7,15 @@ const { appendFileSync, chmodSync, existsSync, mkdirSync, mkdtempSync, readFileS
 const { tmpdir } = require("node:os");
 const { join } = require("node:path");
 require("./fixture.js");
-const { pluginConversations, removal, reportsIn, withoutSessions } = require("../lib/remove.js");
+const { keysNamed, pluginConversations, removal, reportsIn, setsAsked, withoutSessions } = require("../lib/remove.js");
+const { entries, say } = require("../lib/say.js");
 
 const folderOf = (path) => path.replace(/[^A-Za-z0-9]/g, "-");
 const COMMAND = readFileSync(join(__dirname, "..", "commands", "ev-remove.md"), "utf8");
 const FLAT = COMMAND.replace(/\s+/g, " ");
+const LINES = entries();
+const line = (name, values) => say(LINES, name, values);
+const WORDS = Object.entries(LINES).filter(([name]) => name.startsWith("ev-remove.")).map(([, one]) => JSON.stringify(one)).join("\n");
 
 function machine() {
   const home = mkdtempSync(join(tmpdir(), "evalation-home-"));
@@ -135,8 +139,9 @@ test("a machine with no installation, or one already revoked, is removed locally
     assert.strictEqual(done.signed_out, "already", said);
     assert.strictEqual(existsSync(home), false, said);
   }
-  assert.match(FLAT, /Where it is `already`, say "This machine was already signed out of Evalation, so nothing was signed out\."/);
-  assert.doesNotMatch(FLAT, /so only what it kept here was deleted/);
+  assert.strictEqual(line("ev-remove.already-out"), "This machine was already signed out of Evalation, so nothing was signed out.");
+  assert.match(FLAT, /Where it is `already`, show `evalation-say ev-remove\.already-out`/);
+  assert.doesNotMatch(WORDS, /so only what it kept here was deleted/);
 });
 
 test("a damaged sign-in that never reached the server is never reported as signed out, and the folder still goes", () => {
@@ -146,9 +151,13 @@ test("a damaged sign-in that never reached the server is never reported as signe
     assert.strictEqual(done.signed_out, "not-revoked", said);
     assert.strictEqual(existsSync(home), false, said);
   }
-  assert.match(FLAT, /Where it is `not-revoked`, say "Evalation could not sign this machine out because its sign-in was damaged\. Email support@evalation\.ai to have this machine's sign-in switched off\."/);
-  assert.match(FLAT, /`sign-in: damaged`[^"]*"This machine's Evalation sign-in is damaged, so Evalation cannot sign it out from here\."/);
-  assert.match(FLAT, /Where the state was `not-set-up`, describe "Remove it" as "Deletes what Evalation saved on this machine\."/);
+  assert.strictEqual(line("ev-remove.not-revoked"), "Evalation could not sign this machine out because its sign-in was damaged. Email support@evalation.ai to have this machine's sign-in switched off.");
+  assert.match(FLAT, /Where it is `not-revoked`, show `evalation-say ev-remove\.not-revoked`/);
+  assert.strictEqual(line("ev-remove.damaged"), "This machine's Evalation sign-in is damaged, so Evalation cannot sign it out from here.");
+  assert.match(FLAT, /`sign-in: damaged`[^`]*`evalation-say ev-remove\.damaged`/);
+  const local = JSON.parse(line("ev-remove.remove-local")).questions[0].options.find((one) => one.label === "Remove it");
+  assert.strictEqual(local.description, "Deletes what Evalation saved on this machine.");
+  assert.match(FLAT, /Where the state was `not-set-up`, run `evalation-say ev-remove\.remove-local`/);
 });
 
 test("a key the store will not delete is reported as left behind, and a key no store holds is passed over on every platform", () => {
@@ -209,12 +218,15 @@ test("reports kept inside the plugin's folder by an older version are named befo
   assert.deepStrictEqual(reportsIn(home), expected, "each run's reports are named once, under the repository and date of their run");
   const ran = spawnSync(process.execPath, [join(__dirname, "..", "bin", "evalation-remove"), "folders"], { encoding: "utf8", env: { ...process.env, EVALATION_PLUGIN_HOME: home, CLAUDE_CONFIG_DIR: claude } });
   assert.strictEqual(ran.status, 0, ran.stderr);
-  assert.deepStrictEqual(JSON.parse(ran.stdout).reports, expected);
-  assert.match(COMMAND.replace(/\s+/g, " "), /"the <names> from the check of <repository> on <date>"/);
-  assert.doesNotMatch(COMMAND.replace(/\s+/g, " "), /<N> reports/);
+  const shown = JSON.parse(ran.stdout);
+  assert.deepStrictEqual(shown.reports, expected);
+  assert.strictEqual(shown.reports_named, `the board pack, evidence pack and findings detail from the check of sanaude/maycray on ${day(new Date(at))} and the sanaude board pack from the check on ${day(printed)}`);
+  assert.doesNotMatch(WORDS, /<count> reports/);
   removal({ home, claude, cwd: read, clearHistory: false, ...quiet });
   assert.strictEqual(existsSync(home), false);
-  assert.match(COMMAND.replace(/\s+/g, " "), /Removing deletes them with it\. Reports in your Documents folder stay\./);
+  assert.match(line("ev-remove.old-reports", { reports: shown.reports_named }), /: the board pack, .+\. Removing deletes them with it\. Reports in your Documents folder stay\.$/);
+  assert.match(FLAT, /`evalation-say ev-remove\.old-reports reports="<reports_named>"`/);
+  assert.strictEqual(JSON.parse(spawnSync(process.execPath, [join(__dirname, "..", "bin", "evalation-remove"), "folders"], { encoding: "utf8", env: { ...process.env, EVALATION_PLUGIN_HOME: home, CLAUDE_CONFIG_DIR: claude } }).stdout).reports_named, null);
 });
 
 const running = (claude, sessions) => {
@@ -241,8 +253,8 @@ test("where Claude Code shows nothing reliable, a conversation changed in the la
   assert.strictEqual(kept(claude, unrelated, "plugin-questions"), true);
   assert.strictEqual(kept(claude, read, "plugin-run"), false);
   assert.deepStrictEqual([done.history.removed, done.history.kept_live, done.history.kept_by], [1, 2, "last-hour"]);
-  assert.match(FLAT, /changed in the last hour/);
-  assert.match(FLAT, /still open in Claude Code were kept/);
+  assert.match(line("ev-remove.recent-more", { count: 2 }), /^2 conversations that changed in the last hour were kept/);
+  assert.match(line("ev-remove.kept-more", { count: 2 }), /^This conversation and 2 others still open in Claude Code were kept/);
 });
 
 test("before asking, the count names the other conversations and how many of them are open", () => {
@@ -253,7 +265,7 @@ test("before asking, the count names the other conversations and how many of the
   assert.strictEqual(ran.status, 0, ran.stderr);
   const shown = JSON.parse(ran.stdout);
   assert.deepStrictEqual([shown.conversations, shown.open, shown.open_by], [2, 1, "claude-code"]);
-  assert.match(FLAT, /close those windows before you answer/);
+  assert.match(line("ev-remove.open-many", { count: 2 }), /^2 of them .+close those windows before you answer\.$/);
 });
 
 test("before asking, the other conversations are named by the project folder they ran in and their dates", () => {
@@ -272,33 +284,45 @@ test("before asking, the other conversations are named by the project folder the
   const ran = spawnSync(process.execPath, [join(__dirname, "..", "bin", "evalation-remove"), "folders"], { encoding: "utf8",
     env: { ...process.env, EVALATION_PLUGIN_HOME: mkdtempSync(join(tmpdir(), "evalation-home-")), CLAUDE_CONFIG_DIR: claude, CLAUDE_CODE_SESSION_ID: "removing-now" } });
   assert.strictEqual(ran.status, 0, ran.stderr);
-  assert.deepStrictEqual(JSON.parse(ran.stdout).places, [
+  const shown = JSON.parse(ran.stdout);
+  assert.deepStrictEqual(shown.places, [
     { folder: "MayCray-main", conversations: 2, from: "23 September 2026", to: "29 September 2026" },
     { folder: "evalation", conversations: 1, from: "29 September 2026", to: "29 September 2026" },
   ]);
-  assert.match(FLAT, /They come from these project folders: <places>\./);
+  assert.strictEqual(shown.places_named, "MayCray-main, 2 from 23 to 29 September 2026 and evalation, one on 29 September 2026");
+  assert.match(line("ev-remove.conversations", { count: 2, places: shown.places_named }), /They come from these project folders: MayCray-main, 2 from 23 to 29 September 2026 and evalation, one on 29 September 2026\./);
+  assert.match(FLAT, /`evalation-say ev-remove\.conversations count="<conversations>" places="<places_named>"`/);
 });
 
 test("counts of one read as one, and the promise about folders names the project folders", () => {
-  assert.match(FLAT, /"One of them is open in another Claude Code window, so it is kept\. To delete it too, close that window before you answer\."/);
-  assert.match(FLAT, /"This conversation and one other still open in Claude Code were kept\./);
-  assert.match(FLAT, /nothing in your project folders is touched/);
-  assert.doesNotMatch(FLAT, /nothing in your folders is touched/);
+  assert.strictEqual(line("ev-remove.open-one"), "One of them is open in another Claude Code window, so it is kept. To delete it too, close that window before you answer.");
+  assert.match(line("ev-remove.kept-two"), /^This conversation and one other still open in Claude Code were kept\./);
+  assert.match(line("ev-remove.conversation", { folder: "evalation", from: "29 September 2026" }), /It comes from the project folder evalation, on 29 September 2026\. Deleting it removes only that conversation/);
+  for (const name of ["ev-remove.conversations", "ev-remove.conversation"]) assert.match(line(name, { count: 2, places: "x", folder: "x", from: "x" }), /nothing in your project folders is touched/);
+  assert.doesNotMatch(WORDS, /nothing in your folders is touched/);
 });
 
 test("removal is agreed before question sets are asked about, and each set is named once, in the question", () => {
-  const removing = FLAT.indexOf('"Remove Evalation from this machine?"');
-  const sets = FLAT.indexOf('"Keep <sets> on your account before removing?"');
+  const removing = FLAT.indexOf("`evalation-say ev-remove.remove`");
+  const sets = FLAT.indexOf("the question `evalation-remove sets` printed");
   assert.ok(removing > 0 && sets > removing, "the removal question comes first");
-  assert.doesNotMatch(FLAT, /These question sets are saved only on this machine/);
-  assert.doesNotMatch(FLAT, /Copies <names>/);
+  assert.doesNotMatch(WORDS, /These question sets are saved only on this machine|Copies <names>/);
+  const listing = { account: "reached", sets: [{ name: "Broker", where: "machine" }, { name: "Board", where: "both" }, { name: "Client", where: "machine" }, { name: "Held", where: "account" }] };
+  const asked = setsAsked(listing);
+  assert.deepStrictEqual(asked.sets, ["Broker", "Client"]);
+  assert.strictEqual(asked.questions[0].question, "Keep \"Broker\" and \"Client\" on your account before removing?");
+  assert.deepStrictEqual(asked.questions[0].options.map((one) => one.description), ["Copies them to your account so any machine you sign in on can use them.", "Deletes them with Evalation's folder."]);
+  const one = setsAsked({ account: "reached", sets: [{ name: "Broker", where: "machine" }] });
+  assert.strictEqual(one.questions[0].question, "Keep \"Broker\" on your account before removing?");
+  assert.deepStrictEqual(one.questions[0].options.map((each) => each.description), ["Copies it to your account so any machine you sign in on can use it.", "Deletes it with Evalation's folder."]);
+  assert.strictEqual(setsAsked({ account: "reached", sets: [{ name: "Board", where: "both" }] }), null);
 });
 
 test("a machine that is not signed in hears the whole of what removal deletes, and can still delete its conversations", () => {
-  assert.match(FLAT, /say "Removing deletes Evalation's own folder on this machine, with the saved results of each check, your pack choice and any question sets saved here\. Evalation cannot reach your account from this machine, so those question sets cannot be kept on it\."/);
+  assert.strictEqual(line("ev-remove.folder-local"), "Removing deletes Evalation's own folder on this machine, with the saved results of each check, your pack choice and any question sets saved here. Evalation cannot reach your account from this machine, so those question sets cannot be kept on it.");
   assert.doesNotMatch(FLAT, /leave out the first two sentences/);
-  assert.match(FLAT, /Where both hold, leave out the sentences about the folder and say "Evalation has nothing else on this machine\." Where `conversations` is more than zero, go on to step 3/);
-  assert.doesNotMatch(FLAT, /so there is nothing to remove\./);
+  assert.match(FLAT, /Where both hold, leave out the lines about the folder and show `evalation-say ev-remove\.nothing-else`\. Where `conversations` is more than zero, go on to step 3/);
+  assert.doesNotMatch(WORDS, /so there is nothing to remove\./);
 });
 
 test("keys that could not be found because the settings would not read are reported plainly", () => {
@@ -308,7 +332,8 @@ test("keys that could not be found because the settings would not read are repor
   const done = removal({ home, claude, clearHistory: false, ...quiet });
   assert.ok(done.failed.some((one) => one.startsWith("settings:")));
   assert.strictEqual(done.folder_deleted, true);
-  assert.match(FLAT, /Where `failed` names settings, say "Evalation could not read which keys it kept on this machine/);
+  assert.match(line("ev-remove.keys-unread"), /^Evalation could not read which keys it kept on this machine/);
+  assert.match(FLAT, /Where `failed` names settings, show `evalation-say ev-remove\.keys-unread`/);
 });
 
 test("the slash menu describes the conversations removal offers to delete as the decision does", () => {
@@ -333,11 +358,10 @@ test("a line another window adds to the prompt history while it is rewritten is 
   assert.deepStrictEqual(readdirSync(claude).filter((one) => one.startsWith("history")), ["history.jsonl"], "no temporary file is left");
 });
 
-test("every answer the command offers carries its description", () => {
-  const register = JSON.parse(readFileSync(join(__dirname, "..", "lib", "asked.json"), "utf8")).filter((one) => one.command === "ev-remove");
-  for (const one of register) {
-    const para = COMMAND.split(/\n\s*\n/).map((each) => each.replace(/\s+/g, " ")).find((each) => each.includes(`"${one.asks}"`)) ?? "";
-    assert.doesNotMatch(para, /"[^"]+" and "[^"]+"/, one.asks);
-    assert.ok((para.match(/"[^"]+", described as "[^"]+"/g) ?? []).length >= 2, one.asks);
-  }
+test("keys left in the password store are each named by service and account, in one line", () => {
+  assert.strictEqual(keysNamed(["evalation/box.installation-key", "evalation-plugin/box.receiving-key"]),
+    "the service evalation with the account box.installation-key and the service evalation-plugin with the account box.receiving-key");
+  assert.strictEqual(line("ev-remove.key-left", { keys: keysNamed(["evalation/box.installation-key"]) }),
+    "One key is still in this machine's password store: the service evalation with the account box.installation-key. Delete it there by hand, such as in Keychain Access on a Mac.");
+  assert.match(FLAT, /`evalation-say ev-remove\.keys-left count="<count>" keys="<keys_named>"`/);
 });
