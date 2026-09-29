@@ -5,6 +5,7 @@ const assert = require("node:assert");
 const { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } = require("node:fs");
 const { tmpdir } = require("node:os");
 const { join } = require("node:path");
+require("./fixture.js");
 const { moved } = require("../lib/home.js");
 
 function shared() {
@@ -30,6 +31,17 @@ test("the plugin's own files move to its own folder, and the engine's stay where
   assert.strictEqual(JSON.parse(readFileSync(join(fresh, "evalation.local"), "utf8")).installation, "install-1");
   for (const one of ["engines", "memory", "model-pins.json"]) assert.ok(existsSync(join(old, one)), `${one} stays with the engine`);
   assert.strictEqual(existsSync(join(fresh, "engines")), false);
+});
+
+test("every check that loads the plugin's code points it at a throwaway folder first, so no check moves or reads a person's own", () => {
+  const { readdirSync } = require("node:fs");
+  const unsafe = readdirSync(__dirname).filter((one) => one.endsWith(".test.js")).filter((one) => {
+    const text = readFileSync(join(__dirname, one), "utf8");
+    const plugin = text.search(/require\("\.\.\/(bin|lib)\//);
+    const fixture = text.search(/require\("\.\/fixture\.js"\)/);
+    return plugin >= 0 && (fixture < 0 || fixture > plugin);
+  });
+  assert.deepStrictEqual(unsafe, []);
 });
 
 test("a folder already moved is never moved again, and a machine with nothing to move is left alone", () => {

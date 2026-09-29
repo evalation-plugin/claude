@@ -4,6 +4,7 @@
 
 const test = require("node:test");
 const assert = require("node:assert");
+require("./fixture.js");
 const { synthesise } = require("../lib/synthesise.js");
 const { held, offences } = require("../lib/prose.js");
 

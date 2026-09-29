@@ -5,6 +5,7 @@ const assert = require("node:assert");
 const { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, writeFileSync } = require("node:fs");
 const { tmpdir } = require("node:os");
 const { join } = require("node:path");
+require("./fixture.js");
 const { removal } = require("../lib/remove.js");
 
 const folderOf = (path) => realpathSync(path).replace(/[^A-Za-z0-9]/g, "-");
