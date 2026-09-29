@@ -78,9 +78,10 @@ function settled(packs) {
         entry: entry.identifier,
         status: "org-level",
         from: "authored",
-        because:
-          `${entry.title} is about how the organisation runs, which a repository does not record, ` +
-          "so the pack answers it.",
+        because: entry.written_by === "customer"
+          ? `${entry.title} is held in the organisation's own records, which a repository does not keep, so it is answered as the organisation's.`
+          : `${entry.title} is about how the organisation runs, which a repository does not record, ` +
+            "so the pack answers it.",
         justification: entry.justification,
       });
     }

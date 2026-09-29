@@ -211,6 +211,48 @@ test("a fault names its criterion and the words that break it, and a row still f
   });
 });
 
+const organisational = (id) => ({ identifier: id, title: "Phishing training", intent: "Where are records of phishing awareness training kept?",
+  asked: "do our staff do phishing training", bears_on: "organisation",
+  justification: "Training records are kept by the organisation, never in a codebase." });
+
+test("a question only an organisation's records could answer is kept as the organisation's, with its reason, and never read or counted as a gap", () => {
+  assert.deepStrictEqual(problems(set([question("Q1"), organisational("Q2")])), []);
+  assert.match(problems(set([{ ...organisational("Q2"), justification: "" }])).join(), /Q2 justification: empty/);
+  assert.match(problems(set([{ ...organisational("Q2"), looks_for: question("Q1").looks_for }])).join(), /Q2: a question answered as the organisation's looks for nothing/);
+  assert.deepStrictEqual(grid(scratch(), set([organisational("Q1")])).rows, [], "nothing of the organisation's is asked of the checker");
+  const run = served({ run: "run-x", packs: [], revision: "1.86", skill: "s", remaining: 3 }, [set([question("Q1"), organisational("Q2")])]);
+  assert.deepStrictEqual(run.answered.map((one) => [one.entry, one.status, one.justification]),
+    [["Q2", "org-level", "Training records are kept by the organisation, never in a codebase."]]);
+  assert.deepStrictEqual(run.to_read[0].entries.map((one) => one.identifier), ["Q1"]);
+  const organisation = CRITERIA.find((one) => /organisation's own records/.test(one.asks));
+  assert.deepStrictEqual([organisation?.about, organisation?.fault], ["question", "YES"]);
+  const judged = CRITERIA.find((one) => one.about === "question" && /judgement/.test(one.asks));
+  assert.deepStrictEqual(judged?.fault, "YES");
+});
+
+test("questions are checked in parallel, one checker each, and every checker's verdicts and stamps are kept", async () => {
+  const { spawn } = require("node:child_process");
+  const at = scratch();
+  const draft = set([question("Q1"), question("Q2"), question("Q3")]);
+  const file = join(at, "draft.json");
+  require("node:fs").writeFileSync(file, JSON.stringify(draft));
+  assert.deepStrictEqual([...new Set(grid(at, draft, CRITERIA, "Q2").rows.map((one) => one.question))], ["Q2"]);
+  const CLI = join(__dirname, "..", "bin", "evalation-questions");
+  const checked = (id) => new Promise((done) => {
+    stamp(at, `checker-${id}`);
+    const child = spawn(process.execPath, [CLI, "verdict", file, id], { env: { ...process.env, EVALATION_PLUGIN_HOME: at } });
+    child.stdin.end(answered(grid(at, draft, CRITERIA, id).rows));
+    child.on("close", done);
+  });
+  await Promise.all(["Q1", "Q2", "Q3"].map(checked));
+  assert.deepStrictEqual(status(at, draft), [], "all three checkers' verdicts are recorded, each with a checker's stamp");
+  const command = readFileSync(join(__dirname, "..", "commands", "ev-questions.md"), "utf8");
+  assert.match(command, /one `question-checker` for each question/);
+  assert.match(command, /checked \(3 of 7\)/);
+  assert.match(command, /\(in code\)/);
+  assert.match(command, /\(in a document\)/);
+});
+
 test("a set is saved only when every row has passed its check, and the plugin tells the person only that it is checking", () => {
   const at = scratch();
   const draft = set([question("Q1")]);
@@ -222,7 +264,7 @@ test("a set is saved only when every row has passed its check, and the plugin te
   const command = readFileSync(join(__dirname, "..", "commands", "ev-questions.md"), "utf8");
   assert.match(command, /three rounds/);
   assert.match(command, /Wrong:/);
-  assert.match(command, /"Checking your questions"/);
+  assert.match(command, /Checking your 7 questions and their 30 requirements/);
 });
 
 test("a pass recorded without the gate's stamp for the question checker is named, and saved only when the person chooses to", () => {
@@ -235,8 +277,9 @@ test("a pass recorded without the gate's stamp for the question checker is named
   saveChecked(at, draft, { unchecked: true });
   assert.deepStrictEqual(saved(at), ["Unstamped"]);
   stamp(at, "checker-2");
-  const stale = JSON.parse(readFileSync(join(at, "checker-stamp.json"), "utf8"));
-  require("node:fs").writeFileSync(join(at, "checker-stamp.json"), JSON.stringify({ ...stale, at: stale.at - 120000 }));
+  const [held] = require("node:fs").readdirSync(join(at, "checker-stamps"));
+  const stale = JSON.parse(readFileSync(join(at, "checker-stamps", held), "utf8"));
+  require("node:fs").writeFileSync(join(at, "checker-stamps", held), JSON.stringify({ ...stale, at: stale.at - 120000 }));
   const again = set([question("Q1", { intent: "Where does this repository record each refund it makes?" })], { name: "Stale" });
   verdict(at, again, answered(grid(at, again).rows));
   assert.ok(status(at, again).includes("Q1: passed without the question checker"), "a stamp over a minute old counts for nothing");
