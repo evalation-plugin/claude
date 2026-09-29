@@ -82,9 +82,28 @@ show, with the person's agreement, or left out. For each question that stays, dr
 - `looks_for`: 2 to 8 things a person could find in a repository or see are not there, each one
   thing, with `proof` of `runs` (code, configuration, a pipeline step or a test that executes) or
   `written` (a document in the repository). Never two conditions in one item, an "or if" branch,
-  or a request to confirm something is absent. Name concrete things with "such as" examples, and
-  never a judgement like adequate or appropriate. For a claimed feature, look for the code that performs
-  it, a page or API route that reaches it, configuration that switches it on, and a test of it.
+  or an absence offered as a way to pass. Name concrete things with "such as" examples, and never a
+  judgement like adequate, appropriate, short or unusual. Every item counts in the code's favour
+  where it is found: name a protection, or an absence that is itself the protection, written "No …".
+  Never name the risk itself or the feature the question protects. For a claimed feature, look for
+  the code that performs it, a page or API route that reaches it, configuration that switches it on,
+  and a test of it.
+
+  Items like these are what a checker refuses, each with the version it passes:
+
+  - Wrong: "Single use reset tokens stored hashed". Two things. Right: "A reset token accepted once
+    and then removed", and "Reset tokens stored hashed", as two items.
+  - Wrong: "No password reset route, or if one exists, tokens that expire". An escape clause. Right:
+    "An expiry time set on each reset token", and the reader marks it does not apply where no reset
+    exists.
+  - Wrong: "Code that lets staff sign in as a customer". The feature being protected, so a product
+    without it is marked missing. Right: "A permission check limiting sign-in as a customer to named
+    staff roles".
+  - Wrong: "Personal data passed into third party scripts". Finding it is bad news. Right: "No
+    personal data, such as email addresses, passed into third party script calls".
+  - Wrong: "A short session lifetime". A judgement. Right: "A session lifetime set in configuration".
+  - Wrong: "Sessions stored with Auth.js", where the words asked named no technology. Right: "A
+    server-side session store, such as a sessions table", with the technology only as an example.
 - Where a question asks what a scanner measures, use exactly one of these items:
   `{"find":"No known critical or high advisories in the pinned dependencies","proof":"scan","phase":"sca","at_least":"high"}`,
   `{"find":"No critical or high code weaknesses found by static analysis","proof":"scan","phase":"sast","at_least":"high"}`,
@@ -103,8 +122,14 @@ it. A name the person gives is used as they give it, whatever it names.
 **Recheck it before anyone sees it.** Start the `question-checker` agent, which did not write the set,
 with the file's path. It checks every question and every item against the criteria and
 hands back each one that breaks a criterion, or PASS. Fix every one it names, write the file again
-and start a fresh checker, until one hands back PASS. Never show the person a set a checker has not
-passed, and never mark a line fixed without changing the set.
+and start a fresh checker, until one hands back PASS. Never mark a line fixed without changing the
+set. Stop fixing after three rounds, and settle what is left yourself: remove every item the third
+checker still named, leave out any question with fewer than two items left, and start one more
+checker on the result, which passes, since taking an item out adds no fault. Then show the set, and
+above it one plain line for each thing removed and why, such as "Removed Q3's alert item, which
+named a judgement". The person is never handed a flag to decide. On "Change something" afterwards,
+put back what they ask for, reworded, and recheck it the same way. Never show a set a checker has
+not passed.
 
 Then show the whole set, every question with its list, and ask "Save this set as written?", with the
 answers "Save it" and "Change something". On "Change something", ask what, make the changes across

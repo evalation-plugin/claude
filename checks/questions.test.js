@@ -4,7 +4,7 @@
 
 const test = require("node:test");
 const assert = require("node:assert");
-const { mkdtempSync } = require("node:fs");
+const { mkdtempSync, readFileSync } = require("node:fs");
 const { tmpdir } = require("node:os");
 const { join } = require("node:path");
 const { home } = require("./fixture.js");
@@ -154,6 +154,15 @@ test("the review of a draft prints every criterion and the draft fenced as the c
   assert.ok(CRITERIA.some((one) => /such as/.test(one) && /technology/.test(one)), "a technology appears only as an example");
   assert.ok(CRITERIA.some((one) => /one thing/.test(one)), "each item names one thing");
   assert.doesNotMatch(shown, /Board check/, "the name is the person's to choose, so it is never held to the criteria");
+});
+
+test("every item counts in the code's favour where it is found, and a set is rechecked three times at most", () => {
+  assert.ok(CRITERIA.some((one) => /favour/.test(one) && /never names the risk itself/.test(one)), "an item names a protection, never the risk or the feature being protected");
+  assert.ok(CRITERIA.some((one) => /No credentials committed/.test(one)), "an absence that is itself the protection is written as No");
+  assert.ok(CRITERIA.some((one) => /such as/.test(one) && /alternatives/.test(one)), "examples may list alternatives");
+  const command = readFileSync(join(__dirname, "..", "commands", "ev-questions.md"), "utf8");
+  assert.match(command, /three rounds/);
+  assert.match(command, /Wrong:/);
 });
 
 test("a set that comes back from the account is checked again, and one that is not a set is refused", () => {
