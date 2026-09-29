@@ -14,6 +14,24 @@ test("an answer whose status is the count of its items passes", () => {
   assert.deepStrictEqual(about(checked(run(tree), tree), "soc2/CC6.1"), []);
 });
 
+test("a citation into a document widens to its whole paragraph, and every citation keeps the first three lines it cites", () => {
+  const { mkdirSync, writeFileSync } = require("node:fs");
+  const { join } = require("node:path");
+  mkdirSync(join(tree, "docs"), { recursive: true });
+  writeFileSync(join(tree, "docs", "overview.md"), ["# App", "", "## Positioning", "",
+    "The core differentiator is a single view", "of time across calendars,", "kept in sync", "in real time,", "for every account.", "", "## Next", ""].join("\n"));
+  const document = run(tree);
+  document.answers[0].looked_for[0].evidence = [
+    { path: "docs/overview.md", from: 5, to: 5, quote: "core differentiator is a", grade: "assertion" },
+    { path: "src/auth.js", from: 1, to: 2, quote: "if (!req.session)", grade: "executable" },
+  ];
+  assert.deepStrictEqual(about(checked(document, tree), "soc2/CC6.1"), []);
+  const [doc, code] = document.answers[0].looked_for[0].evidence;
+  assert.deepStrictEqual([doc.from, doc.to, doc.lines], [5, 9, "The core differentiator is a single view\nof time across calendars,\nkept in sync"]);
+  assert.deepStrictEqual([code.from, code.to, code.lines],
+    [1, 2, "export function guard(req) {\n  if (!req.session) throw new Error(\"signed out\");"]);
+});
+
 test("an answer whose status differs from the count is refused, naming the count", () => {
   const document = run(tree);
   document.answers[0].status = "covered";

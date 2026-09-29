@@ -102,7 +102,7 @@ function evidence(answer) {
     return `<div class="cite"><div class="where">` +
       `<span>${escaped(shownPath(target, one.path))}:${escaped(range)}</span>` +
       `<span class="grade">${escaped(one.grade ?? "")}</span></div>` +
-      (one.quote ? `<pre>${escaped(one.quote)}</pre>` : "") +
+      quoted(one) +
       `</div>`;
   });
   // An absence has no line to show, so the answer says what was looked for and where, which a reader
@@ -157,6 +157,12 @@ function scanned(want, row, scan) {
  * under it the lines it was found in, the account of the search, or why it does not apply. The
  * status above is the count of these, so a reader can check the count.
  */
+function quoted(one) {
+  if (typeof one.lines !== "string") return one.quote ? `<pre>${escaped(one.quote)}</pre>` : "";
+  const more = Number(one.to) - Number(one.from) + 1 > one.lines.split("\n").length ? " …" : "";
+  return `<pre>${escaped(one.lines)}${more}</pre>`;
+}
+
 function items(answer, list, scan) {
   return list.map((want, at) => {
     const row = answer.looked_for?.[at] ?? {};
@@ -168,7 +174,7 @@ function items(answer, list, scan) {
         const range = one.to && one.to !== one.from ? `${one.from}-${one.to}` : one.from;
         return `<div class="at"><span>${escaped(shownPath(target, one.path))}:${escaped(range)}</span>` +
           `<span class="grade">${escaped(one.grade ?? "")}</span></div>` +
-          (one.quote ? `<pre>${escaped(one.quote)}</pre>` : "");
+          quoted(one);
       }).join("")
       : row.result === "no-evidence"
       ? `<p class="looked">${escaped("No infrastructure code was found in what this run read, so this may be held where the run could not see it.")}</p>`
