@@ -248,7 +248,9 @@ test("questions are checked in parallel, one checker each, and every checker's v
   assert.deepStrictEqual(status(at, draft), [], "all three checkers' verdicts are recorded, each with a checker's stamp");
   const command = readFileSync(join(__dirname, "..", "commands", "ev-questions.md"), "utf8");
   assert.match(command, /one `question-checker` for each question/);
-  assert.match(command, /checked \(3 of 7\)/);
+  assert.match(command, /"Q3 checked"/);
+  assert.match(command, /"You have no saved question sets yet, so we'll write your first one\."/);
+  assert.doesNotMatch(command, /\(3 of 7\)|Checking your 7/, "the check quotes no counts, which a person cannot place");
   assert.match(command, /\(in code\)/);
   assert.match(command, /\(in a document\)/);
 });
@@ -264,7 +266,7 @@ test("a set is saved only when every row has passed its check, and the plugin te
   const command = readFileSync(join(__dirname, "..", "commands", "ev-questions.md"), "utf8");
   assert.match(command, /three rounds/);
   assert.match(command, /Wrong:/);
-  assert.match(command, /Checking your 7 questions and their 30 requirements/);
+  assert.match(command, /"Checking your questions against the rules for a question set/);
 });
 
 test("a pass recorded without the gate's stamp for the question checker is named, and saved only when the person chooses to", () => {
