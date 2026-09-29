@@ -24,10 +24,11 @@ function machine(brew) {
   return Object.assign((...args) => JSON.parse(execFileSync(process.execPath, [join(BIN, "evalation-scan"), ...args], { env, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] })), { bin });
 }
 
+const SHELL_BREW = { skip: process.platform === "win32" && "the stand-in brew is a shell script" };
 const FAILS = "#!/bin/sh\necho 'Error: no formula for this tool' >&2\nexit 1\n";
 const WORKS = "#!/bin/sh\nprintf '#!/bin/sh\\n' > \"$(dirname \"$0\")/$2\"\nchmod +x \"$(dirname \"$0\")/$2\"\n";
 
-test("a scanner that failed to install is reported as could not be installed, with its reason, and never as declined", () => {
+test("a scanner that failed to install is reported as could not be installed, with its reason, and never as declined", SHELL_BREW, () => {
   const scan = machine(FAILS);
   scan("install", "trivy");
   const shown = scan("show", "--phases", "sca");
@@ -38,7 +39,7 @@ test("a scanner that failed to install is reported as could not be installed, wi
   assert.doesNotMatch(JSON.stringify(ran), /chose|declined/);
 });
 
-test("a decline is the person's choice with its date, and a later install clears it", () => {
+test("a decline is the person's choice with its date, and a later install clears it", SHELL_BREW, () => {
   const scan = machine(WORKS);
   scan("decline", "semgrep");
   assert.match(scan("show", "--phases", "sast").phases.sast.declined_on, DATE);
@@ -53,7 +54,7 @@ test("a decline is the person's choice with its date, and a later install clears
   assert.strictEqual(after.declined_on, null);
 });
 
-test("show describes each tool in plain words with a page to install it by hand, and a scan names what it checked", () => {
+test("show describes each tool in plain words with a page to install it by hand, and a scan names what it checked", SHELL_BREW, () => {
   const scan = machine(null);
   const shown = scan("show", "--phases", "sca,sbom,sast,secret");
   assert.match(shown.phases.sca.offer, /^Trivy, checks dependencies for known security flaws$/);
@@ -68,7 +69,7 @@ test("show describes each tool in plain words with a page to install it by hand,
   assert.doesNotMatch(JSON.stringify({ ...ran, written: "" }), /\b(sca|sast|sbom|phase)\b/);
 });
 
-test("a scan's read-out is one plain sentence per result, said to the person who ran it", () => {
+test("a scan's read-out is one plain sentence per result, said to the person who ran it", SHELL_BREW, () => {
   const clean = machine(null)("run", repository(), "--phases", "history");
   assert.strictEqual(clean.said, "Checked: the commit history.");
 
@@ -312,7 +313,7 @@ test("the reading line names every pack, and the closing line names the file to 
     "Reading the repository against SOC 2 Trust Services Criteria, ISO/IEC 27001 and Evalation Hardening Review, in several parts at once. This takes a while.\n");
 });
 
-test("show prints the scanner question ready to ask, or the line to say where none is missing or Homebrew is absent", () => {
+test("show prints the scanner question ready to ask, or the line to say where none is missing or Homebrew is absent", SHELL_BREW, () => {
   const tools = (scan, ...names) => {
     for (const one of names) {
       writeFileSync(join(scan.bin, one), "#!/bin/sh\n");

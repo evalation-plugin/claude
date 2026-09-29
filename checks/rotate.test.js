@@ -256,7 +256,7 @@ test("settings that exist and cannot be read are told apart from a machine never
   assert.match(ran.stderr, /^sign-in-damaged:/);
 });
 
-test("a key store that refuses the new key gives a prefixed reason and no stack trace", async () => {
+test("a key store that refuses the new key gives a prefixed reason and no stack trace", { skip: process.platform === "win32" && "Windows ignores folder modes" }, async () => {
   const home = machine();
   chmodSync(join(home, "keys"), 0o500);
   try {

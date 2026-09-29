@@ -81,7 +81,7 @@ const commandFiles = () => require("node:fs").readdirSync(COMMANDS_AT).filter((o
 
 test("no command writes a line for the person itself, so every line comes from the catalogue", () => {
   const quoted = commandFiles().flatMap((file) => {
-    const text = readFileSync(join(COMMANDS_AT, file), "utf8").replace(/^---[\s\S]*?\n---\n/, "").replace(/```[\s\S]*?```/g, "").replace(/`[^`]*`/g, "");
+    const text = readFileSync(join(COMMANDS_AT, file), "utf8").replace(/\r\n/g, "\n").replace(/^---[\s\S]*?\n---\n/, "").replace(/```[\s\S]*?```/g, "").replace(/`[^`]*`/g, "");
     return [...text.replace(/\s+/g, " ").matchAll(/"([^"]+)"/g)].map((found) => found[1])
       .filter((one) => one.trim().split(/\s+/).length >= 3).map((one) => `${file}: "${one}"`);
   });

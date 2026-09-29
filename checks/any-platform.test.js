@@ -27,7 +27,7 @@ test("the file key store reads its own key on Windows, where every file reports 
   } finally {
     Object.defineProperty(process, "platform", was);
   }
-  assert.throws(() => file.held("evalation-check", "windows-mode"), /somebody other than you can read/, "elsewhere a readable key is still refused");
+  if (process.platform !== "win32") assert.throws(() => file.held("evalation-check", "windows-mode"), /somebody other than you can read/, "elsewhere a readable key is still refused");
 });
 
 test("every plugin script is a Node program, so it runs wherever Claude Code does", () => {

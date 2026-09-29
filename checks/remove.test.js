@@ -185,6 +185,7 @@ test("a key the store will not delete is reported as left behind, and a key no s
 
 test("a failure after the sign-out never claims nothing was removed", (t) => {
   if (process.getuid?.() === 0) return t.skip("root deletes regardless of folder modes");
+  if (process.platform === "win32") return t.skip("Windows ignores folder modes");
   const { claude, read } = machine();
   const parent = mkdtempSync(join(tmpdir(), "locked-"));
   const home = join(parent, "home");
