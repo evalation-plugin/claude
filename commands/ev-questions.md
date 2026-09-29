@@ -59,19 +59,23 @@ questions.
 
 ## 3. Turn each into something the repository can answer
 
-A set is written for its pack and used on any repository read against it, so write every question and
-item for the pack in general. Never write for the repository this session is open in, and set aside
-anything this session knows of it, such as what its CLAUDE.md or its files say about its sign-in,
-its services or its features. Name no product, company, repository or feature of one codebase, and
-assume no technology: a technology appears only as a "such as" example. The criteria every set is
-held to are printed by `${CLAUDE_PLUGIN_ROOT}/bin/evalation-questions criteria`, so read them before
-drafting.
+What a question is about is the customer's to decide. Keep their own words for each question, as they
+wrote them, in `asked`, or the claim they confirmed where it came from a website or a document. Anything
+specific they name stays: a person asking whether the repository uses Rust gets a question about
+Rust, with items naming Rust. Anything specific they did not name stays out. Never write for the
+repository this session is open in, and set aside anything this session knows of it, such as what
+its CLAUDE.md or its files say about its sign-in, its services or its features. Where the words asked
+name no technology, assume none, and let a technology appear only as a "such as" example, so the set
+fits any repository read against its pack. The criteria every set is held to are printed by
+`${CLAUDE_PLUGIN_ROOT}/bin/evalation-questions criteria`, so read them before drafting.
 
 A question a repository cannot answer, such as how a team feels, whether customers like a feature or
 anything about people's intentions, is said so plainly and either rewritten into what the code can
 show, with the person's agreement, or left out. For each question that stays, draft:
 
 - `identifier`: Q1, Q2 and on, in order.
+- `asked`: the customer's words this question came from, exactly as written, or the claim they
+  confirmed. Where one thing they asked became two questions, both keep the same words.
 - `title`: a few words naming it.
 - `intent`: one plain question of 25 words at most, ending in a question mark, asking what the
   repository holds.

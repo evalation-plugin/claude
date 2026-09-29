@@ -38,7 +38,7 @@ const packs = [
     { identifier: "SEC02", title: "Secrets", intent: "Where are secrets kept?", looks_for: [{ find: "Secrets read from the environment", proof: "runs", severity: "high" }, { find: "A written rule on secrets", proof: "written", severity: "low" }] },
   ] } },
 ];
-const questions = { name: "Board check", pack: "custom", questions: [{ identifier: "Q1", title: "Sign in", intent: "Where does this repository check who is signed in?",
+const questions = { name: "Board check", pack: "custom", questions: [{ identifier: "Q1", title: "Sign in", asked: "do we check who is logged in", intent: "Where does this repository check who is signed in?",
   looks_for: [{ find: "A check of the signed-in session", proof: "runs" }, { find: "A test of signing out", proof: "runs" }] }] };
 const rubric = { id: "evalation.rubric.v1", pack: "hardening", defect_load: { critical: 25, high: 10, medium: 4, low: 1.5, info: 0 },
   base: { decay: 95 }, credit: { alpha: 0.25, softener: 8 }, weights: { SEC: 1 }, grades: { A: 90, B: 75, C: 60, D: 40, F: 0 } };
