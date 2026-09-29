@@ -15,7 +15,9 @@ const { resolve, sep } = require("node:path");
 const OURS = /^evalation-plugin:/;
 // The verbs an agent's task names, and none that write the run: merging, applying and delivering are
 // the session's.
-const COMMANDS = /^\s*\S*evalation-(read\s|findings\s+(group|part|methodology|shape)\b|verify\s+(grid|record|correction|correct)\b|questions\s+review\b)/;
+const COMMANDS = /^\s*\S*evalation-(read\s|findings\s+(group|part|methodology|shape)\b|verify\s+(grid|record|correction|correct)\b|questions\s+(grid|verdict)\b)/;
+const VERDICT = /evalation-questions\s+verdict\b/;
+const CHECKER = "evalation-plugin:question-checker";
 // A second command, a pipe, a substitution or an output redirect, outside the heredoc body.
 const JOINED = /[;&|`]|\$\(|>|<(?!<)/;
 
@@ -34,6 +36,15 @@ try {
 } catch {
   // empty-catch:allow: a hook given nothing it can read decides nothing, and the session's own gates stand.
   process.exit(0);
+}
+const named = JSON.stringify(call.tool_input ?? {});
+if (named.includes("questions-checked.json")) {
+  process.stderr.write("questions-checked.json holds the question checker's verdicts, and only evalation-questions verdict writes it. Start the question-checker agent on the draft.\n");
+  process.exit(2);
+}
+if (VERDICT.test(String(call.tool_input?.command ?? "")) && call.agent_type !== CHECKER) {
+  process.stderr.write("only the question checker records a verdict, so a draft is never passed by the session that wrote it. Start the question-checker agent on the draft.\n");
+  process.exit(2);
 }
 if (!OURS.test(String(call.agent_type ?? ""))) process.exit(0);
 // Handing its answer back to the session reads and runs nothing.
