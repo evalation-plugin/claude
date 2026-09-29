@@ -38,7 +38,8 @@ const { pluginHome } = require("../lib/home.js");
 const { basename, dirname, isAbsolute, join, resolve } = require("node:path");
 
 const { SCANS } = require("../lib/scans.js");
-const { copied, inRepository } = require("../lib/tree.js");
+const { copied, filesOf, inRepository, skipped } = require("../lib/tree.js");
+const { attributesOf, counted, languageOf } = require("../lib/linguist.js");
 const { solutionOf } = require("../lib/solution.js");
 const { cwesOf } = require("../lib/weaknesses.js");
 
@@ -64,6 +65,7 @@ const DEFAULTS = {
   sast: { enabled: true, tool: "semgrep" },
   secret: { enabled: true, tool: "gitleaks" },
   history: { enabled: true, tool: "git" },
+  licence: { enabled: true, tool: "trivy" },
 };
 
 const FLOOR = "low";
@@ -92,11 +94,12 @@ const TOOLS = {
   git: { name: "git", does: "ev-run.does-git", page: "https://git-scm.com/downloads" },
 };
 
-const AREAS = { sca: "ev-run.area-sca", sbom: "ev-run.area-sbom", sast: "ev-run.area-sast", secret: "ev-run.area-secret", history: "ev-run.area-history" };
+const AREAS = { sca: "ev-run.area-sca", sbom: "ev-run.area-sbom", sast: "ev-run.area-sast", secret: "ev-run.area-secret", history: "ev-run.area-history", licence: "ev-run.area-licence" };
+const DOES = { licence: "ev-run.does-licence" };
 const CHECKS = Object.fromEntries(Object.entries(AREAS).map(([phase, name]) => [phase, line(name)]));
 
 const nameOf = (tool) => TOOLS[tool]?.name ?? tool;
-const offerOf = (tool, phase) => line("ev-run.tool-offer", { tool: nameOf(tool), does: TOOLS[tool] ? line(TOOLS[tool].does) : CHECKS[phase] ?? phase });
+const offerOf = (tool, phase) => line("ev-run.tool-offer", { tool: nameOf(tool), does: DOES[phase] ? line(DOES[phase]) : TOOLS[tool] ? line(TOOLS[tool].does) : CHECKS[phase] ?? phase });
 
 function today() {
   const now = new Date();
@@ -127,6 +130,7 @@ function missingReason(tool, held) {
 const WHY = {
   "could-not-install": "ev-run.scan-could-not-install", missing: "ev-run.scan-missing", off: "ev-run.scan-off",
   "no-adapter": "ev-run.scan-no-adapter", failed: "ev-run.scan-failed", "no-history": "ev-run.scan-no-history",
+  "no-lockfile": "ev-run.scan-no-lockfile", "not-installed": "ev-run.scan-not-installed",
 };
 
 function listed(items) {
@@ -408,6 +412,83 @@ const ADAPTERS = {
   },
 };
 
+const GRADES = [
+  [/\b(AGPL|SSPL)/i, "critical"],
+  [/\bLGPL/i, "medium"],
+  [/\b(GPL|EUPL|OSL)/i, "high"],
+  [/\b(MPL|EPL|CDDL)/i, "medium"],
+];
+
+function licenceGrade(expression) {
+  const worse = (a, b) => (ranked(a) >= ranked(b) ? a : b);
+  const choices = String(expression).replace(/[()]/g, " ").split(/\s+OR\s+/i).map((choice) =>
+    choice.split(/\s+AND\s+/i).map((part) => GRADES.find(([pattern]) => pattern.test(part))?.[1] ?? null)
+      .reduce((worst, one) => (one === null ? worst : worst === null ? one : worse(worst, one)), null));
+  return choices.includes(null) ? null : choices.reduce((mildest, one) => (ranked(one) < ranked(mildest) ? one : mildest));
+}
+
+const listedUpTo = (names) => `${names.slice(0, 12).join(", ")}${names.length > 12 ? ` and ${names.length - 12} more` : ""}`;
+
+function licences(out, files) {
+  const repository = new Set(files);
+  const lockfiles = (JSON.parse(out || "{}").Results ?? [])
+    .filter((one) => one.Class === "lang-pkgs" && repository.has(one.Target));
+  const read = lockfiles.filter((one) => (one.Packages ?? []).some((each) => (each.Licenses ?? []).length > 0));
+  const unread = lockfiles.filter((one) => !read.includes(one)).map((one) => one.Target);
+  const restricted = [];
+  const bare = [];
+  let total = 0;
+  for (const lockfile of read) {
+    for (const one of lockfile.Packages ?? []) {
+      const relation = String(one.Relationship ?? "").toLowerCase();
+      if (["root", "workspace"].includes(relation)) continue;
+      total += 1;
+      const held = one.Licenses ?? [];
+      const named = `${one.Name} ${one.Version ?? ""}`.trim();
+      if (held.length === 0) {
+        if (relation !== "indirect") bare.push({ named, lockfile: lockfile.Target });
+        continue;
+      }
+      const grades = held.map(licenceGrade);
+      if (grades.includes(null)) continue;
+      const grade = grades.reduce((mildest, each) => (ranked(each) < ranked(mildest) ? each : mildest));
+      restricted.push({ named: `${named} (${held.join(", ")})`, grade, lockfile: lockfile.Target });
+    }
+  }
+  const at = (list) => ({ path: [...new Set(list.map((one) => one.lockfile))].join(", ") });
+  const findings = [];
+  if (restricted.length > 0) {
+    findings.push({ key: "licence:restricted", phase: "licence", at: at(restricted),
+      severity: restricted.map((one) => one.grade).reduce((worst, one) => (ranked(one) > ranked(worst) ? one : worst)),
+      title: "Dependencies under a restrictive licence",
+      body: `${restricted.length} of the ${total} production dependencies ${restricted.length === 1 ? "is" : "are"} under a licence that can oblige the product to share its own code: ${listedUpTo(restricted.map((one) => one.named))}.` }); // say:allow: report,a scanner result printed in the reports
+  }
+  if (bare.length > 0) {
+    findings.push({ key: "licence:unknown", phase: "licence", severity: "medium", at: at(bare),
+      title: "Dependencies declaring no licence",
+      body: `${bare.length} of the production dependencies the repository names itself ${bare.length === 1 ? "declares" : "declare"} no licence: ${listedUpTo(bare.map((one) => one.named))}.` }); // say:allow: report,a scanner result printed in the reports
+  }
+  return { findings, lockfiles: lockfiles.length, unread };
+}
+
+const BY_PHASE = {
+  licence: {
+    trivy: {
+      phase: "licence",
+      argv: (target) => ["fs", "--scanners", "license", "--list-all-pkgs", "--format", "json", "--quiet", target],
+      read: (out, root) => {
+        const said = licences(out, filesOf(root).map((one) => inRepository(root, one)));
+        if (said.lockfiles === 0) return { skipped: "no-lockfile", why: "the repository holds no dependency lockfile to read licences from" };
+        if (said.unread.length === said.lockfiles) return { skipped: "not-installed", why: `no dependency licences could be read from ${said.unread.join(", ")}, since the dependencies are not installed here` };
+        return { findings: said.findings, ...(said.unread.length > 0 ? { why: `licences not read for ${said.unread.join(", ")}, since those dependencies are not installed here or the tool reads no licences for them` } : {}) };
+      },
+    },
+  },
+};
+
+const adapterFor = (phase, tool) => BY_PHASE[phase]?.[tool] ?? (ADAPTERS[tool]?.phase === phase ? ADAPTERS[tool] : null);
+const knownTool = (tool) => Boolean(ADAPTERS[tool]) || Object.values(BY_PHASE).some((one) => one[tool]);
+
 const botAccount = (name, address) =>
   /\[bot\]/.test(name) || /\[bot\]@/.test(address) || /^bot@/.test(address) || /(^|[\s_-])bot$/.test(name);
 
@@ -470,18 +551,20 @@ function history(root, isRepository, named) {
   try {
     const git = (...args) => execFileSync("git", ["-C", root, ...args],
       { encoding: "utf8", maxBuffer: 256 * 1024 * 1024, stdio: ["ignore", "pipe", "ignore"] });
-    const commits = git("log", "--since=12 months ago", "--no-merges", "--format=%x1e%aI%x1f%aE%x1f%aN", "--name-only")
+    const commits = git("log", "--since=12 months ago", "--no-merges", "--format=%x1e%aI%x1f%aE%x1f%aN%x1f%B%x1d", "--name-only")
       .split("\x1e").filter((one) => one.trim()).map((one) => {
-        const [head, ...files] = one.split("\n");
-        const [at, address, name] = head.split("\x1f");
-        return { at, address, name, files: files.filter(Boolean) };
+        const [head, files = ""] = one.split("\x1d");
+        const [at, address, name, message] = head.split("\x1f");
+        return { at, address, name, message, files: files.split("\n").filter(Boolean) };
       });
     const who = people(commits);
     const byPeople = commits.map((one, n) => ({ ...one, who: who[n] })).filter((one) => one.who);
     const tags = git("for-each-ref", "refs/tags", "--format=%(creatordate:iso-strict)").split("\n").filter(Boolean);
     const tracked = git("ls-files").split("\n").filter(Boolean);
+    const now = Date.now();
     return { phase: "history", tool: "git", ran: true,
-      findings: [...authorship(commits.map((one) => `${one.name}\x1f${one.address}`).join("\n")), ...measured({ commits: byPeople, tags, tracked, now: Date.now() })] };
+      findings: [...authorship(commits.map((one) => `${one.name}\x1f${one.address}`).join("\n")), ...measured({ commits: byPeople, tags, tracked, now }),
+        ...practices({ commits: byPeople, now, source: markersIn(root, tracked) })] };
   } catch (thrown) {
     return { phase: "history", tool: "git", ran: false, reason: "failed", why: `git could not read the history: ${thrown.message}`, findings: [] };
   }
@@ -587,6 +670,85 @@ function measured({ commits, tags, tracked, now }) {
   return found;
 }
 
+const TEST_FOLDER = /^(tests?|__tests__|specs?|e2e|testing)$/i;
+const TEST_NAME = [/[._-](test|spec)s?\.[^.]+$/i, /^test[_-]/i, /(Test|Tests|Spec)\.[^.]+$/];
+const isTest = (path) => {
+  const parts = path.split("/");
+  return parts.slice(0, -1).some((one) => TEST_FOLDER.test(one)) || TEST_NAME.some((one) => one.test(parts.at(-1)));
+};
+const isSource = (path, head = "") => !path.split("/").some(skipped) && languageOf(path, head)?.type === "programming";
+const MARKER = /\b(TODO|FIXME|HACK|XXX)\b/;
+const TICKET = /(^|[^\w&])#\d+\b|\b[A-Z][A-Z0-9]{1,9}-\d+\b/;
+const REVERT = /^Revert\b|This reverts commit [0-9a-f]{7,}/m;
+
+function markersIn(root, tracked) {
+  const attributes = attributesOf(root, tracked);
+  let lines = 0;
+  let markers = 0;
+  for (const path of tracked) {
+    if (path.split("/").some(skipped) || !languageOf(path, "")) continue;
+    const full = join(root, path);
+    let text;
+    try {
+      if (statSync(full).size >= 2_000_000) continue;
+      text = readFileSync(full, "utf8");
+    } catch {
+      continue;
+    }
+    const head = text.slice(0, 65536);
+    if (!counted(path, head, attributes.get(path)) || !isSource(path, head)) continue;
+    const held = text.split("\n");
+    if (held.at(-1) === "") held.pop();
+    lines += held.length;
+    markers += held.filter((one) => MARKER.test(one)).length;
+  }
+  return { lines, markers };
+}
+
+function practices({ commits, now, source }) {
+  const found = [];
+  const total = commits.length;
+  const share = (part, whole) => Math.round((part / whole) * 100);
+  const at = { path: "git history" };
+  if (total > 0) {
+    const last = new Map();
+    for (const one of commits) last.set(one.who, Math.max(last.get(one.who) ?? 0, Date.parse(one.at)));
+    const gone = new Set([...last].filter(([, when]) => now - when > 90 * DAY).map(([who]) => who));
+    const theirs = commits.filter((one) => gone.has(one.who)).length;
+    if (theirs / total >= 0.25) {
+      found.push({ key: "history:departed", phase: "history", severity: theirs / total >= 0.5 ? "high" : "medium", at,
+        title: "Much of the work made by people no longer committing",
+        body: `Of ${total} commits in the last twelve months, ${share(theirs, total)}% were made by ${gone.size} of ${last.size} people with no commit in the last three months.` }); // say:allow: report,a scanner result printed in the reports
+    }
+    const ticketed = commits.filter((one) => TICKET.test(one.message ?? "")).length;
+    if (ticketed / total < 0.5) {
+      found.push({ key: "history:tickets", phase: "history", severity: "low", at,
+        title: "Few changes name the ticket they answer",
+        body: `Of ${total} commits in the last twelve months, ${share(ticketed, total)}% name a ticket in their message, such as #123 or ABC-123.` }); // say:allow: report,a scanner result printed in the reports
+    }
+    const reverted = commits.filter((one) => REVERT.test(one.message ?? "")).length;
+    if (reverted / total >= 0.05) {
+      found.push({ key: "history:reverts", phase: "history", severity: reverted / total >= 0.1 ? "medium" : "low", at,
+        title: "Changes often undone",
+        body: `Of ${total} commits in the last twelve months, ${reverted} undid an earlier one, ${share(reverted, total)}% of them.` }); // say:allow: report,a scanner result printed in the reports
+    }
+  }
+  const changing = commits.filter((one) => one.files.some((path) => isSource(path) && !isTest(path)));
+  const tested = changing.filter((one) => one.files.some(isTest)).length;
+  if (changing.length > 0 && tested / changing.length < 0.2) {
+    found.push({ key: "history:tests", phase: "history", severity: "medium", at,
+      title: "Code changed without its tests",
+      body: `Of ${changing.length} commits changing source code in the last twelve months, ${share(tested, changing.length)}% also changed a test file.` }); // say:allow: report,a scanner result printed in the reports
+  }
+  const rate = source.lines > 0 ? (source.markers / source.lines) * 1000 : 0;
+  if (rate > 2) {
+    found.push({ key: "history:markers", phase: "history", severity: rate > 5 ? "medium" : "low", at: { path: "tracked source" },
+      title: "Unfinished work marked in the code",
+      body: `The tracked source holds ${source.markers} lines marked TODO, FIXME, HACK or XXX in ${source.lines} lines, ${rate.toFixed(1)} per thousand lines.` }); // say:allow: report,a scanner result printed in the reports
+  }
+  return found;
+}
+
 /** What the tree was before and after, where git can say. A scan that moved anything is a scan that changed what it measured. */
 function witness(target) {
   try {
@@ -603,7 +765,7 @@ function witness(target) {
  */
 function runPhase(phase, named, target, isRepository, held) {
   const override = process.env[`EVALATION_${phase.toUpperCase()}_CMD`];
-  const adapter = ADAPTERS[named.tool];
+  const adapter = adapterFor(phase, named.tool);
 
   if (!named.enabled) return { phase, tool: named.tool, ran: false, reason: "off", why: "it is turned off", findings: [] };
   if (!override) {
@@ -653,10 +815,11 @@ function runPhase(phase, named, target, isRepository, held) {
     // An adapter answers with findings, with an inventory, or with both. A list on its own is the
     // ordinary case and is read as findings.
     const answered = adapter.read(out, target);
+    if (answered.skipped) return { phase, tool: named.tool, ran: false, reason: answered.skipped, why: answered.why, findings: [] };
     const found = (Array.isArray(answered) ? answered : answered.findings ?? [])
       .map((one) => ({ ...one, phase, tool: named.tool }));
     const inventory = Array.isArray(answered) ? null : answered.inventory ?? null;
-    return { phase, tool: named.tool, ran: true, findings: found, inventory };
+    return { phase, tool: named.tool, ran: true, ...(answered.why ? { why: answered.why } : {}), findings: found, inventory };
   } catch (thrown) {
     // Said rather than swallowed, and with no findings, since a tool that fell over knows nothing
     // about this repository and a phase reported clean on a crash is the worst answer available.
@@ -717,6 +880,8 @@ function scan(target, only = null) {
         ? (solution ? historyAcross(root, solution, named) : history(root, isRepository, named))
         : phase === "secret" && solution
         ? secretAcross(root, solution, named, held, copy.path)
+        : phase === "licence"
+        ? runPhase(phase, named, root, isRepository, held)
         : runPhase(phase, named, phase === "secret" && isRepository ? root : copy.path,
           phase === "secret" && isRepository, held)));
   } finally {
@@ -770,9 +935,10 @@ const BREAKS = new RegExp(`\\s*[;${String.fromCharCode(0x2013, 0x2014)}]\\s*`, "
 function offered(held, only) {
   const { entries, say } = require("../lib/say.js");
   const wanted = Object.entries(held.phases).filter(([phase, named]) => (!only || only.includes(phase)) && named.enabled !== false);
-  const missing = wanted.filter(([, named]) => !onThisMachine(named.tool)).map(([phase, named]) => ({ phase, tool: named.tool }));
+  const missing = wanted.filter(([, named]) => !onThisMachine(named.tool)).map(([phase, named]) => ({ phase, tool: named.tool }))
+    .filter((one, at, all) => all.findIndex((each) => each.tool === one.tool) === at);
   if (missing.length === 0) {
-    const names = wanted.map(([, named]) => nameOf(named.tool));
+    const names = [...new Set(wanted.map(([, named]) => nameOf(named.tool)))];
     if (names.length === 0) return { said: null, asks: null };
     return { asks: null, said: names.length === 1 ? line("ev-run.tool-installed", { tool: names[0] })
       : line("ev-run.tools-installed", { tools: `${names.slice(0, -1).join(", ")} and ${names.at(-1)}` }) };
@@ -804,7 +970,7 @@ function show(only = null) {
     phases: Object.fromEntries(Object.entries(held.phases).filter(([phase]) => !only || only.includes(phase)).map(([phase, named]) => [phase, {
       ...named,
       on_this_machine: onThisMachine(named.tool),
-      adapter: Boolean(ADAPTERS[named.tool]) || phase === "history",
+      adapter: Boolean(adapterFor(phase, named.tool)) || phase === "history",
       declined: held.declined.includes(named.tool),
       declined_on: held.declined.includes(named.tool) ? spoken(held.declined_on[named.tool]) : null,
       could_not_install: held.could_not_install[named.tool]
@@ -924,16 +1090,16 @@ function main() {
       if (!DEFAULTS[phase]) fail(`no phase ${JSON.stringify(phase)}. The phases are ${Object.keys(DEFAULTS).join(", ")}.`);
       // Only a tool this file knows how to start and how to read. A name from anywhere else is a
       // command somebody would be running without having chosen it.
-      if (tool !== "off" && !ADAPTERS[tool]) {
+      if (tool !== "off" && !knownTool(tool)) {
         fail(`no adapter for ${JSON.stringify(tool)}. This knows ${Object.keys(ADAPTERS).join(", ")}.`);
       }
       // And only a tool that answers this phase's question. A secret scanner pointed at the
       // dependency phase runs, finds nothing, and reports the dependencies clean, which is the one
       // wrong answer a scan can give that nobody sees.
-      if (tool !== "off" && ADAPTERS[tool].phase !== phase) {
-        const fits = Object.entries(ADAPTERS)
-          .filter(([, one]) => one.phase === phase).map(([name]) => name);
-        fail(`${tool} answers the ${ADAPTERS[tool].phase} phase, not ${phase}. ` +
+      if (tool !== "off" && !adapterFor(phase, tool)) {
+        const fits = [...new Set([...Object.keys(BY_PHASE[phase] ?? {}), ...Object.entries(ADAPTERS)
+          .filter(([, one]) => one.phase === phase).map(([name]) => name)])];
+        fail(`${tool} does not answer the ${phase} phase. ` +
           (fits.length ? `For ${phase} this knows ${fits.join(", ")}.` : `This knows no tool for ${phase}.`)); // say:allow: machine,detail for the fault file, and set is not granted to a session
       }
       const held = settings();
@@ -951,7 +1117,9 @@ function main() {
   }
 }
 
-module.exports = { authorship, measured, scan };
+const argvOf = (phase, target) => adapterFor(phase, DEFAULTS[phase].tool).argv(target, null, false);
+
+module.exports = { argvOf, authorship, licences, measured, practices, scan };
 
 if (require.main === module) {
   try {
