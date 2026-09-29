@@ -38,14 +38,26 @@ test("a question keeps the customer's own words it came from", () => {
 test("each question is held to the rules a pack's entry is", () => {
   const said = problems(set([
     question("Q1", { intent: "Is the code good" }),
-    question("Q1", { looks_for: [{ find: "Adequate logging", proof: "runs" }] }),
+    question("Q1", { looks_for: [] }),
     question("X9", { title: "" }),
   ])).join("\n");
   assert.match(said, /Q1 intent: not a question/);
   assert.match(said, /Q1: given twice/);
-  assert.match(said, /Q1: looks_for holds 2 to 8 items/);
+  assert.match(said, /Q1: looks_for holds at least one item/);
   assert.match(said, /X9: an identifier is Q and a number/);
   assert.match(said, /X9 title: empty/);
+});
+
+test("a question keeps every requirement it needs, with no upper limit, and one covering two topics is split by the checker's verdict", () => {
+  const many = Array.from({ length: 12 }, (_, at) => ({ find: `Required field number ${at + 1} of the notice`, proof: "written" }));
+  assert.deepStrictEqual(problems(set([question("Q1", { looks_for: many })])), []);
+  assert.deepStrictEqual(problems(set([question("Q1", { looks_for: [question("Q1").looks_for[0]] })])), []);
+  const topics = CRITERIA.find((one) => /more than one topic/.test(one.asks));
+  assert.ok(topics, "a criterion asks whether the items cover more than one topic");
+  assert.deepStrictEqual([topics.about, topics.fault], ["question", "YES"]);
+  const command = readFileSync(join(__dirname, "..", "commands", "ev-questions.md"), "utf8");
+  assert.doesNotMatch(command, /2 to 8/);
+  assert.match(command, /became Q2 and Q3/);
 });
 
 test("a question may ask what git history shows, settled by the history phase", () => {

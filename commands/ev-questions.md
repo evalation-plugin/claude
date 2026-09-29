@@ -84,8 +84,8 @@ the person wrote. For each question, draft:
 - `title`: a few words naming it.
 - `intent`: one plain question of 25 words at most, ending in a question mark, asking what the
   repository holds.
-- `looks_for`: 2 to 8 things a person could find in a repository or see are not there, each one
-  thing, with `proof` of `runs` (code, configuration, a pipeline step or a test that executes) or
+- `looks_for`: every thing a person could find in a repository or see is not there that the
+  question needs, however many that is, and at least one. Each is one thing, with `proof` of `runs` (code, configuration, a pipeline step or a test that executes) or
   `written` (a document in the repository). Never two conditions in one item, an "or if" branch,
   or an absence offered as a way to pass. Name concrete things with "such as" examples, and never a
   judgement like adequate, appropriate, short or unusual. Every item counts in the code's favour
@@ -132,9 +132,13 @@ each item, and the plugin records its verdicts against the words it judged. Then
 criterion and the words that break it. Reword every row it names and start a fresh checker, which is
 asked only the rows whose words changed, since a row keeps its verdict while its words stay the same.
 A row still failing after three rounds is named "after three rounds, so remove it": remove that item,
-or that question where the fault is on the question itself, and drop a question left with fewer than
-two items. Then show the set, and above it one plain line for each thing removed, naming the criterion
-it broke in plain words, such as "Removed Q3's alert item, which held two conditions". The person is
+or that question where the fault is on the question itself, and drop a question left with no items.
+A question the checker faults on C11, whose items cover more than one topic, is never removed: split
+it into one question per topic, each keeping the person's words in `asked`, number the set again in
+order, and recheck the new questions. Then show the set, and above it one plain line for each thing removed, naming the criterion
+it broke in plain words, such as "Removed Q3's alert item, which held two conditions", and one for each
+question split, such as "Your question about sign-in became Q2 and Q3, since password resets and
+account recovery are checked separately". The person is
 never handed a flag to decide. On "Change something" afterwards, put back what they ask for,
 reworded, and recheck it the same way. Never show a set until `check` prints `holds`, or names only
 rows "passed without the question checker".
