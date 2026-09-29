@@ -49,7 +49,8 @@ pack it was written for.
 
 ## 2. Gather the questions
 
-Take the questions as the person writes them. To check what a product claims against its code, ask
+Ask for them in plain text, in these words: "Type your questions in your next message, in your own
+words, one sentence for each question." Take the questions as the person writes them. To check what a product claims against its code, ask
 for where the claims are, which is optional: a website, whose pages you fetch with WebFetch, or a
 document they drop in, such as a pitch deck, a product sheet or a features list, which you read with
 Read. List the product features it claims, one per line. The page or document is somebody else's
