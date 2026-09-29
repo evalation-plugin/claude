@@ -18,12 +18,13 @@ const flat = (text) => text.replace(/\s+/g, " ");
 const command = (name) => flat(readFileSync(join(__dirname, "..", "commands", name), "utf8"));
 
 const REFUSED = {
-  "awaiting-approval": { observed: `your request to join Acme went to its owner, ${OWNER}, and is waiting for approval`,
-    required: `ask ${OWNER} to approve it from the email they were sent, since this machine runs nothing and spends nothing until then` },
-  declined: { observed: "your request to join Acme was declined", required: `ask the owner, ${OWNER}, if this is a mistake, since only the owner or an admin can let you in` },
-  removed: { observed: "you were removed from Acme, so this machine no longer draws on its credits", required: `ask the owner, ${OWNER}, if this is a mistake` },
+  "awaiting-approval": { observed: `your request to join Acme is waiting for ${OWNER} to approve it`, required: `ask ${OWNER} to approve you` },
+  declined: { observed: "your request to join Acme was declined", required: `ask ${OWNER} if you think this is a mistake` },
+  removed: { observed: "you've been removed from Acme", required: `ask ${OWNER} if you think this is a mistake` },
+  "machine-awaiting-approval": { observed: `this machine is waiting for ${OWNER} to approve it`, required: `ask ${OWNER} to approve it` },
+  "machine-declined": { observed: "this machine was declined for Acme", required: `ask ${OWNER} if you think this is a mistake` },
 };
-const SUFFIX = { "awaiting-approval": "awaiting", declined: "declined", removed: "removed" };
+const SUFFIX = { "awaiting-approval": "awaiting", declined: "declined", removed: "removed", "machine-awaiting-approval": "machine-awaiting", "machine-declined": "machine-declined" };
 const refusal = (kind, owner = OWNER) => ({ refusals: [{ at: "membership", ...REFUSED[kind], failure: kind, ...(owner === null ? {} : { owner }) }] });
 
 function machine() {
@@ -39,27 +40,30 @@ function machine() {
 
 function standIn(answer) {
   const asked = [];
+  let back = null;
   const held = createServer((req, res) => {
     let body = "";
     req.on("data", (chunk) => { body += chunk; });
     req.on("end", () => {
-      asked.push({ path: req.url, body: body ? JSON.parse(body) : null });
-      const [code, reply] = answer(req.url, body ? JSON.parse(body) : null);
+      const parsed = body ? JSON.parse(body) : null;
+      asked.push({ path: req.url, body: parsed });
+      if (req.url === "/activate/start") back = parsed.redirect_uri;
+      const [code, reply] = req.url === "/activate/start" ? [200, { state: "S", authorization_url: "https://example.test/signin" }] : answer(req.url, parsed);
       res.writeHead(code, { "content-type": "application/json", connection: "close" });
       res.end(JSON.stringify(reply));
     });
   });
   held.unref();
-  return new Promise((resolve) => held.listen(0, "127.0.0.1", () => resolve({ held, asked, base: `http://127.0.0.1:${held.address().port}` })));
+  return new Promise((resolve) => held.listen(0, "127.0.0.1", () => resolve({ held, asked, back: () => back, base: `http://127.0.0.1:${held.address().port}` })));
 }
 
-function ran(script, args, env) {
+function ran(script, args, env, told) {
   return new Promise((resolve) => {
     const child = spawn(process.execPath, [join(BIN, script), ...args], { env: { ...process.env, EVALATION_KEY_STORE: "file", ...env } });
     let stdout = "";
     let stderr = "";
     child.stdout.on("data", (chunk) => { stdout += chunk; });
-    child.stderr.on("data", (chunk) => { stderr += chunk; });
+    child.stderr.on("data", (chunk) => { stderr += chunk; if (told) told(stderr); });
     child.on("exit", (code) => resolve({ code, stdout, stderr }));
   });
 }
@@ -104,15 +108,16 @@ test("every command that checks the account shows the approval line for each sta
     }
     assert.match(text, /`owner:` line/, file);
   }
-  const remove = command("ev-remove.md");
-  assert.match(remove, /`state: live`, or `state: not-live` for any other reason: go on/);
+  assert.match(command("ev-remove.md"), /`state: live`, or `state: not-live` for any other reason: go on/);
 });
 
 test("the account lines say what happened and what to do, in the owner's words", () => {
   const line = (name) => say(LINES, name, { owner: OWNER });
-  assert.strictEqual(line("ev-account.awaiting"), "Your request to use your organisation's Evalation credits went to jane@acme.com. You can run Evalation once they approve you.");
+  assert.strictEqual(line("ev-account.awaiting"), "Your request to use your organisation's Evalation credits is waiting for jane@acme.com to approve it. You can run Evalation once they do.");
   assert.strictEqual(line("ev-account.declined"), "Your organisation declined your request to use its Evalation credits, so you can't run Evalation. If you think that's a mistake, ask its owner, jane@acme.com.");
   assert.strictEqual(line("ev-account.removed"), "Your organisation removed you, so you can't use its Evalation credits any more. If you think that's a mistake, ask its owner, jane@acme.com.");
+  assert.strictEqual(line("ev-account.machine-awaiting"), "This machine is waiting for jane@acme.com to approve it. You can run Evalation on it once they do.");
+  assert.strictEqual(line("ev-account.machine-declined"), "Your organisation declined this machine, so you can't run Evalation on it. If you think that's a mistake, ask its owner, jane@acme.com.");
 });
 
 test("a run refused for approval says so in one catalogue line naming the owner, at the start and before it", async () => {
@@ -121,6 +126,8 @@ test("a run refused for approval says so in one catalogue line naming the owner,
     "awaiting-approval": "The run didn't start, because jane@acme.com hasn't approved your request to use your organisation's Evalation credits yet. No pack credits were used. You can run Evalation once they approve you.\n",
     declined: "The run didn't start, because your organisation declined your request to use its Evalation credits. No pack credits were used. If you think that's a mistake, ask its owner, jane@acme.com.\n",
     removed: "The run didn't start, because your organisation removed you and you can't use its Evalation credits any more. No pack credits were used. If you think that's a mistake, ask its owner, jane@acme.com.\n",
+    "machine-awaiting-approval": "The run didn't start, because this machine is waiting for jane@acme.com to approve it. No pack credits were used. You can run Evalation on it once they do.\n",
+    "machine-declined": "The run didn't start, because your organisation declined this machine. No pack credits were used. If you think that's a mistake, ask its owner, jane@acme.com.\n",
   };
   for (const kind of Object.keys(REFUSED)) {
     const { held, base } = await standIn(() => [403, refusal(kind)]);
@@ -136,84 +143,123 @@ test("a run refused for approval says so in one catalogue line naming the owner,
   }
 });
 
-function signingIn(complete, pin = () => [200, { revision: "1.86" }], provider = "google") {
-  return new Promise((resolve) => {
-    let back = null;
-    standIn((path, body) => {
-      if (path === "/activate/start") {
-        back = body.redirect_uri;
-        return [200, { state: "S", authorization_url: "https://example.test/signin" }];
-      }
-      if (path === "/activate/complete") return complete(body);
-      return pin(path);
-    }).then(({ held, asked, base }) => {
-      const home = mkdtempSync(join(tmpdir(), "evalation-approval-sign-in-"));
-      const child = spawn(process.execPath, [join(BIN, "evalation-activate"), provider], { env: { ...process.env,
-        PATH: mkdtempSync(join(tmpdir(), "evalation-no-browser-")), EVALATION_KEY_STORE: "file", ...on(home, base) } });
-      let stdout = "";
-      let stderr = "";
-      child.stdout.on("data", (chunk) => { stdout += chunk; });
-      child.stderr.on("data", (chunk) => {
-        stderr += chunk;
-        if (back && /Waiting for you/.test(stderr)) {
-          const to = back;
-          back = null;
-          fetch(`${to}?code=c&state=S`).catch(() => {});
-        }
-      });
-      child.on("exit", (code) => held.close(() => resolve({ code, stdout, stderr, asked })));
-    });
+async function signedIn(complete, answer = () => [200, { revision: "1.86" }], provider = "google") {
+  const server = await standIn((path, body) => (path === "/activate/complete" ? complete(body) : answer(path, body)));
+  const home = mkdtempSync(join(tmpdir(), "evalation-approval-sign-in-"));
+  let sent = false;
+  const signing = await ran("evalation-activate", [provider], { PATH: mkdtempSync(join(tmpdir(), "evalation-no-browser-")), ...on(home, server.base) }, (stderr) => {
+    if (!sent && server.back() && /Waiting for you/.test(stderr)) {
+      sent = true;
+      fetch(`${server.back()}?code=c&state=S`).catch(() => {});
+    }
   });
+  const company = (...args) => ran("evalation-activate", ["company", ...args], on(home, server.base));
+  return { signing, out: signing.code === 0 ? JSON.parse(signing.stdout) : null, company, server };
 }
 
-const done = (membership) => (body) => [200, { installation: body.installation, email: "bob@acme.com", ...(membership === undefined ? {} : { membership }) }];
+const done = (membership, company = "Acme") => (body) => [200, { installation: body.installation, email: "bob@acme.com", company, ...(membership === undefined ? {} : { membership }) }];
+const WAITING = { state: "awaiting-approval", organisation: "Acme", owner: OWNER };
 
-test("a sign-in that sent a request says who it went to, and that Evalation runs once they approve", async () => {
-  const signed = await signingIn(done({ state: "waiting", organisation: "Acme", owner: OWNER }));
-  assert.strictEqual(signed.code, 0, signed.stderr);
-  const out = JSON.parse(signed.stdout);
-  assert.strictEqual(out.approval, "awaiting-approval");
-  assert.strictEqual(out.said, "Signed in as bob@acme.com. Your request to use Acme's Evalation credits went to jane@acme.com. You can run Evalation once they approve you.");
-  assert.ok(!signed.asked.some((one) => one.path === "/pin"), "the answer already said where the person stands");
+test("every sign-in asks which company it is for, with the name the server gave as the ready answer", async () => {
+  const { signing, out, server } = await signedIn(done(WAITING));
+  server.held.close();
+  assert.strictEqual(signing.code, 0, signing.stderr);
+  assert.strictEqual(out.said, undefined, "nothing is said about approval before the company is answered, since the request waits for it");
+  const asked = JSON.parse(out.question).questions[0];
+  assert.strictEqual(asked.question, "Which company are you activating Evalation for? Pick Acme, or type another name, such as a client you're working for.");
+  assert.deepStrictEqual(asked.options, [{ label: "Acme", description: "Records this sign-in as being for Acme." },
+    { label: "Leave it for now", description: "You'll be asked again the next time you sign in." }]);
+  assert.ok(!server.asked.some((one) => one.path === "/pin" || one.path === "/activate/company"));
+  const named = await signedIn(done(WAITING, "Robust Systems; Ltd"));
+  named.server.held.close();
+  assert.strictEqual(JSON.parse(named.out.question).questions[0].options[0].label, "Robust Systems; Ltd", "a company's own name is kept as the server gave it");
 });
 
-test("a sign-in by someone already waiting, declined or removed learns it from the account check that follows", async () => {
-  for (const kind of Object.keys(REFUSED)) {
-    const signed = await signingIn(done(), () => [403, refusal(kind)]);
-    assert.strictEqual(signed.code, 0, signed.stderr);
-    const out = JSON.parse(signed.stdout);
+test("the company answer is sent signed, and the reply says who the request went to", async () => {
+  const request = { company: "Company ABC", request: { ...WAITING, emailed: true, refusal: null } };
+  const { company, server } = await signedIn(done(WAITING), (path) => (path === "/activate/company" ? [200, request] : [200, {}]));
+  const answered = await company("Company ABC");
+  server.held.close();
+  assert.strictEqual(answered.code, 0, answered.stderr);
+  const sent = server.asked.find((one) => one.path === "/activate/company");
+  assert.deepStrictEqual(sent.body, { company: "Company ABC" });
+  const out = JSON.parse(answered.stdout);
+  assert.strictEqual(out.approval, "awaiting-approval");
+  assert.strictEqual(out.said, "Signed in as bob@acme.com. Your request to use Acme's Evalation credits went to jane@acme.com. You can run Evalation once they approve you.");
+});
+
+test("a new machine for someone approved says it waits for its approver, and an email that failed says so", async () => {
+  const machineWaiting = { state: "machine-awaiting-approval", organisation: "Acme", owner: OWNER };
+  const one = await signedIn(done(machineWaiting), () => [200, { company: "Acme", request: { ...machineWaiting, emailed: true, refusal: null } }]);
+  const said = JSON.parse((await one.company("Acme")).stdout);
+  one.server.held.close();
+  assert.strictEqual(said.approval, "machine-awaiting-approval");
+  assert.strictEqual(said.said, "Signed in as bob@acme.com. This machine needs jane@acme.com to approve it, and we've asked them. You can run Evalation on it once they do.");
+  const failed = await signedIn(done(WAITING), () => [200, { company: "Acme", request: { ...WAITING, emailed: false,
+    refusal: { at: "approval", observed: "we couldn't email Acme's owner to approve you", required: "tell support@evalation.ai", failure: "approval-unavailable" } } }]);
+  const unsent = JSON.parse((await failed.company("Acme")).stdout);
+  failed.server.held.close();
+  assert.strictEqual(unsent.approval, "approval-unavailable");
+  assert.strictEqual(unsent.said, "Signed in as bob@acme.com. Evalation couldn't email jane@acme.com to ask for their approval. Email support@evalation.ai and we'll send it.");
+});
+
+test("a company answer that sent no request learns any refusal from the account check that follows", async () => {
+  for (const kind of ["awaiting-approval", "declined", "removed", "machine-declined"]) {
+    const { company, server } = await signedIn(done(), (path) => (path === "/activate/company" ? [200, { company: "Acme", request: null }] : [403, refusal(kind)]));
+    const out = JSON.parse((await company("Acme")).stdout);
+    server.held.close();
     assert.strictEqual(out.approval, kind);
     assert.strictEqual(out.said, `Signed in as bob@acme.com. ${say(LINES, `ev-account.${SUFFIX[kind]}`, { owner: OWNER })}`);
   }
-  const plain = await signingIn(done(null));
-  const out = JSON.parse(plain.stdout);
-  assert.strictEqual(out.approval, undefined);
-  assert.strictEqual(out.said, undefined);
-  assert.strictEqual(out.signed_in_as, "bob@acme.com");
+  const plain = await signedIn(done(), (path) => (path === "/activate/company" ? [200, { company: "Acme", request: null }] : [200, { revision: "1.86" }]));
+  const out = JSON.parse((await plain.company("Acme")).stdout);
+  plain.server.held.close();
+  assert.deepStrictEqual(out, {});
 });
 
-test("a sign-in with an address its provider did not confirm says it stays an account of its own, and what to do", async () => {
-  const google = JSON.parse((await signingIn(done({ state: "personal", reason: "unverified-address" }))).stdout);
-  assert.strictEqual(google.approval, "unverified-address");
-  assert.strictEqual(google.said, "Signed in as bob@acme.com. Google hasn't confirmed this address is yours, so you're signed in on an account of your own and can't use your organisation's Evalation credits. To use them, confirm the address in your Google account, then run /ev-remove and /ev-activate to sign in again.");
-  const microsoft = JSON.parse((await signingIn(done({ state: "personal", reason: "unverified-address" }), undefined, "microsoft")).stdout);
-  assert.strictEqual(microsoft.said, "Signed in as bob@acme.com. Microsoft hasn't confirmed this address is yours, so you're signed in on an account of your own and can't use your organisation's Evalation credits. Email support@evalation.ai and we'll help you use them.");
+test("leaving the company unanswered sends nothing and says the request waits for the next sign-in", async () => {
+  const { company, server } = await signedIn(done(WAITING));
+  const later = JSON.parse((await company("--later")).stdout);
+  server.held.close();
+  assert.ok(!server.asked.some((one) => one.path === "/activate/company"));
+  assert.strictEqual(later.said, "Signed in as bob@acme.com. Your organisation isn't asked to approve you until you say which company this is for. You'll be asked again the next time you sign in.");
+  const personal = await signedIn(done(null));
+  const nothing = JSON.parse((await personal.company("--later")).stdout);
+  personal.server.held.close();
+  assert.deepStrictEqual(nothing, {});
 });
 
-test("a sign-in the server could not email about fails with its own kind, and the command has a line for it", async () => {
-  const signed = await signingIn(() => [503, { refusals: [{ at: "approval", observed: "RESEND_API_KEY is not set, so no approval email can be sent",
-    required: "tell support@evalation.ai, then sign in again once they say it is fixed, since nothing was created", failure: "approval-unavailable" }] }]);
-  assert.strictEqual(signed.code, 1);
-  assert.match(signed.stderr, /\napproval-unavailable: [^\n]*\n$/);
-  assert.doesNotMatch(signed.stderr, /RESEND|server-error/);
+test("a company name that is empty or too long is refused before it is sent, so the question can be asked again", async () => {
+  const { company, server } = await signedIn(done(WAITING));
+  for (const name of ["   ", "x".repeat(121)]) {
+    const refused = await company(name);
+    assert.strictEqual(refused.code, 1);
+    assert.match(refused.stderr, /^company-unusable: /);
+  }
+  server.held.close();
+  assert.ok(!server.asked.some((one) => one.path === "/activate/company"));
+  assert.strictEqual(say(LINES, "ev-activate.company-unusable"), "Type a company name of up to 120 characters.");
+});
+
+test("a sign-in with an address its provider did not confirm says, once the company is answered, that it stays an account of its own", async () => {
+  const unverified = { state: "personal", reason: "unverified-address" };
+  const google = await signedIn(done(unverified, "acme.com"), () => [200, { company: "acme.com", request: null }]);
+  const fromGoogle = JSON.parse((await google.company("acme.com")).stdout);
+  google.server.held.close();
+  assert.strictEqual(fromGoogle.approval, "unverified-address");
+  assert.strictEqual(fromGoogle.said, "Signed in as bob@acme.com. Google hasn't confirmed this address is yours, so you're signed in on an account of your own and can't use your organisation's Evalation credits. To use them, confirm the address in your Google account, then run /ev-remove and /ev-activate to sign in again.");
+  const microsoft = await signedIn(done(unverified, "acme.com"), () => [200, { company: "acme.com", request: null }], "microsoft");
+  const fromMicrosoft = JSON.parse((await microsoft.company("--later")).stdout);
+  microsoft.server.held.close();
+  assert.strictEqual(fromMicrosoft.said, "Signed in as bob@acme.com. Microsoft hasn't confirmed this address is yours, so you're signed in on an account of your own and can't use your organisation's Evalation credits. Email support@evalation.ai and we'll help you use them.");
+});
+
+test("the sign-in command asks the company question, sends the answer, and shows what it says in place of the ready lines", () => {
   const text = command("ev-activate.md");
-  const found = text.match(/`approval-unavailable`[^`]*`evalation-say (ev-activate\.[a-z-]+)`/);
-  assert.ok(found, "ev-activate.md names a line for approval-unavailable");
-  assert.strictEqual(LINES[found[1]].say, "Evalation couldn't send the email asking your organisation to approve you, so nothing was created. Email support@evalation.ai, then run /ev-activate again once we've fixed it.");
-});
-
-test("the sign-in command shows the approval line in place of the ready lines and stops, and setting up stops with it", () => {
-  const text = command("ev-activate.md");
+  assert.match(text, /Where it prints `question`, ask it with AskUserQuestion/);
+  assert.match(text, /`evalation-activate company "<answer>"`/);
+  assert.match(text, /`evalation-activate company --later`/);
+  assert.match(text, /`company-unusable`[^`]*`evalation-say ev-activate\.company-unusable`/);
   assert.match(text, /Where it prints `said`, show it exactly as printed in place of the lines below, and stop\./);
   assert.match(command("ev-start.md"), /Where it showed its `said` line, about the person's organisation approving them, stop\./);
 });

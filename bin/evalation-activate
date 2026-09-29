@@ -87,9 +87,6 @@ function parsed(text) {
 
 function refusal(status, text) {
   const refusals = Array.isArray(parsed(text)?.refusals) ? parsed(text).refusals : [];
-  if (refusals[0]?.failure === "approval-unavailable") {
-    fail(`approval-unavailable: the email asking the organisation to approve this person could not be sent, so nothing was activated${detailed(refusals[0].observed ?? "")}`);
-  }
   if (status >= 500) fail(`server-error: Evalation answered ${status}, so nothing was activated`);
   const said = (refusals.length > 0 ? refusals.map((one) => `${one.observed ?? ""} ${one.failure ?? ""}`).join(" ") : text).trim();
   if (OUR_SETUP.test(said)) fail(`fault: the sign-in is set up wrongly on our side, so nothing was activated${detailed(said)}`);
@@ -304,31 +301,60 @@ async function main() {
   // The settings name where each key is and hold neither, so this file can be read out or pasted
   // into a ticket without carrying anything worth having.
   mkdirSync(dirname(SETTINGS), { recursive: true });
-  writeFileSync(SETTINGS, JSON.stringify(settingsOf(done), null, 2) + "\n");
+  writeFileSync(SETTINGS, JSON.stringify(settingsOf(done, provider), null, 2) + "\n");
 
-  const approval = standing(done.membership, provider);
-  const signed = done.email ? say(entries(), "ev-account.signed-in", { email: done.email }) : null;
+  const ready = oneLine(done.company);
   process.stdout.write(
     JSON.stringify({
       activated: true,
       installation: done.installation,
       signed_in_as: done.email || null,
       settings: SETTINGS,
-      ...(approval ? { approval: approval.kind, said: [signed, approval.said].filter(Boolean).join(" ") } : {}),
+      ...(ready ? { question: companyQuestion(ready) } : told(done.email, settled(membershipOf(done.membership), provider, null))),
     }) + "\n",
   );
 }
 
+const LONGEST_COMPANY = 120;
 const UNVERIFIED = { google: "ev-activate.unverified-google", microsoft: "ev-activate.unverified-microsoft" };
-const STANDING = { awaiting: "ev-account.awaiting", declined: "ev-account.declined", removed: "ev-account.removed" };
+const STANDING = { awaiting: "ev-account.awaiting", declined: "ev-account.declined", removed: "ev-account.removed",
+  "machine-awaiting": "ev-account.machine-awaiting", "machine-declined": "ev-account.machine-declined" };
+const ASKED = { "awaiting-approval": "ev-activate.awaiting", "machine-awaiting-approval": "ev-activate.machine-awaiting" };
 
-function standing(membership, provider) {
-  const organisation = String(membership?.organisation ?? "").replace(/\s+/g, " ").trim();
-  if (membership?.state === "waiting" && organisation && ADDRESS.test(String(membership.owner))) {
-    return { kind: "awaiting-approval", said: say(entries(), "ev-activate.awaiting", { organisation, owner: membership.owner }) };
-  }
-  if (membership?.state === "personal" && membership.reason === "unverified-address" && Object.hasOwn(UNVERIFIED, provider)) {
+const oneLine = (text) => String(text ?? "").replace(/\s+/g, " ").trim();
+
+function companyQuestion(ready) {
+  const held = entries();
+  return say(held, "ev-activate.company", { company: ready }, [
+    { label: ready, description: say(held, "ev-activate.company-ready", { company: ready }) },
+    { label: say(held, "ev-activate.company-leave"), description: say(held, "ev-activate.company-leave-means") },
+  ]);
+}
+
+function membershipOf(said) {
+  const state = said?.state;
+  if (state === "personal" && said.reason === "unverified-address") return { state, reason: said.reason };
+  const organisation = oneLine(said?.organisation);
+  if (Object.hasOwn(ASKED, state) && organisation && ADDRESS.test(String(said.owner))) return { state, organisation, owner: said.owner };
+  return null;
+}
+
+function told(email, approval) {
+  if (!approval) return {};
+  const signed = email ? say(entries(), "ev-account.signed-in", { email }) : null;
+  return { approval: approval.kind, said: [signed, approval.said].filter(Boolean).join(" ") };
+}
+
+function settled(membership, provider, request) {
+  if (membership?.state === "personal" && Object.hasOwn(UNVERIFIED, provider)) {
     return { kind: "unverified-address", said: say(entries(), UNVERIFIED[provider]) };
+  }
+  const asked = membershipOf(request);
+  if (asked && request.emailed === false) {
+    return { kind: "approval-unavailable", said: say(entries(), "ev-activate.not-emailed", { owner: asked.owner }) };
+  }
+  if (asked && request.emailed === true) {
+    return { kind: asked.state, said: say(entries(), ASKED[asked.state], { organisation: asked.organisation, owner: asked.owner }) };
   }
   try {
     runScript("evalation-ask", ["/pin", "{}"], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
@@ -337,6 +363,31 @@ function standing(membership, provider) {
     const found = approvalOf(String(thrown.stderr ?? ""));
     return found ? { kind: found.kind, said: say(entries(), STANDING[found.line], { owner: found.owner }) } : null;
   }
+}
+
+function company(args) {
+  const local = JSON.parse(readFileSync(SETTINGS, "utf8"));
+  const membership = membershipOf(local.sign_in?.membership);
+  const provider = local.sign_in?.provider;
+  if (args[0] === "--later") {
+    if (membership && Object.hasOwn(ASKED, membership.state)) {
+      process.stdout.write(`${JSON.stringify(told(local.signed_in_as, { kind: "company-later", said: say(entries(), "ev-activate.company-later") }))}\n`);
+    } else {
+      process.stdout.write(`${JSON.stringify(told(local.signed_in_as, membership?.state === "personal" ? settled(membership, provider, null) : null))}\n`);
+    }
+    return;
+  }
+  const named = oneLine(args.join(" "));
+  if (!named || [...named].length > LONGEST_COMPANY) {
+    fail(`company-unusable: a company name is 1 to ${LONGEST_COMPANY} characters, and this was ${[...named].length}`);
+  }
+  let answer;
+  try {
+    answer = JSON.parse(runScript("evalation-ask", ["/activate/company", JSON.stringify({ company: named })], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }));
+  } catch (thrown) {
+    fail(`company-unsent: ${String(thrown.stderr || thrown.message).trim().split("\n")[0]}`);
+  }
+  process.stdout.write(`${JSON.stringify(told(local.signed_in_as, settled(membership, provider, answer?.request ?? null)))}\n`);
 }
 
 // How the keys are named is read by a check, and requiring this file to read it must not open a
@@ -362,11 +413,13 @@ function signedIn() {
   return Boolean(key) && Buffer.from(key, "base64").length === 32;
 }
 
-function settingsOf(done) {
+function settingsOf(done, provider) {
+  const membership = membershipOf(done.membership);
   return {
     schema: "evalation.local.v1",
     installation: done.installation,
     ...(done.email ? { signed_in_as: done.email } : {}),
+    ...(membership ? { sign_in: { provider, membership } } : {}),
     secrets: {
       installation_key: `store:${SERVICE}/${slot(done.installation, "installation-key")}`,
       receiving_key: `store:${SERVICE}/${slot(done.installation, "receiving-key")}`,
@@ -376,4 +429,7 @@ function settingsOf(done) {
 
 module.exports = { settingsOf, slot, WAITING };
 
-if (require.main === module) main();
+if (require.main === module) {
+  if (process.argv[2] === "company") company(process.argv.slice(3));
+  else main();
+}

@@ -72,7 +72,8 @@ function observedIn(said) {
   }
 }
 
-const APPROVAL = { awaiting: "ev-run.awaiting", declined: "ev-run.declined", removed: "ev-run.removed" };
+const APPROVAL = { awaiting: "ev-run.awaiting", declined: "ev-run.declined", removed: "ev-run.removed",
+  "machine-awaiting": "ev-run.machine-awaiting", "machine-declined": "ev-run.machine-declined" };
 
 const approval = (said) => {
   const found = require("../lib/approval.js").approvalOf(said);

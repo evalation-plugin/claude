@@ -59,6 +59,8 @@
   "ev-run.awaiting": { "say": "The run didn't start, because <owner> hasn't approved your request to use your organisation's Evalation credits yet. No pack credits were used. You can run Evalation once they approve you." },
   "ev-run.declined": { "say": "The run didn't start, because your organisation declined your request to use its Evalation credits. No pack credits were used. If you think that's a mistake, ask its owner, <owner>." },
   "ev-run.removed": { "say": "The run didn't start, because your organisation removed you and you can't use its Evalation credits any more. No pack credits were used. If you think that's a mistake, ask its owner, <owner>." },
+  "ev-run.machine-awaiting": { "say": "The run didn't start, because this machine is waiting for <owner> to approve it. No pack credits were used. You can run Evalation on it once they do." },
+  "ev-run.machine-declined": { "say": "The run didn't start, because your organisation declined this machine. No pack credits were used. If you think that's a mistake, ask its owner, <owner>." },
   "ev-run.server-trouble":{ "say": "Evalation's server could not answer just now, so the run cannot go on. No pack credits were used. Run /ev-run again, and if the same happens, email support@evalation.ai." },
 
   "ev-run.no-folder": { "say": "There is no folder at <folder>, so the run did not start and no pack credits were used. Run /ev-run again from inside the repository to read." },

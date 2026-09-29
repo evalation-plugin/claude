@@ -36,8 +36,10 @@ takes those titles too.
      - `reason: awaiting-approval`: `evalation-say ev-account.awaiting owner=<owner>`
      - `reason: declined`: `evalation-say ev-account.declined owner=<owner>`
      - `reason: removed`: `evalation-say ev-account.removed owner=<owner>`
+     - `reason: machine-awaiting-approval`: `evalation-say ev-account.machine-awaiting owner=<owner>`
+     - `reason: machine-declined`: `evalation-say ev-account.machine-declined owner=<owner>`
 
-     For these three, <owner> is the address on its `owner:` line, passed exactly as printed.
+     For these five, <owner> is the address on its `owner:` line, passed exactly as printed.
    - `state: live`: note the number after `pack credits left` as <credits> and go on.
 
    Once it is `live`, and where the person has not already heard it in this conversation, show

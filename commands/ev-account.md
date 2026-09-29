@@ -41,8 +41,10 @@ blank such as `<titles>`, pass its value as `titles=<value>`, for example
      - `reason: awaiting-approval`: `evalation-say ev-account.awaiting owner=<owner>`
      - `reason: declined`: `evalation-say ev-account.declined owner=<owner>`
      - `reason: removed`: `evalation-say ev-account.removed owner=<owner>`
+     - `reason: machine-awaiting-approval`: `evalation-say ev-account.machine-awaiting owner=<owner>`
+     - `reason: machine-declined`: `evalation-say ev-account.machine-declined owner=<owner>`
 
-     For the last three, <owner> is the address on its `owner:` line, passed exactly as printed.
+     For the last five, <owner> is the address on its `owner:` line, passed exactly as printed.
    - `state: live`: follow the steps under the heading for a live account.
 
 ## A live account
