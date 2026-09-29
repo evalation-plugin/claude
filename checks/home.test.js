@@ -44,6 +44,15 @@ test("every check that loads the plugin's code points it at a throwaway folder f
   assert.deepStrictEqual(unsafe, []);
 });
 
+test("a command a check starts is refused a person's own folder, even where the check never loaded the fixture", () => {
+  const { spawnSync } = require("node:child_process");
+  const env = { ...process.env, NODE_TEST_CONTEXT: "child-v8" };
+  delete env.EVALATION_PLUGIN_HOME;
+  const ran = spawnSync(process.execPath, ["-e", `require(${JSON.stringify(join(__dirname, "..", "lib", "home.js"))}).pluginHome()`], { env, encoding: "utf8" });
+  assert.notStrictEqual(ran.status, 0);
+  assert.match(ran.stderr, /a check reached a person's own folder/);
+});
+
 test("a folder already moved is never moved again, and a machine with nothing to move is left alone", () => {
   const { old, fresh } = shared();
   moved(old, fresh);

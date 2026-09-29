@@ -8,6 +8,8 @@ const { spawnSync } = require("node:child_process");
 const { existsSync, readFileSync, readdirSync } = require("node:fs");
 const { join } = require("node:path");
 
+require("./fixture.js");
+
 const ROOT = join(__dirname, "..");
 const GATE = join(ROOT, "bin", "evalation-gate");
 

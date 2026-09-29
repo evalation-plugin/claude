@@ -69,6 +69,46 @@ test("a quote and a remedy each longer than a page carry on line by line and wor
   assert.match(text, /step1500 is the last step\./);
 });
 
+const laidOut = (document) => {
+  const { writeFileSync } = require("node:fs");
+  const { browser, settled } = require("../lib/print.js");
+  const asked = new Map();
+  for (const pack of document.packs) for (const one of pack.entries_asked ?? []) asked.set(`${pack.pack}/${one.identifier}`, one);
+  const file = join(mkdtempSync(join(tmpdir(), "evalation-flow-")), "pack.html");
+  writeFileSync(file, page(document, document.answers.filter((one) => one.pack === "soc2"), asked));
+  return settled(browser(), file).split('<div class="sheet">').slice(1);
+};
+
+const many = (document, cards) => {
+  const soc2 = document.packs[0];
+  soc2.entries_asked = Array.from({ length: cards }, (_, at) => ({ identifier: `CC6.${at + 1}`, title: `Access rule ${at + 1}`,
+    intent: "How does this repository restrict access to what each person may do?", bears_on: "repository",
+    looks_for: Array.from({ length: 4 }, (_, n) => ({ find: `Thing ${n + 1} this rule looks for`, proof: "runs" })) }));
+  soc2.selected = soc2.entries_asked.map((one) => one.identifier);
+  document.answers = soc2.entries_asked.map((one) => ({ pack: "soc2", entry: one.identifier, status: "partial-gap",
+    because: "A guard exists on most routes. Two routes skip it, and nothing written says why. The reading checked every route file.",
+    remedy: "Put the two routes behind the shared guard.", looked_for: Array.from({ length: 4 }, () => ({ result: "found",
+      evidence: [{ path: "src/auth.js", from: 1, to: 3, quote: "if (!req.session)\n  return deny()\nnext()", grade: "executable" }] })) }));
+  return document;
+};
+
+test("a card that reaches the foot of a page flows on to the next, faded out and in, and says where it continues", () => {
+  const sheets = laidOut(many(run(tree), 12));
+  const flowed = sheets.findIndex((one) => /class="entry( [a-z-]+)*"[\s\S]*class="entry opens continues"/.test(one));
+  assert.ok(flowed >= 0, "some card shares its page with the card before it and flows on");
+  const opening = sheets[flowed].slice(sheets[flowed].indexOf('class="entry opens continues"'));
+  assert.match(opening, /class="head"/);
+  assert.match(opening, /class="asked"/);
+  assert.match(opening, new RegExp(`class="onward">Continued on page ${flowed + 2}<`));
+  const id = opening.match(/class="id">([^<]+)</)[1];
+  const next = sheets[flowed + 1];
+  assert.match(next.slice(next.indexOf("class=\"entry")), new RegExp(`^class="entry part( last)? fades-in resumes"[^>]*>\\s*<div class="again">${id.replace(".", "\\.")} Access rule \\d+, continued<`));
+  for (const one of sheets) {
+    for (const item of one.split('class="cite item"').slice(1)) assert.match(item, /^><div class="where">/, "an item is never split from its heading");
+    for (const box of one.split('class="did"').slice(1)) assert.match(box, /^><b>/, "What to do is never split");
+  }
+});
+
 test("an answer counts as cited when an item it looked for cites lines", () => {
   const document = run(tree);
   const soc2 = document.answers.filter((one) => one.pack === "soc2");

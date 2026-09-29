@@ -10,6 +10,7 @@ const { spawnSync } = require("node:child_process");
 const { mkdirSync, mkdtempSync, readFileSync, writeFileSync } = require("node:fs");
 const { tmpdir } = require("node:os");
 const { join } = require("node:path");
+require("./fixture.js");
 
 const VERIFY = join(__dirname, "..", "bin", "evalation-verify");
 // What the agent is shown in place and in full. Output past it is saved to a file.
