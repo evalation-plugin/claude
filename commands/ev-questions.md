@@ -26,9 +26,12 @@ answer's label says what choosing it does.
 Ask "Where should your questions go?", with one answer, from these:
 
 - **"A pack of only my questions"**, whose description says it costs no pack credits.
-- **"Add them to a pack I'm running"**, then which pack by its title from
-  `${CLAUDE_PLUGIN_ROOT}/bin/evalation-packs titles`, whose description says they are charged as that
-  pack is.
+- **"Add them to one of Evalation's own packs"**, whose description says they are charged as that
+  pack is and print in a section of their own after its questions. Then ask which, offering only
+  the packs `${CLAUDE_PLUGIN_ROOT}/bin/evalation-packs titles` marks `extensible`, by title. A pack
+  holding a published standard, such as SOC 2 or ISO 27001, keeps that standard's own clauses and
+  takes no extra questions, so it is never offered here. Offer this answer only where at least one
+  pack is extensible.
 
 Then offer the sets kept on this machine, from `${CLAUDE_PLUGIN_ROOT}/bin/evalation-questions list`,
 to reuse as they are or to start from.
@@ -68,8 +71,9 @@ Write in plain English with New Zealand spelling, no dashes, no semicolons and n
 
 ## 4. Approve, check and keep
 
-Show each drafted question with its list and ask "Keep this question?", with the answers "Keep
-it", "Change it" and "Remove it". Write the
+Show the drafted questions one at a time, each with its list, and ask of each "Keep question <n>
+of <total> as written?", with the answers "Keep it", "Change it" and "Remove it". The answer
+settles that one question and no other. Write the
 approved set as one JSON file, `{"name": "<a name they choose>", "pack": "custom" or the pack's
 handle, "questions": [...]}`, and run:
 
@@ -77,8 +81,9 @@ handle, "questions": [...]}`, and run:
 ${CLAUDE_PLUGIN_ROOT}/bin/evalation-questions check <file>
 ```
 
-Fix everything it names and run it again until it prints `holds`. Then offer to keep the set for a
-future run:
+Fix everything it names and run it again until it prints `holds`. Then ask about the whole set, as
+"Save all <total> questions as <name> for future runs?", with the answers "Save the set" and "Use
+it for this run only":
 
 ```
 ${CLAUDE_PLUGIN_ROOT}/bin/evalation-questions save <file>

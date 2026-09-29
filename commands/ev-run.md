@@ -126,7 +126,8 @@ question what a tick does and what it costs, and let each answer's label say wha
      `${CLAUDE_PLUGIN_ROOT}/bin/evalation-packs show`, left out where nothing is recorded
    - "Choose which packs to run"
    - "Add my own questions": a custom pack of their questions alone, which costs no pack credits, or
-     extra questions added to a pack, charged as that pack is
+     extra questions added to one of Evalation's own packs in a section of their own, charged as
+     that pack is. A pack holding a published standard takes no extra questions.
 
    On "Run my usual packs", those packs are the selection and nothing more is asked about them: the
    person has already said which to read. On "Choose which packs to run", ask "Which packs should

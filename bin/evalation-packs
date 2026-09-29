@@ -5,6 +5,7 @@ const { existsSync, mkdirSync, readFileSync, writeFileSync } = require("node:fs"
 const { homedir } = require("node:os");
 const { join } = require("node:path");
 const { runScript } = require("../lib/script.js");
+const { extensible } = require("../lib/questions.js");
 
 const HOME = process.env.EVALATION_HOME || join(homedir(), ".evalation");
 const SELECTION = join(HOME, "packs.json");
@@ -34,7 +35,7 @@ function main() {
   } else if (what === "list") {
     process.stdout.write(`${JSON.stringify(list(), null, 2)}\n`);
   } else if (what === "titles") {
-    process.stdout.write(`${JSON.stringify(list().packs.map((one) => ({ pack: one.pack, title: one.body?.title ?? null })))}\n`);
+    process.stdout.write(`${JSON.stringify(list().packs.map((one) => ({ pack: one.pack, title: one.body?.title ?? null, extensible: extensible(one.body) })))}\n`);
   } else if (what === "set") {
     if (rest.length === 0) usage();
     const body = `${JSON.stringify({ packs: rest, chosen: new Date().toISOString().replace(/\.\d{3}Z$/, "Z") }, null, 2)}\n`;
