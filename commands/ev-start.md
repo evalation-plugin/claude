@@ -30,6 +30,9 @@ and announce it afterwards.
 
 **Ask every question through the host's question interface**, the AskUserQuestion tool in Claude
 Code, with each answer one of its options. Never write a question and its answers as a list in text.
+Word each question so nobody has to guess what an answer does. Ask what will happen, never what to
+leave out. A tick always means yes to that option, and each answer's label says what choosing it
+does.
 
 ## What to do
 
