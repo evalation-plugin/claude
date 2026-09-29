@@ -33,6 +33,8 @@ const { placeOf, solutionOf } = require("../lib/solution.js");
 const STATUSES = ["covered", "partial-gap", "total-gap", "no-evidence", "org-level", "not-applicable"];
 const EXEMPT = ["org-level", "not-applicable"];
 const GRADES = ["executable", "configuration", "assertion"];
+const WRITTEN = /\.(md|mdx|markdown|txt|rst|adoc)$/i;
+const SHOWN = 3;
 
 // What a finding weighs. Positive is a strength worth keeping rather than a defect, and it never
 // counts against anything, which is why it sits in the same list rather than in a flag beside it.
@@ -151,6 +153,16 @@ function cited(where, one, said) {
       `${one.path}:${from}-${to}: the quote is not there. ` +
         `Cited ${JSON.stringify(one.quote.slice(0, 60))}`,
     );
+  } else {
+    let first = from;
+    let last = to;
+    if (WRITTEN.test(one.path)) {
+      while (first > 1 && lines[first - 2].trim() !== "") first--;
+      while (last < lines.length && lines[last].trim() !== "") last++;
+    }
+    one.from = first;
+    one.to = last;
+    one.lines = lines.slice(first - 1, Math.min(last, first - 1 + SHOWN)).join("\n");
   }
 
   if (credentialIn(one.quote)) {

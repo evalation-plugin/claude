@@ -109,6 +109,22 @@ test("a card that reaches the foot of a page flows on to the next, faded out and
   }
 });
 
+test("a citation prints its whole range and its first three lines, marked where more follows", () => {
+  const document = run(tree);
+  document.answers[0].looked_for[0].evidence = [
+    { path: "docs/overview.md", from: 17, to: 21, quote: "core differentiator is a", grade: "assertion",
+      lines: "The core differentiator is a single view\nof time across calendars,\nkept in sync" },
+    { path: "src/auth.js", from: 1, to: 2, quote: "if (!req.session)", grade: "executable",
+      lines: "export function guard(req) {\n  if (!req.session) throw new Error(\"signed out\");" },
+  ];
+  const asked = new Map(document.packs.flatMap((pack) => pack.entries_asked.map((one) => [`${pack.pack}/${one.identifier}`, one])));
+  const html = page(document, document.answers.filter((one) => one.pack === "soc2"), asked);
+  assert.match(html, /docs\/overview\.md:17-21<\/span>/);
+  assert.match(html, /<pre>The core differentiator is a single view\nof time across calendars,\nkept in sync …<\/pre>/);
+  assert.match(html, /<pre>export function guard\(req\) \{\n  if \(!req\.session\) throw new Error\(&quot;signed out&quot;\);<\/pre>/);
+  assert.doesNotMatch(html, /<pre>core differentiator is a<\/pre>/);
+});
+
 test("an answer counts as cited when an item it looked for cites lines", () => {
   const document = run(tree);
   const soc2 = document.answers.filter((one) => one.pack === "soc2");
