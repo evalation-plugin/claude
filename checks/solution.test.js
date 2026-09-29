@@ -201,6 +201,29 @@ test("the board pack's cover names every repository, and the Detail's subtitle n
   assert.ok(slides.some((one) => /Solution at a glance/.test(one)));
 });
 
+test("the board pack lists every repository on slides of their own, however many there are", () => {
+  const { reviewFindings } = require("../bin/evalation-deliver");
+  const { synthesise } = require("../lib/synthesise.js");
+  const { deck } = require("../bin/evalation-deck");
+  const pptx = require("../lib/pptx.js");
+  const at = solution();
+  const named = target(at);
+  named.repositories = [...named.repositories, ...["web", "mobile", "billing", "search"].map((one) => ({
+    folder: one, repository: `acme/${one}`, vcs: "git", branch: "main", head: "a".repeat(40), newest: "2026-09-01T00:00:00+12:00" }))];
+  const document = { ...run(at), target: named, answers: [], accounted: [],
+    findings: [{ id: "f-1", pack: "hardening", concern: "SEC01", severity: "high", title: "Queries built from input",
+      observed: "Queries are built from input.", required: "Use parameters.", at: { path: "api/src/auth.js", from: 1, to: 1 } }] };
+  const { file } = deck(synthesise(reviewFindings(document)), join(mkdtempSync(join(tmpdir(), "evalation-deck-")), "Pack.pdf"), { render: false });
+  const texts = file.entries.filter((one) => /^ppt\/slides\/slide\d+\.xml$/.test(one.name))
+    .map((one) => pptx.shapes(one.content.toString("utf8")).map((shape) => shape.text).join(" "))
+    .filter((one) => /Repositories read/.test(one));
+  assert.strictEqual(texts.length, 2);
+  const all = texts.join(" ");
+  for (const name of ["acme/api", "acme/infra", "notes", "acme/web", "acme/mobile", "acme/billing", "acme/search"]) assert.ok(all.includes(name), name);
+  assert.match(all, /api-copy\s*Left out, so each repository is read once: a copy of api with no version control\./);
+  assert.match(all, /Folder api · branch main · commit [0-9a-f]{7} · last changed/);
+});
+
 test("a scanner card names the repository of each place it lists", () => {
   const { scanResults } = require("../lib/sheet.js");
   const scans = require("../lib/scans.js");
