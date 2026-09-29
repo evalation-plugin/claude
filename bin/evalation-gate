@@ -15,7 +15,7 @@ const { resolve, sep } = require("node:path");
 const OURS = /^evalation-plugin:/;
 // The verbs an agent's task names, and none that write the run: merging, applying and delivering are
 // the session's.
-const COMMANDS = /^\s*\S*evalation-(read\s|findings\s+(group|part|methodology|shape)\b|verify\s+(grid|record|correction|correct)\b)/;
+const COMMANDS = /^\s*\S*evalation-(read\s|findings\s+(group|part|methodology|shape)\b|verify\s+(grid|record|correction|correct)\b|questions\s+review\b)/;
 // A second command, a pipe, a substitution or an output redirect, outside the heredoc body.
 const JOINED = /[;&|`]|\$\(|>|<(?!<)/;
 

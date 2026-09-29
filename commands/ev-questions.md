@@ -45,7 +45,7 @@ For a new set, ask "Which pack are these questions for?", with one answer, from 
   standard's own clauses and takes no extra questions, so it is never offered here.
 
 A person may keep several sets for one pack and a set for each pack, and a set is used only with the
-pack it was written for. Suggest a name that says what the set is for, such as "Broker questions".
+pack it was written for.
 
 ## 2. Gather the questions
 
@@ -59,6 +59,14 @@ questions.
 
 ## 3. Turn each into something the repository can answer
 
+A set is written for its pack and used on any repository read against it, so write every question and
+item for the pack in general. Never write for the repository this session is open in, and set aside
+anything this session knows of it, such as what its CLAUDE.md or its files say about its sign-in,
+its services or its features. Name no product, company, repository or feature of one codebase, and
+assume no technology: a technology appears only as a "such as" example. The criteria every set is
+held to are printed by `${CLAUDE_PLUGIN_ROOT}/bin/evalation-questions criteria`, so read them before
+drafting.
+
 A question a repository cannot answer, such as how a team feels, whether customers like a feature or
 anything about people's intentions, is said so plainly and either rewritten into what the code can
 show, with the person's agreement, or left out. For each question that stays, draft:
@@ -67,10 +75,11 @@ show, with the person's agreement, or left out. For each question that stays, dr
 - `title`: a few words naming it.
 - `intent`: one plain question of 25 words at most, ending in a question mark, asking what the
   repository holds.
-- `looks_for`: 2 to 8 things a person could find in a repository or confirm are not there, each
-  with `proof` of `runs` (code, configuration, a pipeline step or a test that executes) or
-  `written` (a document in the repository). Name concrete things with "such as" examples, and never
-  a judgement like adequate or appropriate. For a claimed feature, look for the code that performs
+- `looks_for`: 2 to 8 things a person could find in a repository or see are not there, each one
+  thing, with `proof` of `runs` (code, configuration, a pipeline step or a test that executes) or
+  `written` (a document in the repository). Never two conditions in one item, an "or if" branch,
+  or a request to confirm something is absent. Name concrete things with "such as" examples, and
+  never a judgement like adequate or appropriate. For a claimed feature, look for the code that performs
   it, a page or API route that reaches it, configuration that switches it on, and a test of it.
 - Where a question asks what a scanner measures, use exactly one of these items:
   `{"find":"No known critical or high advisories in the pinned dependencies","proof":"scan","phase":"sca","at_least":"high"}`,
@@ -80,12 +89,22 @@ show, with the person's agreement, or left out. For each question that stays, dr
 
 Write in plain English with New Zealand spelling, no dashes, no semicolons and no "rather than".
 
-## 4. Approve, check and keep
+## 4. Recheck, approve and keep
 
-Show the whole set, every question with its list, and ask "Save this set as written?", with the
+Write the set as one JSON file, `{"name": "<its name>", "pack": "custom" or the pack's handle,
+"questions": [...]}`. Ask what to call the set. A name you suggest says what the questions are for,
+such as "Broker questions", and never names the repository this session is open in or anything in
+it. A name the person gives is used as they give it, whatever it names.
+
+**Recheck it before anyone sees it.** Start the `question-checker` agent, which did not write the set,
+with the file's path. It checks every question and every item against the criteria and
+hands back each one that breaks a criterion, or PASS. Fix every one it names, write the file again
+and start a fresh checker, until one hands back PASS. Never show the person a set a checker has not
+passed, and never mark a line fixed without changing the set.
+
+Then show the whole set, every question with its list, and ask "Save this set as written?", with the
 answers "Save it" and "Change something". On "Change something", ask what, make the changes across
-the set and show it whole again. Write the set as one JSON file, `{"name": "<its name>", "pack":
-"custom" or the pack's handle, "questions": [...]}`, and run:
+the set, recheck it the same way and show it whole again. Then run:
 
 ```
 ${CLAUDE_PLUGIN_ROOT}/bin/evalation-questions check <file>
