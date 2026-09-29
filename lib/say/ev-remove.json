@@ -8,6 +8,7 @@
   "ev-remove.folder-local": { "say": "Removing deletes Evalation's own folder on this machine, with the saved results of each check, your pack choice and any question sets saved here." },
   "ev-remove.sets-stay-local": { "say": "Evalation cannot reach your account from this machine, so the question sets saved here cannot be kept on it." },
   "ev-remove.nothing-saved": { "say": "Evalation has saved nothing on this machine, so there is nothing to delete." },
+  "ev-remove.only-sign-in": { "say": "Evalation holds only this machine's damaged sign-in and its keys here. Removing deletes them." },
   "ev-remove.nothing-else": { "say": "Evalation has nothing else on this machine." },
   "ev-remove.old-reports": { "say": "Evalation's own folder also holds reports an older version of Evalation saved there: <reports>. Removing deletes them with it. Reports in your Documents folder stay." },
   "ev-remove.report": { "say": "the <names> from the check of <repository> on <date>" },

@@ -39,6 +39,8 @@
   "ev-activate.declined-stop": { "say": "Run /ev-activate when you are ready to sign in." },
   "ev-activate.timed-out": { "say": "The sign-in was not finished within five minutes, so nothing was created. Run /ev-activate to try again." },
   "ev-activate.fault": { "say": "Evalation could not finish the sign-in because of a fault on our side, so nothing was created. Contact support@evalation.ai and we will fix it." },
+  "ev-activate.page-received": { "say": "Sign-in received. You can close this tab and go back to Claude Code." },
+  "ev-activate.page-declined": { "say": "The sign-in did not finish. You can close this tab and go back to Claude Code, which says what to do next." },
   "ev-activate.refused": { "say": "The sign-in did not go through, so nothing was created. Run /ev-activate to try again, and if it fails again, email support@evalation.ai." },
   "ev-activate.refused-unrecognised": { "say": "The sign-in was refused, so nothing was created. Email support@evalation.ai and we will help you sign in." },
   "ev-activate.server-error": { "say": "Evalation could not finish the sign-in just now, so nothing was created. Run /ev-activate again in a few minutes. If it still fails, contact support@evalation.ai." },

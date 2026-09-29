@@ -218,6 +218,14 @@ test("a machine whose sign-in key is missing stops before anything is sent and i
   assert.strictEqual(line("`sign-in-damaged`"), "This machine's Evalation sign-in is damaged, so the key was not replaced. Run /ev-activate and sign in with the same account as before, so your pack credits are there.");
 });
 
+test("a damaged machine that recorded its account is told which account to sign in with", () => {
+  const named = require("../lib/say.js").say(require("../lib/say.js").entries(), "ev-rotate.damaged-named", { email: "a@b.co" });
+  assert.match(named, /sign in with a@b\.co, the same account as before/);
+  const text = readFileSync(join(__dirname, "..", "commands", "ev-rotate.md"), "utf8");
+  assert.match(text, /^allowed-tools:.*Bash\(evalation-status:\*\)/m);
+  assert.match(text.replace(/\s+/g, " "), /`signed in as:` line, show `evalation-say ev-rotate\.damaged-named/);
+});
+
 test("a machine never signed in is sent to /ev-start, as every command sends it", () => {
   assert.strictEqual(line("**`no-settings`**"), "This machine is not set up for Evalation yet. Run /ev-start to set it up.");
 });

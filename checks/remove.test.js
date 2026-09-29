@@ -326,7 +326,9 @@ test("a machine that is not signed in hears the whole of what removal deletes, a
   assert.match(FLAT, /Where `sets_here` is more than zero, add `evalation-say ev-remove\.sets-stay-local`\./);
   assert.doesNotMatch(FLAT, /leave out the first two sentences/);
   assert.doesNotMatch(FLAT, /Where both hold/);
-  assert.match(FLAT, /Where the state was `not-set-up` and `holds_saved` is false, show only `evalation-say ev-remove\.nothing-else` after the opening line step 1 gave, never `ev-remove\.nothing-saved` as well, and ask nothing more in this step: go on to step 3 where `conversations` is more than zero, or straight to step 4 where it is zero\./);
+  assert.match(FLAT, /Where the state was `not-set-up` and both `holds_saved` and `holds_sign_in` are false, show only `evalation-say ev-remove\.nothing-else` after the opening line step 1 gave, never `ev-remove\.nothing-saved` as well, and ask nothing more in this step: go on to step 3 where `conversations` is more than zero, or straight to step 4 where it is zero\./);
+  assert.match(FLAT, /Where the state was `not-set-up`, `holds_saved` is false and `holds_sign_in` is true, show `evalation-say ev-remove\.only-sign-in`/);
+  assert.match(line("ev-remove.only-sign-in"), /sign-in/);
   assert.match(FLAT, /Where the state was `live` or `not-live` and `holds_saved` is false, leave out the lines about the folder and show `evalation-say ev-remove\.nothing-saved` in their place\./);
   assert.doesNotMatch(WORDS, /so there is nothing to remove\./);
 });
@@ -347,6 +349,7 @@ test("a folder holding only empty folders, or only its settings and keys, holds 
   mkdirSync(join(home, "keys"), { recursive: true });
   writeFileSync(join(home, "keys", "evalation-plugin.box.installation-key"), "k");
   assert.strictEqual(folders(home).holds_saved, false, "only the settings and the keys they name");
+  assert.strictEqual(folders(home).holds_sign_in, true, "the settings are a sign-in to remove, and the person is asked first");
   assert.strictEqual(folders(join(home, "missing")).holds_saved, false, "no folder at all");
   writeFileSync(join(home, "packs.json"), "{}");
   assert.strictEqual(folders(home).holds_saved, true, "a pack choice");

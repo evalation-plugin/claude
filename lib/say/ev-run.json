@@ -150,7 +150,7 @@
   "ev-run.packs-choose-means": { "say": "Tick any packs from the full list." },
   "ev-run.packs-only": { "say": "Only my questions" },
   "ev-run.packs-only-means": { "say": "No Evalation pack is read and no pack credits are used, so the run answers your own questions and nothing else." },
-  "ev-run.usual": { "ask": "Which of your usual packs should this run read? Tick each pack to read. Each pack ticked uses one pack credit.", "header": "Usual", "several": true, "options": "given" },
+  "ev-run.usual": { "ask": "Which of your usual packs should this run read? Tick each pack to read.", "header": "Usual", "several": true, "options": "given" },
   "ev-run.all": { "ask": "Which packs should this run read? Tick each pack to read.", "header": "Packs", "several": true, "options": "given" },
   "ev-run.all-cost": { "say": "Each pack uses one pack credit, and you have <credits>. Reading takes a while and uses a good part of your Claude usage." },
 

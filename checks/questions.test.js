@@ -623,7 +623,7 @@ test("a set name that could leave the folder is refused", () => {
   assert.ok(home);
 });
 
-const titled = (id, title, what) => question(id, { title, intent: `Where does this repository record each ${what} it takes?` });
+const titled = (id, title, what) => question(id, { title, asked: `do we record each ${what}`, intent: `Where does this repository record each ${what} it takes?` });
 
 test("a set saved unchecked says so in the list, and a later change names only the rows that changed", () => {
   const at = scratch();
@@ -639,7 +639,7 @@ test("a set saved unchecked says so in the list, and a later change names only t
   assert.throws(() => saveChecked(at, changed, { replace: true }), /Q3: passed without the question checker/);
   saveChecked(at, changed, { replace: true, unchecked: true });
   assert.deepStrictEqual(listed(at, none).sets[0].unchecked, ["Payments are recorded", "Refunds are recorded", "Invoices are recorded"]);
-  const reworded = set([titled("Q1", "Payments are recorded", "card payment"), ...changed.questions.slice(1)], { name: "Saved unchecked" });
+  const reworded = set([{ ...titled("Q1", "Payments are recorded", "card payment"), asked: "do we record each payment" }, ...changed.questions.slice(1)], { name: "Saved unchecked" });
   stamp(at, "checker-1");
   verdict(at, reworded, answered(grid(at, reworded, CRITERIA, "Q1").rows));
   assert.deepStrictEqual(status(at, reworded), []);
@@ -993,6 +993,10 @@ test("walk five: a question keeps its number, and a removed question's number is
   const reused = set([...gap.questions, titled("Q2", "Credits are recorded", "credit")], { name: "Numbered", numbered_to: 3 });
   assert.ok(grouped(at, reused).fix.includes("Q2: a removed question used this number, so give this question a number after Q3"), grouped(at, reused).fix.join("\n"));
   assert.throws(() => saveChecked(at, reused, { replace: true, unchecked: true }), /a removed question used this number/);
+  const swapped = set([first.questions[0], titled("Q3", "Credits are recorded", "credit")], { name: "Numbered", numbered_to: 3 });
+  assert.ok(grouped(at, swapped).fix.some((one) => /^Q3: /.test(one)), "a different question in a removed question's place is caught");
+  const reworded = set([first.questions[0], { ...first.questions[2], title: "Invoices are kept" }], { name: "Numbered", numbered_to: 3 });
+  assert.deepStrictEqual(grouped(at, reworded).fix, [], "the same asked words keep their number when the title changes");
   const flat = commandText().replace(/\s+/g, " ");
   assert.match(flat, /never used again/);
   assert.doesNotMatch(flat, /number the set again in order/);

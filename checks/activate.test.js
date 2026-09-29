@@ -266,3 +266,18 @@ test("the sign-in command text checks the machine first, waits in the background
   assert.match(COMMAND, /`stopped`/);
   assert.doesNotMatch(COMMAND, /which account and how many/);
 });
+
+test("the browser page after a sign-in says a catalogue line, never the provider's code", async () => {
+  const page = (query) => new Promise((resolve) => {
+    const child = spawn(process.execPath, [join(__dirname, "..", "bin", "evalation-loopback")]);
+    child.stdout.once("data", (chunk) => {
+      const port = String(chunk).match(/port=(\d+)/)[1];
+      fetch(`http://127.0.0.1:${port}/callback?${query}`).then((got) => got.text()).then((html) => { child.kill(); resolve(html); });
+    });
+  });
+  const lines = entries();
+  const declined = await page("error=access_denied&state=s");
+  assert.doesNotMatch(declined, /access_denied/);
+  assert.ok(declined.includes(lines["ev-activate.page-declined"].say.replace(/'/g, "&#39;")) || declined.includes(lines["ev-activate.page-declined"].say));
+  assert.ok((await page("code=c&state=s")).includes(lines["ev-activate.page-received"].say));
+});

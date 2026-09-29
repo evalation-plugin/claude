@@ -65,7 +65,11 @@ prints.
    Where the state was `live` or `not-live` and `holds_saved` is false, leave out the lines about
    the folder and show `evalation-say ev-remove.nothing-saved` in their place.
 
-   Where the state was `not-set-up` and `holds_saved` is false, show only
+   Where the state was `not-set-up`, `holds_saved` is false and `holds_sign_in` is true, show
+   `evalation-say ev-remove.only-sign-in` after the opening line step 1 gave, then go on to the
+   Remove question below.
+
+   Where the state was `not-set-up` and both `holds_saved` and `holds_sign_in` are false, show only
    `evalation-say ev-remove.nothing-else` after the opening line step 1 gave, never
    `ev-remove.nothing-saved` as well, and ask nothing more in this step: go on to step 3 where
    `conversations` is more than zero, or straight to step 4 where it is zero.

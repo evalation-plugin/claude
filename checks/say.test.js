@@ -103,7 +103,7 @@ test("every line in the catalogue is used by a command or a script, and a comman
   assert.deepStrictEqual(unallowed, []);
 });
 
-const SESSION_SCRIPTS = ["bin/evalation-activate", "bin/evalation-ask", "bin/evalation-deliver", "bin/evalation-packs", "bin/evalation-questions",
+const SESSION_SCRIPTS = ["bin/evalation-activate", "bin/evalation-ask", "bin/evalation-deliver", "bin/evalation-loopback", "bin/evalation-packs", "bin/evalation-questions",
   "bin/evalation-remove", "bin/evalation-report", "bin/evalation-rotate", "bin/evalation-run", "bin/evalation-scan", "bin/evalation-status",
   "lib/print.js", "lib/questions.js", "lib/remove.js", "lib/run-say.js"];
 

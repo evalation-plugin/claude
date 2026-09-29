@@ -1,6 +1,6 @@
 ---
 description: Replace the key this machine uses to open what Evalation sends it, for when this machine's copy may have been exposed. Free and instant.
-allowed-tools: Bash(evalation-rotate:*), Bash(evalation-say:*)
+allowed-tools: Bash(evalation-rotate:*), Bash(evalation-say:*), Bash(evalation-status:*)
 ---
 
 # Replace this machine's key
@@ -37,7 +37,7 @@ here. Never run it with `--reason`, which adds detail for support alone.
 
 - **`no-settings`** means this machine is not signed in. Show `evalation-say ev-account.not-set-up`.
 - **`sign-in-damaged`** means this machine's sign-in is damaged. Show
-  `evalation-say ev-rotate.damaged`.
+  `evalation-say ev-rotate.damaged`, except where `evalation-status` prints a `signed in as:` line, show `evalation-say ev-rotate.damaged-named "email=<email>"` with the address from that line.
 - **`sign-in-unclear`** means this machine would not let Evalation read its sign-in. Show
   `evalation-say ev-rotate.unclear`.
 - **`no-receiving-key`** means part of this machine's sign-in cannot be read. Show

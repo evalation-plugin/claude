@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 "use strict";
 
+const { existsSync } = require("node:fs");
 const { homedir } = require("node:os");
 const { join } = require("node:path");
 const { runScript } = require("../lib/script.js");
@@ -24,6 +25,7 @@ if (verb === "folders") {
   const places = placesOf(others);
   process.stdout.write(`${JSON.stringify({
     holds_saved: holdsSaved(HOME),
+    holds_sign_in: existsSync(join(HOME, "evalation.local")),
     sets_here: require("../lib/questions.js").saved(HOME).length,
     reports,
     reports_named: reportsNamed(reports),

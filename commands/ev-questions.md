@@ -292,8 +292,10 @@ evalation-questions keep-on-account "<name>"
 Where it fails, show `evalation-say ev-questions.set-not-kept "set=<name>"` in place of anything
 it printed, and go on to the end line. A set already on the account is kept there again whenever it
 changes, with no question, and `keep-on-account` then prints nothing on success. A set kept
-on this machine only stays there when it changes, with no question, and the person can still keep
-it on the account by asking. To stop keeping one on the account, run
+on this machine only stays there when it changes, with no question. Where the person asks, at any
+point in this command, to keep a saved set on their account, run `keep-on-account` for it as above,
+show the line it prints or `set-not-kept` where it fails, and end there. To stop keeping one on the
+account, run
 `evalation-questions drop-from-account "<name>"`.
 
 End with one line. For a set being changed or fixed, show

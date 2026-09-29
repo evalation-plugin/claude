@@ -162,7 +162,6 @@ test("ev-run's lines keep the words the reports use, held in the catalogue where
     "Keep the name <name>",
     "The reports name the product <name>.",
     "The ones you choose are read together as one product, for the same pack credits as one repository.",
-    "Each pack ticked uses one pack credit.",
     "No extra pack credits.",
     "Reading takes a while and uses a good part of your Claude usage.",
     "Your own Claude session rereads each claim from scratch on the model you chose.",
@@ -408,4 +407,15 @@ test("the scan and the evidence pack stop on a fault with plain lines, and the d
     "Your findings are kept, and the pack credits for this run were used when it started.");
   assert.doesNotMatch(reported.stderr, /no-answers|findings\.json/);
   assert.match(report.detail, /no-answers/);
+});
+
+test("the usual packs list states no cost, which the first pack question already said, and a fault file is named by local time", () => {
+  const { entries } = require("../lib/say.js");
+  assert.doesNotMatch(entries()["ev-run.usual"].ask, /pack credit/);
+  const { fault } = require("../lib/run-say.js");
+  const file = fault("A line.", "detail").split("\n").at(-1);
+  const now = new Date();
+  const local = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  assert.ok(require("node:path").basename(file).startsWith(local), file);
+  assert.doesNotMatch(require("node:path").basename(file), /Z-/);
 });
