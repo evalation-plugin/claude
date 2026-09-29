@@ -219,7 +219,7 @@ function entry(answer, asked, pack, scan) {
 
   return `<article class="entry" data-lens="${escaped(pack)}">
 <div class="head">
-<span class="id">${escaped(answer.entry)}</span>
+<span class="id">${escaped(clause?.shown ?? answer.entry)}</span>
 <span class="ttl">${escaped(clause?.title ?? "")}</span>
 ${marker}
 <span class="tag">${tag}</span>

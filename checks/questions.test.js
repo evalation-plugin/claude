@@ -8,7 +8,7 @@ const { mkdtempSync } = require("node:fs");
 const { tmpdir } = require("node:os");
 const { join } = require("node:path");
 const { home } = require("./fixture.js");
-const { extended, extensible, kept, load, packOf, problems, save, saved } = require("../lib/questions.js");
+const { dropFromAccount, extended, extensible, fetched, fromAccount, keepOnAccount, kept, listed, load, packOf, problems, save, saved } = require("../lib/questions.js");
 const { groupOf, methodology } = require("../bin/evalation-findings");
 const { served } = require("../bin/evalation-run");
 
@@ -60,27 +60,81 @@ test("the custom pack is built locally, marks every entry the customer's, and na
   assert.strictEqual(pack.body.entries[0].written_by, "customer");
 });
 
-test("extra questions join one of our own packs in a section of their own, and a clashing identifier is refused", () => {
+test("extra questions join one of our own packs in a section of their own, named after their set", () => {
   const servedPack = { pack: "cyber-insurance", kind: "standard", body: { kind: "standard", version_is_ours: true, title: "Cyber insurance",
     sections: [{ identifier: "S1", title: "Sign-in and access" }], entries: [{ identifier: "Q1", section: "S1" }, { identifier: "INS01", section: "S1" }] } };
-  assert.throws(() => extended(servedPack, set([question("Q1")], { pack: "cyber-insurance" })), /Q1 is already an entry of cyber-insurance/);
   const grown = extended(servedPack, set([question("Q2")], { pack: "cyber-insurance" }));
-  assert.deepStrictEqual(grown.body.entries.map((one) => one.identifier), ["Q1", "INS01", "Q2"]);
+  assert.deepStrictEqual(grown.body.entries.map((one) => one.identifier), ["Q1", "INS01", "Board-check.Q2"]);
   assert.strictEqual(grown.body.entries[2].written_by, "customer");
   assert.deepStrictEqual(grown.body.sections.map((one) => one.title), ["Sign-in and access", "User provided questions: Board check"]);
   assert.strictEqual(grown.body.entries[2].section, grown.body.sections[1].identifier);
   assert.strictEqual(grown.body.entries[0].section, "S1");
 });
 
-test("two sets for one pack each print in a section of their own", () => {
+test("two sets for one pack each print in a sub-section of their own, and each may hold a Q1", () => {
   const servedPack = { pack: "cyber-insurance", kind: "standard", body: { kind: "standard", version_is_ours: true, title: "Cyber insurance",
     sections: [{ identifier: "S1", title: "Sign-in and access" }], entries: [{ identifier: "CYB01", section: "S1" }] } };
   const once = extended(servedPack, set([question("Q1")], { name: "Broker questions", pack: "cyber-insurance" }));
-  const twice = extended(once, set([question("Q2")], { name: "Board questions", pack: "cyber-insurance" }));
+  const twice = extended(once, set([question("Q1")], { name: "Board questions", pack: "cyber-insurance" }));
   assert.deepStrictEqual(twice.body.sections.map((one) => one.title),
     ["Sign-in and access", "User provided questions: Broker questions", "User provided questions: Board questions"]);
+  assert.deepStrictEqual(twice.body.entries.map((one) => one.identifier), ["CYB01", "Broker-questions.Q1", "Board-questions.Q1"]);
+  assert.deepStrictEqual(twice.body.entries.map((one) => one.shown), [undefined, "Q1", "Q1"]);
   assert.deepStrictEqual(twice.body.entries.map((one) => one.section), ["S1", twice.body.sections[1].identifier, twice.body.sections[2].identifier]);
-  assert.notStrictEqual(twice.body.sections[1].identifier, twice.body.sections[2].identifier);
+  assert.throws(() => extended(twice, set([question("Q1")], { name: "Board questions", pack: "cyber-insurance" })), /Board questions is already used in cyber-insurance/);
+});
+
+test("a user provided question's card prints the number its set gave it", () => {
+  const { page } = require("../bin/evalation-report");
+  const { skeletonOf } = require("../bin/evalation-findings");
+  const served = extended({ pack: "cyber-insurance", kind: "standard", body: { kind: "standard", version_is_ours: true, title: "Cyber insurance",
+    sections: [{ identifier: "S1", title: "Sign-in" }], entries: [] } }, set([question("Q1")], { name: "Broker questions", pack: "cyber-insurance" }));
+  const kept = skeletonOf({ run: "run-0123456789ab", at: "2026-09-29T00:00:00.000Z", packs: [{ pack: served.pack, kind: "standard", body: served.body }] });
+  const asked = new Map(kept.packs[0].entries_asked.map((one) => [`cyber-insurance/${one.identifier}`, one]));
+  assert.strictEqual(asked.get("cyber-insurance/Broker-questions.Q1").shown, "Q1");
+  const html = page({ ...kept, target: { repository: "acme/app" }, answers: [] },
+    [{ pack: "cyber-insurance", entry: "Broker-questions.Q1", status: "total-gap", because: "None found.", remedy: "Record each payment.",
+      looked_for: [{ result: "missing", searched: "Looked for payment records." }, { result: "missing", searched: "Looked for a payment test." }] }], asked);
+  assert.match(html, /<span class="id">Q1<\/span>/);
+  assert.doesNotMatch(html, /<span class="id">Broker-questions\.Q1<\/span>/);
+});
+
+test("a set kept on the account is listed and used on another machine, and one that fails its check is listed as refused", () => {
+  const account = new Map();
+  const ask = (path, body) => {
+    if (path === "/sets/keep") { account.set(body.name, body.body); return { kept: body.name }; }
+    if (path === "/sets") return { sets: [...account].map(([name, text]) => ({ name, body: text })) };
+    if (path === "/sets/drop") { account.delete(body.name); return { dropped: body.name }; }
+    throw new Error(`no ${path}`);
+  };
+  const laptop = mkdtempSync(join(tmpdir(), "evalation-sets-"));
+  save(laptop, set([question("Q1")], { name: "Broker questions", pack: "cyber-insurance" }));
+  keepOnAccount(laptop, "Broker questions", ask);
+  account.set("Tampered", JSON.stringify(set([question("Q1; rm -rf /")], { name: "Tampered", pack: "cyber-insurance" })));
+
+  const cloud = mkdtempSync(join(tmpdir(), "evalation-sets-"));
+  const seen = listed(cloud, ask);
+  assert.strictEqual(seen.account, "reached");
+  assert.deepStrictEqual(seen.sets.map((one) => [one.name, one.where, one.pack ?? null, Boolean(one.refused)]),
+    [["Broker questions", "account", "cyber-insurance", false], ["Tampered", "account", null, true]]);
+  const path = fetched(cloud, "Broker questions", ask);
+  assert.strictEqual(load(cloud, "Broker questions").pack, "cyber-insurance");
+  assert.ok(path.endsWith("Broker questions.json"));
+  assert.throws(() => fetched(cloud, "Tampered", ask), /an identifier is Q and a number/);
+  assert.deepStrictEqual(listed(cloud, ask).sets.find((one) => one.name === "Broker questions").where, "both");
+
+  dropFromAccount("Broker questions", ask);
+  assert.deepStrictEqual(listed(mkdtempSync(join(tmpdir(), "evalation-sets-")), ask).sets.map((one) => one.name), ["Tampered"]);
+  assert.strictEqual(listed(laptop, () => { throw new Error("offline"); }).account, "unreachable");
+});
+
+test("a set that comes back from the account is checked again, and one that is not a set is refused", () => {
+  const good = set([question("Q1")], { name: "Broker questions", pack: "cyber-insurance" });
+  assert.deepStrictEqual(fromAccount({ name: "Broker questions", body: JSON.stringify(good) }), good);
+  assert.throws(() => fromAccount({ name: "Broker questions", body: "not json" }), /Broker questions on the account is not a question set/);
+  const hostile = set([question("Q1; rm -rf /")], { name: "Broker questions", pack: "cyber-insurance" });
+  assert.throws(() => fromAccount({ name: "Broker questions", body: JSON.stringify(hostile) }), /an identifier is Q and a number/);
+  assert.throws(() => fromAccount({ name: "Other name", body: JSON.stringify(good) }), /names itself Broker questions/);
 });
 
 test("the sets kept here are listed with the pack each was written for", () => {

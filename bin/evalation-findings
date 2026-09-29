@@ -662,7 +662,7 @@ function skeleton(served, readBy) {
         kind: body.kind ?? one.kind,
         ...pick(body, ["title", "version", "entry_noun", "sections"]),
         selected: entries.map((entry) => entry.identifier),
-        entries_asked: entries.map((entry) => pick(entry, ["identifier", "title", "intent", "looks_for", "section", "obligation", "note", "bears_on", "in_force"])),
+        entries_asked: entries.map((entry) => pick(entry, ["identifier", "shown", "title", "intent", "looks_for", "section", "obligation", "note", "bears_on", "in_force"])),
       };
     }),
     answers: [...(served.answered ?? [])],
@@ -1031,6 +1031,6 @@ function main() {
   );
 }
 
-module.exports = { credentialIn, checked, groupOf, methodology };
+module.exports = { credentialIn, checked, groupOf, methodology, skeletonOf: skeleton };
 
 if (require.main === module) main();
