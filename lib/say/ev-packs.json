@@ -1,6 +1,6 @@
 {
-  "ev-packs.damaged": { "say": "This machine's Evalation sign-in is damaged. Run /ev-activate to sign in again." },
-  "ev-packs.not-signed-in": { "say": "This machine is not signed in to Evalation yet. Run /ev-activate to sign in." },
+  "ev-packs.damaged": { "say": "This machine's Evalation sign-in is damaged. Run /ev-activate and sign in with the same account as before, so your pack credits and reports are there." },
+  "ev-packs.not-signed-in": { "say": "This machine is not set up for Evalation yet. Run /ev-start to set it up." },
   "ev-packs.unreachable": { "say": "Evalation could not be reached. Check this machine is online and run /ev-packs again." },
   "ev-packs.clock": { "say": "This machine's clock is wrong, so Evalation refused it. Set the clock to the right time, then run /ev-packs again." },
   "ev-packs.refused": { "say": "Evalation no longer accepts this machine. Contact support@evalation.ai and we will sort it out." },
@@ -19,7 +19,8 @@
   "ev-packs.not-enough": { "say": "A check will not start until you have more. To buy more pack credits, email support@evalation.ai." },
   "ev-packs.none-yet": { "say": "No packs are chosen yet." },
   "ev-packs.cost": { "say": "Each pack you choose uses one pack credit every time your code is checked." },
-  "ev-packs.which": { "ask": "Which packs from <first> to <last> should each check of your code use?", "header": "Packs", "several": true, "options": "given" },
+  "ev-packs.which": { "ask": "Which packs should each check of your code use?", "header": "Packs", "several": true, "options": "given",
+    "none": { "label": "None of these", "description": "Uses none of the packs in this list." } },
   "ev-packs.chosen-now": { "say": "Chosen now." },
   "ev-packs.nothing-changed": { "say": "Nothing changed. Your checks still use <titles>." },
   "ev-packs.nothing-chosen": { "say": "Nothing changed. No packs are chosen yet." },

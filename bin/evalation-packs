@@ -76,27 +76,20 @@ function chosen() {
   const offered = list().packs;
   const held = entries();
   const picked = selected();
-  const titles = picked.map((pack) => {
-    const found = offered.find((one) => one.pack === pack);
-    return found ? found.body?.title ?? found.pack : say(held, "ev-packs.gone-pack");
-  });
+  const found = picked.map((pack) => offered.find((one) => one.pack === pack)).filter(Boolean);
+  const titles = [...found.map((one) => one.body?.title ?? one.pack).sort(byTitle), ...picked.slice(found.length).map(() => say(held, "ev-packs.gone-pack"))];
   return { titles: picked.length > 0 ? joined(titles) : null, packs: picked.length };
 }
 
 function chooser() {
-  const shown = titled(list().packs);
   const held = entries();
   const picked = new Set(selected());
-  const count = shown.reduce((most, one) => Math.max(most, one.question), 0);
-  return Array.from({ length: count }, (_, at) => {
-    const options = shown.filter((one) => one.question === at + 1).map((one) => {
-      const label = one.title ?? one.pack;
-      const summary = one.summary ?? label;
-      return { label, description: picked.has(one.pack) ? `${summary} ${say(held, "ev-packs.chosen-now")}` : summary };
-    });
-    const [asked] = JSON.parse(say(held, "ev-packs.which", { first: options[0].label, last: options[options.length - 1].label }, options)).questions;
-    return { ...asked, header: `${asked.header} ${at + 1}/${count}` };
+  const options = titled(list().packs).map((one) => {
+    const label = one.title ?? one.pack;
+    const summary = one.summary ?? label;
+    return { label, description: picked.has(one.pack) ? `${summary} ${say(held, "ev-packs.chosen-now")}` : summary };
   });
+  return JSON.parse(say(held, "ev-packs.which", {}, options)).questions;
 }
 
 function main() {

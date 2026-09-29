@@ -152,8 +152,8 @@ test("a damaged sign-in that never reached the server is never reported as signe
     assert.strictEqual(existsSync(home), false, said);
   }
   assert.strictEqual(line("ev-remove.not-revoked"), "Evalation could not sign this machine out because its sign-in was damaged. Email support@evalation.ai to have this machine's sign-in switched off.");
-  assert.match(FLAT, /Where it is `not-revoked`, show `evalation-say ev-remove\.not-revoked`/);
-  assert.strictEqual(line("ev-remove.damaged"), "This machine's Evalation sign-in is damaged, so Evalation cannot sign it out from here.");
+  assert.match(FLAT, /Where it is `not-revoked`, show `evalation-say ev-remove\.not-revoked`, unless step 2 already said the sign-in is damaged\./);
+  assert.strictEqual(line("ev-remove.damaged"), "This machine's Evalation sign-in is damaged, so Evalation cannot sign it out from here. Email support@evalation.ai to have this machine's sign-in switched off.");
   assert.match(FLAT, /`sign-in: damaged`[^`]*`evalation-say ev-remove\.damaged`/);
   const local = JSON.parse(line("ev-remove.remove-local")).questions[0].options.find((one) => one.label === "Remove it");
   assert.strictEqual(local.description, "Deletes what Evalation saved on this machine.");
@@ -289,8 +289,9 @@ test("before asking, the other conversations are named by the project folder the
     { folder: "MayCray-main", conversations: 2, from: "23 September 2026", to: "29 September 2026" },
     { folder: "evalation", conversations: 1, from: "29 September 2026", to: "29 September 2026" },
   ]);
-  assert.strictEqual(shown.places_named, "MayCray-main, 2 from 23 to 29 September 2026 and evalation, one on 29 September 2026");
-  assert.match(line("ev-remove.conversations", { count: 2, places: shown.places_named }), /They come from these project folders: MayCray-main, 2 from 23 to 29 September 2026 and evalation, one on 29 September 2026\./);
+  assert.strictEqual(shown.places_named, "2 in MayCray-main from 23 to 29 September 2026 and one in evalation on 29 September 2026");
+  assert.strictEqual(line("ev-remove.place-day", { folder: "main", count: 3, from: "29 September 2026" }), "3 in main on 29 September 2026");
+  assert.match(line("ev-remove.conversations", { count: 2, places: shown.places_named }), /They come from these project folders: 2 in MayCray-main from 23 to 29 September 2026 and one in evalation on 29 September 2026\./);
   assert.match(FLAT, /`evalation-say ev-remove\.conversations count="<conversations>" places="<places_named>"`/);
 });
 
@@ -321,7 +322,9 @@ test("removal is agreed before question sets are asked about, and each set is na
 test("a machine that is not signed in hears the whole of what removal deletes, and can still delete its conversations", () => {
   assert.strictEqual(line("ev-remove.folder-local"), "Removing deletes Evalation's own folder on this machine, with the saved results of each check, your pack choice and any question sets saved here. Evalation cannot reach your account from this machine, so those question sets cannot be kept on it.");
   assert.doesNotMatch(FLAT, /leave out the first two sentences/);
-  assert.match(FLAT, /Where both hold, leave out the lines about the folder and show `evalation-say ev-remove\.nothing-else`\. Where `conversations` is more than zero, go on to step 3/);
+  assert.doesNotMatch(FLAT, /Where both hold/);
+  assert.match(FLAT, /Where the state was `not-set-up` and `home_exists` is false, show only `evalation-say ev-remove\.nothing-else` after the opening line step 1 gave, never `ev-remove\.nothing-saved` as well, and ask nothing more in this step: go on to step 3 where `conversations` is more than zero, or straight to the last step of step 5 where it is zero\./);
+  assert.match(FLAT, /Where the state was `live` or `not-live` and `home_exists` is false, leave out the lines about the folder and show `evalation-say ev-remove\.nothing-saved` in their place\./);
   assert.doesNotMatch(WORDS, /so there is nothing to remove\./);
 });
 
@@ -356,6 +359,47 @@ test("a line another window adds to the prompt history while it is rewritten is 
   assert.strictEqual(lines, 3);
   assert.deepStrictEqual(historyLeft(claude), ["own-work", "talks-about-it", "removing-now", "elsewhere"]);
   assert.deepStrictEqual(readdirSync(claude).filter((one) => one.startsWith("history")), ["history.jsonl"], "no temporary file is left");
+});
+
+test("a wrong clock stops removal with the clock line before anything is removed", () => {
+  assert.strictEqual(line("ev-remove.clock"), "This machine's clock is wrong, so Evalation cannot sign it out and nothing was removed. Set the clock to the right time, then run /ev-remove again.");
+  const clock = FLAT.indexOf("`state: not-live` with `reason: clock`: show `evalation-say ev-remove.clock` and stop.");
+  assert.ok(clock > 0 && clock < FLAT.indexOf("``` evalation-remove folders ```"), "the clock is checked in step 1, before removal is offered");
+  assert.match(FLAT, /`state: live`, or `state: not-live` for any other reason: go on\./);
+});
+
+test("a set kept on the account before removal is said in a line the catalogue holds, and the command shows it as printed", async () => {
+  const { createServer } = require("node:http");
+  const { spawn } = require("node:child_process");
+  const { randomBytes } = require("node:crypto");
+  const { save } = require("../lib/questions.js");
+  const home = mkdtempSync(join(tmpdir(), "evalation-home-"));
+  mkdirSync(join(home, "keys"), { recursive: true });
+  for (const one of ["installation-key", "receiving-key"]) writeFileSync(join(home, "keys", `evalation-plugin.box.${one}`), randomBytes(32).toString("base64"), { mode: 0o600 });
+  writeFileSync(join(home, "evalation.local"), JSON.stringify({ installation: "box", secrets: {
+    installation_key: "store:evalation-plugin/box.installation-key", receiving_key: "store:evalation-plugin/box.receiving-key" } }));
+  save(home, { name: "Broker", pack: "custom", questions: [{ identifier: "Q1", title: "Payments are recorded", intent: "Where does this repository record each payment it takes?",
+    asked: "do we keep a record of payments", looks_for: [
+      { find: "Code that writes a record for each payment, such as a payments table insert", proof: "runs" },
+      { find: "A test that takes a payment and checks the record exists", proof: "runs" }] }] });
+  const printed = await new Promise((resolve) => {
+    const server = createServer((req, res) => {
+      req.resume();
+      req.on("end", () => { res.writeHead(200, { "content-type": "application/json" }); res.end(JSON.stringify({ kept: "Broker" })); });
+    }).listen(0, "127.0.0.1", () => {
+      const child = spawn(process.execPath, [join(__dirname, "..", "bin", "evalation-questions"), "keep-on-account", "Broker"], { env: { ...process.env,
+        EVALATION_PLUGIN_HOME: home, EVALATION_LOCAL: join(home, "evalation.local"), EVALATION_KEY_STORE: "file", EVALATION_SERVER: `http://127.0.0.1:${server.address().port}` } });
+      let stdout = "";
+      let stderr = "";
+      child.stdout.on("data", (chunk) => { stdout += chunk; });
+      child.stderr.on("data", (chunk) => { stderr += chunk; });
+      child.on("exit", (status) => server.close(() => resolve({ status, stdout, stderr })));
+    });
+  });
+  assert.strictEqual(printed.status, 0, printed.stderr);
+  assert.strictEqual(printed.stdout, `${line("shared.set-kept", { set: "Broker" })}\n`);
+  assert.strictEqual(line("shared.set-kept", { set: "Broker" }), "The question set Broker is kept on your account.");
+  assert.match(FLAT, /evalation-questions keep-on-account <name> ``` On success it prints one line for the set: show it exactly as printed\./);
 });
 
 test("keys left in the password store are each named by service and account, in one line", () => {

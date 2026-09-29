@@ -17,7 +17,7 @@
   "ev-questions.only-mine": { "say": "Only my questions" },
   "ev-questions.only-mine-about": { "say": "No Evalation pack is read with them and no pack credits are used, so the run answers these questions and nothing else." },
   "ev-questions.pack-about": { "say": "Your questions cost nothing extra. The pack itself uses one pack credit when the run reads it. Your questions print after the pack's own, under User provided questions." },
-  "ev-questions.keeps-clauses": { "say": "<pack> and other published standards keep their own clauses, so your questions go with an Evalation pack or run on their own." },
+  "ev-questions.keeps-clauses": { "say": "Published standards such as <pack> keep their own clauses, so your questions go with an Evalation pack or run on their own." },
   "ev-questions.packs-unreachable": { "say": "Evalation could not be reached, so these questions will run on their own, with no pack." },
   "ev-questions.no-pack-takes": { "say": "No pack you can run takes extra questions, so these questions will run on their own, with no pack." },
   "ev-questions.source": { "ask": "Where should the questions come from?", "header": "Source", "several": true, "options": [
@@ -46,12 +46,11 @@
     { "label": "Change something", "description": "Tell me what to change, and I check it again." }
   ] },
   "ev-questions.save-unchecked": { "ask": "The plugin could not confirm that the independent checker passed <titles>, since the part of the plugin that confirms each pass was not running in this session. Save them unchecked, or change something?", "header": "Save", "options": [
-    { "label": "Save them unchecked", "description": "Saves the set as shown. The run still reads them, and the set is marked as not confirmed by the independent checker." },
+    { "label": "Save them unchecked", "description": "Saves the set as shown. The run still reads them, and they are marked as not confirmed by the independent checker." },
     { "label": "Change something", "description": "Tell me what to change, and I check it again." }
   ] },
-  "ev-questions.all-questions": { "say": "any of these questions" },
   "ev-questions.save-unchecked-one": { "ask": "The plugin could not confirm that the independent checker passed <titles>, since the part of the plugin that confirms each pass was not running in this session. Save it unchecked, or change something?", "header": "Save", "options": [
-    { "label": "Save it unchecked", "description": "Saves the set as shown. The run still reads it, and the set is marked as not confirmed by the independent checker." },
+    { "label": "Save it unchecked", "description": "Saves the set as shown. The run still reads it, and the question is marked as not confirmed by the independent checker." },
     { "label": "Change something", "description": "Tell me what to change, and I check it again." }
   ] },
   "ev-questions.keep-on-account": { "ask": "Also keep this set on your account?", "header": "Account", "options": [
@@ -60,6 +59,7 @@
   ] },
   "ev-questions.next-run": { "say": "Next time you run /ev-run with <pack>, you can tick <name>." },
   "ev-questions.next-run-other": { "say": "The packs you chose with /ev-packs leave out <pack>. In /ev-run, pick 'Choose which packs to run', tick <pack>, then tick <name>." },
+  "ev-questions.change-saved": { "say": "Saved your changes to <name>." },
   "ev-questions.next-run-alone": { "say": "Run /ev-run and choose Only my questions. This uses no pack credits." },
   "ev-questions.unconfirmed-note": { "say": "The run and its report treat unconfirmed questions like any others. Only /ev-questions shows that the independent checker did not confirm them." }
 }

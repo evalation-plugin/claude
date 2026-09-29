@@ -67,7 +67,11 @@ step names. Never give a duration, a usage figure or a count of parts: nobody ha
 number the person cannot place tells them nothing. Otherwise say nothing while readers, checkers or
 scanners work.
 
-**Where the run stops on a fault in Evalation**, run `evalation-say ev-run.fault-before` before step 4
+**Where `evalation-run` fails**, at any step, show every line it printed, as printed, and stop. Each
+says whether pack credits were used and what to do, and a fault in Evalation already carries its
+line for support.
+
+**Where any other command stops the run on a fault in Evalation**, run `evalation-say ev-run.fault-before` before step 4
 has started the run, or `evalation-say ev-run.fault-after` after it, show its line, then show the
 command's own message as it printed it.
 
@@ -168,7 +172,9 @@ and each answer's label says what choosing it does.
    for, and never one the list marks `refused`. For each chosen pack that takes extra questions, run
    `evalation-run --say sets <pack>` with the pack's handle. Where it prints a line, no set is written
    for that pack: show the line and go on. Where it prints a question, first say
-   `evalation-say ev-run.another-set`, then ask it. Ask nothing about a pack that takes no extra
+   `evalation-say ev-run.another-set`, then ask it. Use each set ticked. Where they tick only the
+   answer to read the pack alone, or nothing, use no set with that pack. Where they tick that answer
+   beside a set, ask again. Ask nothing about a pack that takes no extra
    questions, such as SOC 2 or ISO 27001, even where it is chosen alongside. Where no chosen pack
    takes extra questions, never raise the person's own questions at all.
 
@@ -184,15 +190,15 @@ and each answer's label says what choosing it does.
 
    **Each question says what this run will spend.** It spends one pack credit for each pack it
    reads, and `evalation-status` prints how many credits are left. Where the packs chosen are more
-   than the balance, say so with `evalation-run --say short <M>`, with <M> the count chosen, and ask
+   than the balance, say so with `evalation-run --say short <P>`, with <P> the count of packs chosen, and ask
    again before step 4 with the same questions: the run is refused whole, so this is the moment to
    find that out.
 
    Once they answer, go on with no announcement. They chose the packs and were told the cost, so a
    line restating either says nothing new.
 
-   Where `show`, `status`, `evalation-questions list` or `path` fails, or an `evalation-run --say`
-   does, stop and report it by the fault paragraph above, before the run started.
+   Where `show`, `status`, `evalation-questions list` or `path` fails, stop and report it by the
+   fault paragraph above, before the run started.
 
 2. **Find out whether the packs read a scan, and ask about any scanner that is missing, before
    anything is spent.**
@@ -568,11 +574,12 @@ and each answer's label says what choosing it does.
    The review pack carries no individual findings on purpose: a slide holding fifty of them is neither
    a slide anybody reads nor a document anybody can work from, and the detail is where they live.
 
-11. **Report what it found, in two or three sentences**, and say where the artefact is. Lead with what
-   would matter to somebody deciding what to do next: what is a total gap, what is claimed but not
-   built, what scored worst. Not a table of every entry, which is what the artefact is for. Then say
-   the folder, on its own line, because that is what they will want to open. End with the line
-   `evalation-run --say next <written>` prints.
+11. **Say what it found and where the reports are.** First show what step 10 printed about reports
+   left unprinted or unsigned, where it printed anything. Then show what
+   `evalation-run --say done <written>` prints: one sentence per pack counted from the findings, the
+   reports folder on its own line, and the file to work from. Where the person named a folder at
+   step 10, name it after `<written>` in double quotes. Add nothing of your own, since the reports
+   hold every entry.
 
 ## Printing a run's reports again
 
@@ -587,8 +594,8 @@ which prints `written`, the findings file of the newest run on this folder, and 
 it fails, show the line it prints as printed and stop. Otherwise say `evalation-say ev-run.writing`
 and run step 10 over `written`: `evalation-deliver` where a pack's `kind` is
 `concern-set` and `evalation-report` where one is `standard`. The reports go into that run's own
-folder in place of the earlier copies. Then say the folder on its own line, and anything step 10
-says about signing, and nothing more.
+folder in place of the earlier copies. Then show anything step 10 printed about signing, then the
+line `evalation-run --say folder <written>` prints, and nothing more.
 
 ## What this never does
 

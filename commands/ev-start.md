@@ -1,6 +1,6 @@
 ---
 description: Start here. Sets Evalation up and walks you through it one step at a time.
-allowed-tools: Bash(evalation-status:*), Bash(evalation-packs show:*), Bash(evalation-packs titles:*), Bash(evalation-say:*), Bash(git rev-parse:*)
+allowed-tools: Bash(evalation-status:*), Bash(evalation-packs chosen:*), Bash(evalation-say:*), Bash(git rev-parse:*)
 ---
 
 # Set Evalation up
@@ -83,12 +83,13 @@ does.
 4. **Find out what they have chosen to be assessed against.**
 
    ```
-   evalation-packs show
+   evalation-packs chosen
    ```
 
-   Where nothing is selected, go to step 5 without remarking on it. Where something is,
-   `evalation-say ev-start.chosen`, filling `<titles>` with each pack's title from
-   `evalation-packs titles`, never its handle. That line opens the close in step 6.
+   It prints `titles`, the chosen packs' titles already joined, and `packs`, how many there are.
+   Where `packs` is 0, go to step 5 without remarking on it. Otherwise
+   `evalation-say ev-start.chosen`, passing `titles` exactly as printed. That line opens the close
+   in step 6.
 
 5. **Take them through choosing**, if nothing is selected.
 
@@ -99,7 +100,7 @@ does.
 
 6. **Close in up to four sentences**, counting the one step 4 or `/ev-packs` gave on what they are
    set up to check. Run `evalation-status` again and read <N> from its `pack credits left` line, and
-   count the packs `evalation-packs show` lists as <M>.
+   run `evalation-packs chosen` again and read <M> from its `packs`.
 
    Where <M> is 0, because they stopped without choosing, end with `evalation-say ev-start.no-packs`
    and nothing more.

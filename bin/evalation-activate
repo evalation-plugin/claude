@@ -62,24 +62,32 @@ async function ask(path, body) {
   }
 
   const text = await answer.text();
-  if (!answer.ok) {
-    let said = text.trim();
-    try {
-      const read = JSON.parse(text);
-      const refusals = (read.refusals || [])
-        .map((one) => [one.observed, one.required].filter(Boolean).join(" | "))
-        .join("; ");
-      if (refusals) said = refusals;
-    } catch {
-      // Not structured. What came back stands as the reason, which beats replacing it with nothing.
-    }
-    fail(`refused ${answer.status}: ${said}`);
-  }
+  if (!answer.ok) refusal(answer.status, text);
   try {
     return JSON.parse(text);
   } catch (thrown) {
     fail(`unreadable answer from ${path}: ${thrown.message}`);
   }
+}
+
+const OUR_SETUP = /redirect|reply ?ur[il]|reply address|AADSTS50011/i;
+
+function parsed(text) {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
+}
+
+function refusal(status, text) {
+  if (status >= 500) fail(`server-error: Evalation answered ${status}, so nothing was activated`);
+  const refusals = Array.isArray(parsed(text)?.refusals) ? parsed(text).refusals : [];
+  const said = refusals.length > 0 ? refusals.map((one) => `${one.observed ?? ""} ${one.failure ?? ""}`).join(" ") : text;
+  if (OUR_SETUP.test(said)) fail(`fault: the sign-in was refused because of how it is set up on our side (${said.trim()}), so nothing was activated`);
+  const observed = refusals.map((one) => String(one.observed ?? "").trim().replace(/\.+$/, "")).filter((one) => one && !/^(?=\S*[_\d])\S+$/.test(one));
+  if (observed.length === 0) fail("refused-no-reason: the sign-in was refused with no reason given, so nothing was activated");
+  fail(`refused: ${observed.join(", ")}`);
 }
 
 // The raw thirty-two bytes are the tail of each encoding, and raw is what the server records.
@@ -260,6 +268,7 @@ async function main() {
 
   const refused = decodeURIComponent(back[3]);
   if (refused) {
+    if (OUR_SETUP.test(refused)) fail(`fault: ${provider} refused the sign-in because of how it is set up on our side (${refused}), so nothing was activated`);
     fail(`sign-in-refused: ${provider} answered ${refused}, so nothing was activated`);
   }
 

@@ -56,7 +56,10 @@ function packsSaid(home, ask = askServer) {
   const titleOf = (one) => one.body?.title ?? one.pack;
   const picked = packs.filter((one) => chosen.includes(one.pack)).map(titleOf);
   const open = packs.filter((one) => extensible(one.body)).map((one) => `${titleOf(one)} (${one.pack})`);
-  return [`Chosen packs: ${picked.join(", ") || "none"}`, `Packs that take extra questions: ${open.join(", ") || "none"}`].join("\n");
+  const standards = packs.filter((one) => chosen.includes(one.pack) && one.body?.kind === "standard" && !extensible(one.body)).map(titleOf);
+  const named = standards.length > 1 ? `${standards.slice(0, -1).join(", ")} and ${standards.at(-1)}` : standards[0];
+  return [`Chosen packs: ${picked.join(", ") || "none"}`, `Packs that take extra questions: ${open.join(", ") || "none"}`,
+    ...(named ? [`Chosen published standards: ${named}`] : [])].join("\n");
 }
 
 function titles(ask = askServer) {
@@ -140,15 +143,20 @@ function main() {
   } else if (verb === "list") {
     process.stdout.write(arg === "--plain" ? `${listSaid(listed(HOME), titles()).join("\n")}\n` : `${JSON.stringify(listed(HOME))}\n`);
   } else if (verb === "path") {
+    const run = flags.includes("--run");
     try {
-      process.stdout.write(`${opened(HOME, arg, askServer, { run: flags.includes("--run") })}\n`);
+      const copy = opened(HOME, arg, askServer, { run });
+      if (run) process.stdout.write(`${copy}\n`);
+      else tell(HOME, copy);
     } catch (thrown) {
+      if (!run) tell(HOME, `no-such-set: ${arg} (${thrown.message})`);
       fail(`no-such-set: ${arg} (${thrown.message})`);
     }
   } else if (verb === "keep-on-account") {
     try {
       keepOnAccount(HOME, arg);
-      process.stdout.write(`${arg} is kept on your account\n`);
+      const { entries, say } = require("../lib/say.js");
+      process.stdout.write(`${say(entries(), "shared.set-kept", { set: arg })}\n`);
     } catch (thrown) {
       fail(`not-kept: ${arg} (${thrown.message})`);
     }

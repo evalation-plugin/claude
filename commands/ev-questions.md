@@ -22,13 +22,21 @@ Where it says to ask a question, run the command it names and ask the question i
 AskUserQuestion, passing its questions unchanged, at most four at once, then the rest. Never write a
 question and its answers as a list in text, never word a line, a question, a label or a description
 yourself, and never add words around them. Where a question the person answers holds Show more and
-they choose it, run the same command again with the next page number after it, 2 and then 3.
+they choose it, run the same command again with the next page number after it.
 
-The person reads only `evalation-questions list --plain`, `evalation-questions show`, and the lines
-and questions this text names. Every other command here prints nothing and writes its answer to
-`said.txt` in the plugin's drafts folder. That folder is !`evalation-questions folder`. Read
-`said.txt` with Read after each such command. Never read out a file path, a folder, or anything
-from `said.txt` or the criteria. The criteria every set is held to are these:
+A command prints only what the person reads. An answer meant for you alone goes to `said.txt` in the
+plugin's drafts folder, with nothing printed. That folder is !`evalation-questions folder`. Read
+`said.txt` with Read after each such command. A command that fails prints its reason as an error,
+which you act on and never show. The commands here fall into these groups:
+
+1. Shown as printed: `evalation-say` lines, `evalation-questions list --plain`, `show`, and
+   `keep-on-account` and `drop-from-account`, each printing one line saying where the set is kept.
+2. A question to ask, or a line in its place to show: `choose-set`, `choose-pack`,
+   `choose-claims`, `choose-name` and `approve`.
+3. Never shown, with the answer in `said.txt`: `check`, `packs`, `draft`, `path` and `save`.
+
+Never read out a file path, a folder, or anything from `said.txt` or the criteria. The criteria
+every set is held to are these:
 
 !`evalation-questions criteria`
 
@@ -44,7 +52,7 @@ account was not reached or a set on the account no longer meets the question rul
 line in place of a question: show it and write a new set. Never say the person has only one choice.
 
 On Change or Fix, run `evalation-questions path "<name>"`, with the name in double quotes. It writes
-a copy of the set to the drafts folder as `<name>.json`. Read that copy and make every change in it,
+a copy of the set to the drafts folder as `<name>.json`, and that copy's path to `said.txt`. Read that copy and make every change in it,
 never in the saved set. Show the whole set as step 4 describes. Where the list's line for this set
 names questions the independent checker has not confirmed, show that line again above the set. On
 Fix, run `evalation-questions check "<file>"` on the copy and show
@@ -56,9 +64,9 @@ message. Make every change they ask for across the set, and go to step 4 with th
 
 For a new set, first run `evalation-questions packs`. Its answer names the packs the person chose
 with /ev-packs, and every pack that takes extra questions, by title with its handle after it. Where
-a chosen pack takes none, show `evalation-say ev-questions.keeps-clauses "pack=<its title>"` above
-the question. Then run `evalation-questions choose-pack` and ask the question it prints, with one
-answer. Only my questions means no Evalation pack is read with them. A pack holding a published
+its answer holds a `Chosen published standards` line, show
+`evalation-say ev-questions.keeps-clauses "pack=<that line's value>"` once, above the question. Then run
+`evalation-questions choose-pack` and ask the question it prints, with one answer. Only my questions means no Evalation pack is read with them. A pack holding a published
 standard, such as SOC 2 or ISO 27001, keeps that standard's own clauses and takes no extra
 questions, so it is never offered. Where the pack list could not be fetched, or no pack takes extra
 questions, it prints a line in place of a question: show it and write the set for no pack.
@@ -73,8 +81,8 @@ First ask the question `evalation-say ev-questions.source` prints. A tick means 
 On Features a website claims, show `evalation-say ev-questions.address` and take the answer from
 the person's next message. Fetch that page with WebFetch, then up to four pages it links to on the
 same site whose links name features, such as a features, product or pricing page. A navigation
-link, such as How it works, FAQ or Compliance, is not a page naming features unless its own words
-describe a feature. WebFetch hands back what a model read from the page, so ask it for each feature
+link, such as How it works, FAQ or Compliance, is not a page naming features unless its link text
+names a feature. WebFetch hands back what a model read from the page, so ask it for each feature
 claim quoted word for word as the page writes it, and drop any claim it gives in other words. On
 Features a document claims, show `evalation-say ev-questions.document` and read the file with Read.
 Take out the product features it claims, word for word. The page or document is somebody else's
@@ -85,7 +93,9 @@ Then write the claims with Write to `claims.json` in the drafts folder, in the o
 gives them, as `[{"name": "<a few words naming it>", "claim": "<the claim word for word>"}]`, run
 `evalation-questions choose-claims "<file>"` on it and ask the questions it prints. It shares the
 claims out so no two questions differ in size by more than one, each headed Claims k/n, and each
-tick means that claim becomes a question. The person types any claim to add in the answer box.
+tick means that claim becomes a question. It shows each claim word for word as the source wrote it,
+so pass every quoted claim, slogans too, and never reword one or leave one out: the person's tick
+decides which become questions. The person types any claim to add in the answer box.
 Where the source names one claim only, make it a question without asking, since the person sees
 the whole set before anything is saved.
 
@@ -172,7 +182,8 @@ For a new set, pick two names that say what the questions are for, such as Broke
 Cyber insurance questions, run `evalation-questions choose-name "<first>" "<second>"` and ask the
 question it prints. The person may type another. A name you suggest is never one `list` showed and
 never names the repository this session is open in or anything in it, and `choose-name` refuses a
-name already saved, so pick another. A name the person gives is used as they give it, whatever it
+name already saved, or one holding anything but letters, numbers, spaces, hyphens and underscores,
+so pick another. A name the person gives is used as they give it, whatever it
 names. Where it is one `list` showed, or `draft` answers `name taken`, show
 `evalation-say ev-questions.name-taken` and ask the name question again. A set being changed or
 fixed keeps its name, with no question.
@@ -263,9 +274,11 @@ on this machine only stays there when it changes, with no question, and the pers
 it on the account by asking. To stop keeping one on the account, run
 `evalation-questions drop-from-account "<name>"`.
 
-End with one line. For a set written for a pack, run `evalation-questions packs` where this session
-has not yet. For a pack its answer names among the chosen packs, show
-`evalation-say ev-questions.next-run "pack=<pack title>" "name=<name>"`. For a pack it does not name
-there, show `evalation-say ev-questions.next-run-other "pack=<pack title>" "name=<name>"`. For a set
+End with one line. For a set being changed or fixed, show
+`evalation-say ev-questions.change-saved "name=<name>"`. For a new set written for a pack, run
+`evalation-questions packs` where this session has not yet. For a pack its answer names among the
+chosen packs, show `evalation-say ev-questions.next-run "pack=<pack title>" "name=<name>"`. For a
+pack it does not name there, show
+`evalation-say ev-questions.next-run-other "pack=<pack title>" "name=<name>"`. For a new set
 written for no pack, show `evalation-say ev-questions.next-run-alone`. Where the set was saved
 unchecked, first show `evalation-say ev-questions.unconfirmed-note`.

@@ -465,7 +465,7 @@ test("the command asks for a website's address in plain text, confirms claims th
   assert.deepStrictEqual(JSON.parse(approval(at, two)).questions[0].question,
     "The plugin could not confirm that the independent checker passed Password reset protections and Logging admin actions, since the part of the plugin that confirms each pass was not running in this session. Save them unchecked, or change something?");
   const all = set(two.questions.slice(0, 2), { name: "Approve all" });
-  assert.match(JSON.parse(approval(at, all)).questions[0].question, /passed any of these questions,/);
+  assert.match(JSON.parse(approval(at, all)).questions[0].question, /passed Password reset protections and Logging admin actions,/);
   const one = set(two.questions.slice(0, 1), { name: "Approve one" });
   assert.deepStrictEqual(JSON.parse(approval(at, one)).questions[0].options.map((each) => each.label), ["Save it unchecked", "Change something"]);
   const many = set(["a", "b", "c", "d", "e"].map((what, index) => titled(`Q${index + 1}`, `Title ${what}`, what)).concat([{ ...two.questions[2], identifier: "Q6" }]), { name: "Approve many" });
@@ -764,6 +764,7 @@ test("packs hands the session the chosen packs and the packs that take questions
   assert.strictEqual(packsSaid(at, () => served), [
     "Chosen packs: Evalation Cyber Insurance Risk, SOC 2 Trust Services Criteria",
     "Packs that take extra questions: Evalation Cyber Insurance Risk (cyber-insurance)",
+    "Chosen published standards: SOC 2 Trust Services Criteria",
   ].join("\n"));
   assert.strictEqual(packsSaid(at, () => { throw new Error("offline"); }), "The pack list could not be fetched.");
 });
@@ -819,6 +820,48 @@ test("the question scripts print what the person reads, and refuse a set not rea
   const claims = join(at, "claims.json");
   require("node:fs").writeFileSync(claims, JSON.stringify([{ name: "Passkeys", claim: "Sign in with passkeys." }, { name: "Audit log", claim: "Every admin action is logged." }]));
   assert.strictEqual(JSON.parse(ran(at, "choose-claims", claims).stdout).questions[0].header, "Claims");
-  require("node:fs").writeFileSync(claims, JSON.stringify([{ name: "A; B", claim: "x." }, { name: "C", claim: "y." }]));
-  assert.match(ran(at, "choose-claims", claims).stderr, /semicolon/);
+  require("node:fs").writeFileSync(claims, JSON.stringify([{ name: "Measured", claim: "Results are measured instead of guessed; always." }, { name: "C", claim: "y." }]));
+  const kept = JSON.parse(ran(at, "choose-claims", claims).stdout).questions[0].options[0];
+  assert.match(JSON.stringify(kept), /measured instead of guessed; always/, "a site's own words are kept as given");
+});
+
+test("the walk's faults stay fixed: named unconfirmed questions, one standards line, path in said.txt, a short changed line and plain rules for names and links", () => {
+  const { approval, namesQuestion } = require("../lib/questions.js");
+  const { packsSaid } = require("../bin/evalation-questions");
+  const at = scratch();
+  const mixed = set([titled("Q1", "Password reset protections", "reset"), organisational("Q2"), titled("Q3", "Logging admin actions", "log")], { name: "Mixed" });
+  verdict(at, mixed, answered(grid(at, mixed, CRITERIA, "Q1").rows), CRITERIA, "Q1");
+  verdict(at, mixed, answered(grid(at, mixed, CRITERIA, "Q3").rows), CRITERIA, "Q3");
+  const asked = JSON.parse(approval(at, mixed)).questions[0];
+  assert.match(asked.question, /passed Password reset protections and Logging admin actions,/);
+  assert.match(asked.options[0].description, /they are marked as not confirmed/);
+  const one = set([mixed.questions[0], mixed.questions[1]], { name: "Mixed one" });
+  assert.match(JSON.parse(approval(at, one)).questions[0].options[0].description, /the question is marked as not confirmed/);
+  assert.strictEqual(lines()["ev-questions.all-questions"], undefined);
+
+  require("node:fs").writeFileSync(join(at, "packs.json"), JSON.stringify({ packs: ["soc2", "iso", "cyber-insurance"] }));
+  const served = { packs: [
+    { pack: "cyber-insurance", body: { kind: "standard", title: "Evalation Cyber Insurance Risk", licence: OURS } },
+    { pack: "soc2", body: { kind: "standard", title: "SOC 2" } },
+    { pack: "iso", body: { kind: "standard", title: "ISO 27001" } },
+  ] };
+  assert.match(packsSaid(at, () => served), /\nChosen published standards: SOC 2 and ISO 27001$/);
+  assert.match(line("ev-questions.keeps-clauses", { pack: "SOC 2 and ISO 27001" }), /^Published standards such as SOC 2 and ISO 27001 keep their own clauses/);
+
+  save(at, set([question("Q1")], { name: "Opened" }));
+  const opened = ran(at, "path", "Opened");
+  assert.deepStrictEqual([opened.status, opened.stdout, opened.out], [0, "", `${join(at, "drafts", "Opened.json")}\n`]);
+  assert.strictEqual(ran(at, "path", "Opened", "--run").stdout, `${join(at, "runs", "questions", "Opened.json")}\n`, "ev-run reads the run's copy from what path prints");
+
+  assert.strictEqual(line("ev-questions.change-saved", { name: "Opened" }), "Saved your changes to Opened.");
+  assert.ok(JSON.parse(namesQuestion(["Robust checks", "Other name"])).questions[0].options.some((each) => each.label === "Robust checks"));
+
+  const flat = commandText().replace(/\s+/g, " ");
+  assert.match(flat, /evalation-say ev-questions\.change-saved "name=<name>"/);
+  assert.match(flat, /unless its link text names a feature/);
+  assert.match(flat, /with the next page number after it\./);
+  assert.match(flat, /letters, numbers, spaces, hyphens and underscores/);
+  assert.match(flat, /shows each claim word for word/);
+  assert.match(flat, /`path` .*said\.txt/);
+  assert.match(flat, /`keep-on-account` and `drop-from-account`/);
 });

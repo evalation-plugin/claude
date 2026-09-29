@@ -10,7 +10,7 @@
   "ev-start.run-elsewhere": { "say": "Next, open Claude Code in the repository you want checked and run /ev-run." },
   "ev-start.cost": { "say": "It uses <count> pack credits, and you have <credits>." },
   "ev-start.cost-one": { "say": "It uses one pack credit, and you have <credits>." },
-  "ev-start.change": { "say": "Run /ev-packs to change them." },
+  "ev-start.change": { "say": "Run /ev-packs to change which packs you use." },
   "ev-start.short": { "say": "This selection uses <count> pack credits and you have <credits>, so a run would not start. To buy more pack credits, email support@evalation.ai, or choose fewer packs with /ev-packs." },
   "ev-start.short-one": { "say": "This selection uses one pack credit and you have none, so a run would not start. To buy pack credits, email support@evalation.ai." },
   "ev-start.credits-unread": { "say": "Your pack credits could not be read just now. Run /ev-account in a minute to see them." }

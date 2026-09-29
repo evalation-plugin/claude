@@ -37,7 +37,20 @@ test("each status the machine can be in has its own plain line, and a refused ma
     assert.match(line(text, "`state: unreachable`"), /If it still fails, contact support@evalation\.ai\.$/, name);
     assert.doesNotMatch(flat(text), /never in a file/, name);
   }
-  assert.strictEqual(line(ACCOUNT, "`sign-in: damaged`"), "This machine's Evalation sign-in is damaged. Your pack credits and reports are kept. Run /ev-activate to sign in again.");
+  assert.strictEqual(line(ACCOUNT, "`sign-in: damaged`"), "This machine's Evalation sign-in is damaged. Run /ev-activate and sign in with the same account as before, so your pack credits and reports are there.");
+});
+
+test("pack titles come joined from a script, so the session never joins them itself", () => {
+  for (const [name, text] of [["ev-start.md", START], ["ev-account.md", ACCOUNT]]) {
+    assert.match(text, /`evalation-packs chosen`/, name);
+    assert.doesNotMatch(text, /evalation-packs (titles|show)/, name);
+    assert.match(text, /^allowed-tools:.*Bash\(evalation-packs chosen:\*\)/m, name);
+    assert.doesNotMatch(flat(text), /each pack's title/, name);
+  }
+});
+
+test("the close of setting up says the packs are what /ev-packs changes", () => {
+  assert.strictEqual(line(START, "already chosen before this ran"), "Run /ev-packs to change which packs you use.");
 });
 
 test("the account reply is worded exactly for each case, says the credits once, and says what a pack is in the words /ev-packs uses", () => {
@@ -58,10 +71,10 @@ test("setting up opens and closes in fixed words, and names no pack credit befor
   const words = flat(START);
   const step = (n) => words.slice(words.indexOf(` ${n}. **`), words.indexOf(` ${n + 1}. **`));
   assert.strictEqual(line(step(1), "Open with"), "Evalation checks your code against the security and compliance standards you choose, and writes reports on what it finds.");
-  assert.strictEqual(line(step(2), "`sign-in: damaged`"), "This machine needs to sign in to Evalation again. Your pack credits and reports are kept.");
+  assert.strictEqual(line(step(2), "`sign-in: damaged`"), "This machine needs to sign in to Evalation again. Sign in with the same account as before, so your pack credits and reports are there.");
   assert.strictEqual(line(step(3), "Take them through signing in"), "Signing in sets up your Evalation account, or links this machine to it if you already have one.");
   assert.doesNotMatch(step(3), /pack credit|in your own words/);
-  assert.strictEqual(line(step(4), "Where something is"), "You are set up to check code against <titles>.");
+  assert.strictEqual(line(step(4), "Otherwise"), "You are set up to check code against <titles>.");
   assert.strictEqual(line(step(5), "0 pack credits"), "To buy pack credits, email support@evalation.ai.");
   assert.match(words, /Close in up to four sentences/);
 });

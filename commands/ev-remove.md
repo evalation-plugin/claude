@@ -36,7 +36,8 @@ prints.
      sign this machine out. Go on, and in step 2 open with `evalation-say ev-remove.damaged`.
    - `state: not-set-up` otherwise: this machine holds no sign in, so there is nothing to sign out.
      Go on, and in step 2 open with `evalation-say ev-remove.not-signed-in`.
-   - `state: live` or `state: not-live`: go on.
+   - `state: not-live` with `reason: clock`: show `evalation-say ev-remove.clock` and stop.
+   - `state: live`, or `state: not-live` for any other reason: go on.
 
 2. **Say what will be removed, then ask.**
 
@@ -57,11 +58,16 @@ prints.
    Where the state was `live` or `not-live`, show `evalation-say ev-remove.sign-out` and
    `evalation-say ev-remove.folder`.
 
-   Where the state was `not-set-up`, after the opening line step 1 gave, show
-   `evalation-say ev-remove.folder-local`.
+   Where the state was `not-set-up` and `home_exists` is true, after the opening line step 1 gave,
+   show `evalation-say ev-remove.folder-local`.
 
-   Where `home_exists` is false, show `evalation-say ev-remove.nothing-saved` and leave out the
-   lines about the folder. Where both hold, leave out the lines about the folder and show `evalation-say ev-remove.nothing-else`. Where `conversations` is more than zero, go on to step 3 and ask nothing more in this step. Otherwise go straight to the last step of step 5.
+   Where the state was `live` or `not-live` and `home_exists` is false, leave out the lines about
+   the folder and show `evalation-say ev-remove.nothing-saved` in their place.
+
+   Where the state was `not-set-up` and `home_exists` is false, show only
+   `evalation-say ev-remove.nothing-else` after the opening line step 1 gave, never
+   `ev-remove.nothing-saved` as well, and ask nothing more in this step: go on to step 3 where
+   `conversations` is more than zero, or straight to the last step of step 5 where it is zero.
 
    Where `reports_named` is not null, show
    `evalation-say ev-remove.old-reports reports="<reports_named>"`.
@@ -93,6 +99,8 @@ prints.
    evalation-questions keep-on-account <name>
    ```
 
+   On success it prints one line for the set: show it exactly as printed.
+
    Where it fails and the reason says the set `is not kept on the account, since`, the set fails
    its check. Show each listed problem exactly as printed, then run
    `evalation-say ev-remove.set-fails set="<name>"` and ask the question it prints. On
@@ -114,7 +122,7 @@ prints.
 5. **Say what was removed and give the last step.** From what `run` printed, show these lines
    together:
 
-   - Where `signed_out` is `now`, show `evalation-say ev-remove.signed-out`. Where it is `already`, show `evalation-say ev-remove.already-out`, unless step 2 already said this machine is not signed in. Where it is `not-revoked`, show `evalation-say ev-remove.not-revoked`.
+   - Where `signed_out` is `now`, show `evalation-say ev-remove.signed-out`. Where it is `already`, show `evalation-say ev-remove.already-out`, unless step 2 already said this machine is not signed in. Where it is `not-revoked`, show `evalation-say ev-remove.not-revoked`, unless step 2 already said the sign-in is damaged.
    - Where `folder_deleted` is true and `home_exists` was true in step 2, show
      `evalation-say ev-remove.folder-deleted`. Where it is false, show
      `evalation-say ev-remove.folder-left`.

@@ -35,8 +35,21 @@ test("answers a script supplies are held to the same rules and split into questi
   assert.deepStrictEqual(asked.questions.map((one) => one.options.length), [3, 3, 3]);
   assert.deepStrictEqual(asked.questions.map((one) => one.header), ["Packs 1/3", "Packs 2/3", "Packs 3/3"]);
   assert.ok(asked.questions.every((one) => one.multiSelect));
-  assert.throws(() => say(SAMPLE, "sample.tick", {}, [{ label: "A; B", description: "x." }, { label: "C", description: "y." }]), /semicolon/);
+  const quoted = JSON.parse(say(SAMPLE, "sample.tick", {}, [{ label: "Results measured instead of guessed", description: "Leverages GitHub; fast." }, { label: "C", description: "y." }]));
+  assert.strictEqual(quoted.questions[0].options[0].description, "Leverages GitHub; fast.", "a website's or a person's own words are kept as given");
+  assert.throws(() => say(SAMPLE, "sample.tick", {}, [{ label: "A", description: "" }, { label: "C", description: "y." }]), /description/);
   assert.throws(() => say(SAMPLE, "sample.tick", {}, [{ label: "A", description: "x." }]), /two/);
+});
+
+test("a tick list with a none answer offers it in every question, beside at most three others", () => {
+  const held = { "sample.pick": { ask: "Which packs should this run read? Tick each pack to read.", header: "Packs", several: true, options: "given",
+    none: { label: "None of these", description: "Reads none of the packs in this list." } } };
+  const options = Array.from({ length: 7 }, (_, at) => ({ label: `Pack ${at}`, description: "A pack." }));
+  const asked = JSON.parse(say(held, "sample.pick", {}, options));
+  assert.deepStrictEqual(asked.questions.map((one) => one.options.length), [4, 3, 3]);
+  assert.ok(asked.questions.every((one) => one.options.at(-1).label === "None of these"));
+  assert.strictEqual(new Set(asked.questions.map((one) => one.question)).size, 3, "the question tool refuses repeated question text in one call");
+  assert.match(asked.questions[1].question, /List 2 of 3\.$/);
 });
 
 test("every line and question the plugin holds passes its own wording rules and the question tool's limits", () => {

@@ -41,9 +41,11 @@ the line named for it. Never run it with `--reason`, which adds detail for suppo
   - `ended`: `evalation-say ev-account.ended`
   - anything else: `evalation-say ev-rotate.not-replaced-other`
 - **`The key change did not finish.`** Both keys are kept on this machine, and running again
-  finishes the change without making another. Never say the old key still works. Show next
-  `evalation-say ev-rotate.not-finished`, since other commands open what Evalation sends with the
-  new key, and Evalation may not use it yet. Then add the step for the word:
+  finishes the change without making another. Never say the old key still works. Where the word is
+  refused or ended, show only the line for it below, since Evalation has stopped serving this
+  machine and the change cannot finish. Otherwise show `evalation-say ev-rotate.not-finished`,
+  since other commands open what Evalation sends with the new key, and Evalation may not use it
+  yet. Then add the step for the word:
   - `clock`: `evalation-say ev-rotate.not-finished-clock`
   - `unreachable`: `evalation-say ev-rotate.not-finished-unreachable`
   - `key-store-refused`: `evalation-say ev-rotate.not-finished-key-store`
@@ -51,7 +53,7 @@ the line named for it. Never run it with `--reason`, which adds detail for suppo
   - `ended`: `evalation-say ev-account.ended`
   - anything else: `evalation-say ev-rotate.not-finished-other`. If it fails a second time, show
     `evalation-say ev-rotate.not-finished-twice` and stop.
-- **`no-settings`** means this machine is not signed in. Show `evalation-say ev-rotate.no-settings`.
+- **`no-settings`** means this machine is not signed in. Show `evalation-say ev-account.not-set-up`.
 - **`sign-in-damaged`** means this machine's sign-in is damaged. Show
   `evalation-say ev-rotate.damaged`.
 - **`sign-in-unclear`** means this machine would not let Evalation read its sign-in. Show

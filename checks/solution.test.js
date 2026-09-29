@@ -212,7 +212,11 @@ test("the folder questions and lines come from the run command ready to ask, in 
   assert.deepStrictEqual(evidence.options, [{ label: "docs", description: "Holds 2 files, such as a.md." },
     { label: "notes", description: "Holds one file, runbook.md." }]);
   const folder = require("node:path").basename(at);
-  assert.deepStrictEqual(asked("name", at)[0].options.map((one) => one.label), [`Use the folder name, ${folder}`, "Use acme"]);
+  assert.deepStrictEqual(asked("name", at)[0].options, [{ label: `Use the folder name, ${folder}`, description: `The reports call it ${folder}.` },
+    { label: "Use acme", description: "The reports call it acme." }]);
+  const product = join(mkdtempSync(join(tmpdir(), "evalation-named-")), "Product");
+  cpSync(at, product, { recursive: true });
+  assert.deepStrictEqual(asked("name", product)[0].options[0], { label: "Use the folder name, Product", description: "The reports call it Product." });
   choose(at, { name: "Acme platform" });
   const [name] = asked("name", at);
   assert.strictEqual(name.header, "Name");

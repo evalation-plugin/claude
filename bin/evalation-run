@@ -51,8 +51,11 @@ function ask(path, body) {
   return got;
 }
 
-const packsSaid = (count) => (count === 1 ? "1 pack" : `${count} packs`);
-const creditsSaid = (count) => (count === 1 ? "one pack credit" : `${count} pack credits`);
+const spoken = (name, values) => require("../lib/run-say.js").line(name, values);
+
+function faulted(detail, after = false) {
+  fail(`${spoken(after ? "ev-run.fault-after" : "ev-run.fault-before")}\n${String(detail).trim()}`);
+}
 
 function observedIn(said) {
   const body = said.replace(/^refused \d+:\s*/, "");
@@ -66,47 +69,26 @@ function observedIn(said) {
 function refusal(said) {
   const credit = observedIn(said).match(/this run asks for (\d+) packs? and (?:no pack credits are left|([\d.]+) pack credits? (?:is|are) left)/);
   if (/^refused 402:/.test(said) && credit) {
-    const asked = Number(credit[1]);
-    return { spent: false, said: `This run reads ${packsSaid(asked)}, which needs ${creditsSaid(asked)}, and you have ${credit[2] ?? "none"}. ` +
-      "It did not start, and no pack credits were used. To buy more pack credits, email support@evalation.ai, then run /ev-run again, or choose fewer packs." };
+    const count = Number(credit[1]);
+    if (count === 1) return { spent: false, said: spoken("ev-run.start-short-one") };
+    return { spent: false, said: credit[2] ? spoken("ev-run.start-short", { count, left: credit[2] }) : spoken("ev-run.start-short-none", { count }) };
   }
-  if (/^refused 402:/.test(said)) {
-    return { spent: false, said: "This machine's access to Evalation has ended, so the run did not start and no pack credits were used. " +
-      "To renew it, email support@evalation.ai." };
-  }
-  if (/^refused 40[13]:/.test(said)) {
-    return { spent: false, said: "Evalation's server did not accept this machine's sign-in, so the run did not start and no pack credits " +
-      "were used. Run /ev-account to see why." };
-  }
-  if (SIGNED_OUT.test(said)) {
-    return { spent: false, said: "This machine is not signed in to Evalation, so the run did not start and no pack credits were used. " +
-      "Run /ev-activate to sign in." };
-  }
-  const why = unanswered(said) ? "Evalation's server could not be reached" : "Evalation's server did not answer in a way this machine could read";
-  return { spent: null, said: `${why}, so it is not clear whether this run started. If it did, its pack credits were used, and ` +
-    "/ev-account shows your balance. Run /ev-run again on the same folder with the same packs and question sets: the server counts that as this " +
-    "same run, so it is never charged twice." };
+  if (/^refused 402:/.test(said)) return { spent: false, said: spoken("ev-run.start-ended") };
+  if (/^refused 40[13]:/.test(said)) return { spent: false, said: spoken("ev-run.start-not-accepted") };
+  if (SIGNED_OUT.test(said)) return { spent: false, said: spoken(NEVER_SET_UP.test(said) ? "ev-run.start-signed-out" : "ev-run.start-damaged") };
+  return { spent: null, said: spoken("ev-run.start-unclear") };
 }
 
 const SIGNED_OUT = /^(no-settings|no-key|no-installation|unreadable-key-reference|key-wrong-size|settings-unreadable):/;
-const UNSTARTED = "It did not start, and no pack credits were used.";
+const NEVER_SET_UP = /^no-settings:/;
 
 function unlisted(thrown) {
   const said = String(thrown?.stderr ?? "").trim().split("\n")[0];
-  if (SIGNED_OUT.test(said)) {
-    return "This machine is not signed in to Evalation, so the packs could not be read. No pack credits were used. Run /ev-activate to sign in.";
-  }
-  if (/^refused 40[13]:/.test(said)) {
-    return "Evalation's server did not accept this machine's sign-in, so the packs could not be read. No pack credits were used. " +
-      "Run /ev-account to see why.";
-  }
-  if (/^unreachable:/.test(said)) {
-    return "Evalation's server could not be reached, so the packs could not be read. No pack credits were used. " +
-      "Run /ev-run again once this machine is online.";
-  }
-  const why = said || (thrown?.code ? `error ${thrown.code}` : "its answer could not be read");
-  return `The packs could not be read from Evalation's server (${why}). No pack credits were used. ` +
-    "Run /ev-run again, and if the same happens, send this line to support@evalation.ai.";
+  if (SIGNED_OUT.test(said)) return spoken(NEVER_SET_UP.test(said) ? "ev-run.signed-out" : "ev-run.damaged");
+  if (/^refused 402:/.test(said)) return spoken("ev-run.ended");
+  if (/^refused 40[13]:/.test(said)) return spoken("ev-run.not-accepted");
+  if (/^unreachable:/.test(said)) return spoken("ev-run.unreachable");
+  return spoken("ev-run.server-trouble");
 }
 
 function pendingAt() {
@@ -294,23 +276,29 @@ function jsonOf(script, args) {
     return JSON.parse(runScript(script, args, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }));
   } catch (thrown) {
     if (script === "evalation-packs") fail(unlisted(thrown));
-    fail(`${script} ${args.join(" ")} failed: ${String(thrown.stderr || thrown.message).trim().split("\n")[0]}`);
+    faulted(`${script} ${args.join(" ")} failed: ${String(thrown.stderr || thrown.message).trim().split("\n")[0]}`);
   }
 }
 
 function credits() {
   const said = runScript("evalation-status", [], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
   const left = said.match(/^pack credits left: (\S+)$/m);
-  if (!left) fail(`evalation-status gave no balance: ${said.trim().split("\n").join(" | ")}`);
-  return left[1];
+  if (left) return left[1];
+  const state = said.match(/^state: (\S+)$/m)?.[1];
+  const reason = said.match(/^reason: (\S+)$/m)?.[1];
+  if (state === "not-set-up") fail(spoken(/^sign-in: damaged$/m.test(said) ? "ev-run.damaged" : "ev-run.signed-out"));
+  if (state === "unreachable") fail(spoken("ev-run.unreachable"));
+  if (reason === "ended") fail(spoken("ev-run.ended"));
+  if (reason === "refused" || reason === "clock") fail(spoken("ev-run.not-accepted"));
+  return fail(spoken("ev-run.server-trouble"));
 }
 
-function spoken(part, args) {
+function saying(part, args) {
   const words = require("../lib/run-say.js");
   const at = () => args[0] || process.cwd();
   const solution = () => described(solutionOf(at(), { asChosen: false }));
   const chosen = () => solutionOf(at());
-  const facts = () => branchOf(at()) ?? fail(`${at()} is no git checkout with a main branch`);
+  const facts = () => branchOf(at()) ?? faulted(`${at()} is no git checkout with a main branch`);
   const titles = () => jsonOf("evalation-packs", ["titles"]);
   const sets = () => jsonOf("evalation-questions", ["list"]).sets ?? [];
   const usual = () => jsonOf("evalation-packs", ["show"]).packs ?? [];
@@ -333,16 +321,22 @@ function spoken(part, args) {
     short: () => words.short(credits(), args[0]),
     reading: () => words.reading(read()),
     tally: () => words.tally(...args.slice(0, 4)),
-    next: () => words.next(read()),
+    done: () => words.done(read(), args[1]),
+    folder: () => words.folder(read(), args[1]),
   };
-  if (!parts[part]) fail(`usage: evalation-run --say <${Object.keys(parts).join("|")}> [argument ...]`);
-  const said = parts[part]();
+  if (!parts[part]) faulted(`usage: evalation-run --say <${Object.keys(parts).join("|")}> [argument ...]`);
+  let said;
+  try {
+    said = parts[part]();
+  } catch (thrown) {
+    faulted(`--say ${part}: ${thrown?.message ?? thrown}`, ["reading", "tally", "done", "folder"].includes(part));
+  }
   if (said) process.stdout.write(`${said}\n`);
 }
 
 function main() {
   if (process.argv[2] === "--say") {
-    spoken(process.argv[3], process.argv.slice(4));
+    saying(process.argv[3], process.argv.slice(4));
     return;
   }
   if (process.argv[2] === "--branch") {
@@ -365,7 +359,7 @@ function main() {
   }
   if (process.argv[2] === "--last") {
     const found = lastRun(process.argv[3] || process.cwd());
-    if (!found) fail("This folder has no earlier run on this machine, so there are no reports to print again. No pack credits were used.");
+    if (!found) fail(spoken("ev-run.no-last"));
     process.stdout.write(`${JSON.stringify({ written: found.written, at: found.document.at,
       packs: (found.document.packs ?? []).map((one) => ({ pack: one.pack, kind: one.kind, title: one.title })) })}\n`);
     return;
@@ -387,14 +381,10 @@ function main() {
   }
   if (process.argv[2] === "--solution") {
     const at = process.argv[3];
-    if (!at || !solutionOf(at)) {
-      fail("This folder holds no repositories to read together, so nothing was saved and no pack credits were used. Run /ev-run again from the folder that holds them.");
-    }
+    if (!at || !solutionOf(at)) fail(spoken("ev-run.no-solution"));
     const rest = process.argv.slice(4);
     const name = rest[rest.indexOf("--name") + 1];
-    if (rest.indexOf("--name") < 0 || !String(name ?? "").trim()) {
-      fail("The product was given no name for the reports, so nothing was saved and no pack credits were used. Run /ev-run again and name it when asked.");
-    }
+    if (rest.indexOf("--name") < 0 || !String(name ?? "").trim()) fail(spoken("ev-run.no-name"));
     const leave = rest.flatMap((one, index) => (rest[index - 1] === "--leave" ? [one] : []));
     choose(at, { name, leave });
     process.stdout.write(JSON.stringify(solutionOf(at)) + "\n");
@@ -411,8 +401,7 @@ function main() {
     else if (args[at].trim() !== "") wanted.push(args[at]);
   }
 
-  const again = "Run /ev-run again from inside the repository to read.";
-  if (!existsSync(where)) fail(`There is no folder at ${where}. ${UNSTARTED} ${again}`);
+  if (!existsSync(where)) fail(spoken("ev-run.no-folder", { folder: where }));
 
   // The target is a directory and nothing else, per section 1: the run reads the local clone, issues
   // no call to the host it came from and holds no credential for it, so there is nothing to prove
@@ -422,9 +411,9 @@ function main() {
   try {
     folder = statSync(where).isDirectory();
   } catch {
-    fail(`The folder ${where} could not be opened on this machine. ${UNSTARTED} ${again}`);
+    fail(spoken("ev-run.unopened", { folder: where }));
   }
-  if (!folder) fail(`A run reads a folder, and ${where} is a file. ${UNSTARTED} ${again}`);
+  if (!folder) fail(spoken("ev-run.a-file", { folder: where }));
 
   // What to assess against: named on the command line where somebody named some, and the recorded
   // selection otherwise. Per run rather than per installation, because a consultant assesses one
@@ -443,9 +432,7 @@ function main() {
       packs = [];
     }
   }
-  if (packs.length === 0 && sets.length === 0) {
-    fail(`This run was given no packs to read. ${UNSTARTED} Run /ev-run again and choose at least one pack.`);
-  }
+  if (packs.length === 0 && sets.length === 0) fail(spoken("ev-run.no-packs"));
   if (sets.some((one) => one.pack !== "custom")) {
     let catalogue;
     try {
@@ -455,14 +442,9 @@ function main() {
     }
     for (const one of sets.filter((each) => each.pack !== "custom")) {
       const held = catalogue.find((each) => each.pack === one.pack);
-      if (!packs.includes(one.pack)) {
-        fail(`Your question set ${one.name} adds questions to ${held?.title ?? "a pack"}, which this run does not read. ${UNSTARTED} ` +
-          "Run /ev-run again and choose that pack, or leave the set out.");
-      }
-      if (!held?.extensible) {
-        fail(`Your question set ${one.name} adds questions to ${held?.title ?? "a pack"}, which keeps the published standard's own ` +
-          `clauses. ${UNSTARTED} Run /ev-run again and leave the set out.`);
-      }
+      if (!held?.title) fail(spoken("ev-run.set-unknown-pack", { set: one.name }));
+      if (!packs.includes(one.pack)) fail(spoken("ev-run.set-unread-pack", { set: one.name, pack: held.title }));
+      if (!held.extensible) fail(spoken("ev-run.set-closed-pack", { set: one.name, pack: held.title }));
     }
   }
 
@@ -478,6 +460,7 @@ function main() {
     if (said.spent === false) keepPending(key, null);
     fail(said.said);
   }
+  counted = true;
   const document = { ...served({ ...got.answer, run }, sets, where), target: target(where) };
   const { written, rubrics } = kept(document);
   keepPending(key, null);
@@ -489,12 +472,9 @@ function setFrom(file) {
   try {
     set = JSON.parse(readFileSync(file, "utf8"));
   } catch {
-    fail(`A question set chosen for this run could not be read. ${UNSTARTED} Run /ev-questions to see your saved sets, then run /ev-run again.`);
+    fail(spoken("ev-run.set-unreadable"));
   }
-  if (problems(set).length > 0) {
-    fail(`The question set ${set?.name ? `${set.name} ` : ""}does not meet the rules a question set is checked against. ${UNSTARTED} ` +
-      "Run /ev-questions to check it and save it again, then run /ev-run again.");
-  }
+  if (problems(set).length > 0) fail(set?.name ? spoken("ev-run.set-broken", { set: set.name }) : spoken("ev-run.set-broken-unnamed"));
   return set;
 }
 
@@ -537,4 +517,12 @@ function served(answer, sets = [], where = null) {
 
 module.exports = { target, branchOf, scanFor, served };
 
-if (require.main === module) main();
+let counted = false;
+
+if (require.main === module) {
+  try {
+    main();
+  } catch (thrown) {
+    faulted(thrown?.stack ?? thrown, counted);
+  }
+}

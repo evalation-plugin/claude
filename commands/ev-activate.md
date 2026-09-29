@@ -44,22 +44,28 @@ choosing it does.
 
    At a state that stops here, ask nothing and open no browser.
 
-2. **Say what signing in is**, once: `evalation-say ev-activate.explain`.
+2. **Say what signing in is**, once per conversation: `evalation-say ev-activate.explain`. Skip it
+   where its line already appears earlier in this conversation, shown by this command or by
+   `/ev-start`.
 
-3. **Ask which provider** with `evalation-say ev-activate.provider`, or where Google has already
-   failed in this conversation, offer Microsoft first with
-   `evalation-say ev-activate.provider-microsoft-first`. Say once, beside the question,
-   `evalation-say ev-activate.other-ways`.
+3. **Ask which provider** with `evalation-say ev-activate.provider`. Where Google said no, offer
+   Microsoft first with `evalation-say ev-activate.provider-microsoft-first`. Offer Microsoft first
+   only where an attempt with Google in this conversation ended on `sign-in-refused`, `refused`,
+   `refused-no-reason` or `no-code`, or the person said its page declined them or showed an error.
+   A failure of this machine or of Evalation's server, such as `unreachable`, `no-listener`,
+   `no-key-store`, `timed-out` or `server-error`, keeps the usual order. Show once per
+   conversation, beside the question, `evalation-say ev-activate.other-ways`, skipping it the same
+   way as step 2.
 
    Where they pick Other and name Google or Microsoft, go on with that one. Where they type any
    other way to sign in, show `evalation-say ev-activate.other-way` and ask the same question
    again.
 
    Ask even where one was named earlier in this conversation: an attempt that already failed is a
-   reason to ask again and never a reason to assume, because the provider is the most likely thing
-   to have been wrong. Where one has already failed, first show
-   `evalation-say ev-activate.failed-before`, passing the provider that failed as `provider` and the
-   line you showed when it failed as `reason`.
+   reason to ask again and never a reason to assume. Where the provider has already said no in
+   this conversation, in the cases above that put Microsoft first, first show
+   `evalation-say ev-activate.failed-before`, passing that provider as `provider`. After a failure
+   of this machine or of Evalation's server, show nothing about the earlier attempt.
 
 4. **Start the sign-in in the background**, with the provider they chose.
 
@@ -85,12 +91,26 @@ choosing it does.
    Then, before you wait for it to end, show `evalation-say ev-activate.waiting`. Claude Code tells
    you when it ends.
 
-5. **Where they write while it waits**, read what they wrote. Where their message says what the
-   browser showed, or asks to stop, first stop the waiting command with the tool that stops a
-   background command, TaskStop in Claude Code, and treat the `stopped` line it then prints as
-   expected. Where their message says what the browser showed, act on it. Where it asks to stop,
-   ask as for `stopped` below. Where it is about something else, answer it and leave the sign-in
-   waiting.
+5. **Where they write while it waits**, match what they wrote to one of these cases and show only
+   the lines it names. Never reply about the sign-in in words of your own.
+
+   - Where they say they declined, or the page said access was denied or needs an administrator:
+     show `evalation-say ev-activate.declined`, then ask as for `sign-in-refused` below.
+   - Where they describe an error page: show `evalation-say ev-activate.error-page`, then ask as for
+     `sign-in-refused` below, with the provider whose page showed the error counted as declined.
+   - Where they say nothing happened, or no sign-in page appeared: show
+     `evalation-say ev-activate.nothing-happened` with the address on its own line under it, and
+     leave the sign-in waiting.
+   - Where they ask to stop: ask `evalation-say ev-activate.stopped` and go on as for `stopped`
+     below.
+   - Where they say something else about the sign-in or the page: show
+     `evalation-say ev-activate.something-else` and stop.
+   - Where the message is about something other than the sign-in, answer it and leave the sign-in
+     waiting.
+
+   In the cases that do not leave it waiting, first stop the waiting command with the tool that
+   stops a background command, TaskStop in Claude Code, and treat the `stopped` line it then prints
+   as expected.
 
 6. **Read what it printed.** On success it prints `signed_in_as`. Where that holds an email, show
    `evalation-say ev-activate.signed-in` with it as `email`. Where it is empty, show
@@ -107,10 +127,11 @@ the person that nothing was created, so a person who fears a half made account n
 for one, and each ends on the one thing to do next.
 
 - **`stopped`** means the wait was stopped. Never report it as a timeout. Where you stopped it
-  because their message said what the browser showed, act on that and ask nothing. Otherwise ask
-  `evalation-say ev-activate.stopped`. On the answer to tell what the browser showed, show
-  `evalation-say ev-activate.type-browser`, then act on what they type. On the answer to sign in
-  again, go back to step 3. On the answer to stop, show `evalation-say ev-activate.stopped-stop`.
+  because of their message, the case in step 5 has already named what to show, so show nothing
+  more. Otherwise ask `evalation-say ev-activate.stopped`. On the answer to sign in again, go back
+  to step 3. On the answer to stop, show `evalation-say ev-activate.stopped-stop`. Where they type
+  their own answer, match it to the cases in step 5, except that nothing happened goes back to
+  step 4 with the same provider.
 - **`sign-in-refused`** means they declined at the provider's page, or the provider did. Show
   `evalation-say ev-activate.declined`. Then ask the question that puts the provider not just
   declined first: where Google was not the one declined,
@@ -118,11 +139,15 @@ for one, and each ends on the one thing to do next.
   `evalation-say ev-activate.declined-microsoft-first`. Run step 4 with the one chosen. On the answer
   to stop, show `evalation-say ev-activate.declined-stop`.
 - **`timed-out`** means the five minutes ran out. Show `evalation-say ev-activate.timed-out`.
-- **`refused`** carries the server's or the provider's own words after the status. If those words
-  name a redirect or a reply URL, the fault is our setup and not anything they did. Show
+- **`refused`** carries, after the colon, what Evalation or the provider saw, in plain words. Show
+  `evalation-say ev-activate.refused`, with those words exactly as printed as its `reason`.
+- **`refused-no-reason`** means the refusal gave no plain reason. Show
+  `evalation-say ev-activate.refused-no-reason`.
+- **`fault`** means the sign-in is set up wrongly on our side, and nothing they did caused it. Show
   `evalation-say ev-activate.fault`. Do not have them try again, because that will fail the same
-  way. Otherwise show `evalation-say ev-activate.refused`, passing as `reason` the server's or
-  provider's words after the status, exactly as printed.
+  way.
+- **`server-error`** means Evalation's server failed. Show
+  `evalation-say ev-activate.server-error`.
 - **`no-code`** means the provider sent them back without finishing. Show
   `evalation-say ev-activate.no-code`.
 - **`wrong-sign-in`** means what came back was not the sign-in that went out. Show

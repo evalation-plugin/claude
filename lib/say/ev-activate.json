@@ -1,5 +1,5 @@
 {
-  "ev-activate.damaged": { "say": "This machine needs to sign in to Evalation again. Your pack credits and reports are kept." },
+  "ev-activate.damaged": { "say": "This machine needs to sign in to Evalation again. Sign in with the same account as before, so your pack credits and reports are there." },
   "ev-activate.already": { "say": "This machine is already signed in to Evalation." },
   "ev-activate.explain": { "say": "You sign in with Google or Microsoft in your browser. Evalation never sees your password. Your sign-in stays on this machine, and only your login on this computer can use it." },
   "ev-activate.provider": { "ask": "Which account will you sign in with? This machine stays signed in with the account you choose.", "header": "Sign in", "options": [
@@ -10,7 +10,7 @@
     { "label": "Sign in with Google", "description": "Google, including Google Workspace work accounts" } ] },
   "ev-activate.other-ways": { "say": "Other ways to sign in are not offered yet. If you have neither account, contact support@evalation.ai." },
   "ev-activate.other-way": { "say": "That way to sign in is not offered yet." },
-  "ev-activate.failed-before": { "say": "Signing in with <provider> did not work last time. <reason>" },
+  "ev-activate.failed-before": { "say": "Signing in with <provider> did not work last time." },
   "ev-activate.no-browser": { "say": "No browser opened, so open this address to sign in:" },
   "ev-activate.browser": { "say": "A browser should now show the sign-in page. If it does not, open this address:" },
   "ev-activate.waiting": { "say": "It waits up to five minutes. If the page shows an error in place of a sign-in page, tell me what it says." },
@@ -19,10 +19,11 @@
   "ev-activate.other-computer": { "say": "To use Evalation on another computer, sign in there with the same account. It costs nothing extra." },
   "ev-activate.next": { "say": "Next, run /ev-packs to choose what your code is checked against." },
   "ev-activate.stopped": { "ask": "The sign-in was stopped. What would you like to do?", "header": "Sign in", "options": [
-    { "label": "Tell you what the browser showed", "description": "Type what the browser said, and I will work out the next step." },
     { "label": "Sign in again", "description": "Choose an account and start the sign-in again." },
     { "label": "Stop for now", "description": "Leave this machine signed out. Nothing was created." } ] },
-  "ev-activate.type-browser": { "say": "Type what the browser says, and I will work out the next step." },
+  "ev-activate.error-page": { "say": "The sign-in page showed an error, so nothing was created. You can sign in with the other account, or email support@evalation.ai with what the page says." },
+  "ev-activate.nothing-happened": { "say": "The sign-in is still waiting, so open this address in your browser to reach the sign-in page:" },
+  "ev-activate.something-else": { "say": "Nothing was created. Email support@evalation.ai with what the page says, and we will help you finish signing in." },
   "ev-activate.stopped-stop": { "say": "Nothing was created. Run /ev-activate when you are ready to sign in." },
   "ev-activate.declined": { "say": "The sign-in was declined, so nothing was created." },
   "ev-activate.declined-google-first": { "ask": "Which account will you sign in with now? This machine stays signed in with the account you choose.", "header": "Sign in", "options": [
@@ -37,6 +38,8 @@
   "ev-activate.timed-out": { "say": "The sign-in was not finished within five minutes, so nothing was created. Run /ev-activate to try again." },
   "ev-activate.fault": { "say": "Evalation could not finish the sign-in because of a fault on our side, so nothing was created. Contact support@evalation.ai and we will fix it." },
   "ev-activate.refused": { "say": "The sign-in was refused, with this reason: <reason>. Nothing was created. Run /ev-activate to try again, and if it is refused again, email support@evalation.ai." },
+  "ev-activate.refused-no-reason": { "say": "The sign-in was refused, so nothing was created. Run /ev-activate to try again, and if it is refused again, email support@evalation.ai." },
+  "ev-activate.server-error": { "say": "Evalation could not finish the sign-in just now, so nothing was created. Run /ev-activate again in a few minutes. If it still fails, contact support@evalation.ai." },
   "ev-activate.no-code": { "say": "The sign-in came back unfinished, so nothing was created. Run /ev-activate to try again." },
   "ev-activate.wrong-sign-in": { "say": "The sign-in that came back did not match the one that started, so nothing was created. Run /ev-activate to try again." },
   "ev-activate.wrong-sign-in-twice": { "say": "This should not happen twice. Contact support@evalation.ai." },

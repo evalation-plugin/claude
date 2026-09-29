@@ -219,7 +219,7 @@ test("ev-run writes no question itself, and runs each one the catalogue or a scr
   assert.doesNotMatch(text, /\bask "|\bheaded "|described as "/i);
   assert.doesNotMatch(text, /CLAUDE_PLUGIN_ROOT\}\/bin\/evalation/);
   const verbs = ["found", "pick", "evidence", "name", "branches", "copies", "off-main", "branch", "stale", "packs", "usual", "all",
-    "sets", "only", "short", "reading", "tally", "next"];
+    "sets", "only", "short", "reading", "tally", "done", "folder"];
   assert.deepStrictEqual(verbs.filter((one) => !text.includes(`evalation-run --say ${one}`)), []);
 });
 
@@ -238,14 +238,53 @@ test("a branch, a detached commit and a stale copy are each said in the catalogu
   assert.strictEqual(sayRun("off-main", tree).stdout, "This run is about to read a commit on no branch in place of main.\n");
 });
 
-test("the checking's tally is said with its counts in the catalogue's words", () => {
+test("the checking's tally leaves withdrawn claims out, counts what stays asserted, and says a count of one as one", () => {
+  assert.strictEqual(sayRun("tally", "120", "101", "12", "3").stdout,
+    "Of 117 claims, 101 were confirmed against the code. 12 were corrected. 16 stay marked asserted in the reports, since no second check confirmed them.\n");
   assert.strictEqual(sayRun("tally", "12", "1", "1", "0").stdout,
-    "Of 12 claims, 1 was confirmed against the code. 1 was corrected. The rest stay marked asserted in the reports, since no second check confirmed them.\n");
+    "Of 12 claims, one was confirmed against the code. One was corrected. 11 stay marked asserted in the reports, since no second check confirmed them.\n");
   assert.strictEqual(sayRun("tally", "5", "5", "0", "0").stdout, "Of 5 claims, 5 were confirmed against the code.\n");
-  assert.strictEqual(sayRun("tally", "4", "0", "3", "2").stdout,
-    "Of 4 claims, none was confirmed against the code. 3 were corrected and 2 withdrawn. The rest stay marked asserted in the reports, since no second check confirmed them.\n");
+  assert.strictEqual(sayRun("tally", "6", "0", "3", "2").stdout,
+    "Of 4 claims, none was confirmed against the code. 3 were corrected. 4 stay marked asserted in the reports, since no second check confirmed them.\n");
   assert.strictEqual(sayRun("tally", "4", "2", "0", "1").stdout,
-    "Of 4 claims, 2 were confirmed against the code. 1 was withdrawn. The rest stay marked asserted in the reports, since no second check confirmed them.\n");
+    "Of 3 claims, 2 were confirmed against the code. One stays marked asserted in the reports, since no second check confirmed it.\n");
+  assert.strictEqual(sayRun("tally", "1", "1", "0", "0").stdout, "The one claim was confirmed against the code.\n");
+  assert.strictEqual(sayRun("tally", "2", "0", "0", "1").stdout,
+    "The one claim was not confirmed against the code, so it stays marked asserted in the reports.\n");
+  assert.doesNotMatch(sayRun("tally", "3", "1", "0", "2").stdout, /withdrawn|claims/);
+});
+
+test("the closing lines sum up each pack from the findings, then name the reports folder on its own line, then what to open", () => {
+  const { run } = require("./fixture.js");
+  const { reportsFolder } = require("../lib/reports.js");
+  const folder = mkdtempSync(join(tmpdir(), "evalation-done-"));
+  const findings = join(folder, "findings.json");
+  const document = { ...run(repository()), schema: "evalation.findings.v1" };
+  document.findings = [{ pack: "hardening", severity: "high" }, { pack: "hardening", severity: "critical" },
+    { pack: "hardening", severity: "high" }, { pack: "hardening", severity: "positive" }];
+  writeFileSync(findings, JSON.stringify(document));
+  assert.strictEqual(sayRun("done", findings).stdout,
+    "SOC 2 Trust Services Criteria, 2 entries: 1 partly covered and 1 for the organisation to answer. " +
+    "Evalation Hardening Review, 3 weaknesses: 1 critical and 2 high.\n" +
+    `The reports are in ${reportsFolder(document)}.\n` +
+    "Open Evalation Hardening Review Detail.pdf to work through the fixes. Running /ev-run again after changes uses 2 pack credits.\n");
+  document.findings = [{ pack: "hardening", severity: "low" }];
+  document.answers = document.answers.slice(0, 1).map((one) => ({ ...one, status: "total-gap" }));
+  document.packs[0].entry_noun = { one: "criterion", many: "criteria" };
+  writeFileSync(findings, JSON.stringify(document));
+  assert.strictEqual(sayRun("done", findings, "/r/Chosen").stdout,
+    "SOC 2 Trust Services Criteria, one criterion: 1 not covered. Evalation Hardening Review, one weakness: 1 low.\n" +
+    "The reports are in /r/Chosen.\n" +
+    "Open Evalation Hardening Review Detail.pdf to work through the fixes. Running /ev-run again after changes uses 2 pack credits.\n");
+  document.findings = [];
+  writeFileSync(findings, JSON.stringify(document));
+  assert.match(sayRun("done", findings).stdout, /Evalation Hardening Review, no weaknesses found\.\n/);
+  assert.strictEqual(sayRun("folder", findings).stdout, `The reports are in ${reportsFolder(document)}.\n`);
+});
+
+test("delivering reports that printed and signed says nothing, since the closing lines name the folder", () => {
+  const { said } = require("../bin/evalation-deliver");
+  assert.strictEqual(said({ printed: true, into: "/r", pack: "/r/A Pack.pdf", findings: "/r/A Detail.pdf", unsigned: [] }), "");
 });
 
 test("the reading line names every pack, and the closing line names the file to work from and what a rerun uses", () => {
@@ -253,13 +292,13 @@ test("the reading line names every pack, and the closing line names the file to 
   const folder = mkdtempSync(join(tmpdir(), "evalation-said-"));
   const findings = join(folder, "findings.json");
   writeFileSync(findings, JSON.stringify(run(repository())));
-  assert.strictEqual(sayRun("next", findings).stdout,
-    "Open Evalation Hardening Review Detail.pdf to work through the fixes. Running /ev-run again after changes uses 2 pack credits.\n");
+  assert.strictEqual(sayRun("done", findings).stdout.split("\n").at(-2),
+    "Open Evalation Hardening Review Detail.pdf to work through the fixes. Running /ev-run again after changes uses 2 pack credits.");
   const standard = run(repository());
   standard.packs = standard.packs.filter((one) => one.pack === "soc2");
   writeFileSync(findings, JSON.stringify(standard));
-  assert.strictEqual(sayRun("next", findings).stdout,
-    "Open Evalation SOC 2 Trust Services Criteria Evidence Pack.pdf to work through the fixes. Running /ev-run again after changes uses one pack credit.\n");
+  assert.strictEqual(sayRun("done", findings).stdout.split("\n").at(-2),
+    "Open Evalation SOC 2 Trust Services Criteria Evidence Pack.pdf to work through the fixes. Running /ev-run again after changes uses one pack credit.");
   const runFile = join(folder, "run.json");
   writeFileSync(runFile, JSON.stringify({ target: { kind: "repository" }, packs: [{ pack: "soc2", body: { title: "SOC 2 Trust Services Criteria" } },
     { pack: "iso27001", body: { title: "ISO/IEC 27001" } }, { pack: "hardening", body: { title: "Evalation Hardening Review" } }] }));

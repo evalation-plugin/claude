@@ -1,6 +1,6 @@
 ---
 description: "Your Evalation account: pack credits left and the packs you chose."
-allowed-tools: Bash(evalation-status:*), Bash(evalation-packs show:*), Bash(evalation-packs titles:*), Bash(evalation-say:*)
+allowed-tools: Bash(evalation-status:*), Bash(evalation-packs chosen:*), Bash(evalation-say:*)
 ---
 
 # Your account
@@ -23,13 +23,7 @@ blank such as `<titles>`, pass its value as `titles=<value>`, for example
    Report what it returns and never infer the account's state from whether anything appeared in this
    conversation.
 
-2. **Read what is selected.**
-
-   ```
-   evalation-packs show
-   ```
-
-3. **Show what is next, going by the `state:` line.** Each case below is the whole reply for that
+2. **Show what is next, going by the `state:` line.** Each case below is the whole reply for that
    state.
 
    - `state: not-set-up` with a `sign-in: damaged` line: `evalation-say ev-account.damaged`
@@ -57,8 +51,9 @@ Show these lines in order, as one reply, and nothing else.
    `evalation-say ev-account.credits-one` in its place. Where the line is absent, show
    `evalation-say ev-account.credits-unread` and name no number of your own.
 
-3. Then one of these, counting the packs `show` lists as <M>, passing it as `count`, and filling
-   `<titles>` with each pack's title from `evalation-packs titles`, never its handle:
+3. Read what is selected with `evalation-packs chosen`. It prints `titles`, the chosen packs'
+   titles already joined, and `packs`, how many there are, which is <M>. Then show one of these,
+   passing <M> as `count` and `titles` exactly as printed:
 
    - No packs selected: `evalation-say ev-account.no-packs`. Where <N> is 0, add
      `evalation-say ev-account.buy`.

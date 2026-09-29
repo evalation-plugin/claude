@@ -22,7 +22,7 @@
 "use strict";
 
 const { existsSync, mkdirSync, readFileSync, writeFileSync } = require("node:fs");
-const { basename, join, resolve } = require("node:path");
+const { join, resolve } = require("node:path");
 
 const { pluginHome } = require("../lib/home.js");
 const { changes, earlierFor } = require("../lib/changes.js");
@@ -345,11 +345,9 @@ function deliver(source, named, target) {
 
 /** What the person is told once the reports are made. */
 function said(done) {
-  const lines = done.printed
-    ? [`Wrote ${basename(done.pack)} and ${basename(done.findings)} into ${done.into}`]
-    : [unprintedSaid(done.pages, done.into)];
+  const lines = done.printed ? [] : [unprintedSaid(done.pages, done.into)];
   for (const one of done.unsigned) lines.push(unsignedSaid(one.file, one.why));
-  return `${lines.join("\n")}\n`;
+  return lines.map((one) => `${one}\n`).join("");
 }
 
 module.exports = { deliver, reviewFindings, said };

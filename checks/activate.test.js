@@ -124,15 +124,15 @@ test("the sign-in command text shows the address at once, hears the person durin
   assert.strictEqual(line("`could not open a browser`").say, "No browser opened, so open this address to sign in:");
   assert.strictEqual(line("where no such line follows").say, "A browser should now show the sign-in page. If it does not, open this address:");
   assert.strictEqual(line("wait for it to end").say, "It waits up to five minutes. If the page shows an error in place of a sign-in page, tell me what it says.");
-  assert.match(FLAT, /Where their message says what the browser showed/);
+  assert.match(FLAT, /Where they write while it waits/);
   assert.doesNotMatch(FLAT, /press Esc/);
   assert.strictEqual(line("`state: live` or `state: unreachable`").say, "This machine is already signed in to Evalation.");
   assert.match(FLAT, /`state: not-live`: run `\/ev-account` and say nothing of your own/);
-  assert.strictEqual(line("`sign-in: damaged`").say, "This machine needs to sign in to Evalation again. Your pack credits and reports are kept.");
+  assert.strictEqual(line("`sign-in: damaged`").say, "This machine needs to sign in to Evalation again. Sign in with the same account as before, so your pack credits and reports are there.");
   assert.strictEqual(line("**`unreachable`**").say, "Evalation could not be reached, so nothing was created. Check this machine is online, then run /ev-activate again. If it still fails, contact support@evalation.ai.");
   assert.strictEqual(line("any other way to sign in").say, "That way to sign in is not offered yet.");
-  assert.deepStrictEqual(line("Say once, beside the question").say, "Other ways to sign in are not offered yet. If you have neither account, contact support@evalation.ai.");
-  assert.deepStrictEqual(answers(line("**`stopped`**")).map((one) => one[0]), ["Tell you what the browser showed", "Sign in again", "Stop for now"]);
+  assert.deepStrictEqual(line("beside the question").say, "Other ways to sign in are not offered yet. If you have neither account, contact support@evalation.ai.");
+  assert.deepStrictEqual(answers(line("**`stopped`**")).map((one) => one[0]), ["Sign in again", "Stop for now"]);
   const asked = Object.entries(LINES).filter(([name, one]) => name.startsWith("ev-activate.") && one.ask);
   assert.ok(asked.length >= 5);
   assert.deepStrictEqual(asked.filter(([, one]) => one.header !== "Sign in").map(([name]) => name), []);
@@ -140,6 +140,34 @@ test("the sign-in command text shows the address at once, hears the person durin
   assert.ok(line("Say what signing in is").say.includes("Your sign-in stays on this machine, and only your login on this computer can use it."));
   const words = [FLAT, ...Object.entries(LINES).filter(([name]) => name.startsWith("ev-activate.")).map(([, one]) => JSON.stringify(one))].join(" ");
   assert.doesNotMatch(words, /password store(?! \(Keychain on a Mac\))(?! Evalation can use)/);
+});
+
+test("a retry reorders the providers only after the provider said no, and never repeats the earlier line", () => {
+  const rule = FLAT.match(/offer Microsoft first only where[^.]*\./i);
+  assert.ok(rule, "the command says when Microsoft goes first");
+  for (const prefix of ["`sign-in-refused`", "`refused`", "`no-code`"]) assert.ok(rule[0].includes(prefix), prefix);
+  for (const prefix of ["`unreachable`", "`no-listener`", "`no-key-store`", "`timed-out`", "`server-error`"]) assert.ok(!rule[0].includes(prefix), prefix);
+  assert.strictEqual(line("Where the provider has already said no").say, "Signing in with <provider> did not work last time.");
+  assert.doesNotMatch(FLAT, /as `reason`/);
+});
+
+test("words typed about the browser are matched to fixed lines, and nothing sends the session to compose a reply", () => {
+  assert.doesNotMatch(FLAT, /act on (it|that|what they type)/);
+  assert.ok(!LINES["ev-activate.type-browser"]);
+  assert.match(line("they declined").say, /^The sign-in was declined/);
+  assert.match(line("an error page").say, /showed an error/);
+  assert.match(line("nothing happened").say, /open this address/);
+  assert.strictEqual(line("something else").say, "Nothing was created. Email support@evalation.ai with what the page says, and we will help you finish signing in.");
+  assert.doesNotMatch(FLAT, /name a redirect or a reply URL/);
+  assert.match(line("**`fault`**").say, /fault on our side/);
+  assert.match(line("**`server-error`**").say, /support@evalation\.ai/);
+  assert.doesNotMatch(line("**`refused-no-reason`**").say, /<reason>/);
+});
+
+test("the lines said once are said once per conversation, known from what this conversation already shows", () => {
+  assert.match(FLAT, /Say what signing in is\*\*, once per conversation/);
+  assert.match(FLAT, /once per conversation, beside the question, `evalation-say ev-activate\.other-ways`/);
+  assert.match(FLAT, /already appears earlier in this conversation/);
 });
 
 test("the sign-in address is printed before the wait, even where a browser opens", async (t) => {
@@ -167,9 +195,20 @@ test("a sign-in left unfinished reports its own timeout line and no helper's nam
   assert.match(ran.stderr, /^timed-out: the sign-in was not finished within five minutes, so nothing was activated$/m);
 });
 
+test("a refusal gives the person only what was observed, never the requirement, a status or a raw code", async () => {
+  const told = async (status, reply) => (await signIn(() => [status, reply])).stderr.trim();
+  assert.strictEqual(await told(403, { refusals: [{ observed: "This account is not allowed to sign in.", required: "an account on the allow list | policy 7" }] }),
+    "refused: This account is not allowed to sign in");
+  assert.strictEqual(await told(403, { refusals: [{ observed: "invalid_grant", required: "a fresh code" }] }), "refused-no-reason: the sign-in was refused with no reason given, so nothing was activated");
+  assert.strictEqual(await told(403, "<html>Forbidden</html>"), "refused-no-reason: the sign-in was refused with no reason given, so nothing was activated");
+  assert.match(await told(400, { refusals: [{ observed: "redirect_uri_mismatch" }] }), /^fault: /);
+  assert.match(await told(400, { refusals: [{ observed: "AADSTS50011: The reply URL specified in the request does not match" }] }), /^fault: /);
+  assert.match(await told(503, { refusals: [{ observed: "down" }] }), /^server-error: /);
+});
+
 test("a refused start stops the listener, so a quick retry finds no port still held", async () => {
-  const ran = await signIn(() => [500, { refusals: [{ observed: "down" }] }], { EVALATION_LOOPBACK_TIMEOUT_MS: "30000" });
-  assert.match(ran.stderr, /^refused 500: down$/m);
+  const ran = await signIn(() => [403, { refusals: [{ observed: "down" }] }], { EVALATION_LOOPBACK_TIMEOUT_MS: "30000" });
+  assert.match(ran.stderr, /^refused: down$/m);
   const port = Number(new URL(ran.asked[0].redirect_uri).port);
   await new Promise((resolve) => setTimeout(resolve, 300));
   assert.strictEqual(await refusedAt(port), true);

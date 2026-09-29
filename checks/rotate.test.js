@@ -177,7 +177,19 @@ test("a machine whose sign-in key is missing stops before anything is sent and i
   assert.strictEqual(ran.status, 1);
   assert.deepStrictEqual(ran.asked, []);
   assert.match(ran.stderr, /^sign-in-damaged:/);
-  assert.strictEqual(line("`sign-in-damaged`"), "This machine's Evalation sign-in is damaged, so the key was not replaced. Run /ev-activate to sign in again.");
+  assert.strictEqual(line("`sign-in-damaged`"), "This machine's Evalation sign-in is damaged, so the key was not replaced. Run /ev-activate and sign in with the same account as before, so your pack credits and reports are there.");
+});
+
+test("a machine never signed in is sent to /ev-start, as every command sends it", () => {
+  assert.strictEqual(line("**`no-settings`**"), "This machine is not set up for Evalation yet. Run /ev-start to set it up.");
+});
+
+test("an unfinished change ended or refused by Evalation says only that, never that it may still finish", () => {
+  const part = NOT_FINISHED_PART();
+  const skip = part.match(/Where the word is refused or ended, show only the line for it[^.]*\./);
+  assert.ok(skip, part);
+  assert.ok(part.indexOf(skip[0]) < part.indexOf("evalation-say ev-rotate.not-finished`"), "the exception comes before the not-finished line");
+  assert.match(part, /Otherwise show `evalation-say ev-rotate\.not-finished`/);
 });
 
 test("the command text gives the clock step only for a clock refusal, and sends a machine no longer accepted to support", () => {
@@ -228,7 +240,7 @@ test("the command text says a sentence the script prints only where it is one, a
   assert.match(FLAT, /Where the first line is one of the two sentences below, show it exactly as printed\./);
   assert.ok(NOT_REPLACED_PART().length > 0 && NOT_FINISHED_PART().length > 0);
   assert.doesNotMatch(NOT_REPLACED_PART(), /`unreachable`/);
-  assert.strictEqual(line("Never say the old key still works.", NOT_FINISHED_PART()), "Other Evalation commands on this machine may not work until it finishes.");
+  assert.strictEqual(line("Otherwise show", NOT_FINISHED_PART()), "Other Evalation commands on this machine may not work until it finishes.");
   assert.strictEqual(line("`key-store-refused`", NOT_FINISHED_PART()), "Check this machine's password store (Keychain on a Mac) is unlocked, then run /ev-rotate again to finish it.");
   const words = [FLAT, ...Object.entries(LINES).filter(([name]) => name.startsWith("ev-rotate.")).map(([, one]) => one.say)].join(" ");
   assert.doesNotMatch(words, /password store(?! \(Keychain on a Mac\))/);

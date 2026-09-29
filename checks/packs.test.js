@@ -118,7 +118,8 @@ test("set takes the titles a person reads and prints only those titles", async (
 });
 
 test("a damaged sign-in is told to sign in again, ahead of the line for a machine never signed in", () => {
-  assert.strictEqual(line("ev-packs.damaged"), "This machine's Evalation sign-in is damaged. Run /ev-activate to sign in again.");
+  assert.strictEqual(line("ev-packs.damaged"), line("ev-account.damaged"), "every command gives a damaged sign-in the same advice");
+  assert.strictEqual(line("ev-packs.not-signed-in"), line("ev-account.not-set-up"), "a machine never signed in is sent to /ev-start everywhere");
   const damaged = flat.indexOf("`sign-in: damaged` line: show `evalation-say ev-packs.damaged`");
   assert.ok(damaged > 0 && damaged < flat.indexOf("ev-packs.not-signed-in"), "the damaged line comes first");
 });
@@ -129,7 +130,9 @@ test("the chosen packs are named by title in one line, with a pack no longer off
   writeFileSync(join(home, "packs.json"), JSON.stringify({ packs: ["soc2", "retired", "gdpr"] }));
   const ran = await packs(home, ["chosen"]);
   assert.strictEqual(ran.status, 0, ran.stderr);
-  assert.deepStrictEqual(JSON.parse(ran.stdout), { titles: "SOC 2 Trust Services Criteria, a pack Evalation no longer offers and General Data Protection Regulation (GDPR)", packs: 3 });
+  assert.deepStrictEqual(JSON.parse(ran.stdout), { titles: "General Data Protection Regulation (GDPR), SOC 2 Trust Services Criteria and a pack Evalation no longer offers", packs: 3 });
+  writeFileSync(join(home, "packs.json"), JSON.stringify({ packs: ["soc2", "gdpr"] }));
+  assert.strictEqual(JSON.parse((await packs(home, ["chosen"])).stdout).titles, "General Data Protection Regulation (GDPR) and SOC 2 Trust Services Criteria", "the order a selection was saved in never changes the order it is named in");
   const broken = await packs(home, ["chosen"], "<html>busy</html>");
   assert.strictEqual(broken.status, 1);
   assert.match(broken.stderr, /^packs-unreadable: /);
@@ -161,8 +164,9 @@ test("a served summary that breaks the wording rules gives way to the plugin's o
 
 test("the same packs ticked again, or nothing ticked, change nothing and save nothing", () => {
   assert.strictEqual(line("ev-packs.nothing-changed", { titles: "SOC 2" }), "Nothing changed. Your checks still use SOC 2.");
-  assert.match(flat, /Where they tick nothing in any question, or tick exactly the packs `chosen` named, run nothing, show `evalation-say ev-packs\.nothing-changed titles="<titles>"`[^.]*and go to step 9\./);
-  assert.match(flat, /Where they pick Other and write that they want none from that question, take it as nothing ticked there\./);
+  assert.match(flat, /Where they tick only `None of these` in every question, or tick exactly the packs `chosen` named, run nothing, show `evalation-say ev-packs\.nothing-changed titles="<titles>"`[^.]*and go to step 9\./);
+  assert.doesNotMatch(flat, /pick Other and write that they want none/);
+  assert.match(flat, /Pass the labels they ticked, leaving out `None of these`/);
 });
 
 test("a pack list that fails for a reason not named is still explained", () => {
@@ -192,20 +196,20 @@ test("titles spreads the packs so every chooser question offers two to four, in 
   }
 });
 
-test("the chooser asks one question for each group titles gives, naming its first and last pack, every answer described, each header in 12 characters", async () => {
+test("the chooser offers None of these in every question beside at most three packs, each question worded apart, every header in 12 characters", async () => {
   for (const count of [2, 5, 9, 18]) {
     const catalogue = { revision: "1", packs: Array.from({ length: count }, (_, at) => ({ pack: `p${at}`, kind: "standard", body: { title: `Pack ${String(at).padStart(2, "0")}`, summary: "A pack." } })).reverse() };
     const ran = await packs(machine(), ["chooser"], catalogue);
     assert.strictEqual(ran.status, 0, ran.stderr);
     const { questions } = JSON.parse(ran.stdout);
-    assert.strictEqual(questions.length, Math.ceil(count / 4), `${count} packs`);
-    assert.deepStrictEqual(questions.flatMap((one) => one.options.map((each) => each.label)), catalogue.packs.map((one) => one.body.title).reverse());
+    assert.strictEqual(questions.length, Math.ceil(count / 3), `${count} packs`);
+    assert.ok(questions.every((one) => one.options.at(-1).label === "None of these"), `${count} packs: None of these closes every question`);
+    assert.deepStrictEqual(questions.flatMap((one) => one.options.slice(0, -1).map((each) => each.label)), catalogue.packs.map((one) => one.body.title).reverse());
+    assert.strictEqual(new Set(questions.map((one) => one.question)).size, questions.length, `${count} packs: no two questions read the same`);
     questions.forEach((one, at) => {
-      const labels = one.options.map((each) => each.label);
-      assert.strictEqual(one.question, `Which packs from ${labels[0]} to ${labels.at(-1)} should each check of your code use?`);
-      assert.strictEqual(one.header, `Packs ${at + 1}/${questions.length}`);
-      assert.ok(one.header.length <= 12 && one.multiSelect && one.options.length >= 2 && one.options.length <= 4);
-      assert.ok(one.options.every((each) => each.description === "A pack."));
+      assert.strictEqual(one.header, questions.length > 1 ? `Packs ${at + 1}/${questions.length}` : "Packs");
+      assert.ok(one.header.length <= 12 && one.multiSelect && one.options.length >= 3 && one.options.length <= 4);
+      assert.ok(one.options.slice(0, -1).every((each) => each.description === "A pack."));
     });
   }
 });

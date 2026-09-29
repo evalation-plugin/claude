@@ -9,8 +9,7 @@
   "ev-rotate.not-finished-key-store": { "say": "Check this machine's password store (Keychain on a Mac) is unlocked, then run /ev-rotate again to finish it." },
   "ev-rotate.not-finished-other": { "say": "Run /ev-rotate again to finish it." },
   "ev-rotate.not-finished-twice": { "say": "Contact support@evalation.ai and we will finish it." },
-  "ev-rotate.no-settings": { "say": "This machine is not signed in to Evalation yet. Run /ev-activate first." },
-  "ev-rotate.damaged": { "say": "This machine's Evalation sign-in is damaged, so the key was not replaced. Run /ev-activate to sign in again." },
+  "ev-rotate.damaged": { "say": "This machine's Evalation sign-in is damaged, so the key was not replaced. Run /ev-activate and sign in with the same account as before, so your pack credits and reports are there." },
   "ev-rotate.unclear": { "say": "Evalation could not read this machine's sign-in, so the key was not replaced. Unlock this machine's password store (Keychain on a Mac), then run /ev-rotate again. If it still fails, contact support@evalation.ai." },
   "ev-rotate.no-key": { "say": "Part of this machine's Evalation sign-in cannot be read, so the key was not replaced. Contact support@evalation.ai and we will fix it." }
 }
