@@ -123,10 +123,13 @@ it. A name the person gives is used as they give it, whatever it names.
 with the file's path. It checks every question and every item against the criteria and
 hands back each one that breaks a criterion, or PASS. Fix every one it names, write the file again
 and start a fresh checker, until one hands back PASS. Never mark a line fixed without changing the
-set. Stop after three rounds: where the third checker still names something, show the person the
-set with each line it named beside the question or item, and ask "Save this set with these
-flagged?", with the answers "Change something" and "Save it as it is". Never show a set before a
-checker has passed it or three rounds have run.
+set. Stop fixing after three rounds, and settle what is left yourself: remove every item the third
+checker still named, leave out any question with fewer than two items left, and start one more
+checker on the result, which passes, since taking an item out adds no fault. Then show the set, and
+above it one plain line for each thing removed and why, such as "Removed Q3's alert item, which
+named a judgement". The person is never handed a flag to decide. On "Change something" afterwards,
+put back what they ask for, reworded, and recheck it the same way. Never show a set a checker has
+not passed.
 
 Then show the whole set, every question with its list, and ask "Save this set as written?", with the
 answers "Save it" and "Change something". On "Change something", ask what, make the changes across
