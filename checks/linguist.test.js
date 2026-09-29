@@ -2,6 +2,7 @@
 
 const test = require("node:test");
 const assert = require("node:assert");
+require("./fixture.js");
 const DATA = require("../lib/linguist.json");
 
 const rules = (one) => [one.pattern, one.negative, ...(one.and ?? []).flatMap(rules)].filter(Boolean);

@@ -21,7 +21,7 @@
 
 const { generateKeyPairSync } = require("node:crypto");
 const { readFileSync } = require("node:fs");
-const { homedir } = require("node:os");
+const { pluginHome } = require("../lib/home.js");
 const { join } = require("node:path");
 const { runScript } = require("../lib/script.js");
 
@@ -38,7 +38,7 @@ const store = require("./evalation-store");
  * where it always did.
  */
 function named() {
-  const settings = process.env.EVALATION_LOCAL || join(homedir(), ".evalation", "evalation.local");
+  const settings = process.env.EVALATION_LOCAL || join(pluginHome(), "evalation.local");
   let held;
   try {
     held = JSON.parse(readFileSync(settings, "utf8"));

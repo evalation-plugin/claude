@@ -23,21 +23,29 @@ answer's label says what choosing it does.
 
 ## 1. Where the questions go
 
-Ask "Where should your questions go?", with one answer, from these:
+A question set is used whole or not at all. Nobody approves or picks questions one at a time.
 
-- **"A pack of only my questions"**, whose description says it costs no pack credits.
-- **"Add them to one of Evalation's own packs"**, whose description says they are charged as that
-  pack is and print in a section of their own after its questions. Then ask which, offering only
-  the packs `${CLAUDE_PLUGIN_ROOT}/bin/evalation-packs titles` marks `extensible`, by title. A pack
-  holding a published standard, such as SOC 2 or ISO 27001, keeps that standard's own clauses and
-  takes no extra questions, so it is never offered here. Offer this answer only where at least one
-  pack is extensible.
+First look at the sets already kept, with `${CLAUDE_PLUGIN_ROOT}/bin/evalation-questions list`,
+which names each set on this machine or on the account, with its pack, its size and where it is
+kept. Ask "Would you like to change a saved set, or write a new one?", with an answer per saved set,
+"Change <name>", and "Write a new set". A set the list marks `refused` came back from the account
+failing its check: say so and never offer it.
 
-Then offer the sets kept on this machine for that pack alone, from
-`${CLAUDE_PLUGIN_ROOT}/bin/evalation-questions list`, which names each set's pack, to change or to
-start from. A person may keep several sets, one for the cyber insurance pack and another for the
-investment pack, and each is written for its own pack and offered only with it. Suggest a name for a
-new set that says what it is for, such as "Broker questions", so it is easy to find again.
+On "Change <name>", run `evalation-questions path <name>`, read the file it names, and show the
+whole set. Ask what they would like changed, make every change they ask for across the set, and go
+to step 4 with the whole set.
+
+For a new set, ask "Which pack are these questions for?", with one answer, from these:
+
+- **"Only my questions"**, described as: no Evalation pack is read with them and no pack credits are
+  used, so the run answers these questions and nothing else.
+- **One answer per pack `${CLAUDE_PLUGIN_ROOT}/bin/evalation-packs titles` marks `extensible`**, by
+  its title, described as: printed under User provided questions after that pack's own, and charged
+  as that pack is. A pack holding a published standard, such as SOC 2 or ISO 27001, keeps that
+  standard's own clauses and takes no extra questions, so it is never offered here.
+
+A person may keep several sets for one pack and a set for each pack, and a set is used only with the
+pack it was written for. Suggest a name that says what the set is for, such as "Broker questions".
 
 ## 2. Gather the questions
 
@@ -74,23 +82,31 @@ Write in plain English with New Zealand spelling, no dashes, no semicolons and n
 
 ## 4. Approve, check and keep
 
-Show the drafted questions one at a time, each with its list, and ask of each "Keep question <n>
-of <total> as written?", with the answers "Keep it", "Change it" and "Remove it". The answer
-settles that one question and no other. Write the
-approved set as one JSON file, `{"name": "<a name they choose>", "pack": "custom" or the pack's
-handle, "questions": [...]}`, and run:
+Show the whole set, every question with its list, and ask "Save this set as written?", with the
+answers "Save it" and "Change something". On "Change something", ask what, make the changes across
+the set and show it whole again. Write the set as one JSON file, `{"name": "<its name>", "pack":
+"custom" or the pack's handle, "questions": [...]}`, and run:
 
 ```
 ${CLAUDE_PLUGIN_ROOT}/bin/evalation-questions check <file>
 ```
 
-Fix everything it names and run it again until it prints `holds`. Then ask about the whole set, as
-"Save all <total> questions as <name> for future runs?", with the answers "Save the set" and "Use
-it for this run only":
+Fix everything it names and run it again until it prints `holds`. Then save it, with `--replace`
+where it changes a saved set, since a change is saved over the whole set:
 
 ```
-${CLAUDE_PLUGIN_ROOT}/bin/evalation-questions save <file>
+${CLAUDE_PLUGIN_ROOT}/bin/evalation-questions save <file> [--replace]
 ```
 
-A name already kept is replaced only when the person says so, with `--replace`. End by giving the
-file's path for the run, which reads it with `--questions <file>`.
+Then ask "Also keep this set on your account?", described as: so it is there if you reload this
+machine, set up a cloud instance or sign in on another device, and kept as you wrote it and never
+read by us. The answers are "Keep it on my account" and "Keep it on this machine only". Nothing
+leaves the machine without the first. On it:
+
+```
+${CLAUDE_PLUGIN_ROOT}/bin/evalation-questions keep-on-account <name>
+```
+
+A set already on the account is kept there again whenever it changes, with no question. To stop
+keeping one on the account, `evalation-questions drop-from-account <name>`. End by saying the set is
+offered by name the next time `/ev-run` reads its pack.

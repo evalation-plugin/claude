@@ -6,6 +6,7 @@ const { spawnSync } = require("node:child_process");
 const { mkdtempSync, readdirSync } = require("node:fs");
 const { platform, tmpdir } = require("node:os");
 const { join } = require("node:path");
+require("./fixture.js");
 const { print } = require("../lib/print.js");
 const { stores } = require("../bin/evalation-store");
 
@@ -20,9 +21,9 @@ test("every plugin script is a Node program, so it runs wherever Claude Code doe
 
 test("the pack selection is kept and shown back", () => {
   const home = mkdtempSync(join(tmpdir(), "evalation-packs-"));
-  const set = script("evalation-packs", ["set", "soc2", "iso27001"], { EVALATION_HOME: home });
+  const set = script("evalation-packs", ["set", "soc2", "iso27001"], { EVALATION_PLUGIN_HOME: home });
   assert.strictEqual(set.status, 0, set.stderr);
-  const shown = JSON.parse(script("evalation-packs", ["show"], { EVALATION_HOME: home }).stdout);
+  const shown = JSON.parse(script("evalation-packs", ["show"], { EVALATION_PLUGIN_HOME: home }).stdout);
   assert.deepStrictEqual(shown.packs, ["soc2", "iso27001"]);
   assert.match(shown.chosen, /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ$/);
 });

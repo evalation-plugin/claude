@@ -125,9 +125,8 @@ question what a tick does and what it costs, and let each answer's label say wha
    - "Run my usual packs", its description naming each pack in the recorded selection from
      `${CLAUDE_PLUGIN_ROOT}/bin/evalation-packs show`, left out where nothing is recorded
    - "Choose which packs to run"
-   - "Add my own questions": a custom pack of their questions alone, which costs no pack credits, or
-     extra questions added to one of Evalation's own packs in a section of their own, charged as
-     that pack is. A pack holding a published standard takes no extra questions.
+   - "Only my questions", described as: no Evalation pack is read and no pack credits are used, so
+     the run answers your own questions and nothing else
 
    On "Run my usual packs", those packs are the selection and nothing more is asked about them: the
    person has already said which to read. On "Choose which packs to run", ask "Which packs should
@@ -141,21 +140,26 @@ question what a tick does and what it costs, and let each answer's label say wha
    another, so the packs are a choice per run and never assumed. The packs the person ticks are what
    step 2 is given. Nothing is counted until step 2, so asking costs nothing.
 
-   Once the packs are chosen, look at the sets kept on this machine with
-   `${CLAUDE_PLUGIN_ROOT}/bin/evalation-questions list`. Where any was written for a pack this run
-   reads, ask "Add your saved questions to this run? Tick each set to add.", allowing several
-   answers, each set an option labelled with its name and described by its pack's title and how many
-   questions it holds. Offer only the sets for packs this run reads, and never one written for another
-   pack. Pass each ticked set to step 2 with `--questions` and the path
-   `${CLAUDE_PLUGIN_ROOT}/bin/evalation-questions path <name>` prints. Each prints in a section of its
-   own, "User provided questions" with the set's name.
+   Once the packs are chosen, and only where one of them takes extra questions, which
+   `evalation-packs titles` marks `extensible`, offer the person's own questions for that pack. Look
+   at the sets with `${CLAUDE_PLUGIN_ROOT}/bin/evalation-questions list`, which names each set on this
+   machine or on the account, with its pack. For each chosen pack that takes extra questions, ask
+   "Which of your question sets should <pack title> use? Tick each set to use.", allowing several
+   answers, each set written for that pack an option by name, described by how many questions it
+   holds, with "Write a new set for this pack" as one more option. A set is used whole. Offer a set
+   only with the pack it was written for, never one the list marks `refused`, and ask nothing about a
+   pack that takes no extra questions, such as SOC 2 or ISO 27001, even where it is chosen alongside.
+   Where no chosen pack takes extra questions, never raise the person's own questions at all.
 
-   On "Add my own questions", stop and have them run `/ev-questions`, which drafts the questions with
-   them, turns any website claims into questions and gives back a file. Pass each such file to step 2
-   with `--questions <file>`. A file of extra questions names its pack, which the run reads. When they
-   come back, ask the first question again with "Only my questions" in place of "Add my own
-   questions", so they can add packs or run their questions alone. A run of a custom pack alone names
-   no packs at all.
+   Pass each ticked set to step 2 with `--questions` and the path
+   `${CLAUDE_PLUGIN_ROOT}/bin/evalation-questions path <name>` prints, which fetches a set kept only on
+   the account. Each set prints in a sub-section of its own under "User provided questions", so two
+   sets may each hold a Q1. On "Write a new set for this pack", stop and have them run
+   `/ev-questions`, then ask this question again.
+
+   On "Only my questions", offer the sets written for no pack the same way, by name, and pass the ones
+   ticked. That run names no packs at all and costs no credits. Where there are none, have them run
+   `/ev-questions` first.
 
    **Say what this run will spend in the question itself.** It spends one pack credit for each pack
    it reads, and `${CLAUDE_PLUGIN_ROOT}/bin/evalation-status` prints how many credits are left. Name
@@ -485,7 +489,7 @@ question what a tick does and what it costs, and let each answer's label say wha
    - `Evalation Hardening Review Pack.pdf` and `Evalation Hardening Review Detail.pdf`
    - one evidence pack per standard, such as `Evalation SOC 2 Trust Services Criteria Evidence Pack.pdf`
    - `Evalation Findings.json`, a copy of the findings file, which is what the engine ingests to work
-     the findings. The one under `~/.evalation` stays the record.
+     the findings. The one under `~/.evalation-plugin` stays the record.
 
    A concern set answers findings, so `evalation-deliver` builds its two: the review detail, which
    carries every finding with its remediation and is what somebody works from, and the review pack,

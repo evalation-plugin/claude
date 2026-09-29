@@ -83,7 +83,7 @@ test("a concern's items that moved are named, and the hardness score's move is s
 });
 
 test("an evidence pack and a hardening detail open with the section where an earlier run is kept", () => {
-  const home = process.env.EVALATION_HOME;
+  const home = process.env.EVALATION_PLUGIN_HOME;
   mkdirSync(join(home, "findings"), { recursive: true });
   writeFileSync(join(home, "findings", "earlier.json"), JSON.stringify(run("2026-09-23T00:00:00.000Z")));
   const now = later();

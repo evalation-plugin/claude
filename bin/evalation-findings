@@ -22,7 +22,7 @@
 const { createHash } = require("node:crypto");
 const { existsSync, mkdirSync, readFileSync, writeFileSync } = require("node:fs");
 const { dirname, join, resolve, relative, isAbsolute } = require("node:path");
-const { homedir } = require("node:os");
+const { pluginHome } = require("../lib/home.js");
 
 const { cardOf, cardWorst, named: phaseNamed, newestFor, phasesRead } = require("../lib/scans.js");
 const { facing, held, own } = require("../lib/prose.js");
@@ -75,7 +75,7 @@ function scanSays(want, scan, since) {
 const ORDERS = ["keep", "leave", "retain", "preserve", "maintain", "continue", "don't", "do",
   "avoid", "ensure", "make", "consider", "carry"];
 
-const HOME = process.env.EVALATION_HOME || join(homedir(), ".evalation");
+const HOME = pluginHome();
 
 // A credential never reaches a report, per the findings detail: a finding that quotes one has
 // published it into a PDF. Two shapes a machine can decide. A value of sixteen or more characters,
@@ -662,7 +662,7 @@ function skeleton(served, readBy) {
         kind: body.kind ?? one.kind,
         ...pick(body, ["title", "version", "entry_noun", "sections"]),
         selected: entries.map((entry) => entry.identifier),
-        entries_asked: entries.map((entry) => pick(entry, ["identifier", "title", "intent", "looks_for", "section", "obligation", "note", "bears_on", "in_force"])),
+        entries_asked: entries.map((entry) => pick(entry, ["identifier", "shown", "title", "intent", "looks_for", "section", "obligation", "note", "bears_on", "in_force"])),
       };
     }),
     answers: [...(served.answered ?? [])],
@@ -1031,6 +1031,6 @@ function main() {
   );
 }
 
-module.exports = { credentialIn, checked, groupOf, methodology };
+module.exports = { credentialIn, checked, groupOf, methodology, skeletonOf: skeleton };
 
 if (require.main === module) main();

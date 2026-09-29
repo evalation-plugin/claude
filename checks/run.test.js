@@ -16,7 +16,7 @@ const { served } = require("../bin/evalation-run");
 
 const BIN = join(__dirname, "..", "bin");
 const work = mkdtempSync(join(tmpdir(), "evalation-run-"));
-const env = { ...process.env, EVALATION_HOME: home, HOME: work,
+const env = { ...process.env, EVALATION_PLUGIN_HOME: home, HOME: work,
   EVALATION_SCA_CMD: `${process.execPath} ${join(__dirname, "fake-scanner.js")}` };
 
 /** One command as a session runs it, refused loudly with what it printed. */

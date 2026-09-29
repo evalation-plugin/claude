@@ -20,7 +20,7 @@ const { createHash, createPrivateKey, sign } = require("node:crypto");
 const { readFileSync, existsSync } = require("node:fs");
 const store = require("./evalation-store");
 const { join } = require("node:path");
-const { homedir } = require("node:os");
+const { pluginHome } = require("../lib/home.js");
 
 // The fixed prefix that turns a 32-byte seed into an ed25519 private key.
 const PKCS8_ED25519 = Buffer.from("302e020100300506032b657004220420", "hex");
@@ -48,7 +48,7 @@ function fail(reason) {
 // the subject, and reading our configuration out of it would make the subject decide how it is read.
 function settings() {
   const named = process.env.EVALATION_LOCAL;
-  const places = named ? [named] : [join(homedir(), ".evalation", "evalation.local"), "evalation.local"];
+  const places = named ? [named] : [join(pluginHome(), "evalation.local")];
   for (const place of places) {
     if (existsSync(place)) {
       try {

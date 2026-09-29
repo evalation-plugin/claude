@@ -3,16 +3,18 @@
 //
 //   evalation-questions check <file>            prints each problem, or that the set holds
 //   evalation-questions save <file> [--replace] keeps the set under its name on this machine
-//   evalation-questions list                    the sets kept here, each with its pack and size
-//   evalation-questions path <name>             where a kept set is, to pass to evalation-run --questions
+//   evalation-questions list                    the sets on this machine and the account, with pack and size
+//   evalation-questions path <name>             where a set is, fetched from the account where needed
+//   evalation-questions keep-on-account <name>  keeps a set on the account as well
+//   evalation-questions drop-from-account <name> stops keeping a set on the account
 "use strict";
 
 const { readFileSync } = require("node:fs");
-const { homedir } = require("node:os");
+const { pluginHome } = require("../lib/home.js");
 const { join } = require("node:path");
-const { kept, load, problems, save } = require("../lib/questions.js");
+const { dropFromAccount, fetched, keepOnAccount, listed, problems, save } = require("../lib/questions.js");
 
-const HOME = process.env.EVALATION_HOME || join(homedir(), ".evalation");
+const HOME = pluginHome();
 
 function fail(reason) {
   process.stderr.write(`${reason}\n`);
@@ -41,14 +43,27 @@ if (verb === "check") {
     fail(thrown.message);
   }
 } else if (verb === "list") {
-  process.stdout.write(`${JSON.stringify(kept(HOME))}\n`);
+  process.stdout.write(`${JSON.stringify(listed(HOME))}\n`);
 } else if (verb === "path") {
   try {
-    load(HOME, arg);
-    process.stdout.write(`${join(HOME, "questions", `${arg}.json`)}\n`);
+    process.stdout.write(`${fetched(HOME, arg)}\n`);
   } catch (thrown) {
     fail(`no-such-set: ${arg} (${thrown.message})`);
   }
+} else if (verb === "keep-on-account") {
+  try {
+    keepOnAccount(HOME, arg);
+    process.stdout.write(`${arg} is kept on your account\n`);
+  } catch (thrown) {
+    fail(`not-kept: ${arg} (${thrown.message})`);
+  }
+} else if (verb === "drop-from-account") {
+  try {
+    dropFromAccount(arg);
+    process.stdout.write(`${arg} is no longer kept on your account\n`);
+  } catch (thrown) {
+    fail(`not-dropped: ${arg} (${thrown.message})`);
+  }
 } else {
-  fail("usage: evalation-questions check <file> | save <file> [--replace] | list | path <name>");
+  fail("usage: evalation-questions check <file> | save <file> [--replace] | list | path <name> | keep-on-account <name> | drop-from-account <name>");
 }

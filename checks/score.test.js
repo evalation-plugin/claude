@@ -4,6 +4,7 @@
 
 const test = require("node:test");
 const assert = require("node:assert");
+require("./fixture.js");
 const { hardness } = require("../bin/evalation-score");
 
 const rubric = {
