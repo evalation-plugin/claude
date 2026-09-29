@@ -5,6 +5,13 @@ const assert = require("node:assert");
 const { mkdirSync, mkdtempSync, writeFileSync } = require("node:fs");
 const { tmpdir } = require("node:os");
 const { dirname, join } = require("node:path");
+const processes = require("node:child_process");
+const started = [];
+const running = processes.execFileSync;
+processes.execFileSync = (command, ...rest) => {
+  started.push(String(command));
+  return running(command, ...rest);
+};
 require("./fixture.js");
 
 const write = (at, path, text) => {
@@ -58,7 +65,7 @@ function fixture() {
 test("a Cargo.lock is read from the local registry, leaving out dev and build-only crates, and a crate not downloaded is unread by name", () => {
   const { cratesIn } = require("../bin/evalation-scan");
   const { repo, home } = fixture();
-  const read = cratesIn(repo, "services/Cargo.lock", { cargoHome: home, cargo: false });
+  const read = cratesIn(repo, "services/Cargo.lock", { cargoHome: home });
   const names = read.Packages.map((one) => one.Name).sort();
   assert.deepStrictEqual(names, ["bare", "gpl-thing", "h2", "libc", "reqwest-ish", "serde", "serde_derive"]);
   assert.deepStrictEqual(read.Unread.sort(), ["h2 0.4.0", "reqwest-ish 1.0.0"]);
@@ -75,29 +82,53 @@ test("a Cargo.lock is read from the local registry, leaving out dev and build-on
   assert.deepStrictEqual(said.unread.sort(), ["h2 0.4.0 in services/Cargo.lock", "reqwest-ish 1.0.0 in services/Cargo.lock"]);
 });
 
-test("with nothing downloaded and no cargo, the whole lockfile is unread", () => {
+test("with nothing downloaded, the whole lockfile is unread", () => {
   const { cratesIn, licences } = require("../bin/evalation-scan");
   const { repo } = fixture();
-  const read = cratesIn(repo, "services/Cargo.lock", { cargoHome: mkdtempSync(join(tmpdir(), "evalation-empty-")), cargo: false });
+  const read = cratesIn(repo, "services/Cargo.lock", { cargoHome: mkdtempSync(join(tmpdir(), "evalation-empty-")) });
   assert.deepStrictEqual(licences("{}", ["services/Cargo.lock"], [read]).unread, ["services/Cargo.lock"]);
 });
 
-test("cargo metadata, where it answers, gives licences and leaves out dev and build-only crates by their dependency kinds", () => {
-  const { cratesFromMetadata } = require("../bin/evalation-scan");
-  const pkg = (name, license) => ({ id: `${name} 1.0.0`, name, version: "1.0.0", license, source: name === "app" ? null : REGISTRY });
-  const edge = (name, ...kinds) => ({ pkg: `${name} 1.0.0`, dep_kinds: kinds.map((kind) => ({ kind })) });
-  const metadata = {
-    workspace_members: ["app 1.0.0"],
-    packages: [pkg("app", null), pkg("serde", "MIT"), pkg("gpl-thing", "GPL-3.0"), pkg("hidden", "SSPL-1.0"), pkg("bindgen", "AGPL-3.0"), pkg("both", "MIT")],
-    resolve: { nodes: [
-      { id: "app 1.0.0", deps: [edge("serde", null), edge("gpl-thing", null), edge("hidden", "dev"), edge("both", "build", null)] },
-      { id: "gpl-thing 1.0.0", deps: [edge("bindgen", "build")] },
-      { id: "serde 1.0.0", deps: [] }, { id: "hidden 1.0.0", deps: [] }, { id: "bindgen 1.0.0", deps: [] }, { id: "both 1.0.0", deps: [] },
-    ] },
-  };
-  const read = cratesFromMetadata(metadata, "services/Cargo.lock");
-  assert.deepStrictEqual(read.Packages.map((one) => one.Name).sort(), ["both", "gpl-thing", "serde"]);
-  assert.deepStrictEqual(read.Unread, []);
+test("the plugin never starts cargo in the repository, reading the registry alone", () => {
+  const { adapterFor } = require("../bin/evalation-scan");
+  const { repo, home } = fixture();
+  const was = process.env.CARGO_HOME;
+  process.env.CARGO_HOME = home;
+  try {
+    started.length = 0;
+    adapterFor("licence", "trivy").read("{}", repo);
+    assert.deepStrictEqual(started.filter((one) => /cargo/.test(one)), []);
+  } finally {
+    if (was === undefined) delete process.env.CARGO_HOME;
+    else process.env.CARGO_HOME = was;
+  }
+});
+
+test("where crates are not downloaded, the reason says to fetch them and run again", () => {
+  const { adapterFor } = require("../bin/evalation-scan");
+  const { settled } = require("../lib/scans.js");
+  const { repo, home } = fixture();
+  const was = process.env.CARGO_HOME;
+  process.env.CARGO_HOME = home;
+  let read;
+  try {
+    read = adapterFor("licence", "trivy").read("{}", repo);
+  } finally {
+    if (was === undefined) delete process.env.CARGO_HOME;
+    else process.env.CARGO_HOME = was;
+  }
+  assert.deepStrictEqual(read.todo, ["Run cargo fetch in services, then run Evalation again, to read every crate's licence."]);
+  const why = settled({ phase: "licence", rule: "licence:restricted" },
+    { phases: [{ phase: "licence", ran: true, measures: ["licence:restricted"], unread: read.unread, todo: read.todo }], findings: [] }).why;
+  assert.match(why, /covers only part of the repository\. Run cargo fetch in services, then run Evalation again, to read every crate's licence$/);
+  const nothing = adapterFor("licence", "trivy");
+  process.env.CARGO_HOME = mkdtempSync(join(tmpdir(), "evalation-empty-"));
+  try {
+    assert.match(nothing.read("{}", repo).why, /Run cargo fetch in services, then run Evalation again/);
+  } finally {
+    if (was === undefined) delete process.env.CARGO_HOME;
+    else process.env.CARGO_HOME = was;
+  }
 });
 
 test("the reason a partial read gives names at most a handful of what was missed", () => {

@@ -496,40 +496,8 @@ function registryManifest(cargoHome, name, version) {
   return null;
 }
 
-function cratesFromMetadata(metadata, target) {
-  const packages = new Map((metadata.packages ?? []).map((one) => [one.id, one]));
-  const nodes = new Map((metadata.resolve?.nodes ?? []).map((one) => [one.id, one]));
-  const members = new Set(metadata.workspace_members ?? []);
-  const found = new Map();
-  const queue = [...members].map((id) => ({ id, from: null }));
-  const seen = new Set();
-  while (queue.length > 0) {
-    const { id, from } = queue.shift();
-    if (seen.has(id)) continue;
-    seen.add(id);
-    if (!members.has(id)) {
-      const one = packages.get(id);
-      found.set(id, { Name: one.name, Version: one.version, Relationship: members.has(from) ? "direct" : "indirect",
-        Licenses: one.license ? [one.license] : one.license_file ? ["a licence file"] : [] });
-    }
-    for (const dep of nodes.get(id)?.deps ?? []) {
-      if ((dep.dep_kinds ?? [{ kind: null }]).some((one) => one.kind === null)) queue.push({ id: dep.pkg, from: id });
-    }
-  }
-  return { Class: "lang-pkgs", Target: target, Packages: [...found.values()], Unread: [] };
-}
-
-function cratesIn(root, target, { cargoHome = process.env.CARGO_HOME || join(require("node:os").homedir(), ".cargo"), cargo = onThisMachine("cargo") } = {}) {
+function cratesIn(root, target, { cargoHome = process.env.CARGO_HOME || join(require("node:os").homedir(), ".cargo") } = {}) {
   const lockDir = dirname(join(root, target));
-  if (cargo) {
-    try {
-      const out = execFileSync("cargo", ["metadata", "--format-version", "1", "--locked", "--offline", "--manifest-path", join(lockDir, "Cargo.toml")],
-        { encoding: "utf8", maxBuffer: 256 * 1024 * 1024, timeout: 120_000, stdio: ["ignore", "pipe", "ignore"] });
-      return cratesFromMetadata(JSON.parse(out), target);
-    } catch {
-      cargo = false;
-    }
-  }
   const locked = lockPackages(readFileSync(join(root, target), "utf8"));
   const byName = new Map();
   for (const one of locked) byName.set(one.name, [...(byName.get(one.name) ?? []), one]);
@@ -614,8 +582,12 @@ function licences(out, files, crates = []) {
       title: "Dependencies declaring no licence", packages: bare.map((one) => one.package),
       body: `${bare.length} of the production dependencies the repository names itself ${bare.length === 1 ? "declares" : "declare"} no licence: ${listedUpTo(bare.map((one) => one.named))}.` }); // say:allow: report,a scanner result printed in the reports
   }
-  return { findings, lockfiles: lockfiles.length, unread };
+  const fetch = lockfiles.filter((one) => basename(one.Target) === "Cargo.lock" && (!read.includes(one) || (one.Unread ?? []).length > 0))
+    .map((one) => dirname(one.Target));
+  return { findings, lockfiles: lockfiles.length, read: read.length, unread, fetch };
 }
+
+const fetchSaid = (folders) => folders.map((folder) => (folder === "." ? line("ev-run.cargo-fetch-top") : line("ev-run.cargo-fetch", { folder })));
 
 const BY_PHASE = {
   licence: {
@@ -626,9 +598,10 @@ const BY_PHASE = {
         const files = filesOf(root).map((one) => inRepository(root, one));
         const said = licences(out, files, files.filter((one) => basename(one) === "Cargo.lock").map((one) => cratesIn(root, one)));
         if (said.lockfiles === 0) return { skipped: "no-lockfile", why: "the repository holds no dependency lockfile to read licences from" };
-        if (said.unread.length === said.lockfiles) return { skipped: "not-installed", why: `no dependency licences could be read from ${said.unread.join(", ")}, since the dependencies are not installed here` };
-        return { findings: said.findings, unread: said.unread,
-          ...(said.unread.length > 0 ? { why: `licences not read for ${said.unread.join(", ")}, since those dependencies are not installed here or the tool reads no licences for them` } : {}) };
+        const todo = fetchSaid(said.fetch);
+        if (said.read === 0) return { skipped: "not-installed", why: [`no dependency licences could be read from ${said.unread.join(", ")}, since the dependencies are not installed here.`, ...todo].join(" ").replace(/\.$/, "") };
+        return { findings: said.findings, unread: said.unread, ...(todo.length > 0 ? { todo } : {}),
+          ...(said.unread.length > 0 ? { why: `licences not read for ${said.unread.length > 5 ? `${said.unread.slice(0, 5).join(", ")} and ${said.unread.length - 5} more` : said.unread.join(", ")}, since those dependencies are not installed here` } : {}) };
       },
     },
   },
@@ -1043,7 +1016,7 @@ function runPhase(phase, named, target, isRepository, held) {
       .map((one) => ({ ...one, phase, tool: named.tool }));
     const inventory = Array.isArray(answered) ? null : answered.inventory ?? null;
     return { phase, tool: named.tool, ran: true, ...(answered.why ? { why: answered.why } : {}),
-      ...(answered.unread?.length ? { unread: answered.unread } : {}), findings: found, inventory };
+      ...(answered.unread?.length ? { unread: answered.unread } : {}), ...(answered.todo?.length ? { todo: answered.todo } : {}), findings: found, inventory };
   } catch (thrown) {
     // Said rather than swallowed, and with no findings, since a tool that fell over knows nothing
     // about this repository and a phase reported clean on a crash is the worst answer available.
@@ -1369,7 +1342,7 @@ function main() {
 
 const argvOf = (phase, target) => adapterFor(phase, DEFAULTS[phase].tool).argv(target, null, false);
 
-module.exports = { adapterFor, argvOf, authorship, cratesFromMetadata, cratesIn, domainChoices, licenceRead: licences, licences, measured, outsiders, practices, scan };
+module.exports = { adapterFor, argvOf, authorship, cratesIn, domainChoices, licenceRead: licences, licences, measured, outsiders, practices, scan };
 
 if (require.main === module) {
   try {
