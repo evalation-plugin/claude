@@ -77,6 +77,17 @@ test("only the question checker records a verdict, and nothing names the file ve
   assert.strictEqual(session("node -e 1 > ~/.evalation-plugin/questions-checked.json").allowed, false);
   assert.strictEqual(gate({ tool_name: "Write", tool_input: { file_path: "/h/.evalation-plugin/questions-checked.json", content: "{}" } }).allowed, false);
   assert.ok(session("/x/bin/evalation-questions check /tmp/draft.json").allowed);
+  assert.strictEqual(session("rm ~/.evalation-plugin/checker-stamp.json").allowed, false);
+});
+
+test("the gate stamps each verdict the question checker records, so a pass shows which checker gave it", () => {
+  const { mkdtempSync } = require("node:fs");
+  const { tmpdir } = require("node:os");
+  const at = mkdtempSync(join(tmpdir(), "evalation-stamp-"));
+  const ran = spawnSync(process.execPath, [GATE], { env: { ...process.env, EVALATION_PLUGIN_HOME: at }, encoding: "utf8",
+    input: JSON.stringify({ tool_name: "Bash", tool_input: { command: "evalation-questions verdict /tmp/d.json <<'EOF'\nQ1 C1: YES\nEOF" }, agent_type: "evalation-plugin:question-checker", agent_id: "checker-7", cwd: "/repo" }) });
+  assert.strictEqual(ran.status, 0);
+  assert.strictEqual(JSON.parse(readFileSync(join(at, "checker-stamp.json"), "utf8")).agent, "checker-7");
 });
 
 test("the plugin ships the four agents with the shell alone, and the gate as a hook", () => {

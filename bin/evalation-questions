@@ -29,7 +29,7 @@ function read(file) {
   }
 }
 
-const [verb, arg, flag] = process.argv.slice(2);
+const [verb, arg, ...flags] = process.argv.slice(2);
 if (verb === "check") {
   const set = read(arg);
   const wrong = [...problems(set), ...status(HOME, set)];
@@ -38,7 +38,7 @@ if (verb === "check") {
 } else if (verb === "save") {
   try {
     const set = read(arg);
-    saveChecked(HOME, set, { replace: flag === "--replace" });
+    saveChecked(HOME, set, { replace: flags.includes("--replace"), unchecked: flags.includes("--unchecked") });
     process.stdout.write(`kept as ${set.name}\n`);
   } catch (thrown) {
     fail(thrown.message);
@@ -72,5 +72,5 @@ if (verb === "check") {
 } else if (verb === "verdict") {
   process.stdout.write(`${JSON.stringify(verdict(HOME, read(arg), readFileSync(0, "utf8")))}\n`);
 } else {
-  fail("usage: evalation-questions check <file> | criteria | grid <file> | verdict <file> (answers on stdin) | save <file> [--replace] | list | path <name> | keep-on-account <name> | drop-from-account <name>");
+  fail("usage: evalation-questions check <file> | criteria | grid <file> | verdict <file> (answers on stdin) | save <file> [--replace] [--unchecked] | list | path <name> | keep-on-account <name> | drop-from-account <name>");
 }

@@ -8,7 +8,7 @@ const { mkdtempSync, readFileSync } = require("node:fs");
 const { tmpdir } = require("node:os");
 const { join } = require("node:path");
 const { home } = require("./fixture.js");
-const { CRITERIA, dropFromAccount, extended, extensible, fetched, fromAccount, grid, keepOnAccount, kept, listed, load, packOf, problems, save, saveChecked, saved, status, verdict } = require("../lib/questions.js");
+const { CRITERIA, dropFromAccount, extended, extensible, fetched, fromAccount, grid, keepOnAccount, kept, listed, load, packOf, problems, save, saveChecked, saved, stamp, status, verdict } = require("../lib/questions.js");
 const { groupOf, methodology } = require("../bin/evalation-findings");
 const { served } = require("../bin/evalation-run");
 
@@ -176,6 +176,7 @@ test("an answer outside the numbered criteria, or a fault quoting words its row 
 test("a checked row keeps its verdict while its words and the criteria are unchanged, so a rerun asks nothing and a reworded row is asked again", () => {
   const at = scratch();
   const draft = set([question("Q1")]);
+  stamp(at, "checker-1");
   verdict(at, draft, answered(grid(at, draft).rows));
   assert.deepStrictEqual(status(at, draft), []);
   assert.deepStrictEqual(grid(at, draft).rows, []);
@@ -190,6 +191,7 @@ test("a fault names its criterion and the words that break it, and a row still f
   const words = ["A reset token accepted once and then removed", "A reset token used once and then deleted", "A reset token taken once and then cleared"];
   words.forEach((find, round) => {
     const draft = set([question("Q1", { looks_for: [{ find, proof: "runs" }, question("Q1").looks_for[1]] })]);
+    stamp(at, `checker-${round}`);
     verdict(at, draft, answered(grid(at, draft).rows, { "Q1 item 1 C5": "\"once and then\"" }));
     const said = status(at, draft);
     if (round < 2) assert.deepStrictEqual(said, ["Q1 item 1 breaks C5: \"once and then\""]);
@@ -201,6 +203,7 @@ test("a set is saved only when every row has passed its check, and the plugin te
   const at = scratch();
   const draft = set([question("Q1")]);
   assert.throws(() => saveChecked(at, draft), /Q1 item 1: not yet checked/);
+  stamp(at, "checker-1");
   verdict(at, draft, answered(grid(at, draft).rows));
   saveChecked(at, draft);
   assert.deepStrictEqual(saved(at), ["Board check"]);
@@ -208,6 +211,26 @@ test("a set is saved only when every row has passed its check, and the plugin te
   assert.match(command, /three rounds/);
   assert.match(command, /Wrong:/);
   assert.match(command, /"Checking your questions"/);
+});
+
+test("a pass recorded without the gate's stamp for the question checker is named, and saved only when the person chooses to", () => {
+  const at = scratch();
+  const draft = set([question("Q1")], { name: "Unstamped" });
+  verdict(at, draft, answered(grid(at, draft).rows));
+  assert.deepStrictEqual(status(at, draft), [
+    "Q1: passed without the question checker", "Q1 item 1: passed without the question checker", "Q1 item 2: passed without the question checker"]);
+  assert.throws(() => saveChecked(at, draft), /Q1 item 1: passed without the question checker/);
+  saveChecked(at, draft, { unchecked: true });
+  assert.deepStrictEqual(saved(at), ["Unstamped"]);
+  stamp(at, "checker-2");
+  const stale = JSON.parse(readFileSync(join(at, "checker-stamp.json"), "utf8"));
+  require("node:fs").writeFileSync(join(at, "checker-stamp.json"), JSON.stringify({ ...stale, at: stale.at - 120000 }));
+  const again = set([question("Q1", { intent: "Where does this repository record each refund it makes?" })], { name: "Stale" });
+  verdict(at, again, answered(grid(at, again).rows));
+  assert.ok(status(at, again).includes("Q1: passed without the question checker"), "a stamp over a minute old counts for nothing");
+  const command = readFileSync(join(__dirname, "..", "commands", "ev-questions.md"), "utf8");
+  assert.match(command, /passed without the question checker/);
+  assert.match(command, /save <file> --unchecked/);
 });
 
 test("a set that comes back from the account is checked again, and one that is not a set is refused", () => {
