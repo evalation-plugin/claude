@@ -59,8 +59,9 @@ does.
    It always succeeds and names a state on its first line. Report none of these as an error:
 
    - **`state: not-set-up`**: go to step 3, saying nothing about the state itself. Where a
-     `sign-in: damaged` line follows, first `evalation-say ev-activate.damaged`. Signing in again
-     replaces a damaged sign-in.
+     `sign-in: damaged` line follows, first `evalation-say ev-activate.damaged`, or where a
+     `signed in as:` line names the account, `evalation-say ev-activate.damaged-named` with that
+     email as `email`. Signing in again replaces a damaged sign-in.
    - **`state: live`** means set up and paid up. Go to step 4.
    - **`state: not-live`** means set up, but the server refuses it. Show the line for its `reason:`
      line and stop:
@@ -90,6 +91,9 @@ does.
    Where `packs` is 0, go to step 5 without remarking on it. Otherwise
    `evalation-say ev-start.chosen`, passing `titles` exactly as printed. That line opens the close
    in step 6.
+
+   Where `evalation-packs chosen` exits with any code but 0, here or in step 6, whatever its first
+   word, show `evalation-say ev-start.packs-unread`, show nothing of what it printed, and stop.
 
 5. **Take them through choosing**, if nothing is selected.
 

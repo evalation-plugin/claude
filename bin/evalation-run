@@ -53,9 +53,15 @@ function ask(path, body) {
 
 const spoken = (name, values) => require("../lib/run-say.js").line(name, values);
 
-function faulted(detail, after = false) {
-  fail(`${spoken(after ? "ev-run.fault-after" : "ev-run.fault-before")}\n${String(detail).trim()}`);
+function faulted(detail, after = false, cause = after ? "ev-run.fault-after" : "ev-run.fault-before") {
+  fail(require("../lib/run-say.js").fault(spoken(cause), detail));
 }
+
+const CAUSES = {
+  "evalation-questions": "ev-run.fault-sets", "evalation-packs": "ev-run.fault-before", "evalation-status": "ev-run.fault-before",
+  "evalation-scan": "ev-run.fault-scan", "evalation-findings": "ev-run.fault-findings", "evalation-verify": "ev-run.fault-verify",
+  "evalation-score": "ev-run.fault-score", "evalation-report": "ev-run.fault-reports", "evalation-deliver": "ev-run.fault-reports",
+};
 
 function observedIn(said) {
   const body = said.replace(/^refused \d+:\s*/, "");
@@ -82,8 +88,11 @@ function refusal(said) {
 const SIGNED_OUT = /^(no-settings|no-key|no-installation|unreadable-key-reference|key-wrong-size|settings-unreadable):/;
 const NEVER_SET_UP = /^no-settings:/;
 
+const reasonOf = (thrown) => String(thrown?.stderr ?? "").trim().split("\n")[0]
+  .replace(/^(unreachable|clock|refused|not-set-up|damaged|unreadable|other): /, "");
+
 function unlisted(thrown) {
-  const said = String(thrown?.stderr ?? "").trim().split("\n")[0];
+  const said = reasonOf(thrown);
   if (SIGNED_OUT.test(said)) return spoken(NEVER_SET_UP.test(said) ? "ev-run.signed-out" : "ev-run.damaged");
   if (/^refused 402:/.test(said)) return spoken("ev-run.ended");
   if (/^refused 40[13]:/.test(said)) return spoken("ev-run.not-accepted");
@@ -275,8 +284,9 @@ function jsonOf(script, args) {
   try {
     return JSON.parse(runScript(script, args, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }));
   } catch (thrown) {
-    if (script === "evalation-packs") fail(unlisted(thrown));
-    faulted(`${script} ${args.join(" ")} failed: ${String(thrown.stderr || thrown.message).trim().split("\n")[0]}`);
+    const said = reasonOf(thrown);
+    if (script === "evalation-packs" || SIGNED_OUT.test(said) || /^(refused 40[123]|unreachable):/.test(said)) fail(unlisted(thrown));
+    faulted(`${script} ${args.join(" ")} failed: ${String(thrown.stderr || thrown.message).trim()}`, false, CAUSES[script]);
   }
 }
 
@@ -315,8 +325,9 @@ function saying(part, args) {
     stale: () => words.staleSaid(facts()),
     packs: () => words.packs({ repository: target(at()).repository, credits: credits(), usual: usual(), titles: titles(), sets: sets() }),
     usual: () => words.usualAsk({ usual: usual(), titles: titles() }),
-    all: () => words.all({ credits: credits(), titles: titles() }),
+    all: () => words.all({ titles: titles() }),
     sets: () => words.setsFor({ pack: args[0], titles: titles(), sets: sets() }),
+    "pick-sets": () => words.pickSets({ pack: args[0], titles: titles(), sets: sets() }),
     only: () => words.onlySets(sets()),
     short: () => words.short(credits(), args[0]),
     reading: () => words.reading(read()),
@@ -337,6 +348,11 @@ function saying(part, args) {
 function main() {
   if (process.argv[2] === "--say") {
     saying(process.argv[3], process.argv.slice(4));
+    return;
+  }
+  if (process.argv[2] === "--fault") {
+    const [command, ...detail] = process.argv.slice(3);
+    process.stdout.write(`${require("../lib/run-say.js").fault(spoken(CAUSES[command] ?? "ev-run.fault-after"), `${command ?? ""}: ${detail.join(" ")}`)}\n`);
     return;
   }
   if (process.argv[2] === "--branch") {

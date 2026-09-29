@@ -26,40 +26,23 @@ show `evalation-say ev-rotate.lost`.
    evalation-rotate
    ```
 
-2. **Show the line it prints exactly as printed.** Nothing else follows, so end there.
+2. **Show what it printed.** Where the first line it prints is a sentence, show that line exactly as
+   printed and nothing more. The script prints one line for each outcome, a key replaced or not, so
+   add no step, reason or second line of your own.
 
 ## When it does not work
 
-Where the first line is one of the two sentences below, show it exactly as printed. The word on the
-line after it picks the one next step to add. Otherwise read the prefix of the first line and show
-the line named for it. Never run it with `--reason`, which adds detail for support alone.
+Where the first line starts with a lowercase word and a colon, show the line named for that word
+here. Never run it with `--reason`, which adds detail for support alone.
 
-- **`The key was not replaced and the old one still works.`** Add the step for the word:
-  - `clock`: `evalation-say ev-rotate.not-replaced-clock`
-  - `key-store-refused`: `evalation-say ev-rotate.not-replaced-key-store`
-  - `refused`: `evalation-say ev-account.refused`
-  - `ended`: `evalation-say ev-account.ended`
-  - anything else: `evalation-say ev-rotate.not-replaced-other`
-- **`The key change did not finish.`** Both keys are kept on this machine, and running again
-  finishes the change without making another. Never say the old key still works. Where the word is
-  refused or ended, show only the line for it below, since Evalation has stopped serving this
-  machine and the change cannot finish. Otherwise show `evalation-say ev-rotate.not-finished`,
-  since other commands open what Evalation sends with the new key, and Evalation may not use it
-  yet. Then add the step for the word:
-  - `clock`: `evalation-say ev-rotate.not-finished-clock`
-  - `unreachable`: `evalation-say ev-rotate.not-finished-unreachable`
-  - `key-store-refused`: `evalation-say ev-rotate.not-finished-key-store`
-  - `refused`: `evalation-say ev-account.refused`
-  - `ended`: `evalation-say ev-account.ended`
-  - anything else: `evalation-say ev-rotate.not-finished-other`. If it fails a second time, show
-    `evalation-say ev-rotate.not-finished-twice` and stop.
 - **`no-settings`** means this machine is not signed in. Show `evalation-say ev-account.not-set-up`.
 - **`sign-in-damaged`** means this machine's sign-in is damaged. Show
   `evalation-say ev-rotate.damaged`.
 - **`sign-in-unclear`** means this machine would not let Evalation read its sign-in. Show
   `evalation-say ev-rotate.unclear`.
-- **`no-receiving-key`** or **`no-key`** means part of this machine's sign-in cannot be read. Show
+- **`no-receiving-key`** means part of this machine's sign-in cannot be read. Show
   `evalation-say ev-rotate.no-key`.
+- **`no-key`** means the same. Show `evalation-say ev-rotate.no-key`.
 
 ## What it never does
 

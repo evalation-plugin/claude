@@ -45,14 +45,22 @@ takes those titles too.
    ```
 
    It reads the packs Evalation offers and prints `titles`, the chosen packs' titles joined into
-   one line, and `packs`, how many are chosen. Where it fails, read the start of the reason it
-   prints, show one line and stop:
+   one line, and `packs`, how many are chosen.
 
-   - `refused`: show the words after the colon exactly as printed. Where they name no way forward,
-     also show `evalation-say ev-packs.contact-support`.
-   - `unreachable`: show `evalation-say ev-packs.unreachable`.
+   Where `evalation-packs chosen`, `evalation-packs chooser` or `evalation-packs set` fails, here
+   or at any later step, show nothing it printed. Read the word before the first colon, show the
+   line for it and stop:
 
-   Otherwise show the words after the colon exactly as printed and stop.
+   - `unreachable`: `evalation-say ev-packs.unreachable`
+   - `refused`: `evalation-say ev-packs.refused`
+   - `clock`: `evalation-say ev-packs.clock`
+   - `damaged`: `evalation-say ev-packs.damaged`
+   - `not-set-up`: `evalation-say ev-packs.not-signed-in`
+   - `unreadable`: `evalation-say ev-packs.unreadable`
+   - any other word: `evalation-say ev-packs.other`
+
+   The one exception is `choice-unreadable`: `evalation-say ev-packs.choice-unreadable`, then go
+   on to step 4 without stopping.
 
 3. **Ask before changing it.** Where `packs` is more than zero, run
    `evalation-say ev-packs.keep titles="<titles>"` and ask the question it prints. On
@@ -76,7 +84,8 @@ takes those titles too.
 
    It prints one question for each group of packs, every pack Evalation offers in alphabetical
    order, with the packs chosen now marked and `None of these` as the last answer of each. Ask its
-   questions, at most four at a time. A question answered `None of these` adds no pack.
+   questions, at most four at a time. A question answered `None of these` adds no pack. Where a
+   question has `None of these` and a pack ticked, take the pack.
 
    Where they tick only `None of these` in every question, or tick exactly the packs `chosen` named, run nothing,
    show `evalation-say ev-packs.nothing-changed titles="<titles>"` with the <titles> `chosen` printed,
@@ -95,9 +104,8 @@ takes those titles too.
    ```
 
    Pass the labels they ticked, leaving out `None of these`, each in double quotes, exactly as the
-   chooser printed them. It
-   prints the titles it saved. Where it prints `unknown-pack`, a title was mistyped: run it again
-   with the labels exactly as printed.
+   chooser printed them. Show nothing it prints. Where it fails with `unknown-pack`, a title was
+   mistyped: run it again with the labels exactly as the chooser printed them.
 
 8. **Say what they chose.** Run `evalation-packs chosen` again, then show
    `evalation-say ev-packs.saved titles="<titles>" count="<packs>"` from what it printed. With one

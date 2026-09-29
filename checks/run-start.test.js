@@ -108,9 +108,10 @@ test("the pack questions come from the run command ready to ask, with the balanc
     assert.strictEqual(ran.code, 0, ran.stderr);
     return ran.stdout.startsWith("{") ? JSON.parse(ran.stdout).questions : ran.stdout;
   };
-  const [full] = await asked("packs", tree);
-  assert.strictEqual(full.question, "Which packs should this run read? Tick each pack to read. Each one uses a pack credit, and you have 3. " +
-    "Reading takes a while and uses a good part of your Claude usage.");
+  assert.strictEqual(await asked("packs", tree), "Each pack uses one pack credit, and you have 3. " +
+    "Reading takes a while and uses a good part of your Claude usage.\n");
+  const [full] = await asked("all");
+  assert.strictEqual(full.question, "Which packs should this run read? Tick each pack to read.");
   assert.deepStrictEqual(full.options.map((one) => one.label), ["Evalation Cyber Insurance Risk", "Evalation Hardening Review", "ISO/IEC 27001",
     "SOC 2 Trust Services Criteria"]);
   writeFileSync(join(home, "packs.json"), JSON.stringify({ packs: ["soc2", "hardening"] }));
@@ -135,12 +136,13 @@ test("the pack questions come from the run command ready to ask, with the balanc
   assert.ok(usual.multiSelect);
   assert.deepStrictEqual(usual.options.map((one) => one.label), ["SOC 2 Trust Services Criteria", "Evalation Hardening Review"]);
   const [all] = await asked("all");
-  assert.strictEqual(all.question, "Which packs should this run read? Tick each pack to read. Each one uses a pack credit, and you have 3.");
+  assert.strictEqual(all.question, "Which packs should this run read? Tick each pack to read.");
   const [only] = await asked("only");
   assert.deepStrictEqual(only.options, [{ label: "Board", description: "One question." }, { label: "Board two", description: "2 questions." }]);
   const closed = await started(home, port, "--say", "sets", "soc2");
   assert.strictEqual(closed.code, 1);
-  assert.match(closed.stderr, /^The run stopped on a fault in Evalation\. No pack credits were used\. Please send this message to support@evalation\.ai:\n/);
+  assert.match(closed.stderr, /^The run stopped on a fault in Evalation\. No pack credits were used\.\nTo have it fixed, email support@evalation\.ai/);
+  assert.doesNotMatch(closed.stderr, /soc2|takes no extra/);
   assert.doesNotMatch(closed.stderr, /can also take your own questions/);
   assert.strictEqual(await asked("sets", "cyber-insurance"), "Evalation Cyber Insurance Risk can also take your own questions, written with /ev-questions before a run.\n");
   writeFileSync(join(home, "questions", "Broker.json"), JSON.stringify({ name: "Broker", pack: "cyber-insurance", questions: [question, question] }));
@@ -153,6 +155,17 @@ test("the pack questions come from the run command ready to ask, with the balanc
   assert.ok(many.multiSelect);
   assert.deepStrictEqual(many.options, [{ label: "Broker", description: "2 questions." }, { label: "Insurer", description: "One question." },
     { label: "Read the pack alone", description: "Only the pack's own questions are read." }]);
+  for (const name of ["Cover", "Renewal"]) {
+    writeFileSync(join(home, "questions", `${name}.json`), JSON.stringify({ name, pack: "cyber-insurance", questions: [question] }));
+  }
+  const [choice, ...rest] = await asked("sets", "cyber-insurance");
+  assert.deepStrictEqual(rest, [], "one single-choice question comes before the tick lists");
+  assert.strictEqual(choice.multiSelect, false);
+  assert.deepStrictEqual(choice.options.map((one) => one.label), ["Use my question sets", "Read the pack alone"]);
+  const lists = await asked("pick-sets", "cyber-insurance");
+  assert.ok(lists.every((one) => one.multiSelect));
+  assert.deepStrictEqual(lists.flatMap((one) => one.options.map((each) => each.label)), ["Broker", "Cover", "Insurer", "Renewal"],
+    "the tick list offers the sets alone, with no answer to read the pack alone");
   assert.strictEqual(await asked("short", "4"), "You have 3 pack credits and chose 4 packs. To buy more pack credits, email support@evalation.ai, " +
     "then run /ev-run again, or choose fewer packs.\n");
   held.close();
@@ -266,9 +279,12 @@ test("a balance that cannot be read says in a catalogue line what to do, and a f
   const unknown = await started(machine(), port, "--say", "no-such-part");
   held.close();
   assert.strictEqual(unknown.code, 1);
-  const [first, ...detail] = unknown.stderr.trim().split("\n");
-  assert.strictEqual(first, "The run stopped on a fault in Evalation. No pack credits were used. Please send this message to support@evalation.ai:");
-  assert.ok(detail.length > 0);
+  const lines = unknown.stderr.trim().split("\n");
+  assert.deepStrictEqual(lines.slice(0, 2), ["The run stopped on a fault in Evalation. No pack credits were used.",
+    "To have it fixed, email support@evalation.ai and attach this file, which holds the details:"]);
+  assert.strictEqual(lines.length, 3);
+  assert.match(readFileSync(lines[2], "utf8"), /usage: evalation-run --say/);
+  assert.doesNotMatch(unknown.stderr, /usage|\n\s+at /);
 });
 
 test("a catalogue larger than a mebibyte is read whole, so the scan question is answered", async () => {
@@ -302,7 +318,7 @@ test("the pack titles on a machine not signed in say plainly to sign in, with no
   const again = await server([{ body: { revision: "1.86", packs: [{ pack: "soc2", body: SOC2 }] } }]);
   const broken = await started(damaged, again.held.address().port, "--titles");
   again.held.close();
-  assert.match(broken.stderr, /sign-in is damaged.+Run \/ev-activate and sign in with the same account as before/);
+  assert.match(broken.stderr, /sign-in is damaged.+Run \/ev-activate and sign in with the same account as before, so your pack credits are there\.\n$/);
 });
 
 test("the pack titles on a signed in machine are printed as evalation-packs gives them", async () => {

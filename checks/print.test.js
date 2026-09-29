@@ -3,7 +3,7 @@
 const test = require("node:test");
 const assert = require("node:assert");
 const { execFileSync } = require("node:child_process");
-const { existsSync, mkdtempSync } = require("node:fs");
+const { existsSync, mkdtempSync, readFileSync } = require("node:fs");
 const { tmpdir } = require("node:os");
 const { join } = require("node:path");
 const { repository, run, scanned } = require("./fixture.js");
@@ -160,13 +160,17 @@ test("a page that fails its check stops the report with one plain line naming th
   const said = (command) => spawnSync(process.execPath, [join(__dirname, "..", "bin", command), file, join(folder, command)], { encoding: "utf8" });
   const report = said("evalation-report");
   assert.strictEqual(report.status, 1);
-  assert.match(report.stderr, /^Evalation SOC 2 Trust Services Criteria Evidence Pack\.pdf was not written, because the check made before printing found these faults in its pages:\n {2}an unfilled slot reached the page: "\{\{ repository \}\}"/);
-  assert.doesNotMatch(report.stderr, /fault in Evalation|\n\s+at /);
-  assert.match(report.stderr, /\nYour findings are kept, and the reports can be printed once this is fixed, with no new pack credits\.\n$/);
+  const lines = report.stderr.trim().split("\n");
+  assert.deepStrictEqual(lines.slice(0, -1), [
+    "Evalation SOC 2 Trust Services Criteria Evidence Pack.pdf was not written, because the check made before printing found faults in its pages.",
+    "Your findings are kept, and the reports can be printed once this is fixed, with no new pack credits.",
+    "To have it fixed, email support@evalation.ai and attach this file, which holds the details:"]);
+  assert.match(readFileSync(lines.at(-1), "utf8"), /an unfilled slot reached the page: "\{\{ repository \}\}"/);
+  assert.doesNotMatch(report.stderr, /unfilled|\n\s+at /);
   const deliver = said("evalation-deliver");
   assert.strictEqual(deliver.status, 1);
-  assert.match(deliver.stderr, /^Evalation Hardening Review (Pack|Detail)\.pdf was not written, because the check made before printing found these faults in its pages:\n {2}an unfilled slot/);
-  assert.doesNotMatch(deliver.stderr, /fault in Evalation|\n\s+at /);
+  assert.match(deliver.stderr, /^Evalation Hardening Review (Pack|Detail)\.pdf was not written, because the check made before printing found faults in its pages\.\n/);
+  assert.doesNotMatch(deliver.stderr, /unfilled|\n\s+at /);
 });
 
 test("any other print failure gives one plain line naming the file, and names the reports already written", () => {
@@ -178,10 +182,12 @@ test("any other print failure gives one plain line naming the file, and names th
     thrown = caught;
   }
   const said = unwritten(thrown, [join(tree, "A Pack.pdf")]);
-  assert.match(said, /^B Pack\.pdf was not written, because printing it stopped: [^\n]+\.\nA Pack\.pdf was written before it, in the same folder\.$/);
-  assert.match(unwritten(new Error("boom")), /^The reports were not written, because building them stopped: boom\.$/);
+  assert.match(said, /^B Pack\.pdf was not written, because printing it stopped\.\nA Pack\.pdf was written before it, in the same folder\.\nYour findings are kept/);
+  const built = unwritten(new Error("boom")).split("\n");
+  assert.strictEqual(built[0], "The reports were not written, because building them stopped.");
+  assert.strictEqual(readFileSync(built.at(-1), "utf8").trim(), "boom");
   assert.match(unwritten(Object.assign(new Error("spawnSync chrome ETIMEDOUT"), { code: "ETIMEDOUT", file: "/r/C Pack.pdf" })),
-    /^C Pack\.pdf was not written, because the browser took longer than two minutes to print it\.$/);
+    /^C Pack\.pdf was not written, because the browser took longer than two minutes to print it\.\n/);
 });
 
 test("a slot the reading did not write is still refused", () => {

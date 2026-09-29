@@ -7,12 +7,14 @@ const { pluginHome } = require("../lib/home.js");
 const { join } = require("node:path");
 const { runScript } = require("../lib/script.js");
 const { why } = require("./evalation-status");
+const { entries, say } = require("../lib/say.js");
 
 const store = require("./evalation-store");
 
-const NOT_REPLACED = "The key was not replaced and the old one still works.";
-const NOT_FINISHED = "The key change did not finish.";
-const REPLACED = "Replaced this machine's key. The old key no longer works.\n";
+const NOT_REPLACED = { clock: "ev-rotate.not-replaced-clock", "key-store-refused": "ev-rotate.not-replaced-key-store", other: "ev-rotate.not-replaced-other" };
+const NOT_FINISHED = { clock: "ev-rotate.not-finished-clock", unreachable: "ev-rotate.not-finished-unreachable",
+  "key-store-refused": "ev-rotate.not-finished-key-store", other: "ev-rotate.not-finished-other" };
+const ENDED = { refused: "ev-account.refused", ended: "ev-account.ended" };
 const PKCS8_X25519 = Buffer.from("302e020100300506032b656e04220420", "hex");
 const DAMAGED = "sign-in-damaged: this machine's Evalation sign-in could not be read, so nothing was changed";
 
@@ -21,8 +23,9 @@ function fail(reason) {
   process.exit(1);
 }
 
-function stop(first, kind, detail) {
-  fail([first, kind, ...(process.argv.includes("--reason") ? [detail] : [])].join("\n"));
+function stop(outcomes, kind, detail) {
+  const line = say(entries(), ENDED[kind] ?? outcomes[kind] ?? outcomes.other);
+  fail([line, ...(process.argv.includes("--reason") ? [kind, detail] : [])].join("\n"));
 }
 
 function reasonOf(thrown) {
@@ -117,7 +120,7 @@ function finished(sent) {
     stopped(NOT_FINISHED, thrown);
   }
   forget(PREVIOUS);
-  process.stdout.write(REPLACED);
+  process.stdout.write(`${say(entries(), "ev-rotate.replaced")}\n`);
   process.exit(0);
 }
 

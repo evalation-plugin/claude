@@ -37,7 +37,37 @@ test("each status the machine can be in has its own plain line, and a refused ma
     assert.match(line(text, "`state: unreachable`"), /If it still fails, contact support@evalation\.ai\.$/, name);
     assert.doesNotMatch(flat(text), /never in a file/, name);
   }
-  assert.strictEqual(line(ACCOUNT, "`sign-in: damaged`"), "This machine's Evalation sign-in is damaged. Run /ev-activate and sign in with the same account as before, so your pack credits and reports are there.");
+  assert.strictEqual(line(ACCOUNT, "`sign-in: damaged`"), "This machine's Evalation sign-in is damaged. Run /ev-activate and sign in with the same account as before, so your pack credits are there.");
+});
+
+test("a damaged machine that recorded its account names it, in setting up and in the account reply", () => {
+  assert.strictEqual(line(ACCOUNT, "names the account"), "This machine's Evalation sign-in is damaged. Run /ev-activate and sign in with <email>, the same account as before, so your pack credits are there.");
+  assert.match(line(START, "names the account"), /^This machine needs to sign in to Evalation again\. Sign in with <email>, the same account as before/);
+});
+
+test("a failed read of the chosen packs ends in a fixed line in both commands, keyed on the exit alone", () => {
+  for (const [name, text, command] of [["ev-start.md", START, "/ev-start"], ["ev-account.md", ACCOUNT, "/ev-account"]]) {
+    const said = line(text, "Where `evalation-packs chosen` exits with any code but 0");
+    assert.match(said, /^Your chosen packs could not be read just now\./, name);
+    assert.ok(said.includes(command), name);
+    assert.match(said, /support@evalation\.ai/, name);
+  }
+});
+
+test("the packs script exits non-zero when the pack list cannot be fetched, so the commands can key on its exit", () => {
+  const { mkdtempSync, mkdirSync, writeFileSync } = require("node:fs");
+  const { spawnSync } = require("node:child_process");
+  const home = mkdtempSync(join(require("node:os").tmpdir(), "evalation-account-"));
+  mkdirSync(join(home, "keys"));
+  for (const one of ["installation-key", "receiving-key"]) {
+    writeFileSync(join(home, "keys", `evalation-plugin.box.${one}`), require("node:crypto").randomBytes(32).toString("base64"), { mode: 0o600 });
+  }
+  writeFileSync(join(home, "evalation.local"), JSON.stringify({ installation: "box", secrets: {
+    installation_key: "store:evalation-plugin/box.installation-key", receiving_key: "store:evalation-plugin/box.receiving-key" } }));
+  const ran = spawnSync(process.execPath, [join(__dirname, "..", "bin", "evalation-packs"), "chosen"], { encoding: "utf8", env: { ...process.env,
+    EVALATION_PLUGIN_HOME: home, EVALATION_LOCAL: join(home, "evalation.local"), EVALATION_KEY_STORE: "file", EVALATION_SERVER: "http://127.0.0.1:9" } });
+  assert.notStrictEqual(ran.status, 0);
+  assert.strictEqual(ran.stdout, "");
 });
 
 test("pack titles come joined from a script, so the session never joins them itself", () => {
@@ -71,7 +101,7 @@ test("setting up opens and closes in fixed words, and names no pack credit befor
   const words = flat(START);
   const step = (n) => words.slice(words.indexOf(` ${n}. **`), words.indexOf(` ${n + 1}. **`));
   assert.strictEqual(line(step(1), "Open with"), "Evalation checks your code against the security and compliance standards you choose, and writes reports on what it finds.");
-  assert.strictEqual(line(step(2), "`sign-in: damaged`"), "This machine needs to sign in to Evalation again. Sign in with the same account as before, so your pack credits and reports are there.");
+  assert.strictEqual(line(step(2), "`sign-in: damaged`"), "This machine needs to sign in to Evalation again. Sign in with the same account as before, so your pack credits are there.");
   assert.strictEqual(line(step(3), "Take them through signing in"), "Signing in sets up your Evalation account, or links this machine to it if you already have one.");
   assert.doesNotMatch(step(3), /pack credit|in your own words/);
   assert.strictEqual(line(step(4), "Otherwise"), "You are set up to check code against <titles>.");

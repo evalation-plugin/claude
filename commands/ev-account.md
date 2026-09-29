@@ -26,7 +26,9 @@ blank such as `<titles>`, pass its value as `titles=<value>`, for example
 2. **Show what is next, going by the `state:` line.** Each case below is the whole reply for that
    state.
 
-   - `state: not-set-up` with a `sign-in: damaged` line: `evalation-say ev-account.damaged`
+   - `state: not-set-up` with a `sign-in: damaged` line: `evalation-say ev-account.damaged`, or
+     where a `signed in as:` line names the account, `evalation-say ev-account.damaged-named` with
+     that email as `email`
    - `state: not-set-up` alone: `evalation-say ev-account.not-set-up` and nothing more. It is the
      normal path and not a fault, and explaining that nothing is wrong is what makes a person think
      something is.
@@ -61,6 +63,10 @@ Show these lines in order, as one reply, and nothing else.
      `evalation-say ev-account.chosen-one` in its place.
    - In place of the line above, where <N> is below <M>: `evalation-say ev-account.short`, or with
      one pack, `evalation-say ev-account.short-one`.
+
+   Where `evalation-packs chosen` exits with any code but 0, whatever its first word, show
+   `evalation-say ev-account.packs-unread` in place of these lines and show nothing of what it
+   printed.
 
 ## What this never does
 

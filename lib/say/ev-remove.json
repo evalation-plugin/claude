@@ -1,11 +1,12 @@
 {
   "ev-remove.unreachable": { "say": "Evalation could not be reached, so nothing was changed. Check this machine is online, then run /ev-remove again." },
   "ev-remove.clock": { "say": "This machine's clock is wrong, so Evalation cannot sign it out and nothing was removed. Set the clock to the right time, then run /ev-remove again." },
-  "ev-remove.damaged": { "say": "This machine's Evalation sign-in is damaged, so Evalation cannot sign it out from here. Email support@evalation.ai to have this machine's sign-in switched off." },
+  "ev-remove.damaged": { "say": "This machine's Evalation sign-in is damaged, so Evalation cannot sign it out from here." },
   "ev-remove.not-signed-in": { "say": "This machine is not signed in to Evalation, so there is nothing to sign out." },
   "ev-remove.sign-out": { "say": "This signs this machine out of Evalation and deletes its keys from this machine's password store. Other machines and your account are unaffected, so your pack credits stay and you can sign in again on any machine." },
   "ev-remove.folder": { "say": "It also deletes Evalation's own folder on this machine, with the saved results of each check, your pack choice and any question sets saved only here. Question sets kept on your account stay." },
-  "ev-remove.folder-local": { "say": "Removing deletes Evalation's own folder on this machine, with the saved results of each check, your pack choice and any question sets saved here. Evalation cannot reach your account from this machine, so those question sets cannot be kept on it." },
+  "ev-remove.folder-local": { "say": "Removing deletes Evalation's own folder on this machine, with the saved results of each check, your pack choice and any question sets saved here." },
+  "ev-remove.sets-stay-local": { "say": "Evalation cannot reach your account from this machine, so the question sets saved here cannot be kept on it." },
   "ev-remove.nothing-saved": { "say": "Evalation has saved nothing on this machine, so there is nothing to delete." },
   "ev-remove.nothing-else": { "say": "Evalation has nothing else on this machine." },
   "ev-remove.old-reports": { "say": "Evalation's own folder also holds reports an older version of Evalation saved there: <reports>. Removing deletes them with it. Reports in your Documents folder stay." },
@@ -41,17 +42,18 @@
     { "label": "Delete them", "description": "Deletes those conversations, except any still open." },
     { "label": "Keep them", "description": "Leaves every conversation in Claude Code." }
   ] },
-  "ev-remove.set-fails": { "ask": "The question set <set> cannot be kept on your account as it is. What should happen to it?", "header": "Question set", "options": [
+  "ev-remove.set-fails": { "ask": "The question set \"<set>\" cannot be kept on your account until it is fixed with /ev-questions. What should happen to it?", "header": "Question set", "options": [
     { "label": "Delete it with the rest", "description": "Deletes the set with Evalation's folder and goes on removing." },
     { "label": "Stop so I can fix it", "description": "Removes nothing, so you can fix the set first." }
   ] },
-  "ev-remove.fix-set": { "say": "Nothing was removed. Fix the set with /ev-questions, then run /ev-remove again." },
-  "ev-remove.set-not-kept": { "say": "The question set <set> could not be kept on your account, so nothing was removed. Check this machine is online, then run /ev-remove again." },
+  "ev-remove.fix-set": { "say": "Nothing was removed. Run /ev-remove again once the set is fixed." },
+  "ev-remove.set-not-kept": { "say": "The question set \"<set>\" could not be kept on your account, so nothing was removed. Check this machine is online, then run /ev-remove again." },
   "ev-remove.run-unreachable": { "say": "Evalation could not be reached, so nothing was removed. Check this machine is online, then run /ev-remove again." },
   "ev-remove.run-refused": { "say": "Evalation would not sign this machine out, so nothing was removed. Contact support@evalation.ai for help." },
   "ev-remove.signed-out": { "say": "This machine is signed out of Evalation." },
   "ev-remove.already-out": { "say": "This machine was already signed out of Evalation, so nothing was signed out." },
-  "ev-remove.not-revoked": { "say": "Evalation could not sign this machine out because its sign-in was damaged. Email support@evalation.ai to have this machine's sign-in switched off." },
+  "ev-remove.not-revoked": { "say": "Evalation could not sign this machine out, so email support@evalation.ai to have its sign-in switched off." },
+  "ev-remove.sets-kept": { "say": "The question sets <sets> are kept on your account." },
   "ev-remove.folder-deleted": { "say": "Evalation's folder on this machine is deleted." },
   "ev-remove.folder-left": { "say": "Some of Evalation's files on this machine could not be deleted. Run /ev-remove again to finish." },
   "ev-remove.key": { "say": "the service <service> with the account <account>" },

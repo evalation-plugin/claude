@@ -226,7 +226,7 @@ function reviewFindings(document) {
       name: DISCIPLINES[prefix] ?? prefix,
       count: rows.length,
       blurb: looked.length
-        ? `Read for ${looked.slice(0, 4).join(", ")}${looked.length > 4 ? ", among others" : ""}.`
+        ? `Read for ${looked.slice(0, 4).join(", ")}${looked.length > 4 ? ", among others" : ""}.` // say:allow: report,printed in the review detail PDF
         : "",
       unchecked,
       findings: rows,
@@ -262,10 +262,10 @@ function reviewFindings(document) {
         "Each discipline has its own section, and one that found nothing still gets a section so a " +
         "reader can see it was read.",
 
-        "Within a section, findings run in priority order. Each names the model that found it, the " +
+        "Within a section, findings run in priority order. Each names the model that found it, the " + // say:allow: report,the review detail PDF's opening
         "file and lines it rests on, whether a second check confirmed it, and the fix.",
 
-        "We read the code without running it and changed nothing.",
+        "We read the code without running it and changed nothing.", // say:allow: report,the review detail PDF's opening
       ].join(" "),
       finding_count: weaknesses,
       models,

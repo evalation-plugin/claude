@@ -70,7 +70,10 @@ async function ask(path, body) {
   }
 }
 
-const OUR_SETUP = /redirect|reply ?ur[il]|reply address|AADSTS50011/i;
+const OUR_SETUP = /redirect|reply ?ur[il]|reply address|AADSTS50011|no provider called|provider named is not one|challenge is too short|no client to reach|provider's key is not one|provider's key could not be read|installation could not be created|not the size one is/i;
+const TRY_AGAIN = /provider would not exchange|provider could not be reached|provider's answer could not be read|provider's keys could not be|not a token|the token |sign-in could not be|sign-in is unknown|verifier does not match|store could not be reached|account could not be opened|activation did not land|already answers to that name/i;
+const ARGS = process.argv.slice(2).filter((one) => one !== "--reason");
+const detailed = (said) => (process.argv.includes("--reason") ? `\ndetail: ${said}` : "");
 
 function parsed(text) {
   try {
@@ -83,11 +86,10 @@ function parsed(text) {
 function refusal(status, text) {
   if (status >= 500) fail(`server-error: Evalation answered ${status}, so nothing was activated`);
   const refusals = Array.isArray(parsed(text)?.refusals) ? parsed(text).refusals : [];
-  const said = refusals.length > 0 ? refusals.map((one) => `${one.observed ?? ""} ${one.failure ?? ""}`).join(" ") : text;
-  if (OUR_SETUP.test(said)) fail(`fault: the sign-in was refused because of how it is set up on our side (${said.trim()}), so nothing was activated`);
-  const observed = refusals.map((one) => String(one.observed ?? "").trim().replace(/\.+$/, "")).filter((one) => one && !/^(?=\S*[_\d])\S+$/.test(one));
-  if (observed.length === 0) fail("refused-no-reason: the sign-in was refused with no reason given, so nothing was activated");
-  fail(`refused: ${observed.join(", ")}`);
+  const said = (refusals.length > 0 ? refusals.map((one) => `${one.observed ?? ""} ${one.failure ?? ""}`).join(" ") : text).trim();
+  if (OUR_SETUP.test(said)) fail(`fault: the sign-in is set up wrongly on our side, so nothing was activated${detailed(said)}`);
+  if (TRY_AGAIN.test(said)) fail(`refused: the sign-in did not go through, so nothing was activated${detailed(said)}`);
+  fail(`refused-unrecognised: the sign-in was refused for a reason this does not recognise, so nothing was activated${detailed(said)}`);
 }
 
 // The raw thirty-two bytes are the tail of each encoding, and raw is what the server records.
@@ -172,11 +174,7 @@ function somewhere_to_keep_it() {
     if (back !== value) throw new Error("it read back something other than what was written");
     return store.chosen().name;
   } catch (thrown) {
-    fail(
-      `no-key-store: this machine has nowhere to keep a private key (${thrown.message}).\n` +
-        "Nothing was created and nothing needs undoing. Set EVALATION_KEY_STORE=file to keep the " +
-        `keys in a file only you can read, under ${join(pluginHome(), "keys")}, then run this again.`,
-    );
+    fail(`no-key-store: this machine has nowhere to keep a private key (${thrown.message}). Nothing was created and nothing needs undoing. Set EVALATION_KEY_STORE=file to keep the keys in a file only you can read, under ${join(pluginHome(), "keys")}, then run this again.`); // say:allow: machine,a prefix line the session maps to ev-activate.no-key-store
   }
 }
 
@@ -199,8 +197,8 @@ function awaited(listener, pattern) {
 }
 
 async function main() {
-  const provider = process.argv[2] || "google";
-  const wanted = process.argv[3];
+  const provider = ARGS[0] || "google";
+  const wanted = ARGS[1];
 
   if (signedIn()) {
     fail("already-activated: this machine is already signed in to Evalation. Run /ev-account to see its pack credits.");
@@ -240,6 +238,9 @@ async function main() {
     redirect_uri: `http://127.0.0.1:${Number(bound[1])}/callback`,
     provider,
   });
+  if (typeof started?.state !== "string" || !/^https:\/\/\S+$/.test(String(started?.authorization_url ?? ""))) {
+    fail("unreadable answer from /activate/start: it holds no https sign-in address, so nothing was activated");
+  }
 
   process.stderr.write(`signing in with ${provider}\nsign-in address: ${started.authorization_url}\n`);
   try {
@@ -268,8 +269,8 @@ async function main() {
 
   const refused = decodeURIComponent(back[3]);
   if (refused) {
-    if (OUR_SETUP.test(refused)) fail(`fault: ${provider} refused the sign-in because of how it is set up on our side (${refused}), so nothing was activated`);
-    fail(`sign-in-refused: ${provider} answered ${refused}, so nothing was activated`);
+    if (OUR_SETUP.test(refused)) fail(`fault: ${provider} refused the sign-in because of how it is set up on our side, so nothing was activated${detailed(refused)}`);
+    fail(`sign-in-refused: ${provider} declined the sign-in, so nothing was activated${detailed(refused)}`);
   }
 
   const state = decodeURIComponent(back[2]);

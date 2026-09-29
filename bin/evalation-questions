@@ -10,19 +10,17 @@
 //   evalation-questions drop-from-account <name> stops keeping a set on the account
 "use strict";
 
-const { existsSync, mkdirSync, readFileSync, writeFileSync } = require("node:fs");
+const { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } = require("node:fs");
+const { randomBytes } = require("node:crypto");
 const { pluginHome } = require("../lib/home.js");
 const { join } = require("node:path");
-const { CRITERIA, approval, claimsQuestion, dropFromAccount, extensible, fetched, fromAccount, grid, grouped, keepOnAccount, listed, listSaid, namesQuestion,
+const { CRITERIA, approval, askServer, claimsQuestion, dropFromAccount, extensible, fetched, fromAccount, grid, grouped, keepOnAccount, listed, listSaid, namesQuestion,
   packQuestion, saveChecked, saved, setsQuestion, shown, verdict, withoutMark } = require("../lib/questions.js");
-const { runScript } = require("../lib/script.js");
+const { entries: lines, say } = require("../lib/say.js");
 
 const HOME = pluginHome();
 const NAME = /^[A-Za-z0-9][A-Za-z0-9 _-]{0,59}$/;
-
-function askServer(path, body) {
-  return JSON.parse(runScript("evalation-ask", [path, JSON.stringify(body)], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }));
-}
+const DAY = 24 * 60 * 60 * 1000;
 
 function draftOf(home, name) {
   if (!NAME.test(String(name))) throw new Error(`${name}: not a name a set is kept under`);
@@ -36,8 +34,23 @@ function fresh(home, name) {
 }
 
 function tell(home, text) {
-  mkdirSync(join(home, "drafts"), { recursive: true, mode: 0o700 });
-  writeFileSync(join(home, "drafts", "said.txt"), `${text}\n`, { mode: 0o600 });
+  const folder = join(home, "drafts");
+  mkdirSync(folder, { recursive: true, mode: 0o700 });
+  for (const old of readdirSync(folder).filter((one) => /^answer-.*\.txt$/.test(one))) {
+    try {
+      if (Date.now() - statSync(join(folder, old)).mtimeMs > DAY) rmSync(join(folder, old), { force: true });
+    } catch (thrown) {
+      if (thrown.code !== "ENOENT") throw thrown;
+    }
+  }
+  const answer = join(folder, `answer-${Date.now()}-${process.pid}-${randomBytes(4).toString("hex")}.txt`);
+  writeFileSync(answer, `${text}\n`, { mode: 0o600 });
+  process.stdout.write(`${answer}\n`);
+}
+
+function withTitle(set, known) {
+  const title = set?.pack && set.pack !== "custom" ? known[set.pack] : undefined;
+  return title ? { ...set, pack_title: title } : set;
 }
 
 function served(ask) {
@@ -49,7 +62,7 @@ function packsSaid(home, ask = askServer) {
   try {
     packs = served(ask);
   } catch {
-    return "The pack list could not be fetched.";
+    return "The pack list could not be fetched."; // say:allow: agent,the session reads this answer file, and choose-pack asks the person
   }
   const selection = join(home, "packs.json");
   const chosen = existsSync(selection) ? JSON.parse(readFileSync(selection, "utf8")).packs ?? [] : [];
@@ -135,7 +148,7 @@ function main() {
     const set = read(arg);
     const replace = flags.includes("--replace");
     try {
-      saveChecked(HOME, set, { replace, unchecked: flags.includes("--unchecked") });
+      saveChecked(HOME, withTitle(set, titles()), { replace, unchecked: flags.includes("--unchecked") });
       tell(HOME, "saved");
     } catch (thrown) {
       tell(HOME, !replace && saved(HOME).includes(set.name) ? `name taken: ${thrown.message}` : thrown.message);
@@ -154,16 +167,15 @@ function main() {
     }
   } else if (verb === "keep-on-account") {
     try {
-      keepOnAccount(HOME, arg);
-      const { entries, say } = require("../lib/say.js");
-      process.stdout.write(`${say(entries(), "shared.set-kept", { set: arg })}\n`);
+      const { already } = keepOnAccount(HOME, arg, askServer, { looked: true });
+      if (!already) process.stdout.write(`${say(lines(), "shared.set-kept", { set: arg })}\n`);
     } catch (thrown) {
       fail(`not-kept: ${arg} (${thrown.message})`);
     }
   } else if (verb === "drop-from-account") {
     try {
       dropFromAccount(arg);
-      process.stdout.write(`${arg} is no longer kept on your account\n`);
+      process.stdout.write(`${say(lines(), "ev-questions.off-account", { set: arg })}\n`);
     } catch (thrown) {
       fail(`not-dropped: ${arg} (${thrown.message})`);
     }
@@ -200,6 +212,6 @@ function main() {
   }
 }
 
-module.exports = { draftOf, fresh, opened, packsSaid };
+module.exports = { draftOf, fresh, opened, packsSaid, withTitle };
 
 if (require.main === module) main();

@@ -103,6 +103,20 @@ test("every line in the catalogue is used by a command or a script, and a comman
   assert.deepStrictEqual(unallowed, []);
 });
 
+const SESSION_SCRIPTS = ["bin/evalation-activate", "bin/evalation-ask", "bin/evalation-deliver", "bin/evalation-packs", "bin/evalation-questions",
+  "bin/evalation-remove", "bin/evalation-report", "bin/evalation-rotate", "bin/evalation-run", "bin/evalation-scan", "bin/evalation-status",
+  "lib/print.js", "lib/questions.js", "lib/remove.js", "lib/run-say.js"];
+
+test("no script a session shows builds a sentence for the person outside the catalogue", () => {
+  const built = SESSION_SCRIPTS.flatMap((file) => {
+    const lines = readFileSync(join(__dirname, "..", file), "utf8").split("\n").filter((line) => !/\/\/ say:allow: (report|agent|machine), ?\S/.test(line));
+    return lines.flatMap((line) => [...line.matchAll(/(["`])((?:(?!\1)[^\\\n]|\\.){20,}?)\1/g)].map((found) => found[2]))
+      .filter((one) => /^[A-Z][a-z]+[\s,]/.test(one) && one.trim().split(/\s+/).length >= 5 && /[.?](?:$|\s|\$)/.test(one))
+      .map((one) => `${file}: ${one.slice(0, 80)}`);
+  });
+  assert.deepStrictEqual(built, []);
+});
+
 test("the command line prints what say gives, and refuses an unknown name with a reason", () => {
   const bin = join(__dirname, "..", "bin", "evalation-say");
   const name = Object.keys(entries())[0];

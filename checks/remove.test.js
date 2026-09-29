@@ -151,9 +151,10 @@ test("a damaged sign-in that never reached the server is never reported as signe
     assert.strictEqual(done.signed_out, "not-revoked", said);
     assert.strictEqual(existsSync(home), false, said);
   }
-  assert.strictEqual(line("ev-remove.not-revoked"), "Evalation could not sign this machine out because its sign-in was damaged. Email support@evalation.ai to have this machine's sign-in switched off.");
-  assert.match(FLAT, /Where it is `not-revoked`, show `evalation-say ev-remove\.not-revoked`, unless step 2 already said the sign-in is damaged\./);
-  assert.strictEqual(line("ev-remove.damaged"), "This machine's Evalation sign-in is damaged, so Evalation cannot sign it out from here. Email support@evalation.ai to have this machine's sign-in switched off.");
+  assert.strictEqual(line("ev-remove.not-revoked"), "Evalation could not sign this machine out, so email support@evalation.ai to have its sign-in switched off.");
+  assert.match(FLAT, /Where it is `not-revoked`, show `evalation-say ev-remove\.not-revoked`\./);
+  assert.doesNotMatch(FLAT, /unless step 2 already said the sign-in is damaged/);
+  assert.strictEqual(line("ev-remove.damaged"), "This machine's Evalation sign-in is damaged, so Evalation cannot sign it out from here.", "a person who then keeps Evalation is never sent to support");
   assert.match(FLAT, /`sign-in: damaged`[^`]*`evalation-say ev-remove\.damaged`/);
   const local = JSON.parse(line("ev-remove.remove-local")).questions[0].options.find((one) => one.label === "Remove it");
   assert.strictEqual(local.description, "Deletes what Evalation saved on this machine.");
@@ -320,12 +321,42 @@ test("removal is agreed before question sets are asked about, and each set is na
 });
 
 test("a machine that is not signed in hears the whole of what removal deletes, and can still delete its conversations", () => {
-  assert.strictEqual(line("ev-remove.folder-local"), "Removing deletes Evalation's own folder on this machine, with the saved results of each check, your pack choice and any question sets saved here. Evalation cannot reach your account from this machine, so those question sets cannot be kept on it.");
+  assert.strictEqual(line("ev-remove.folder-local"), "Removing deletes Evalation's own folder on this machine, with the saved results of each check, your pack choice and any question sets saved here.");
+  assert.strictEqual(line("ev-remove.sets-stay-local"), "Evalation cannot reach your account from this machine, so the question sets saved here cannot be kept on it.");
+  assert.match(FLAT, /Where `sets_here` is more than zero, add `evalation-say ev-remove\.sets-stay-local`\./);
   assert.doesNotMatch(FLAT, /leave out the first two sentences/);
   assert.doesNotMatch(FLAT, /Where both hold/);
-  assert.match(FLAT, /Where the state was `not-set-up` and `home_exists` is false, show only `evalation-say ev-remove\.nothing-else` after the opening line step 1 gave, never `ev-remove\.nothing-saved` as well, and ask nothing more in this step: go on to step 3 where `conversations` is more than zero, or straight to the last step of step 5 where it is zero\./);
-  assert.match(FLAT, /Where the state was `live` or `not-live` and `home_exists` is false, leave out the lines about the folder and show `evalation-say ev-remove\.nothing-saved` in their place\./);
+  assert.match(FLAT, /Where the state was `not-set-up` and `holds_saved` is false, show only `evalation-say ev-remove\.nothing-else` after the opening line step 1 gave, never `ev-remove\.nothing-saved` as well, and ask nothing more in this step: go on to step 3 where `conversations` is more than zero, or straight to step 4 where it is zero\./);
+  assert.match(FLAT, /Where the state was `live` or `not-live` and `holds_saved` is false, leave out the lines about the folder and show `evalation-say ev-remove\.nothing-saved` in their place\./);
   assert.doesNotMatch(WORDS, /so there is nothing to remove\./);
+});
+
+test("a folder holding only empty folders, or only its settings and keys, holds nothing saved, and the sets saved here are counted", () => {
+  const folders = (home) => {
+    const ran = spawnSync(process.execPath, [join(__dirname, "..", "bin", "evalation-remove"), "folders"], { encoding: "utf8",
+      env: { ...process.env, EVALATION_PLUGIN_HOME: home, CLAUDE_CONFIG_DIR: mkdtempSync(join(tmpdir(), "claude-home-")) } });
+    assert.strictEqual(ran.status, 0, ran.stderr);
+    return JSON.parse(ran.stdout);
+  };
+  const home = mkdtempSync(join(tmpdir(), "evalation-home-"));
+  assert.deepStrictEqual([folders(home).holds_saved, folders(home).sets_here], [false, 0], "an empty folder");
+  mkdirSync(join(home, "findings", "old"), { recursive: true });
+  mkdirSync(join(home, "questions"), { recursive: true });
+  assert.strictEqual(folders(home).holds_saved, false, "only empty folders");
+  writeFileSync(join(home, "evalation.local"), "{}");
+  mkdirSync(join(home, "keys"), { recursive: true });
+  writeFileSync(join(home, "keys", "evalation-plugin.box.installation-key"), "k");
+  assert.strictEqual(folders(home).holds_saved, false, "only the settings and the keys they name");
+  assert.strictEqual(folders(join(home, "missing")).holds_saved, false, "no folder at all");
+  writeFileSync(join(home, "packs.json"), "{}");
+  assert.strictEqual(folders(home).holds_saved, true, "a pack choice");
+  writeFileSync(join(home, "questions", "Broker.json"), "{}");
+  assert.strictEqual(folders(home).sets_here, 1);
+  assert.doesNotMatch(COMMAND, /home_exists/);
+});
+
+test("the conversations kept are said after removal only where the number differs from what step 3 said", () => {
+  assert.match(FLAT, /Where `history\.kept_live` is `open` plus one, step 3 already said which were kept, so show none of the kept lines\./);
 });
 
 test("keys that could not be found because the settings would not read are reported plainly", () => {
@@ -368,38 +399,76 @@ test("a wrong clock stops removal with the clock line before anything is removed
   assert.match(FLAT, /`state: live`, or `state: not-live` for any other reason: go on\./);
 });
 
-test("a set kept on the account before removal is said in a line the catalogue holds, and the command shows it as printed", async () => {
-  const { createServer } = require("node:http");
-  const { spawn } = require("node:child_process");
+const GOOD = (name) => ({ name, pack: "custom", questions: [{ identifier: "Q1", title: "Payments are recorded", intent: "Where does this repository record each payment it takes?",
+  asked: "do we keep a record of payments", looks_for: [
+    { find: "Code that writes a record for each payment, such as a payments table insert", proof: "runs" },
+    { find: "A test that takes a payment and checks the record exists", proof: "runs" }] }] });
+
+function signedIn() {
   const { randomBytes } = require("node:crypto");
-  const { save } = require("../lib/questions.js");
   const home = mkdtempSync(join(tmpdir(), "evalation-home-"));
   mkdirSync(join(home, "keys"), { recursive: true });
   for (const one of ["installation-key", "receiving-key"]) writeFileSync(join(home, "keys", `evalation-plugin.box.${one}`), randomBytes(32).toString("base64"), { mode: 0o600 });
   writeFileSync(join(home, "evalation.local"), JSON.stringify({ installation: "box", secrets: {
     installation_key: "store:evalation-plugin/box.installation-key", receiving_key: "store:evalation-plugin/box.receiving-key" } }));
-  save(home, { name: "Broker", pack: "custom", questions: [{ identifier: "Q1", title: "Payments are recorded", intent: "Where does this repository record each payment it takes?",
-    asked: "do we keep a record of payments", looks_for: [
-      { find: "Code that writes a record for each payment, such as a payments table insert", proof: "runs" },
-      { find: "A test that takes a payment and checks the record exists", proof: "runs" }] }] });
-  const printed = await new Promise((resolve) => {
+  return home;
+}
+
+function keepSets(home, names, status = 200) {
+  const { createServer } = require("node:http");
+  const { spawn } = require("node:child_process");
+  const asked = [];
+  return new Promise((resolve) => {
     const server = createServer((req, res) => {
-      req.resume();
-      req.on("end", () => { res.writeHead(200, { "content-type": "application/json" }); res.end(JSON.stringify({ kept: "Broker" })); });
+      let body = "";
+      req.on("data", (chunk) => { body += chunk; });
+      req.on("end", () => { asked.push(req.url); res.writeHead(status, { "content-type": "application/json" }); res.end(JSON.stringify({ kept: true })); });
     }).listen(0, "127.0.0.1", () => {
-      const child = spawn(process.execPath, [join(__dirname, "..", "bin", "evalation-questions"), "keep-on-account", "Broker"], { env: { ...process.env,
+      const child = spawn(process.execPath, [join(__dirname, "..", "bin", "evalation-remove"), "keep-sets", ...names], { env: { ...process.env,
         EVALATION_PLUGIN_HOME: home, EVALATION_LOCAL: join(home, "evalation.local"), EVALATION_KEY_STORE: "file", EVALATION_SERVER: `http://127.0.0.1:${server.address().port}` } });
       let stdout = "";
       let stderr = "";
       child.stdout.on("data", (chunk) => { stdout += chunk; });
       child.stderr.on("data", (chunk) => { stderr += chunk; });
-      child.on("exit", (status) => server.close(() => resolve({ status, stdout, stderr })));
+      child.on("exit", (code) => server.close(() => resolve({ status: code, stdout, stderr, asked })));
     });
   });
-  assert.strictEqual(printed.status, 0, printed.stderr);
-  assert.strictEqual(printed.stdout, `${line("shared.set-kept", { set: "Broker" })}\n`);
-  assert.strictEqual(line("shared.set-kept", { set: "Broker" }), "The question set Broker is kept on your account.");
-  assert.match(FLAT, /evalation-questions keep-on-account <name> ``` On success it prints one line for the set: show it exactly as printed\./);
+}
+
+test("every set kept on the account before removal is named in one catalogue line, printed once after all are kept", async () => {
+  const { save } = require("../lib/questions.js");
+  const home = signedIn();
+  for (const name of ["Broker", "Board", "Client"]) save(home, GOOD(name));
+  const three = await keepSets(home, ["Broker", "Board", "Client"]);
+  assert.strictEqual(three.status, 0, three.stderr);
+  assert.strictEqual(three.asked.length, 3);
+  assert.strictEqual(three.stdout, "The question sets \"Broker\", \"Board\" and \"Client\" are kept on your account.\n");
+  const one = await keepSets(home, ["Broker"]);
+  assert.strictEqual(one.stdout, "The question set \"Broker\" is kept on your account.\n");
+  const down = await keepSets(home, ["Broker"], 503);
+  assert.strictEqual(down.status, 1);
+  assert.strictEqual(down.stdout, "");
+  assert.match(down.stderr, /^not-kept: Broker\n/);
+  assert.doesNotMatch(COMMAND, /evalation-questions keep-on-account/);
+  assert.match(COMMAND, /Bash\(evalation-remove keep-sets:\*\)/);
+  assert.match(FLAT, /evalation-remove keep-sets "<name>" \["<name>"\.\.\.\] ``` On success it prints one line naming every set it kept: show it exactly as printed\./);
+});
+
+test("a set that fails its check is named in one catalogue line sending the person to /ev-questions, nothing is kept, and no problem is shown", async () => {
+  const { save } = require("../lib/questions.js");
+  const home = signedIn();
+  save(home, GOOD("Broker"));
+  writeFileSync(join(home, "questions", "Broken.json"), JSON.stringify({ ...GOOD("Broken"), questions: [{ ...GOOD("Broken").questions[0], looks_for: [], intent: "" }] }));
+  const ran = await keepSets(home, ["Broker", "Broken"]);
+  assert.strictEqual(ran.status, 1);
+  assert.strictEqual(ran.asked.length, 0, "nothing is kept until every set passes its check");
+  assert.strictEqual(ran.stderr, "fails-check: Broken\n");
+  assert.strictEqual(ran.stdout, "");
+  const asked = JSON.parse(line("ev-remove.set-fails", { set: "Broken" })).questions[0];
+  assert.strictEqual(asked.question, "The question set \"Broken\" cannot be kept on your account until it is fixed with /ev-questions. What should happen to it?");
+  assert.strictEqual(line("ev-remove.fix-set"), "Nothing was removed. Run /ev-remove again once the set is fixed.");
+  assert.doesNotMatch(FLAT, /Show each listed problem/);
+  assert.match(FLAT, /`fails-check`: run `evalation-say ev-remove\.set-fails set="<name>"`/);
 });
 
 test("keys left in the password store are each named by service and account, in one line", () => {

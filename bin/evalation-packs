@@ -18,41 +18,56 @@ function usage() {
 }
 
 const SUMMARIES = {
-  "cyber-insurance": "What a cyber insurer asks before it offers cover, answered from your code.",
-  dora: "EU rules on how banks, insurers and other financial firms manage technology risk.",
-  "eu-ai-act": "EU duties for anyone who builds, sells or uses an AI system.",
-  gdpr: "EU rules on collecting and handling personal data.",
-  hardening: "Whether your code would stand up to attackers, outages and mistakes.",
-  hipaa: "US rules for keeping health information private and secure.",
-  "investment-diligence": "What investors and buyers check in the software of a company.",
-  iso27001: "The international information security certification.",
-  iso42001: "The international certification for managing AI systems.",
-  "nist-ai-rmf": "US guidance on finding and managing the risks of AI systems.",
-  "nist-csf": "US framework for running a security programme.",
-  "nist-ssdf": "US practices for building software securely.",
-  "nz-privacy-act": "New Zealand rules on collecting and handling personal information.",
-  "owasp-agentic-threats": "Known attacks on AI agents and how to counter them.",
-  "owasp-agentic-top-ten": "The ten biggest security risks in apps built on AI agents.",
-  "owasp-asvs": "Detailed security requirements for web applications.",
-  "pci-dss": "Rules for anyone who takes or stores card payments.",
-  soc2: "The US security audit most business software customers ask for.",
+  "cyber-insurance": "ev-packs.summary-cyber-insurance",
+  dora: "ev-packs.summary-dora",
+  "eu-ai-act": "ev-packs.summary-eu-ai-act",
+  gdpr: "ev-packs.summary-gdpr",
+  hardening: "ev-packs.summary-hardening",
+  hipaa: "ev-packs.summary-hipaa",
+  "investment-diligence": "ev-packs.summary-investment-diligence",
+  iso27001: "ev-packs.summary-iso27001",
+  iso42001: "ev-packs.summary-iso42001",
+  "nist-ai-rmf": "ev-packs.summary-nist-ai-rmf",
+  "nist-csf": "ev-packs.summary-nist-csf",
+  "nist-ssdf": "ev-packs.summary-nist-ssdf",
+  "nz-privacy-act": "ev-packs.summary-nz-privacy-act",
+  "owasp-agentic-threats": "ev-packs.summary-owasp-agentic-threats",
+  "owasp-agentic-top-ten": "ev-packs.summary-owasp-agentic-top-ten",
+  "owasp-asvs": "ev-packs.summary-owasp-asvs",
+  "pci-dss": "ev-packs.summary-pci-dss",
+  soc2: "ev-packs.summary-soc2",
 };
 
 const byTitle = (a, b) => (a.toLowerCase() < b.toLowerCase() ? -1 : a.toLowerCase() > b.toLowerCase() ? 1 : 0);
 
+function failed(word, detail) {
+  process.stderr.write(`${word}: ${String(detail).trim().split("\n")[0]}\n`);
+  process.exit(1);
+}
+
+function askFailure(said) {
+  if (/^unreachable:/.test(said) || /^refused 503:/.test(said)) return "unreachable";
+  if (/^refused 40[13]:/.test(said) && /seconds from now|outside the window/.test(said)) return "clock";
+  if (/^refused /.test(said)) return "refused";
+  if (/^no-settings:/.test(said)) return "not-set-up";
+  if (/^(settings-unreadable|no-installation|no-key|unreadable-key-reference|key-wrong-size):/.test(said)) return "damaged";
+  if (/^will-not-open:/.test(said)) return "unreadable";
+  return "other";
+}
+
 function list() {
   let said;
   try {
-    said = runScript("evalation-ask", ["/packs", "{}"], { encoding: "utf8", stdio: ["ignore", "pipe", "inherit"] });
-  } catch {
-    process.exit(1);
+    said = runScript("evalation-ask", ["/packs", "{}"], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+  } catch (thrown) {
+    const reason = String(thrown.stderr || thrown.message).trim();
+    failed(askFailure(reason), reason);
   }
   let served;
   try {
     served = JSON.parse(said);
-  } catch {
-    process.stderr.write("packs-unreadable: the server sent a pack list this plugin cannot read. Try again in a few minutes, and email support@evalation.ai if it keeps happening.\n");
-    process.exit(1);
+  } catch (thrown) {
+    failed("unreadable", thrown.message);
   }
   served.packs = [...(served.packs ?? [])].sort((a, b) => byTitle(a.body?.title ?? a.pack, b.body?.title ?? b.pack));
   return served;
@@ -65,10 +80,20 @@ function titled(packs) {
     const larger = packs.length % questions;
     return at < larger * (size + 1) ? Math.floor(at / (size + 1)) + 1 : larger + Math.floor((at - larger * (size + 1)) / size) + 1;
   };
-  return packs.map((one, at) => ({ pack: one.pack, title: one.body?.title ?? null, summary: (one.body?.summary && broken(one.body.summary).length === 0 ? one.body.summary : null) ?? SUMMARIES[one.pack] ?? null, extensible: extensible(one.body), question: questionOf(at) }));
+  const held = entries();
+  const ours = (pack) => (SUMMARIES[pack] ? say(held, SUMMARIES[pack]) : null);
+  return packs.map((one, at) => ({ pack: one.pack, title: one.body?.title ?? null, summary: (one.body?.summary && broken(one.body.summary).length === 0 ? one.body.summary : null) ?? ours(one.pack), extensible: extensible(one.body), question: questionOf(at) }));
 }
 
-const selected = () => (existsSync(SELECTION) ? JSON.parse(readFileSync(SELECTION, "utf8")).packs ?? [] : []);
+function selected() {
+  if (!existsSync(SELECTION)) return [];
+  try {
+    const packs = JSON.parse(readFileSync(SELECTION, "utf8")).packs ?? [];
+    return Array.isArray(packs) ? packs : null;
+  } catch {
+    return null;
+  }
+}
 
 const joined = (items) => (items.length < 2 ? items.join("") : `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`);
 
@@ -76,6 +101,7 @@ function chosen() {
   const offered = list().packs;
   const held = entries();
   const picked = selected();
+  if (!picked) failed("choice-unreadable", SELECTION);
   const found = picked.map((pack) => offered.find((one) => one.pack === pack)).filter(Boolean);
   const titles = [...found.map((one) => one.body?.title ?? one.pack).sort(byTitle), ...picked.slice(found.length).map(() => say(held, "ev-packs.gone-pack"))];
   return { titles: picked.length > 0 ? joined(titles) : null, packs: picked.length };
@@ -83,7 +109,7 @@ function chosen() {
 
 function chooser() {
   const held = entries();
-  const picked = new Set(selected());
+  const picked = new Set(selected() ?? []);
   const options = titled(list().packs).map((one) => {
     const label = one.title ?? one.pack;
     const summary = one.summary ?? label;

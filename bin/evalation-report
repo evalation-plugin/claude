@@ -61,6 +61,11 @@ function fail(reason) {
   process.exit(1);
 }
 
+function faulted(detail) {
+  const { fault, line } = require("../lib/run-say.js");
+  fail(fault(line("ev-run.fault-reports"), detail));
+}
+
 function named(status) {
   return STATUSES.find(([one]) => one === status)?.[1] ?? status;
 }
@@ -137,7 +142,7 @@ function scanned(want, row, scan) {
   const level = want.at_least ? ` at ${want.at_least} or above` : "";
   if (row.result === "not-checked") {
     const ran = (scan?.phases ?? []).find((one) => one.phase === want.phase);
-    return `<p class="looked">${escaped(ran && !ran.ran ? `The ${phase} did not run: ${ran.why}.` : `The ${phase} was not run over ${here()} in this run.`)}</p>`;
+    return `<p class="looked">${escaped(ran && !ran.ran ? `The ${phase} did not run: ${ran.why}.` : `The ${phase} was not run over ${here()} in this run.`)}</p>`; // say:allow: report,printed on the evidence pack PDF
   }
   // Counted once per result, as the table lists them. The same advisory in two lockfiles is one.
   const seen = new Set();
@@ -400,18 +405,18 @@ function opening(document, answers, packs, asked) {
   const noun = nounAcross(packs);
   const marks = grades(asked);
   const parts = [
-    ["Identifier", `The standard's number and short name for the ${noun.one}.`],
+    ["Identifier", `The standard's number and short name for the ${noun.one}.`], // say:allow: report,the evidence pack's key
     ["Asked", `The question put to ${document.target?.kind === "solution" ? "the product" : "the repository"}, in italics.`],
     ["Answer", `What ${document.target?.kind === "solution" ? "the repositories show" : "the repository shows"}, and why that earns this status.`],
     ["Where it rests", (document.target?.kind === "solution" ? "The repository, file and lines" : "The file and lines") + " on the grey bar, the quoted line under them, and how strong the evidence is on the right. For something missing, the search we made, so anyone can repeat it."],
-    ["Looked for", "The things the standard looks for, numbered, each marked found, missing, no evidence found or does not apply. The status follows from how many were found. An item marked scanned was settled by a scanner run during the review, and the scanner's results are listed at the end."],
-    ["Status", "Gap, Partial, Covered, No evidence found, Org-level or Not applicable, on the coloured tag. No evidence found marks something a team may hold outside the code, such as network rules in a cloud console, where the run read no infrastructure code. It is left out of the count."],
+    ["Looked for", "The things the standard looks for, numbered, each marked found, missing, no evidence found or does not apply. The status follows from how many were found. An item marked scanned was settled by a scanner run during the review, and the scanner's results are listed at the end."], // say:allow: report,the evidence pack's key
+    ["Status", "Gap, Partial, Covered, No evidence found, Org-level or Not applicable, on the coloured tag. No evidence found marks something a team may hold outside the code, such as network rules in a cloud console, where the run read no infrastructure code. It is left out of the count."], // say:allow: report,the evidence pack's key
     ["Checked", `Next to the model that read it: verified if a second check confirmed the answer against the ${document.target?.kind === "solution" ? "repositories" : "repository"}, asserted if nothing did.`],
-    ["What to do", `The fix, on the orange bar. For ${called(noun.one)} the organisation owns, the reason the code cannot answer it.`],
+    ["What to do", `The fix, on the orange bar. For ${called(noun.one)} the organisation owns, the reason the code cannot answer it.`], // say:allow: report,the evidence pack's key
   ];
   if (marks.length > 0) {
     parts.push(["In scope",
-      `The small tag after the name says whether the standard assesses this ${noun.one} in every audit or only where the customer chose it. The words are explained below.`]);
+      `The small tag after the name says whether the standard assesses this ${noun.one} in every audit or only where the customer chose it. The words are explained below.`]); // say:allow: report,the evidence pack's key
   }
 
   const whole = document.target?.kind === "solution"
@@ -462,7 +467,7 @@ function scanFindings(document, packs, asked) {
   }
   return scanResults({
     findings: (document.scan?.relevant ?? []).filter((one) => bears.has(one.phase)),
-    intro: "Each card is a package or rule the scanners flagged, most severe first. An item counts only " +
+    intro: "Each card is a package or rule the scanners flagged, most severe first. An item counts only " + // say:allow: report,the evidence pack's scanner section
       "the severities it names, so a card can bear on an item and leave its result unchanged.",
     tagWord: "Bears on",
     tagOf: (one) => bears.get(one.phase) ?? [],
@@ -546,10 +551,10 @@ function main() {
   try {
     document = JSON.parse(readFileSync(source, "utf8"));
   } catch (thrown) {
-    fail(`unreadable-findings: ${thrown.message}`);
+    faulted(`unreadable-findings: ${thrown.message}`);
   }
   if (document.schema !== "evalation.findings.v1") {
-    fail(`not-a-findings-file: ${source} says it is ${document.schema ?? "nothing"}`);
+    faulted(`not-a-findings-file: ${source} says it is ${document.schema ?? "nothing"}`);
   }
 
   // What each entry asked, so the report carries the question beside the answer. A reader judging
@@ -574,7 +579,7 @@ function main() {
       - (asking.get(`${b.pack}/${b.entry}`) ?? Number.MAX_SAFE_INTEGER)
     || String(a.entry).localeCompare(String(b.entry)));
 
-  if (!answers.length) fail(`no-answers: ${source} carries no coverage to report`);
+  if (!answers.length) faulted(`no-answers: ${source} carries no coverage to report`);
 
   // One evidence pack per standard, named for it, so a folder holding several says which is which and
   // an auditor for one standard is handed that standard alone.
@@ -621,4 +626,10 @@ function citing(answers) {
 
 module.exports = { citing, page, said };
 
-if (require.main === module) main();
+if (require.main === module) {
+  try {
+    main();
+  } catch (thrown) {
+    faulted(thrown?.stack ?? thrown);
+  }
+}

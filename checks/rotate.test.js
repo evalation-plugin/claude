@@ -13,9 +13,8 @@ require("./fixture.js");
 const { entries } = require("../lib/say.js");
 
 const COMMAND = readFileSync(join(__dirname, "..", "commands", "ev-rotate.md"), "utf8");
-const NOT_REPLACED = "The key was not replaced and the old one still works.";
-const NOT_FINISHED = "The key change did not finish.";
 const LINES = entries();
+const said = (name) => `${LINES[name].say}\n`;
 const FLAT = COMMAND.replace(/\s+/g, " ");
 const escaped = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
@@ -25,10 +24,6 @@ function line(marker, text = FLAT) {
   assert.ok(LINES[at[1]], `${at[1]} is a line the plugin holds`);
   return LINES[at[1]].say;
 }
-
-const section = (from, to) => FLAT.slice(FLAT.indexOf(from), FLAT.indexOf(to));
-const NOT_REPLACED_PART = () => section(`**\`${NOT_REPLACED}\`**`, `**\`${NOT_FINISHED}\`**`);
-const NOT_FINISHED_PART = () => section(`**\`${NOT_FINISHED}\`**`, "**`no-settings`**");
 
 function machine() {
   const home = mkdtempSync(join(tmpdir(), "evalation-rotate-"));
@@ -80,6 +75,7 @@ test("a replaced key is reported in one plain line, with no pack count, revision
   const ran = await rotated(machine());
   assert.strictEqual(ran.status, 0, ran.stderr);
   assert.strictEqual(ran.stdout, "Replaced this machine's key. The old key no longer works.\n");
+  assert.strictEqual(ran.stdout, said("ev-rotate.replaced"));
   assert.strictEqual(ran.stderr, "");
 });
 
@@ -94,7 +90,7 @@ test("an offer the server refuses outright puts the old key back and says it sti
   const before = readFileSync(key(home, "receiving-key"), "utf8");
   const ran = await rotated(home, refusing("/rotate", 422, "could not take it"));
   assert.strictEqual(ran.status, 1);
-  assert.deepStrictEqual(ran.stderr.split("\n").slice(0, 2), [NOT_REPLACED, "other"]);
+  assert.strictEqual(ran.stderr, said("ev-rotate.not-replaced-other"));
   assert.strictEqual(readFileSync(key(home, "receiving-key"), "utf8"), before);
   assert.strictEqual(existsSync(key(home, "receiving-key-previous")), false);
 });
@@ -104,7 +100,7 @@ test("a proof that fails after the server took the new key keeps both keys and n
   const before = readFileSync(key(home, "receiving-key"), "utf8");
   const ran = await rotated(home, refusing("/packs", 500, "could not open"));
   assert.strictEqual(ran.status, 1);
-  assert.deepStrictEqual(ran.stderr.split("\n").slice(0, 2), [NOT_FINISHED, "other"]);
+  assert.strictEqual(ran.stderr, said("ev-rotate.not-finished-other"));
   assert.deepStrictEqual(publicOf(readFileSync(key(home, "receiving-key"), "utf8")), ran.asked[0].body.receiving_key);
   assert.strictEqual(readFileSync(key(home, "receiving-key-previous"), "utf8"), before);
 });
@@ -113,11 +109,11 @@ test("a rerun after an unfinished change never writes the old key back over the 
   const home = machine();
   const before = readFileSync(key(home, "receiving-key"), "utf8");
   const cut = await rotated(home, (req, res, body) => (body.confirmed ? req.socket.destroy() : healthy(req, res)));
-  assert.strictEqual(cut.stderr.split("\n")[0], NOT_FINISHED);
+  assert.strictEqual(cut.stderr, said("ev-rotate.not-finished-unreachable"));
   const kept = readFileSync(key(home, "receiving-key"), "utf8");
   const again = await rotated(home, (req, res) => (req.url === "/packs" ? req.socket.destroy() : healthy(req, res)));
   assert.strictEqual(again.status, 1);
-  assert.deepStrictEqual(again.stderr.split("\n").slice(0, 2), [NOT_FINISHED, "unreachable"]);
+  assert.strictEqual(again.stderr, said("ev-rotate.not-finished-unreachable"));
   assert.doesNotMatch(again.stderr, /still works/);
   assert.strictEqual(readFileSync(key(home, "receiving-key"), "utf8"), kept);
   assert.strictEqual(readFileSync(key(home, "receiving-key-previous"), "utf8"), before);
@@ -126,7 +122,7 @@ test("a rerun after an unfinished change never writes the old key back over the 
 test("an offer lost to the network keeps both keys, and the next run offers the same key again and finishes", async () => {
   const home = machine();
   const cut = await rotated(home, (req, res, body) => (req.url === "/rotate" && !body.confirmed ? req.socket.destroy() : healthy(req, res)));
-  assert.deepStrictEqual(cut.stderr.split("\n").slice(0, 2), [NOT_FINISHED, "unreachable"]);
+  assert.strictEqual(cut.stderr, said("ev-rotate.not-finished-unreachable"));
   const sent = cut.asked[0].body.receiving_key;
   const again = await rotated(home);
   assert.strictEqual(again.status, 0, again.stderr);
@@ -139,7 +135,7 @@ test("a confirm lost to the network says so, and the next run finishes it with t
   const home = machine();
   const cut = await rotated(home, (req, res, body) => (body.confirmed ? req.socket.destroy() : healthy(req, res)));
   assert.strictEqual(cut.status, 1);
-  assert.deepStrictEqual(cut.stderr.split("\n").slice(0, 2), [NOT_FINISHED, "unreachable"]);
+  assert.strictEqual(cut.stderr, said("ev-rotate.not-finished-unreachable"));
   const sent = cut.asked[0].body.receiving_key;
   const kept = readFileSync(key(home, "receiving-key"), "utf8");
 
@@ -154,15 +150,57 @@ test("a confirm lost to the network says so, and the next run finishes it with t
 
 test("a refusal is told apart by what the server said: the clock, a machine it no longer accepts, or access that ended", async () => {
   const cases = [
-    [401, "the ask was made 400 seconds from now, and a proof holds for 300", "clock"],
-    [401, "the proof was made -900 seconds from now, which is outside the window", "clock"],
-    [401, "nothing we issued signed this, either because no installation answers to that name", "refused"],
-    [402, "the entitlement for this installation has ended, so nothing further can be served", "ended"],
+    [401, "the ask was made 400 seconds from now, and a proof holds for 300", "ev-rotate.not-replaced-clock"],
+    [401, "the proof was made -900 seconds from now, which is outside the window", "ev-rotate.not-replaced-clock"],
+    [401, "nothing we issued signed this, either because no installation answers to that name", "ev-account.refused"],
+    [402, "the entitlement for this installation has ended, so nothing further can be served", "ev-account.ended"],
   ];
-  for (const [status, observed, kind] of cases) {
+  for (const [status, observed, name] of cases) {
     const ran = await rotated(machine(), refusing("/rotate", status, observed));
-    assert.deepStrictEqual(ran.stderr.split("\n").slice(0, 2), [NOT_REPLACED, kind], observed);
+    assert.strictEqual(ran.stderr, said(name), observed);
   }
+});
+
+test("a change Evalation refused or ended says only that, never that the old key works or that it may finish", async () => {
+  for (const [url, status, observed, name] of [
+    ["/rotate", 401, "nothing we issued signed this", "ev-account.refused"],
+    ["/packs", 402, "the entitlement for this installation has ended", "ev-account.ended"],
+    ["/packs", 401, "nothing we issued signed this", "ev-account.refused"],
+  ]) {
+    const ran = await rotated(machine(), refusing(url, status, observed));
+    assert.strictEqual(ran.status, 1);
+    assert.strictEqual(ran.stderr, said(name), `${url} ${status}`);
+    assert.doesNotMatch(ran.stderr, /still works|did not finish/);
+  }
+});
+
+test("every outcome is one line, and only a line for a key not replaced says the old key works", () => {
+  const outcomes = Object.entries(LINES).filter(([name]) => /^ev-rotate\.not-(replaced|finished)-/.test(name));
+  assert.ok(outcomes.length >= 7);
+  for (const [name, one] of outcomes) {
+    if (name.startsWith("ev-rotate.not-replaced-")) assert.match(one.say, /^The key was not replaced and the old one still works\. /, name);
+    else assert.match(one.say, /^The key change did not finish\. Other Evalation commands on this machine may not work until it finishes\. /, name);
+    assert.doesNotMatch(one.say, /\n/);
+  }
+  assert.ok(!LINES["ev-rotate.not-finished"] && !LINES["ev-rotate.not-finished-twice"], "no second line is added to an outcome");
+});
+
+test("the detail for support follows the line only when the reason is asked for", async () => {
+  const home = machine();
+  const server = await new Promise((resolve) => {
+    const one = createServer((req, res) => refusing("/rotate", 422, "could not take it")(req, res, {})).listen(0, "127.0.0.1", () => resolve(one));
+  });
+  const ran = await new Promise((resolve) => {
+    const child = spawn(process.execPath, [join(__dirname, "..", "bin", "evalation-rotate"), "--reason"], { env: { ...process.env,
+      EVALATION_PLUGIN_HOME: home, EVALATION_LOCAL: join(home, "evalation.local"), EVALATION_KEY_STORE: "file",
+      EVALATION_SERVER: `http://127.0.0.1:${server.address().port}` } });
+    let stderr = "";
+    child.stderr.on("data", (chunk) => { stderr += chunk; });
+    child.on("exit", () => server.close(() => resolve(stderr)));
+  });
+  const [first, ...rest] = ran.trim().split("\n");
+  assert.strictEqual(`${first}\n`, said("ev-rotate.not-replaced-other"));
+  assert.match(rest.join("\n"), /could not take it/);
 });
 
 test("what it prints names no server address, status code or internal term unless the reason is asked for", async () => {
@@ -177,28 +215,17 @@ test("a machine whose sign-in key is missing stops before anything is sent and i
   assert.strictEqual(ran.status, 1);
   assert.deepStrictEqual(ran.asked, []);
   assert.match(ran.stderr, /^sign-in-damaged:/);
-  assert.strictEqual(line("`sign-in-damaged`"), "This machine's Evalation sign-in is damaged, so the key was not replaced. Run /ev-activate and sign in with the same account as before, so your pack credits and reports are there.");
+  assert.strictEqual(line("`sign-in-damaged`"), "This machine's Evalation sign-in is damaged, so the key was not replaced. Run /ev-activate and sign in with the same account as before, so your pack credits are there.");
 });
 
 test("a machine never signed in is sent to /ev-start, as every command sends it", () => {
   assert.strictEqual(line("**`no-settings`**"), "This machine is not set up for Evalation yet. Run /ev-start to set it up.");
 });
 
-test("an unfinished change ended or refused by Evalation says only that, never that it may still finish", () => {
-  const part = NOT_FINISHED_PART();
-  const skip = part.match(/Where the word is refused or ended, show only the line for it[^.]*\./);
-  assert.ok(skip, part);
-  assert.ok(part.indexOf(skip[0]) < part.indexOf("evalation-say ev-rotate.not-finished`"), "the exception comes before the not-finished line");
-  assert.match(part, /Otherwise show `evalation-say ev-rotate\.not-finished`/);
-});
-
-test("the command text gives the clock step only for a clock refusal, and sends a machine no longer accepted to support", () => {
+test("the command text shows an outcome line as printed and adds nothing to it", () => {
   assert.doesNotMatch(COMMAND, /refused 40[13]/);
-  for (const part of [NOT_REPLACED_PART(), NOT_FINISHED_PART()]) {
-    assert.match(line("`clock`", part), /^Set this machine's clock/);
-    assert.match(line("`refused`", part), /support@evalation\.ai/);
-    assert.match(line("`ended`", part), /support@evalation\.ai/);
-  }
+  assert.doesNotMatch(FLAT, /The key was not replaced|The key change did not finish|Add the step|Then add/);
+  assert.match(FLAT, /Where the first line it prints is a sentence, show that line exactly as printed and nothing more\./);
   const { held } = require("../lib/prose.js");
   const names = [...COMMAND.matchAll(/evalation-say ([a-z0-9.-]+)/g)].map((one) => one[1]);
   assert.deepStrictEqual(names.filter((name) => !LINES[name] || held(LINES[name].say).length > 0), []);
@@ -227,24 +254,17 @@ test("a key store that refuses the new key gives a prefixed reason and no stack 
   try {
     const ran = await rotated(home);
     assert.strictEqual(ran.status, 1);
-    const [first, second] = ran.stderr.split("\n");
-    assert.strictEqual(first, NOT_REPLACED);
-    assert.strictEqual(second, "key-store-refused");
+    assert.strictEqual(ran.stderr, said("ev-rotate.not-replaced-key-store"));
     assert.doesNotMatch(ran.stderr, /^\s+at /m);
   } finally {
     chmodSync(join(home, "keys"), 0o700);
   }
 });
 
-test("the command text says a sentence the script prints only where it is one, and gives a step for every word each sentence can carry", () => {
-  assert.match(FLAT, /Where the first line is one of the two sentences below, show it exactly as printed\./);
-  assert.ok(NOT_REPLACED_PART().length > 0 && NOT_FINISHED_PART().length > 0);
-  assert.doesNotMatch(NOT_REPLACED_PART(), /`unreachable`/);
-  assert.strictEqual(line("Otherwise show", NOT_FINISHED_PART()), "Other Evalation commands on this machine may not work until it finishes.");
-  assert.strictEqual(line("`key-store-refused`", NOT_FINISHED_PART()), "Check this machine's password store (Keychain on a Mac) is unlocked, then run /ev-rotate again to finish it.");
+test("the command text names a line for every prefix the script prints, and never quotes the script's own lines", () => {
+  for (const prefix of ["no-settings", "sign-in-damaged", "sign-in-unclear", "no-receiving-key", "no-key"]) assert.ok(line(`**\`${prefix}\`**`), prefix);
   const words = [FLAT, ...Object.entries(LINES).filter(([name]) => name.startsWith("ev-rotate.")).map(([, one]) => one.say)].join(" ");
   assert.doesNotMatch(words, /password store(?! \(Keychain on a Mac\))/);
-  assert.match(FLAT, /Show the line it prints exactly as printed/);
   assert.ok(!FLAT.includes("Replaced this machine's key."), "the command shows the script's own line and never quotes it");
 });
 

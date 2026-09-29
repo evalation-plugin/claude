@@ -82,23 +82,21 @@ function installer(tool) {
   return { command: BREW, args: ["install", tool], said: `${BREW} install ${tool}` };
 }
 
+const { fault, line } = require("../lib/run-say.js");
+
 const TOOLS = {
-  trivy: { name: "Trivy", does: "checks dependencies for known security flaws", page: "https://github.com/aquasecurity/trivy" },
-  syft: { name: "Syft", does: "lists every dependency", page: "https://github.com/anchore/syft" },
-  semgrep: { name: "Semgrep", does: "finds risky code patterns", page: "https://github.com/semgrep/semgrep" },
-  gitleaks: { name: "Gitleaks", does: "finds passwords and keys committed to the code", page: "https://github.com/gitleaks/gitleaks" },
-  git: { name: "git", does: "reads the commit history", page: "https://git-scm.com/downloads" },
+  trivy: { name: "Trivy", does: "ev-run.does-trivy", page: "https://github.com/aquasecurity/trivy" },
+  syft: { name: "Syft", does: "ev-run.does-syft", page: "https://github.com/anchore/syft" },
+  semgrep: { name: "Semgrep", does: "ev-run.does-semgrep", page: "https://github.com/semgrep/semgrep" },
+  gitleaks: { name: "Gitleaks", does: "ev-run.does-gitleaks", page: "https://github.com/gitleaks/gitleaks" },
+  git: { name: "git", does: "ev-run.does-git", page: "https://git-scm.com/downloads" },
 };
 
-const CHECKS = {
-  sca: "dependencies for known security flaws",
-  sbom: "the list of every dependency",
-  sast: "risky code patterns",
-  secret: "passwords and keys committed to the code",
-  history: "the commit history",
-};
+const AREAS = { sca: "ev-run.area-sca", sbom: "ev-run.area-sbom", sast: "ev-run.area-sast", secret: "ev-run.area-secret", history: "ev-run.area-history" };
+const CHECKS = Object.fromEntries(Object.entries(AREAS).map(([phase, name]) => [phase, line(name)]));
 
 const nameOf = (tool) => TOOLS[tool]?.name ?? tool;
+const offerOf = (tool, phase) => line("ev-run.tool-offer", { tool: nameOf(tool), does: TOOLS[tool] ? line(TOOLS[tool].does) : CHECKS[phase] ?? phase });
 
 function today() {
   const now = new Date();
@@ -126,38 +124,38 @@ function missingReason(tool, held) {
   return held.declined.includes(tool) ? "declined" : "missing";
 }
 
-function toldWhy(one) {
-  const tool = nameOf(one.tool);
-  const said = {
-    declined: `you chose not to install ${tool}${one.declined_on ? ` on ${one.declined_on}` : ""}`,
-    "could-not-install": `${tool} could not be installed on this machine`,
-    missing: `${tool} is not installed on this machine`,
-    off: "it is turned off in this machine's Evalation settings",
-    "no-adapter": `this version of Evalation cannot run ${tool}`,
-    failed: `${tool} stopped before it finished`,
-    "no-history": "the folder has no git history",
-  };
-  return said[one.reason] ?? `${tool} did not run`;
-}
+const WHY = {
+  "could-not-install": "ev-run.scan-could-not-install", missing: "ev-run.scan-missing", off: "ev-run.scan-off",
+  "no-adapter": "ev-run.scan-no-adapter", failed: "ev-run.scan-failed", "no-history": "ev-run.scan-no-history",
+};
 
 function listed(items) {
   if (items.length < 3) return items.join(" and ");
   return `${items.slice(0, -1).join(", ")}, and ${items.at(-1)}`;
 }
 
-function readOut(phases) {
-  const checked = phases.filter((one) => one.ran).map((one) => CHECKS[one.phase] ?? one.phase);
-  const lines = checked.length > 0 ? [`Checked: ${listed(checked)}.`] : [];
-  for (const one of phases.filter((each) => !each.ran)) {
-    lines.push(`Not checked: ${CHECKS[one.phase] ?? one.phase}, since ${toldWhy(one)}.` +
-      (one.reason === "declined" ? ` To change that, run /ev-run again and tick ${nameOf(one.tool)} when asked.` : ""));
+function notChecked(one) {
+  const values = { area: CHECKS[one.phase] ?? one.phase, tool: nameOf(one.tool) };
+  if (one.reason === "declined") {
+    return one.declined_on ? line("ev-run.scan-not-checked-declined", { ...values, date: one.declined_on })
+      : line("ev-run.scan-not-checked-declined-undated", values);
   }
-  return lines.join(" ");
+  return line("ev-run.scan-not-checked", { ...values, why: line(WHY[one.reason] ?? "ev-run.scan-did-not-run", values) });
 }
 
-function fail(reason) {
-  process.stderr.write(`${reason}\n`);
+function readOut(phases) {
+  const checked = phases.filter((one) => one.ran).map((one) => CHECKS[one.phase] ?? one.phase);
+  return [...(checked.length > 0 ? [line("ev-run.scan-checked", { areas: listed(checked) })] : []),
+    ...phases.filter((each) => !each.ran).map(notChecked)].join(" ");
+}
+
+function stopped(text) {
+  process.stderr.write(`${text}\n`);
   process.exit(1);
+}
+
+function fail(detail) {
+  stopped(fault(line("ev-run.fault-scan"), detail));
 }
 
 function settings() {
@@ -426,7 +424,7 @@ function authorship(out) {
   const at = { path: "git history" };
   if (total === 0) {
     return [{ key: "history:quiet", phase: "history", severity: "medium", title: "No commits in a year", at,
-      body: "No commits in the last twelve months, so nobody has changed this code for a year." }];
+      body: "No commits in the last twelve months, so nobody has changed this code for a year." }]; // say:allow: report,a scanner result printed in the reports
   }
   const share = Math.round((Math.max(...counts.values()) / total) * 100);
   const severity = counts.size === 1 || share >= 80 ? "high" : share >= 50 ? "medium" : null;
@@ -434,7 +432,7 @@ function authorship(out) {
   return [{
     key: "history:concentration", phase: "history", severity, at,
     title: counts.size === 1 ? "Every commit made by one person" : "Most commits made by one person",
-    body: `Of ${total} commits in the last twelve months, the most active person made ${share}% of them, across ${counts.size} ${counts.size === 1 ? "person" : "people"}.`,
+    body: `Of ${total} commits in the last twelve months, the most active person made ${share}% of them, across ${counts.size} ${counts.size === 1 ? "person" : "people"}.`, // say:allow: report,a scanner result printed in the reports
   }];
 }
 
@@ -537,7 +535,7 @@ function measured({ commits, tags, tracked, now }) {
   if (dormant.length > 0) {
     found.push({ key: "history:dormant", phase: "history", severity: "low", at: { path: "git history" },
       title: "Areas nobody changed in a year",
-      body: `Nobody changed ${dormant.slice(0, 6).join(", ")}${dormant.length > 6 ? ` or ${dormant.length - 6} more` : ""} in the last twelve months.` });
+      body: `Nobody changed ${dormant.slice(0, 6).join(", ")}${dormant.length > 6 ? ` or ${dormant.length - 6} more` : ""} in the last twelve months.` }); // say:allow: report,a scanner result printed in the reports
   }
   for (const [area, who] of touched) {
     if (who.length < 10) continue;
@@ -547,7 +545,7 @@ function measured({ commits, tags, tracked, now }) {
     if (share >= 80) {
       found.push({ key: `history:area:${area}`, phase: "history", severity: "medium", at: { path: area },
         title: `An area resting on one person in ${area}`,
-        body: `Of ${who.length} commits to ${area} in the last twelve months, one person made ${share}% of them.` });
+        body: `Of ${who.length} commits to ${area} in the last twelve months, one person made ${share}% of them.` }); // say:allow: report,a scanner result printed in the reports
     }
   }
   const recent = commits.filter((one) => within(one.at, 90)).length / 3;
@@ -555,7 +553,7 @@ function measured({ commits, tags, tracked, now }) {
   if (before >= 4 && recent < before / 2) {
     found.push({ key: "history:slowing", phase: "history", severity: "medium", at: { path: "git history" },
       title: "Changes slowed in the last three months",
-      body: `The last three months ran at ${Math.round(recent)} commits a month, down from ${Math.round(before)} a month in the nine before.` });
+      body: `The last three months ran at ${Math.round(recent)} commits a month, down from ${Math.round(before)} a month in the nine before.` }); // say:allow: report,a scanner result printed in the reports
   }
   return found;
 }
@@ -698,8 +696,7 @@ function scan(target, only = null) {
 
   const after = watched();
   if (before !== null && after !== null && before !== after) {
-    fail("Something changed the repository while it was being scanned, so the scan was not kept and no pack credits were used. " +
-      "Stop whatever is changing it, then run /ev-run again.");
+    stopped(line("ev-run.scan-changed"));
   }
 
   const all = ran.flatMap((one) => one.findings);
@@ -743,7 +740,6 @@ const BREAKS = new RegExp(`\\s*[;${String.fromCharCode(0x2013, 0x2014)}]\\s*`, "
 
 function offered(held, only) {
   const { entries, say } = require("../lib/say.js");
-  const line = (name, values) => say(entries(), name, values);
   const wanted = Object.entries(held.phases).filter(([phase, named]) => (!only || only.includes(phase)) && named.enabled !== false);
   const missing = wanted.filter(([, named]) => !onThisMachine(named.tool)).map(([phase, named]) => ({ phase, tool: named.tool }));
   if (missing.length === 0) {
@@ -765,7 +761,7 @@ function offered(held, only) {
     return line("ev-run.tool-installs");
   };
   return { said: null, asks: JSON.parse(say(entries(), "ev-run.tools", {}, missing.map((one) => ({
-    label: `${nameOf(one.tool)}, ${TOOLS[one.tool]?.does ?? `checks ${CHECKS[one.phase]}`}`, description: described(one.tool) })))) };
+    label: offerOf(one.tool, one.phase), description: described(one.tool) })))) };
 }
 
 function show(only = null) {
@@ -785,7 +781,7 @@ function show(only = null) {
       could_not_install: held.could_not_install[named.tool]
         ? { ...held.could_not_install[named.tool], on: spoken(held.could_not_install[named.tool].on) } : null,
       install_with: onThisMachine(named.tool) ? null : installer(named.tool).said,
-      offer: `${nameOf(named.tool)}, ${TOOLS[named.tool]?.does ?? `checks ${CHECKS[phase]}`}`,
+      offer: offerOf(named.tool, phase),
       install_page: TOOLS[named.tool]?.page ?? null,
     }])),
     tools_this_knows: Object.keys(ADAPTERS),
@@ -909,7 +905,7 @@ function main() {
         const fits = Object.entries(ADAPTERS)
           .filter(([, one]) => one.phase === phase).map(([name]) => name);
         fail(`${tool} answers the ${ADAPTERS[tool].phase} phase, not ${phase}. ` +
-          (fits.length ? `For ${phase} this knows ${fits.join(", ")}.` : `This knows no tool for ${phase}.`));
+          (fits.length ? `For ${phase} this knows ${fits.join(", ")}.` : `This knows no tool for ${phase}.`)); // say:allow: machine,detail for the fault file, and set is not granted to a session
       }
       const held = settings();
       const next = { ...held, scan: { ...(held.scan ?? {}), phases: { ...(held.scan?.phases ?? {}) } } };
@@ -928,4 +924,10 @@ function main() {
 
 module.exports = { authorship, measured, scan };
 
-if (require.main === module) main();
+if (require.main === module) {
+  try {
+    main();
+  } catch (thrown) {
+    fail(thrown?.stack ?? thrown);
+  }
+}

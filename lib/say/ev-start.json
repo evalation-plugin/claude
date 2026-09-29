@@ -5,6 +5,7 @@
   "ev-start.unreachable": { "say": "Evalation could not be reached. Check this machine is online, then run /ev-start again. If it still fails, contact support@evalation.ai." },
   "ev-start.signing-in": { "say": "Signing in sets up your Evalation account, or links this machine to it if you already have one." },
   "ev-start.chosen": { "say": "You are set up to check code against <titles>." },
+  "ev-start.packs-unread": { "say": "Your chosen packs could not be read just now. Run /ev-start again in a few minutes. If it still fails, contact support@evalation.ai." },
   "ev-start.no-packs": { "say": "Run /ev-packs when you are ready to choose what to check against." },
   "ev-start.run-here": { "say": "Run /ev-run here to check this repository." },
   "ev-start.run-elsewhere": { "say": "Next, open Claude Code in the repository you want checked and run /ev-run." },

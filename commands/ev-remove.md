@@ -1,6 +1,6 @@
 ---
 description: Remove Evalation from this machine. Signs this machine out, deletes what Evalation saved here, and offers to delete the Claude Code conversations that ran an Evalation command.
-allowed-tools: Bash(evalation-status:*), Bash(evalation-remove folders:*), Bash(evalation-remove sets:*), Bash(evalation-remove run:*), Bash(evalation-questions keep-on-account:*), Bash(evalation-say:*)
+allowed-tools: Bash(evalation-status:*), Bash(evalation-remove folders:*), Bash(evalation-remove sets:*), Bash(evalation-remove run:*), Bash(evalation-remove keep-sets:*), Bash(evalation-say:*)
 ---
 
 # Removing Evalation from this machine
@@ -58,16 +58,17 @@ prints.
    Where the state was `live` or `not-live`, show `evalation-say ev-remove.sign-out` and
    `evalation-say ev-remove.folder`.
 
-   Where the state was `not-set-up` and `home_exists` is true, after the opening line step 1 gave,
-   show `evalation-say ev-remove.folder-local`.
+   Where the state was `not-set-up` and `holds_saved` is true, after the opening line step 1 gave,
+   show `evalation-say ev-remove.folder-local`. Where `sets_here` is more than zero, add
+   `evalation-say ev-remove.sets-stay-local`.
 
-   Where the state was `live` or `not-live` and `home_exists` is false, leave out the lines about
+   Where the state was `live` or `not-live` and `holds_saved` is false, leave out the lines about
    the folder and show `evalation-say ev-remove.nothing-saved` in their place.
 
-   Where the state was `not-set-up` and `home_exists` is false, show only
+   Where the state was `not-set-up` and `holds_saved` is false, show only
    `evalation-say ev-remove.nothing-else` after the opening line step 1 gave, never
    `ev-remove.nothing-saved` as well, and ask nothing more in this step: go on to step 3 where
-   `conversations` is more than zero, or straight to the last step of step 5 where it is zero.
+   `conversations` is more than zero, or straight to step 4 where it is zero.
 
    Where `reports_named` is not null, show
    `evalation-say ev-remove.old-reports reports="<reports_named>"`.
@@ -90,22 +91,23 @@ prints.
 
    Then run `evalation-say ev-remove.clear` and ask the question it prints. Where `conversations`
    is zero, ask nothing about conversations. Never delete anything else, and never anything in the
-   folder this session runs in. Where step 2 found Evalation has nothing else on this machine and
-   they chose `Keep them`, go straight to the last step of step 5.
+   folder this session runs in.
 
-4. **Remove it.** Where they chose `Keep on my account`, first run this for each name in `sets`:
+4. **Remove it.** Where they chose `Keep on my account`, first run this with every name in `sets`,
+   each in double quotes:
 
    ```
-   evalation-questions keep-on-account <name>
+   evalation-remove keep-sets "<name>" ["<name>"...]
    ```
 
-   On success it prints one line for the set: show it exactly as printed.
+   On success it prints one line naming every set it kept: show it exactly as printed. It keeps
+   nothing until every set passes its check. Where it fails, show nothing it printed and read the
+   word before the first colon, with <name> the set named after it:
 
-   Where it fails and the reason says the set `is not kept on the account, since`, the set fails
-   its check. Show each listed problem exactly as printed, then run
-   `evalation-say ev-remove.set-fails set="<name>"` and ask the question it prints. On
-   `Stop so I can fix it`, show `evalation-say ev-remove.fix-set` and stop. Where it fails for any
-   other reason, show `evalation-say ev-remove.set-not-kept set="<name>"` and stop.
+   - `fails-check`: run `evalation-say ev-remove.set-fails set="<name>"` and ask the question it
+     prints. On `Stop so I can fix it`, show `evalation-say ev-remove.fix-set` and stop. On
+     `Delete it with the rest`, run `keep-sets` again without that name, where any are left.
+   - `not-kept`: show `evalation-say ev-remove.set-not-kept set="<name>"` and stop.
 
    Then run:
 
@@ -122,8 +124,10 @@ prints.
 5. **Say what was removed and give the last step.** From what `run` printed, show these lines
    together:
 
-   - Where `signed_out` is `now`, show `evalation-say ev-remove.signed-out`. Where it is `already`, show `evalation-say ev-remove.already-out`, unless step 2 already said this machine is not signed in. Where it is `not-revoked`, show `evalation-say ev-remove.not-revoked`, unless step 2 already said the sign-in is damaged.
-   - Where `folder_deleted` is true and `home_exists` was true in step 2, show
+   - Where `signed_out` is `now`, show `evalation-say ev-remove.signed-out`. Where it is
+     `already`, show `evalation-say ev-remove.already-out`, unless step 2 already said this machine
+     is not signed in. Where it is `not-revoked`, show `evalation-say ev-remove.not-revoked`.
+   - Where `folder_deleted` is true and `holds_saved` was true in step 2, show
      `evalation-say ev-remove.folder-deleted`. Where it is false, show
      `evalation-say ev-remove.folder-left`.
    - Where `keys_left` names one key, show `evalation-say ev-remove.key-left keys="<keys_named>"`.
@@ -131,9 +135,10 @@ prints.
      with <count> the number of keys in `keys_left`.
    - Where `failed` names settings, show `evalation-say ev-remove.keys-unread`.
    - Where conversations were chosen, show `evalation-say ev-remove.deleted count="<removed>"` with
-     `history.removed` as <removed>, or `evalation-say ev-remove.deleted-one` where it is one. Where
-     `history.kept_by` is `claude-code`, show `evalation-say ev-remove.kept-this` where
-     `history.kept_live` is one, `evalation-say ev-remove.kept-two` where it is two, or
+     `history.removed` as <removed>, or `evalation-say ev-remove.deleted-one` where it is one.
+     Where `history.kept_live` is `open` plus one, step 3 already said which were kept, so show
+     none of the kept lines. Otherwise, where `history.kept_by` is `claude-code`, show
+     `evalation-say ev-remove.kept-this` where `history.kept_live` is one, `evalation-say ev-remove.kept-two` where it is two, or
      `evalation-say ev-remove.kept-more count="<others>"` where it is more, with <others> one less
      than `history.kept_live`. Where `history.kept_by` is `last-hour`, show
      `evalation-say ev-remove.recent-this` where `history.kept_live` is one, or

@@ -210,6 +210,8 @@ test("ev-run's lines keep the words the reports use, held in the catalogue where
     "They are used only as evidence when judging the version controlled code. Tick",
     "and nowhere else",
     "ask to print them again for signed copies",
+    "show the command's own message",
+    "evalation-say ev-run.fault-before",
   ];
   assert.deepStrictEqual(unsaid.filter((one) => `${text} ${lines}`.includes(one)), []);
 });
@@ -219,7 +221,7 @@ test("ev-run writes no question itself, and runs each one the catalogue or a scr
   assert.doesNotMatch(text, /\bask "|\bheaded "|described as "/i);
   assert.doesNotMatch(text, /CLAUDE_PLUGIN_ROOT\}\/bin\/evalation/);
   const verbs = ["found", "pick", "evidence", "name", "branches", "copies", "off-main", "branch", "stale", "packs", "usual", "all",
-    "sets", "only", "short", "reading", "tally", "done", "folder"];
+    "sets", "pick-sets", "only", "short", "reading", "tally", "done", "folder"];
   assert.deepStrictEqual(verbs.filter((one) => !text.includes(`evalation-run --say ${one}`)), []);
 });
 
@@ -252,6 +254,11 @@ test("the checking's tally leaves withdrawn claims out, counts what stays assert
   assert.strictEqual(sayRun("tally", "2", "0", "0", "1").stdout,
     "The one claim was not confirmed against the code, so it stays marked asserted in the reports.\n");
   assert.doesNotMatch(sayRun("tally", "3", "1", "0", "2").stdout, /withdrawn|claims/);
+  assert.strictEqual(sayRun("tally", "3", "3", "0", "3").stdout,
+    "Every claim was withdrawn, since none held against the code, so the reports carry none of them.\n");
+  assert.strictEqual(sayRun("tally", "2", "1", "1", "1").stdout, "The one claim was corrected, then confirmed against the code.\n");
+  assert.strictEqual(sayRun("tally", "1", "0", "1", "0").stdout,
+    "The one claim was corrected, and no second check confirmed it, so it stays marked asserted in the reports.\n");
 });
 
 test("the closing lines sum up each pack from the findings, then name the reports folder on its own line, then what to open", () => {
@@ -266,7 +273,7 @@ test("the closing lines sum up each pack from the findings, then name the report
   assert.strictEqual(sayRun("done", findings).stdout,
     "SOC 2 Trust Services Criteria, 2 entries: 1 partly covered and 1 for the organisation to answer. " +
     "Evalation Hardening Review, 3 weaknesses: 1 critical and 2 high.\n" +
-    `The reports are in ${reportsFolder(document)}.\n` +
+    `The reports are in this folder:\n${reportsFolder(document)}\n` +
     "Open Evalation Hardening Review Detail.pdf to work through the fixes. Running /ev-run again after changes uses 2 pack credits.\n");
   document.findings = [{ pack: "hardening", severity: "low" }];
   document.answers = document.answers.slice(0, 1).map((one) => ({ ...one, status: "total-gap" }));
@@ -274,12 +281,12 @@ test("the closing lines sum up each pack from the findings, then name the report
   writeFileSync(findings, JSON.stringify(document));
   assert.strictEqual(sayRun("done", findings, "/r/Chosen").stdout,
     "SOC 2 Trust Services Criteria, one criterion: 1 not covered. Evalation Hardening Review, one weakness: 1 low.\n" +
-    "The reports are in /r/Chosen.\n" +
+    "The reports are in this folder:\n/r/Chosen\n" +
     "Open Evalation Hardening Review Detail.pdf to work through the fixes. Running /ev-run again after changes uses 2 pack credits.\n");
   document.findings = [];
   writeFileSync(findings, JSON.stringify(document));
   assert.match(sayRun("done", findings).stdout, /Evalation Hardening Review, no weaknesses found\.\n/);
-  assert.strictEqual(sayRun("folder", findings).stdout, `The reports are in ${reportsFolder(document)}.\n`);
+  assert.strictEqual(sayRun("folder", findings).stdout, `The reports are in this folder:\n${reportsFolder(document)}\n`);
 });
 
 test("delivering reports that printed and signed says nothing, since the closing lines name the folder", () => {
@@ -355,4 +362,50 @@ test("the branch check names the repository and its folder, so the pack question
   const checked = JSON.parse(execFileSync(process.execPath, [join(BIN, "evalation-run"), "--branch", tree], { encoding: "utf8" }));
   assert.strictEqual(checked.folder, resolve(tree));
   assert.ok(checked.repository);
+});
+
+test("the sign-in is checked before any folder or branch question", () => {
+  const text = EV_RUN();
+  assert.ok(text.indexOf("evalation-run --titles") >= 0);
+  assert.ok(text.indexOf("evalation-run --titles") < text.indexOf("evalation-run --branch"), "--titles runs first in step 1");
+});
+
+const faultFile = (said) => {
+  const lines = said.trim().split("\n");
+  const file = lines.at(-1);
+  assert.ok(file.startsWith(join(home, "faults")), `the last line names the file for support: ${said}`);
+  assert.strictEqual(lines.at(-2), "To have it fixed, email support@evalation.ai and attach this file, which holds the details:");
+  return { lines, detail: require("node:fs").readFileSync(file, "utf8") };
+};
+
+test("a fault another command hit is said in a plain line, and its detail goes to a file for support", () => {
+  const ran = spawnSync(process.execPath, [join(BIN, "evalation-run"), "--fault", "evalation-verify", "no-plan: run evalation-verify plan /r/f.json /r first"],
+    { encoding: "utf8", env: { ...process.env, EVALATION_PLUGIN_HOME: home } });
+  assert.strictEqual(ran.status, 0, ran.stderr);
+  const { lines, detail } = faultFile(ran.stdout);
+  assert.strictEqual(lines[0], "The claims could not be checked, because of a fault in Evalation, so the run stopped. The pack credits for this run were used when it started.");
+  assert.doesNotMatch(ran.stdout, /no-plan|\/r\/f\.json/);
+  assert.match(detail, /no-plan: run evalation-verify plan/);
+});
+
+test("the scan and the evidence pack stop on a fault with plain lines, and the detail goes to a file", () => {
+  const scanned = spawnSync(process.execPath, [join(BIN, "evalation-scan"), "run", join(tmpdir(), "evalation-no-such-folder")], { encoding: "utf8",
+    env: { ...process.env, EVALATION_PLUGIN_HOME: home } });
+  assert.strictEqual(scanned.status, 1);
+  const scan = faultFile(scanned.stderr);
+  assert.strictEqual(scan.lines[0], "The free security tools could not be run, because of a fault in Evalation, so the run stopped. No pack credits were used.");
+  assert.doesNotMatch(scanned.stderr, /no-such-target/);
+  assert.match(scan.detail, /no-such-target/);
+  const { run } = require("./fixture.js");
+  const folder = mkdtempSync(join(tmpdir(), "evalation-empty-"));
+  const findings = join(folder, "findings.json");
+  writeFileSync(findings, JSON.stringify({ ...run(repository()), schema: "evalation.findings.v1", answers: [] }));
+  const reported = spawnSync(process.execPath, [join(BIN, "evalation-report"), findings, folder], { encoding: "utf8",
+    env: { ...process.env, EVALATION_PLUGIN_HOME: home } });
+  assert.strictEqual(reported.status, 1);
+  const report = faultFile(reported.stderr);
+  assert.strictEqual(report.lines[0], "The reports could not be written, because of a fault in Evalation, so the run stopped. " +
+    "Your findings are kept, and the pack credits for this run were used when it started.");
+  assert.doesNotMatch(reported.stderr, /no-answers|findings\.json/);
+  assert.match(report.detail, /no-answers/);
 });

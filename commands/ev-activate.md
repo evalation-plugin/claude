@@ -36,7 +36,9 @@ choosing it does.
    Read its first line.
 
    - `state: not-set-up`: go on to step 2. Where a `sign-in: damaged` line follows, first
-     `evalation-say ev-activate.damaged`. Signing in again replaces a damaged sign-in.
+     `evalation-say ev-activate.damaged`, or where a `signed in as:` line names the account,
+     `evalation-say ev-activate.damaged-named` with that email as `email`. Signing in again replaces
+     a damaged sign-in.
    - `state: live` or `state: unreachable`: `evalation-say ev-activate.already`, then run
      `/ev-account` and stop.
    - `state: not-live`: run `/ev-account` and say nothing of your own, since it gives the reason and
@@ -51,7 +53,7 @@ choosing it does.
 3. **Ask which provider** with `evalation-say ev-activate.provider`. Where Google said no, offer
    Microsoft first with `evalation-say ev-activate.provider-microsoft-first`. Offer Microsoft first
    only where an attempt with Google in this conversation ended on `sign-in-refused`, `refused`,
-   `refused-no-reason` or `no-code`, or the person said its page declined them or showed an error.
+   `refused-unrecognised` or `no-code`, or the person said its page declined them or showed an error.
    A failure of this machine or of Evalation's server, such as `unreachable`, `no-listener`,
    `no-key-store`, `timed-out` or `server-error`, keeps the usual order. Show once per
    conversation, beside the question, `evalation-say ev-activate.other-ways`, skipping it the same
@@ -79,7 +81,8 @@ choosing it does.
 
    Run it with the Bash tool's `run_in_background` set. It waits up to five minutes for the person,
    and Claude Code shows a command's output only when it ends, so a run in the foreground would hide
-   the address they may need. Never start a second one while the first is waiting.
+   the address they may need. Never start a second one while the first is waiting, and never add
+   `--reason`, which adds detail for support alone.
 
    Read its output as it arrives, until a `sign-in address:` line appears or it ends. Where it ends
    first, go to the part for when it does not work. When the address appears, show the line below
@@ -101,16 +104,20 @@ choosing it does.
    - Where they say nothing happened, or no sign-in page appeared: show
      `evalation-say ev-activate.nothing-happened` with the address on its own line under it, and
      leave the sign-in waiting.
-   - Where they ask to stop: ask `evalation-say ev-activate.stopped` and go on as for `stopped`
-     below.
-   - Where they say something else about the sign-in or the page: show
-     `evalation-say ev-activate.something-else` and stop.
+   - Where they ask to stop: show `evalation-say ev-activate.stopped-stop` and ask nothing.
+   - Where they say they finished, or the page says the sign-in was received: show
+     `evalation-say ev-activate.still-waiting` and leave it waiting. Claude Code tells you when it
+     ends.
+   - Where they ask which account to use: show `evalation-say ev-activate.which-account` and leave
+     it waiting.
+   - Where they write anything else about the sign-in: show
+     `evalation-say ev-activate.still-waiting` and leave it waiting.
    - Where the message is about something other than the sign-in, answer it and leave the sign-in
      waiting.
 
-   In the cases that do not leave it waiting, first stop the waiting command with the tool that
-   stops a background command, TaskStop in Claude Code, and treat the `stopped` line it then prints
-   as expected.
+   Only a decline, an error the page showed or a request to stop ends the sign-in. In those cases,
+   first stop the waiting command with the tool that stops a background command, TaskStop in Claude
+   Code, and treat the `stopped` line it then prints as expected.
 
 6. **Read what it printed.** On success it prints `signed_in_as`. Where that holds an email, show
    `evalation-say ev-activate.signed-in` with it as `email`. Where it is empty, show
@@ -139,13 +146,13 @@ for one, and each ends on the one thing to do next.
   `evalation-say ev-activate.declined-microsoft-first`. Run step 4 with the one chosen. On the answer
   to stop, show `evalation-say ev-activate.declined-stop`.
 - **`timed-out`** means the five minutes ran out. Show `evalation-say ev-activate.timed-out`.
-- **`refused`** carries, after the colon, what Evalation or the provider saw, in plain words. Show
-  `evalation-say ev-activate.refused`, with those words exactly as printed as its `reason`.
-- **`refused-no-reason`** means the refusal gave no plain reason. Show
-  `evalation-say ev-activate.refused-no-reason`.
-- **`fault`** means the sign-in is set up wrongly on our side, and nothing they did caused it. Show
-  `evalation-say ev-activate.fault`. Do not have them try again, because that will fail the same
-  way.
+- **`refused`** means the sign-in did not go through for a reason another try can fix. Show
+  `evalation-say ev-activate.refused`.
+- **`refused-unrecognised`** means the refusal was one the script does not recognise. Show
+  `evalation-say ev-activate.refused-unrecognised`.
+- **`fault`** means the sign-in is set up wrongly on our side, such as a provider this deployment
+  does not offer, and nothing they did caused it. Show `evalation-say ev-activate.fault`. Do not
+  have them try again, because that will fail the same way.
 - **`server-error`** means Evalation's server failed. Show
   `evalation-say ev-activate.server-error`.
 - **`no-code`** means the provider sent them back without finishing. Show

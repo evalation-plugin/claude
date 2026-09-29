@@ -67,13 +67,15 @@ step names. Never give a duration, a usage figure or a count of parts: nobody ha
 number the person cannot place tells them nothing. Otherwise say nothing while readers, checkers or
 scanners work.
 
-**Where `evalation-run` fails**, at any step, show every line it printed, as printed, and stop. Each
-says whether pack credits were used and what to do, and a fault in Evalation already carries its
-line for support.
+**Where `evalation-run`, `evalation-scan`, `evalation-report` or `evalation-deliver` fails**, at any
+step, show every line it printed, as printed, and stop. Each says whether pack credits were used and
+what to do, and a fault in Evalation names the file to send to support.
 
-**Where any other command stops the run on a fault in Evalation**, run `evalation-say ev-run.fault-before` before step 4
-has started the run, or `evalation-say ev-run.fault-after` after it, show its line, then show the
-command's own message as it printed it.
+**Where any other command stops the run on a fault in Evalation**, show none of its message. Run
+`evalation-run --fault <command> '<message>'`, with the command's name, such as `evalation-verify`,
+and its message whole in single quotes, then show every line it prints, as printed, and stop. It keeps
+the message in a file for support and says in plain words what stopped and whether pack credits were
+used.
 
 **Ask every question through the host's question interface**, the AskUserQuestion tool in Claude
 Code, with each answer one of its options. Never write a question and its answers as a list in text.
@@ -83,8 +85,20 @@ and each answer's label says what choosing it does.
 
 ## What to do
 
-1. **Check which branch the tree is on, then ask which packs to run, and wait for the answer.**
-   First:
+1. **Check the sign-in, then which branch the tree is on, then ask which packs to run, and wait for
+   the answer.** First, before any question:
+
+   ```
+   evalation-run --titles
+   ```
+
+   It prints each pack's handle, title, `summary`, whether it is `extensible` and its `question`
+   number, in alphabetical order of the titles. Where `--titles` fails, show the line it prints as printed and stop.
+   That line says no pack credits were used and what to do next, such as signing in with
+   /ev-activate, so a machine that cannot run is told so before it is asked anything. Keep what it
+   printed for the pack questions below.
+
+   Then:
 
    ```
    evalation-run --branch <target>
@@ -134,24 +148,16 @@ and each answer's label says what choosing it does.
    `evalation-run --say stale <target>` and ask `evalation-say ev-run.copy`. On stop, end the run
    there. Never pull yourself.
 
-   Then ask which packs to read. First run
-
-   ```
-   evalation-run --titles
-   ```
-
-   which prints each pack's handle, title, `summary`, whether it is `extensible` and its `question`
-   number, in alphabetical order of the titles. Where `--titles` fails, show the line it prints as printed and stop.
-   That line says no pack credits were used and what to do next, such as signing in with
-   /ev-activate. The questions name each pack by its title, and the answers come back as titles:
-   map each to its handle through `--titles`.
+   Then ask which packs to read. The questions name each pack by its title, and the answers come
+   back as titles: map each to its handle through what `--titles` printed.
 
    Ask the first question with `evalation-run --say packs <target>`. It names the repository, or the
    product's name where several repositories are read, and the balance, and offers the usual packs
    recorded in `evalation-packs show`, choosing from the full list, and, only where
    `evalation-questions list` shows a set written for no pack, which it marks `"pack":"custom"`,
-   answering only the person's own questions. Where there are no usual packs and no set written for no pack, it prints the full list at once, as on
-   choosing from the full list, so ask that.
+   answering only the person's own questions. Where there are no usual packs and no set written for no pack, it prints a line
+   saying what each pack costs and the balance in place of a question: show it, then ask the full
+   list, as on choosing from the full list.
 
    On the usual packs, where there is one usual pack, it is the selection. Where there are two or
    more, ask `evalation-run --say usual`, so the person can drop one. The packs ticked are the
@@ -159,7 +165,7 @@ and each answer's label says what choosing it does.
 
    On choosing from the full list, ask `evalation-run --say all`. The packs ticked are the selection.
    Where they tick none, ask the first pack question again, or the full list again where the first
-   was skipped.
+   was skipped. The cost was said once already, so the full list does not say it again.
 
    A consultant assesses one client's tree against one set of obligations and the next against
    another, so the packs are a choice per run and never assumed. The packs the person ticks are what
@@ -174,7 +180,10 @@ and each answer's label says what choosing it does.
    for that pack: show the line and go on. Where it prints a question, first say
    `evalation-say ev-run.another-set`, then ask it. Use each set ticked. Where they tick only the
    answer to read the pack alone, or nothing, use no set with that pack. Where they tick that answer
-   beside a set, ask again. Ask nothing about a pack that takes no extra
+   beside a set, ask again. With more than three sets for the pack, the question is a single choice
+   between using the sets and reading the pack alone. On using the sets, ask
+   `evalation-run --say pick-sets <pack>` and use each set ticked, and where they tick none, ask the
+   single choice again. Ask nothing about a pack that takes no extra
    questions, such as SOC 2 or ISO 27001, even where it is chosen alongside. Where no chosen pack
    takes extra questions, never raise the person's own questions at all.
 
@@ -566,18 +575,17 @@ and each answer's label says what choosing it does.
    left unprinted or unsigned, why, and what to do: show each exactly as printed in step 11, where it
    is not empty. Anybody holding a report can check it with `evalation-check-pdf <report.pdf>`.
 
-   Where a report fails the check made before printing, the command prints several lines: the file
-   it did not write, each fault the check found in its pages, any report written before it in the
-   same folder, and that the findings are kept. That is a fault in Evalation: report it as the fault
-   paragraph above says, after the run started, showing every line whole.
+   Where a report is not written, the command prints several lines: the file it did not write and
+   why, any report written before it in the same folder, that the findings are kept, and the file
+   to send to support. Show every line as printed and stop.
 
    The review pack carries no individual findings on purpose: a slide holding fifty of them is neither
    a slide anybody reads nor a document anybody can work from, and the detail is where they live.
 
 11. **Say what it found and where the reports are.** First show what step 10 printed about reports
    left unprinted or unsigned, where it printed anything. Then show what
-   `evalation-run --say done <written>` prints: one sentence per pack counted from the findings, the
-   reports folder on its own line, and the file to work from. Where the person named a folder at
+   `evalation-run --say done <written>` prints: one sentence per pack counted from the findings, a
+   line introducing the reports folder with its path alone on the next line, and the file to work from. Where the person named a folder at
    step 10, name it after `<written>` in double quotes. Add nothing of your own, since the reports
    hold every entry.
 
@@ -595,7 +603,7 @@ it fails, show the line it prints as printed and stop. Otherwise say `evalation-
 and run step 10 over `written`: `evalation-deliver` where a pack's `kind` is
 `concern-set` and `evalation-report` where one is `standard`. The reports go into that run's own
 folder in place of the earlier copies. Then show anything step 10 printed about signing, then the
-line `evalation-run --say folder <written>` prints, and nothing more.
+lines `evalation-run --say folder <written>` prints, and nothing more.
 
 ## What this never does
 

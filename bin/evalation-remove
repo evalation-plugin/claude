@@ -1,12 +1,11 @@
 #!/usr/bin/env node
 "use strict";
 
-const { existsSync } = require("node:fs");
 const { homedir } = require("node:os");
 const { join } = require("node:path");
 const { runScript } = require("../lib/script.js");
 const { pluginHome } = require("../lib/home.js");
-const { keysNamed, openBy, placesNamed, placesOf, pluginConversations, removal, reportsIn, reportsNamed, setsAsked } = require("../lib/remove.js");
+const { holdsSaved, keysNamed, openBy, placesNamed, placesOf, pluginConversations, removal, reportsIn, reportsNamed, setsAsked, setsKept } = require("../lib/remove.js");
 const store = require("./evalation-store");
 
 const HOME = pluginHome();
@@ -24,7 +23,8 @@ if (verb === "folders") {
   const reports = reportsIn(HOME);
   const places = placesOf(others);
   process.stdout.write(`${JSON.stringify({
-    home_exists: existsSync(HOME),
+    holds_saved: holdsSaved(HOME),
+    sets_here: require("../lib/questions.js").saved(HOME).length,
     reports,
     reports_named: reportsNamed(reports),
     conversations: others.length,
@@ -38,6 +38,12 @@ if (verb === "folders") {
   if (listing.account === "unreachable") fail("unreachable: the account's question sets could not be read");
   const asked = setsAsked(listing);
   process.stdout.write(asked ? `${JSON.stringify(asked)}\n` : "none\n");
+} else if (verb === "keep-sets") {
+  const { keepOnAccount } = require("../lib/questions.js");
+  const done = setsKept({ home: HOME, names: flags, keep: (name) => keepOnAccount(HOME, name) });
+  if (done.fails !== undefined) fail(`fails-check: ${done.fails}`);
+  if (done.notKept !== undefined) fail(`not-kept: ${done.notKept}\n${done.reason}`);
+  if (done.said) process.stdout.write(`${done.said}\n`);
 } else if (verb === "run") {
   try {
     const done = removal({
@@ -60,5 +66,5 @@ if (verb === "folders") {
     fail(`${thrown.reason === "unreachable" ? "unreachable" : "refused"}: nothing was removed (${thrown.message})`);
   }
 } else {
-  fail("usage: evalation-remove folders | sets | run [--clear-history]");
+  fail("usage: evalation-remove folders | sets | keep-sets <name>... | run [--clear-history]");
 }

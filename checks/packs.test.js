@@ -35,8 +35,9 @@ function packs(home, args, catalogue = CATALOGUE) {
     const server = createServer((req, res) => {
       req.resume();
       req.on("end", () => {
-        res.writeHead(200, { "content-type": "application/json" });
-        res.end(typeof catalogue === "string" ? catalogue : JSON.stringify(catalogue));
+        const { status = 200, body = catalogue } = catalogue?.status ? catalogue : {};
+        res.writeHead(status, { "content-type": "application/json" });
+        res.end(typeof body === "string" ? body : JSON.stringify(body));
       });
     }).listen(0, "127.0.0.1", () => {
       const child = spawn(process.execPath, [join(__dirname, "..", "bin", "evalation-packs"), ...args], { env: { ...process.env,
@@ -64,10 +65,37 @@ test("set refuses a pack the catalogue does not offer and writes nothing", async
   assert.match(shown.chosen, /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ$/);
 });
 
-test("a pack list the server sends broken says so and what to do", async () => {
-  const ran = await packs(machine(), ["titles"], "<html>busy</html>");
-  assert.strictEqual(ran.status, 1);
-  assert.match(ran.stderr, /^packs-unreadable: .+support@evalation\.ai/);
+const STEP = (at) => flat.slice(flat.indexOf(`${at}. **`), flat.indexOf(`${at + 1}. **`));
+
+test("every way the pack list can fail starts with one word the command turns into a catalogue line, and nothing a script or the server wrote is shown", async () => {
+  const cases = [
+    ["unreadable", "<html>busy</html>"],
+    ["unreachable", { status: 503, body: { observed: "the database is down", required: "try later" } }],
+    ["clock", { status: 401, body: { observed: "the proof was made 900 seconds from now, which is outside the window", required: "a fresh proof" } }],
+    ["refused", { status: 401, body: { observed: "nothing we issued signed this", required: "sign in again" } }],
+  ];
+  for (const [word, served] of cases) {
+    for (const verb of ["chosen", "chooser", "titles"]) {
+      const ran = await packs(machine(), [verb], served);
+      assert.strictEqual(ran.status, 1, `${word} ${verb}`);
+      assert.match(ran.stderr, new RegExp(`^${word}: `), `${word} ${verb}: ${ran.stderr}`);
+      assert.strictEqual(ran.stdout, "", `${word} ${verb}`);
+    }
+  }
+  const home = machine();
+  writeFileSync(join(home, "packs.json"), "{ not json");
+  const unread = await packs(home, ["chosen"]);
+  assert.strictEqual(unread.status, 1);
+  assert.match(unread.stderr, /^choice-unreadable: /);
+  const chooser = await packs(home, ["chooser"]);
+  assert.strictEqual(chooser.status, 0, "a choice that will not read offers every pack unmarked");
+  for (const [word, name] of [["unreachable", "unreachable"], ["refused", "refused"], ["clock", "clock"], ["damaged", "damaged"], ["not-set-up", "not-signed-in"], ["unreadable", "unreadable"], ["choice-unreadable", "choice-unreadable"]]) {
+    assert.ok(flat.includes(`\`${word}\`: \`evalation-say ev-packs.${name}\``), word);
+  }
+  assert.match(flat, /any other word: `evalation-say ev-packs\.other`/);
+  assert.doesNotMatch(STEP(2), /exactly as printed|words after the colon/);
+  assert.match(line("ev-packs.unreadable"), /^Evalation sent a pack list this plugin cannot read\./);
+  assert.doesNotMatch(readFileSync(join(__dirname, "..", "bin", "evalation-packs"), "utf8"), /support@|Try again/);
 });
 
 test("titles gives each pack a one-line summary, the served one where there is one", async () => {
@@ -118,7 +146,7 @@ test("set takes the titles a person reads and prints only those titles", async (
 });
 
 test("a damaged sign-in is told to sign in again, ahead of the line for a machine never signed in", () => {
-  assert.strictEqual(line("ev-packs.damaged"), line("ev-account.damaged"), "every command gives a damaged sign-in the same advice");
+  assert.strictEqual(line("ev-packs.damaged"), "This machine's Evalation sign-in is damaged. Run /ev-activate and sign in with the same account as before, so your pack credits are there.", "the account holds the pack credits, and the reports never depend on it");
   assert.strictEqual(line("ev-packs.not-signed-in"), line("ev-account.not-set-up"), "a machine never signed in is sent to /ev-start everywhere");
   const damaged = flat.indexOf("`sign-in: damaged` line: show `evalation-say ev-packs.damaged`");
   assert.ok(damaged > 0 && damaged < flat.indexOf("ev-packs.not-signed-in"), "the damaged line comes first");
@@ -135,7 +163,7 @@ test("the chosen packs are named by title in one line, with a pack no longer off
   assert.strictEqual(JSON.parse((await packs(home, ["chosen"])).stdout).titles, "General Data Protection Regulation (GDPR) and SOC 2 Trust Services Criteria", "the order a selection was saved in never changes the order it is named in");
   const broken = await packs(home, ["chosen"], "<html>busy</html>");
   assert.strictEqual(broken.status, 1);
-  assert.match(broken.stderr, /^packs-unreadable: /);
+  assert.match(broken.stderr, /^unreadable: /);
 });
 
 test("the usual packs are named in the question, and packs chosen now are marked in the chooser", async () => {
@@ -169,8 +197,24 @@ test("the same packs ticked again, or nothing ticked, change nothing and save no
   assert.match(flat, /Pass the labels they ticked, leaving out `None of these`/);
 });
 
-test("a pack list that fails for a reason not named is still explained", () => {
-  assert.match(flat, /Otherwise show the words after the colon exactly as printed and stop\./);
+test("what set prints is never shown, since the saved line says it", () => {
+  assert.match(STEP(7), /Show nothing it prints\./);
+  assert.doesNotMatch(STEP(7), /It prints the titles it saved/);
+});
+
+test("a pack ticked in the same list as None of these is taken", () => {
+  assert.match(STEP(5), /Where a question has `None of these` and a pack ticked, take the pack\./);
+});
+
+test("every pack summary is a catalogue line, one per pack handle, and the chooser uses it where the server sends none", async () => {
+  const handles = ["cyber-insurance", "dora", "eu-ai-act", "gdpr", "hardening", "hipaa", "investment-diligence", "iso27001", "iso42001", "nist-ai-rmf",
+    "nist-csf", "nist-ssdf", "nz-privacy-act", "owasp-agentic-threats", "owasp-agentic-top-ten", "owasp-asvs", "pci-dss", "soc2"];
+  for (const one of handles) assert.ok(LINES[`ev-packs.summary-${one}`]?.say, one);
+  const catalogue = { revision: "1", packs: handles.map((one) => ({ pack: one, kind: "standard", body: { title: `Pack ${one}` } })) };
+  const ran = await packs(machine(), ["chooser"], catalogue);
+  assert.strictEqual(ran.status, 0, ran.stderr);
+  const described = Object.fromEntries(JSON.parse(ran.stdout).questions.flatMap((one) => one.options).map((one) => [one.label, one.description]));
+  for (const one of handles) assert.strictEqual(described[`Pack ${one}`], line(`ev-packs.summary-${one}`), one);
 });
 
 test("the next step says the person can pick other packs when they run a check", () => {

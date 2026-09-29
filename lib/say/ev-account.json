@@ -1,5 +1,7 @@
 {
-  "ev-account.damaged": { "say": "This machine's Evalation sign-in is damaged. Run /ev-activate and sign in with the same account as before, so your pack credits and reports are there." },
+  "ev-account.damaged": { "say": "This machine's Evalation sign-in is damaged. Run /ev-activate and sign in with the same account as before, so your pack credits are there." },
+  "ev-account.damaged-named": { "say": "This machine's Evalation sign-in is damaged. Run /ev-activate and sign in with <email>, the same account as before, so your pack credits are there." },
+  "ev-account.packs-unread": { "say": "Your chosen packs could not be read just now. Run /ev-account again in a few minutes. If it still fails, contact support@evalation.ai." },
   "ev-account.not-set-up": { "say": "This machine is not set up for Evalation yet. Run /ev-start to set it up." },
   "ev-account.unreachable": { "say": "Evalation could not be reached. Check this machine is online, then run /ev-account again. If it still fails, contact support@evalation.ai." },
   "ev-account.clock": { "say": "This machine's clock is wrong, so Evalation refused it. Set the clock to the right time, then run /ev-account again." },
