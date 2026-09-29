@@ -69,6 +69,11 @@ does.
      - `reason: refused`: `evalation-say ev-account.refused`
      - `reason: ended`: `evalation-say ev-account.ended`
      - `reason: other`: `evalation-say ev-start.other`
+     - `reason: awaiting-approval`: `evalation-say ev-account.awaiting owner=<owner>`
+     - `reason: declined`: `evalation-say ev-account.declined owner=<owner>`
+     - `reason: removed`: `evalation-say ev-account.removed owner=<owner>`
+
+     For the last three, <owner> is the address on its `owner:` line, passed exactly as printed.
    - **`state: unreachable`** is our end or their network. Show `evalation-say ev-start.unreachable`
      and stop.
 
@@ -78,6 +83,7 @@ does.
    Then run `/ev-activate` straight away. It asks which account to sign in with, explains the
    sign-in and says which account it signed in as, so ask nothing and explain nothing more here, and
    never name the account again. Where it did not finish, it has already said the next step, so stop.
+   Where it showed its `said` line, about the person's organisation approving them, stop.
    When it finishes, go to step 4. Credits wait for the close, once `/ev-packs` has said what a pack
    is.
 

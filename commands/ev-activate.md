@@ -119,7 +119,9 @@ choosing it does.
    first stop the waiting command with the tool that stops a background command, TaskStop in Claude
    Code, and treat the `stopped` line it then prints as expected.
 
-6. **Read what it printed.** On success it prints `signed_in_as`. Where that holds an email, show
+6. **Read what it printed.** Where it prints `said`, show it exactly as printed in place of the lines below, and stop. It says where the person stands with their organisation's approval and what to do, so give no next step, and when `/ev-start` ran this, it stops too.
+
+   On success it prints `signed_in_as`. Where that holds an email, show
    `evalation-say ev-activate.signed-in` with it as `email`. Where it is empty, show
    `evalation-say ev-activate.ready`. Then show `evalation-say ev-activate.other-computer`. Never
    show the `installation` name it also prints.
@@ -153,6 +155,9 @@ for one, and each ends on the one thing to do next.
 - **`fault`** means the sign-in is set up wrongly on our side, such as a provider this deployment
   does not offer, and nothing they did caused it. Show `evalation-say ev-activate.fault`. Do not
   have them try again, because that will fail the same way.
+- **`approval-unavailable`** means Evalation could not email the person's organisation to approve
+  them. Show `evalation-say ev-activate.approval-unavailable`. Do not have them try again now,
+  because that will fail the same way until it is fixed.
 - **`server-error`** means Evalation's server failed. Show
   `evalation-say ev-activate.server-error`.
 - **`no-code`** means the provider sent them back without finishing. Show

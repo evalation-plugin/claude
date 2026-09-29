@@ -72,7 +72,15 @@ function observedIn(said) {
   }
 }
 
+const APPROVAL = { awaiting: "ev-run.awaiting", declined: "ev-run.declined", removed: "ev-run.removed" };
+
+const approval = (said) => {
+  const found = require("../lib/approval.js").approvalOf(said);
+  return found ? spoken(APPROVAL[found.line], { owner: found.owner }) : null;
+};
+
 function refusal(said) {
+  if (approval(said)) return { spent: false, said: approval(said) };
   const credit = observedIn(said).match(/this run asks for (\d+) packs? and (?:no pack credits are left|([\d.]+) pack credits? (?:is|are) left)/);
   if (/^refused 402:/.test(said) && credit) {
     const count = Number(credit[1]);
@@ -93,6 +101,7 @@ const reasonOf = (thrown) => String(thrown?.stderr ?? "").trim().split("\n")[0]
 
 function unlisted(thrown) {
   const said = reasonOf(thrown);
+  if (approval(said)) return approval(said);
   if (SIGNED_OUT.test(said)) return spoken(NEVER_SET_UP.test(said) ? "ev-run.signed-out" : "ev-run.damaged");
   if (/^refused 402:/.test(said)) return spoken("ev-run.ended");
   if (/^refused 40[13]:/.test(said)) return spoken("ev-run.not-accepted");
@@ -296,6 +305,9 @@ function credits() {
   if (left) return left[1];
   const state = said.match(/^state: (\S+)$/m)?.[1];
   const reason = said.match(/^reason: (\S+)$/m)?.[1];
+  const owner = said.match(/^owner: (\S+)$/m)?.[1];
+  const { LINES } = require("../lib/approval.js");
+  if (Object.hasOwn(LINES, reason ?? "") && owner) fail(spoken(APPROVAL[LINES[reason]], { owner }));
   if (state === "not-set-up") fail(spoken(/^sign-in: damaged$/m.test(said) ? "ev-run.damaged" : "ev-run.signed-out"));
   if (state === "unreachable") fail(spoken("ev-run.unreachable"));
   if (reason === "ended") fail(spoken("ev-run.ended"));

@@ -22,7 +22,9 @@
 const { generateKeyPairSync, randomBytes, createHash } = require("node:crypto");
 const { execFileSync } = require("node:child_process");
 const store = require("./evalation-store");
-const { spawnScript } = require("../lib/script.js");
+const { runScript, spawnScript } = require("../lib/script.js");
+const { approvalOf, ADDRESS } = require("../lib/approval.js");
+const { entries, say } = require("../lib/say.js");
 const { existsSync, mkdirSync, readFileSync, writeFileSync } = require("node:fs");
 const { join, dirname } = require("node:path");
 const { hostname, userInfo } = require("node:os");
@@ -84,8 +86,11 @@ function parsed(text) {
 }
 
 function refusal(status, text) {
-  if (status >= 500) fail(`server-error: Evalation answered ${status}, so nothing was activated`);
   const refusals = Array.isArray(parsed(text)?.refusals) ? parsed(text).refusals : [];
+  if (refusals[0]?.failure === "approval-unavailable") {
+    fail(`approval-unavailable: the email asking the organisation to approve this person could not be sent, so nothing was activated${detailed(refusals[0].observed ?? "")}`);
+  }
+  if (status >= 500) fail(`server-error: Evalation answered ${status}, so nothing was activated`);
   const said = (refusals.length > 0 ? refusals.map((one) => `${one.observed ?? ""} ${one.failure ?? ""}`).join(" ") : text).trim();
   if (OUR_SETUP.test(said)) fail(`fault: the sign-in is set up wrongly on our side, so nothing was activated${detailed(said)}`);
   if (TRY_AGAIN.test(said)) fail(`refused: the sign-in did not go through, so nothing was activated${detailed(said)}`);
@@ -301,14 +306,37 @@ async function main() {
   mkdirSync(dirname(SETTINGS), { recursive: true });
   writeFileSync(SETTINGS, JSON.stringify(settingsOf(done), null, 2) + "\n");
 
+  const approval = standing(done.membership, provider);
+  const signed = done.email ? say(entries(), "ev-account.signed-in", { email: done.email }) : null;
   process.stdout.write(
     JSON.stringify({
       activated: true,
       installation: done.installation,
       signed_in_as: done.email || null,
       settings: SETTINGS,
+      ...(approval ? { approval: approval.kind, said: [signed, approval.said].filter(Boolean).join(" ") } : {}),
     }) + "\n",
   );
+}
+
+const UNVERIFIED = { google: "ev-activate.unverified-google", microsoft: "ev-activate.unverified-microsoft" };
+const STANDING = { awaiting: "ev-account.awaiting", declined: "ev-account.declined", removed: "ev-account.removed" };
+
+function standing(membership, provider) {
+  const organisation = String(membership?.organisation ?? "").replace(/\s+/g, " ").trim();
+  if (membership?.state === "waiting" && organisation && ADDRESS.test(String(membership.owner))) {
+    return { kind: "awaiting-approval", said: say(entries(), "ev-activate.awaiting", { organisation, owner: membership.owner }) };
+  }
+  if (membership?.state === "personal" && membership.reason === "unverified-address" && Object.hasOwn(UNVERIFIED, provider)) {
+    return { kind: "unverified-address", said: say(entries(), UNVERIFIED[provider]) };
+  }
+  try {
+    runScript("evalation-ask", ["/pin", "{}"], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+    return null;
+  } catch (thrown) {
+    const found = approvalOf(String(thrown.stderr ?? ""));
+    return found ? { kind: found.kind, said: say(entries(), STANDING[found.line], { owner: found.owner }) } : null;
+  }
 }
 
 // How the keys are named is read by a check, and requiring this file to read it must not open a
