@@ -68,9 +68,9 @@ if (verb === "check") {
 } else if (verb === "criteria") {
   process.stdout.write(`${CRITERIA.map((one) => `${one.id}, for each ${one.about}, a fault where the answer is ${one.fault}: ${one.asks}`).join("\n")}\n`);
 } else if (verb === "grid") {
-  process.stdout.write(`${grid(HOME, read(arg)).text}\n`);
+  process.stdout.write(`${grid(HOME, read(arg), CRITERIA, flags[0]).text}\n`);
 } else if (verb === "verdict") {
-  process.stdout.write(`${JSON.stringify(verdict(HOME, read(arg), readFileSync(0, "utf8")))}\n`);
+  process.stdout.write(`${JSON.stringify(verdict(HOME, read(arg), readFileSync(0, "utf8"), CRITERIA, flags[0]))}\n`);
 } else {
-  fail("usage: evalation-questions check <file> | criteria | grid <file> | verdict <file> (answers on stdin) | save <file> [--replace] [--unchecked] | list | path <name> | keep-on-account <name> | drop-from-account <name>");
+  fail("usage: evalation-questions check <file> | criteria | grid <file> [Qn] | verdict <file> [Qn] (answers on stdin) | save <file> [--replace] [--unchecked] | list | path <name> | keep-on-account <name> | drop-from-account <name>");
 }

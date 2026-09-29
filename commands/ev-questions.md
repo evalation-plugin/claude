@@ -76,7 +76,15 @@ fits any repository read against its pack. The criteria every set is held to are
 
 No question is left out. One the code cannot answer as asked, such as how a team feels or whether
 customers like a feature, is reworded into what the code can show, and its `asked` keeps the words
-the person wrote. For each question, draft:
+the person wrote. One only the organisation's own records could answer, such as staff training, HR
+files, contracts or board decisions, is kept as the organisation's: give it `"bears_on":
+"organisation"` and a `justification` of one plain sentence, such as "Training records are kept by
+the organisation, not in a codebase", and no `looks_for`. It prints with that reason and is never
+counted as a gap. Never invent items a repository would not hold to answer it. Where the code can
+show something about the same risk, add that as a question of its own, keeping the same `asked`:
+phishing training has no answer in code, and a question about what in the repository makes a phished
+password less useful does, with items such as phishing resistant sign in, like passkeys, and email
+authentication records held as infrastructure code. For each question, draft:
 
 - `identifier`: Q1, Q2 and on, in order.
 - `asked`: the customer's words this question came from, exactly as written, or the claim they
@@ -124,21 +132,33 @@ Write the set as one JSON file, `{"name": "<its name>", "pack": "custom" or the 
 such as "Broker questions", and never names the repository this session is open in or anything in
 it. A name the person gives is used as they give it, whatever it names.
 
-**Recheck it before anyone sees it.** Tell the person "Checking your questions" and nothing more about
-the check: no counts, no rounds and no checker's findings. Start the `question-checker` agent, which
-did not write the set, with the file's path. It answers each numbered criterion for each question and
-each item, and the plugin records its verdicts against the words it judged. Then run
+**Recheck it before anyone sees it.** First tell the person, in one plain line with the real counts,
+what happens and why it takes a while, such as: "Checking your 7 questions and their 30 requirements
+against the rules for a question set. A separate checker that did not write them does this, so each
+question is judged independently, and it takes a few minutes." Count the questions and the
+requirements from the file. Questions kept as the organisation's are not checked, so leave them out
+of the count. Then start one `question-checker` for each question, all at once, each told the file's
+path and its own question, such as Q3, so the questions are checked side by side. Each answers every
+numbered criterion for its question and that question's items, and the plugin records its verdicts
+against the words it judged. As each checker finishes, tell the person one line, such as "Q3
+checked (3 of 7)", and say nothing else about the check: no rounds and no checker's findings. Then run
 `evalation-questions check <file>`, which names each row not yet checked and each fault, with the
-criterion and the words that break it. Reword every row it names and start a fresh checker, which is
-asked only the rows whose words changed, since a row keeps its verdict while its words stay the same.
+criterion and the words that break it. Reword every row it names and start a fresh checker for each
+question that changed, which is asked only the rows whose words changed, since a row keeps its
+verdict while its words stay the same.
 A row still failing after three rounds is named "after three rounds, so remove it": remove that item,
 or that question where the fault is on the question itself, and drop a question left with no items.
 A question the checker faults on C11, whose items cover more than one topic, is never removed: split
 it into one question per topic, each keeping the person's words in `asked`, number the set again in
-order, and recheck the new questions. Then show the set, and above it one plain line for each thing removed, naming the criterion
+order, and recheck the new questions. A question the checker faults on C12, whose items ask for what
+only the organisation's own records hold, is kept as the organisation's as described above, with a
+code-side question added where one exists. A question faulted on C13 is reworded to name what it asks
+about. Then show the set, and above it one plain line for each thing removed, naming the criterion
 it broke in plain words, such as "Removed Q3's alert item, which held two conditions", and one for each
 question split, such as "Your question about sign-in became Q2 and Q3, since password resets and
-account recovery are checked separately". The person is
+account recovery are checked separately", and one for each question kept as the organisation's, such
+as "Q8 is kept as your organisation's, since training records are not held in code, and Q9 asks
+what the code does about the same risk". The person is
 never handed a flag to decide. On "Change something" afterwards, put back what they ask for,
 reworded, and recheck it the same way. Never show a set until `check` prints `holds`, or names only
 rows "passed without the question checker".
@@ -150,7 +170,10 @@ the answers "Check them again", which starts a fresh question-checker, and "Save
 described as: saved without an independent check. Only on "Save them as they are", save with
 `save <file> --unchecked`, adding `--replace` where it changes a saved set.
 
-Then show the whole set, every question with its list, and ask "Save this set as written?", with the
+Then show the whole set, every question with its list. Mark each item "(in code)" where its proof is
+runs, "(in a document)" where it is written, and "(from the scan)" where it is scan, and never show
+the words runs, written or scan. Show a question kept as the organisation's with its reason in place
+of a list. Ask "Save this set as written?", with the
 answers "Save it" and "Change something". On "Change something", ask what, make the changes across
 the set, recheck it the same way and show it whole again. Then run:
 

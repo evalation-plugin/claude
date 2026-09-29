@@ -89,7 +89,8 @@ test("the gate stamps each verdict the question checker records, so a pass shows
   const ran = spawnSync(process.execPath, [GATE], { env: { ...process.env, EVALATION_PLUGIN_HOME: at }, encoding: "utf8",
     input: JSON.stringify({ tool_name: "Bash", tool_input: { command: "evalation-questions verdict /tmp/d.json <<'EOF'\nQ1 C1: YES\nEOF" }, agent_type: "evalation-plugin:question-checker", agent_id: "checker-7", cwd: "/repo" }) });
   assert.strictEqual(ran.status, 0);
-  assert.strictEqual(JSON.parse(readFileSync(join(at, "checker-stamp.json"), "utf8")).agent, "checker-7");
+  const [held] = require("node:fs").readdirSync(join(at, "checker-stamps"));
+  assert.strictEqual(JSON.parse(readFileSync(join(at, "checker-stamps", held), "utf8")).agent, "checker-7");
 });
 
 test("the plugin ships the four agents with the shell alone, and the gate as a hook", () => {
