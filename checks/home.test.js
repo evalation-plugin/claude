@@ -53,6 +53,48 @@ test("a command a check starts is refused a person's own folder, even where the 
   assert.match(ran.stderr, /a check reached a person's own folder/);
 });
 
+function signedInUnderTheEngineName() {
+  const home = mkdtempSync(join(tmpdir(), "evalation-keys-"));
+  mkdirSync(join(home, "keys"), { mode: 0o700 });
+  const keys = { "evalation.box.installation-key": "install", "evalation.box.receiving-key": "receive",
+    "evalation.box.receiving-key-previous": "before", "evalation.engine-box.installation-key": "the engine's own" };
+  for (const [name, value] of Object.entries(keys)) writeFileSync(join(home, "keys", name), value, { mode: 0o600 });
+  writeFileSync(join(home, "evalation.local"), JSON.stringify({ installation: "box", secrets: {
+    installation_key: "store:evalation/box.installation-key", receiving_key: "keychain:evalation/box.receiving-key" } }));
+  return home;
+}
+
+function started(home) {
+  const { spawnSync } = require("node:child_process");
+  const env = { ...process.env, EVALATION_PLUGIN_HOME: home, EVALATION_KEY_STORE: "file", EVALATION_SERVER: "http://127.0.0.1:9" };
+  delete env.EVALATION_LOCAL;
+  return spawnSync(process.execPath, [join(__dirname, "..", "bin", "evalation-status")], { env, encoding: "utf8" });
+}
+
+const keyIn = (home, name) => (existsSync(join(home, "keys", name)) ? readFileSync(join(home, "keys", name), "utf8") : null);
+
+test("this installation's own keys are copied from the engine's store name to the plugin's, the originals kept for any other settings naming them", () => {
+  const home = signedInUnderTheEngineName();
+  started(home);
+  const settings = JSON.parse(readFileSync(join(home, "evalation.local"), "utf8"));
+  assert.deepStrictEqual(settings.secrets, { installation_key: "store:evalation-plugin/box.installation-key", receiving_key: "store:evalation-plugin/box.receiving-key" });
+  assert.strictEqual(settings.installation, "box");
+  assert.deepStrictEqual(["installation-key", "receiving-key", "receiving-key-previous"].map((one) => keyIn(home, `evalation-plugin.box.${one}`)), ["install", "receive", "before"]);
+  assert.deepStrictEqual(["installation-key", "receiving-key", "receiving-key-previous"].map((one) => keyIn(home, `evalation.box.${one}`)), ["install", "receive", "before"]);
+  assert.strictEqual(keyIn(home, "evalation.engine-box.installation-key"), "the engine's own");
+});
+
+test("a key already held under the plugin's name stops the move, and the settings and old keys stay as they were", () => {
+  const home = signedInUnderTheEngineName();
+  writeFileSync(join(home, "keys", "evalation-plugin.box.installation-key"), "somebody else's", { mode: 0o600 });
+  const before = readFileSync(join(home, "evalation.local"), "utf8");
+  started(home);
+  assert.strictEqual(readFileSync(join(home, "evalation.local"), "utf8"), before);
+  assert.strictEqual(keyIn(home, "evalation.box.installation-key"), "install");
+  assert.strictEqual(keyIn(home, "evalation.box.receiving-key"), "receive");
+  assert.strictEqual(keyIn(home, "evalation-plugin.box.installation-key"), "somebody else's");
+});
+
 test("a folder already moved is never moved again, and a machine with nothing to move is left alone", () => {
   const { old, fresh } = shared();
   moved(old, fresh);

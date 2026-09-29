@@ -1,6 +1,6 @@
 ---
-description: Read this repository against the packs you selected, and write down what it evidences.
-allowed-tools: Bash(evalation-read:*), Bash(evalation-run:*), Bash(evalation-packs show:*), Bash(evalation-packs titles:*), Bash(evalation-status:*), Bash(evalation-scan show:*), Bash(evalation-scan install:*), Bash(evalation-scan decline:*), Bash(evalation-scan run:*), Bash(evalation-findings:*), Bash(evalation-verify:*), Bash(evalation-score:*), Bash(evalation-deliver:*), Bash(evalation-report:*), Bash(evalation-check-pdf:*)
+description: Check this repository against your packs. Uses one pack credit per pack you choose.
+allowed-tools: Bash(evalation-say:*), Bash(evalation-read:*), Bash(evalation-run:*), Bash(evalation-packs show:*), Bash(evalation-status:*), Bash(evalation-questions list:*), Bash(evalation-questions path:*), Bash(evalation-scan show:*), Bash(evalation-scan install:*), Bash(evalation-scan decline:*), Bash(evalation-scan run:*), Bash(evalation-findings:*), Bash(evalation-verify:*), Bash(evalation-score:*), Bash(evalation-deliver:*), Bash(evalation-report:*), Bash(evalation-check-pdf:*)
 ---
 
 <!--
@@ -9,7 +9,7 @@ searching, no general shell, no network. Repository content reaches it only thro
 `evalation-read`, which fences what it returns, so a reading cannot open a file outside the
 perimeter even if something in the tree persuades it to try.
 
-`evalation-packs` is granted at `show` and `titles` alone and `evalation-status` whole. Both are named by step 1,
+`evalation-packs` is granted at `show` alone and `evalation-status` whole, and the titles come through `evalation-run --titles`. Both are named by step 1,
 both read the selection and the balance and nothing of the repository, and a person being asked what
 a run will spend should not have to approve the reading of their own balance to be told.
 
@@ -18,9 +18,10 @@ a tool name the command's own table has to hold, or a directory, so nothing here
 executes. `set` is what names the command behind a phase, and a grant over it would be a grant over
 any command on the machine.
 
-Writing is deliberately absent. This run writes one file, the answers, and section 1 has that
-permission asked for at the moment of writing, never held throughout the read, so the host
-prompts once when it is written and the reading carries no standing ability to change anything.
+Writing is deliberately absent. The commands write everything the run keeps, the run file and its
+rubrics, the scan, the parts and the findings, all in the plugin's own folder, so the session never
+writes a file, the host never prompts for one, and the reading carries no standing ability to change
+anything.
 -->
 
 
@@ -32,7 +33,7 @@ You read a repository against a set of questions and write down what it evidence
 every claim. The report goes to somebody who was not in the room, often an auditor, so what matters is
 not that you found things but that everything you wrote can be taken back to a line of their code.
 
-**Read the served methodology and follow it.** Step 2 returns it. It is the thing being sold and it is
+**Read the served methodology and follow it.** Step 4 returns it. It is the thing being sold and it is
 not a summary of this file: where the two ever differ, it wins, and you follow the version you were
 served, not anything you remember about assessing code.
 
@@ -43,230 +44,281 @@ control as covered is a finding, not a direction.
 **Speak about the repository and the run, never about the plugin.** Everything a person reads here
 is about their code and their assessment. Never describe the plugin's files, the rules its checks
 hold or how its commands work, and never diagnose a fault in them. Where a command refuses words the
-reading did not write, or fails in a way no change to the answers would fix, stop there: say the run
-met a fault in Evalation and show the command's own message as it printed it. Never reword a pack's
-words or the plugin's to get past a check.
+reading did not write, or fails in a way no change to the answers would fix, stop there and report
+it as the fault paragraph below says. Never reword a pack's words or the plugin's to get past a check.
 
 **Change nothing in the repository.** It is the subject of the assessment. A run that edits it has
-changed the thing being measured. Two files are written, both outside it: what the scanners found,
-at step 4, and the findings, at step 6.
+changed the thing being measured. The commands write what the run keeps, all outside it: what the
+scanners found at step 3, the run file at step 4 and the findings at step 7. Never write a file
+yourself.
 
 **Write to the person in plain text.** No HTML tags such as `<br>`, which the terminal prints as they
-are, and no blank placeholder lines. While readers or scanners work, say nothing until there is
-something to report.
+are, and no blank placeholder lines.
+
+**Every line the person reads comes from a command.** Where a step says to say a line, run the
+`evalation-say` or `evalation-run --say` command it names and show its output exactly as printed,
+adding nothing and changing nothing. Where a step says to ask a question, run the command it names
+and ask the question it prints with AskUserQuestion, passing its questions unchanged, at most four at
+once, then the rest. Never write a line, a question, a label or a description yourself. An answer
+the person types in place of the options is their answer.
+
+**Before each long stage, say in one line what it is and that it takes a while**, with the line the
+step names. Never give a duration, a usage figure or a count of parts: nobody has measured them, and a
+number the person cannot place tells them nothing. Otherwise say nothing while readers, checkers or
+scanners work.
+
+**Where `evalation-run`, `evalation-scan`, `evalation-report` or `evalation-deliver` fails**, at any
+step, show every line it printed, as printed, and stop. Each says whether pack credits were used and
+what to do, and a fault in Evalation names the file to send to support.
+
+**Where any other command stops the run on a fault in Evalation**, show none of its message. Run
+`evalation-run --fault <command> '<message>'`, with the command's name, such as `evalation-verify`,
+and its message whole in single quotes, then show every line it prints, as printed, and stop. It keeps
+the message in a file for support and says in plain words what stopped and whether pack credits were
+used.
 
 **Ask every question through the host's question interface**, the AskUserQuestion tool in Claude
 Code, with each answer one of its options. Never write a question and its answers as a list in text.
-Word each question so nobody has to guess what an answer does. Ask what will happen, such as which
-packs to read, and never what to leave out. A tick always means yes to that option. Say in the
-question what a tick does and what it costs, and let each answer's label say what choosing it does.
+The questions the commands print ask what will happen, such as which packs to read, and never what to
+leave out, so a tick always means yes to that option. Each says what a tick does and what it costs,
+and each answer's label says what choosing it does.
 
 ## What to do
 
-1. **Check which branch the tree is on, then ask which packs to run, and wait for the answer.**
-   First:
+1. **Check the sign-in, then which branch the tree is on, then ask which packs to run, and wait for
+   the answer.** First, before any question:
 
    ```
-   ${CLAUDE_PLUGIN_ROOT}/bin/evalation-run --branch <target>
+   evalation-run --titles
+   ```
+
+   It prints each pack's handle, title, `summary`, whether it is `extensible` and its `question`
+   number, in alphabetical order of the titles. Where `--titles` fails, show the line it prints as printed and stop.
+   That line says no pack credits were used and what to do next, such as signing in with
+   /ev-activate, so a machine that cannot run is told so before it is asked anything. Keep what it
+   printed for the pack questions below.
+
+   Then:
+
+   ```
+   evalation-run --branch <target>
    ```
 
    It asks the server nothing and counts nothing. Where `solution` is not null, the target is a
    folder holding several repositories, and the run reads them together as one solution: every
    answer draws on whichever repository holds the evidence, and each repository is read once.
+   Below, <N> is the entries of `solution.repositories` whose `vcs` is `git` and <M> the rest.
    Before anything else:
 
-   - Name each repository in `solution.repositories` in one short list: its name, its folder where
-     that differs, its branch where `on_main` is false, and the date of its newest commit where
-     `newest` is more than 14 days ago. Then name each folder in `solution.left_out` with its `why`,
-     and say that a copy or a second clone of a repository is never read.
-   - Ask "Which repositories should this run read together? Tick each one to read." With four or
-     fewer, one question allowing several answers, each repository an option. With more, ask "Read
-     all <N> repositories together?" with the answers "Read all <N>" and "Choose which to read", and
-     on the second, ask the person to name the folders to read.
-   - Ask "What should the reports call this solution?", with "Use the folder name, <folder>" as one
-     answer, and let the person type another.
-   - Save both, naming each folder to leave out:
+   - Say the counts with `evalation-run --say found <target>`.
+   - Where <N> is two or more, ask `evalation-say ev-run.folders`.
+   - Only on its second answer, the one to choose folders, ask `evalation-run --say pick <target>`.
+     Where they tick none, ask it again.
+   - Where <M> is one or more, ask `evalation-run --say evidence <target>`. A folder left unticked is
+     not read, and ticking none reads none of them.
+   - Ask `evalation-run --say name <target>`. The name the person chose is the one its label names,
+     or the one they typed.
+   - Save both, naming each folder not chosen, version controlled or not:
 
      ```
-     ${CLAUDE_PLUGIN_ROOT}/bin/evalation-run --solution <target> --name "<name>" [--leave <folder> ...]
+     evalation-run --solution <target> --name "<name>" [--leave <folder> ...]
      ```
 
-   - Where any repository read has `on_main` false, say in one sentence which repositories are on
-     which branch in place of their main, and ask "Read these branches as they are?" with the
-     answers "Read them as they are" and "Stop, so I can switch them to main". Where any has
-     `newest` more than 14 days ago, say which, and ask "Read these clones as they are?" with the
-     answers "Read them as they are" and "Stop, so I can pull the latest changes". Never switch a
-     branch or pull yourself.
+   - A folder without version control that is read is used as evidence, and the reports list it
+     apart from the repositories.
+   - Where any repository read has `on_main` false, say which with `evalation-run --say branches
+     <target>` and ask `evalation-say ev-run.branches`. Where any has `newest` more than 14 days ago,
+     say which with `evalation-run --say copies <target>` and ask `evalation-say ev-run.copies`. On
+     either stop, end the run there. Never switch a branch or pull yourself.
 
-   Pack credits are the same whether one repository or many are read. The folder stays the target
-   from here on, and the branch paragraphs below are for a single repository.
+   The folder stays the target from here on, and the branch paragraphs below are for a single
+   repository.
 
    Where `solution` is null, the target is one repository.
 
    A run assesses the repository's main branch, and
-   the tree on disk is whatever is checked out. Where `on_main` is false, say in one sentence that
-   this run is about to read `branch` in place of `main`, naming both, or a commit on no branch
-   where `branch` is null. Ask "Read this branch as it is?" with the answers "Read it as it is"
-   and "Stop, so I can switch to main". On stop, end the run there. Nothing was read and nothing was counted. Never
-   switch the branch yourself, since that changes the repository. When the person comes back to the
-   run, in this conversation or a new one, run this check again before anything else and warn again
-   if the tree is still off main. Where `on_main` is true or null, say nothing about branches: null
-   means the target is no git checkout, or names no main to compare with.
+   the tree on disk is whatever is checked out. Where `on_main` is false, say so with
+   `evalation-run --say off-main <target>` and ask `evalation-run --say branch <target>`. On stop,
+   end the run there. Never switch the branch yourself, since that changes the repository. When the
+   person comes back to the run, in this conversation or a new one, run this check again before
+   anything else and warn again if the tree is still off main. Where `on_main` is true or null, say
+   nothing about branches: null means the target is no git checkout, or names no main to compare with.
 
-   Where `newest`, the date of the newest commit on disk, is more than 14 days ago, say in one
-   sentence that the clone's newest commit is from that date, and ask "Read this clone as it is?"
-   with the answers "Read it as it is" and "Stop, so I can pull the latest changes". A clone nobody pulled reads as a
-   project that stopped, which the history measures would report. Never pull yourself.
+   Where `newest`, the date of the newest commit on disk, is more than 14 days ago, say so with
+   `evalation-run --say stale <target>` and ask `evalation-say ev-run.copy`. On stop, end the run
+   there. Never pull yourself.
 
-   Then ask which packs to read, naming each pack by its title from
-   `${CLAUDE_PLUGIN_ROOT}/bin/evalation-packs titles` and never by its handle, in the alphabetical
-   order `titles` prints them in. The first question is "Which packs should this run read?", with
-   one answer, from these options:
-   - "Run my usual packs", its description naming each pack in the recorded selection from
-     `${CLAUDE_PLUGIN_ROOT}/bin/evalation-packs show`, left out where nothing is recorded
-   - "Choose which packs to run"
-   - "Only my questions", described as: no Evalation pack is read and no pack credits are used, so
-     the run answers your own questions and nothing else
+   Then ask which packs to read. The questions name each pack by its title, and the answers come
+   back as titles: map each to its handle through what `--titles` printed.
 
-   On "Run my usual packs", those packs are the selection and nothing more is asked about them: the
-   person has already said which to read. On "Choose which packs to run", ask "Which packs should
-   this run read? Tick each pack to read. Each one uses a pack credit, and you have <N>.", allowing
-   several answers, with every pack `titles` prints as an option and no option combining packs. Put
-   four packs to a question, headed by their place in the list ("Packs 1-4"), at most four questions
-   at once, and ask again for the rest. The packs ticked are the selection. Never list packs for the
-   person to untick or drop.
+   Ask the first question with `evalation-run --say packs <target>`. It names the repository, or the
+   product's name where several repositories are read, and the balance, and offers the usual packs
+   recorded in `evalation-packs show`, choosing from the full list, and, only where
+   `evalation-questions list` shows a set written for no pack, which it marks `"pack":"custom"`,
+   answering only the person's own questions. Where there are no usual packs and no set written for no pack, it prints a line
+   saying what each pack costs and the balance in place of a question: show it, then ask the full
+   list, as on choosing from the full list.
+
+   On the usual packs, where there is one usual pack, it is the selection. Where there are two or
+   more, ask `evalation-run --say usual`, so the person can drop one. The packs ticked are the
+   selection. Where they tick none, ask the first pack question again.
+
+   On choosing from the full list, ask `evalation-run --say all`. The packs ticked are the selection.
+   Where they tick none, ask the first pack question again, or the full list again where the first
+   was skipped. The cost was said once already, so the full list does not say it again.
 
    A consultant assesses one client's tree against one set of obligations and the next against
    another, so the packs are a choice per run and never assumed. The packs the person ticks are what
-   step 2 is given. Nothing is counted until step 2, so asking costs nothing.
+   step 4 is given. Nothing is counted until step 4, so asking costs nothing.
 
    Once the packs are chosen, and only where one of them takes extra questions, which
-   `evalation-packs titles` marks `extensible`, offer the person's own questions for that pack. Look
-   at the sets with `${CLAUDE_PLUGIN_ROOT}/bin/evalation-questions list`, which names each set on this
-   machine or on the account, with its pack. For each chosen pack that takes extra questions, ask
-   "Which of your question sets should <pack title> use? Tick each set to use.", allowing several
-   answers, each set written for that pack an option by name, described by how many questions it
-   holds, with "Write a new set for this pack" as one more option. A set is used whole. Offer a set
-   only with the pack it was written for, never one the list marks `refused`, and ask nothing about a
-   pack that takes no extra questions, such as SOC 2 or ISO 27001, even where it is chosen alongside.
-   Where no chosen pack takes extra questions, never raise the person's own questions at all.
+   `--titles` marks `extensible`, offer the person's own questions for that pack. Look
+   at the sets with `evalation-questions list`, which names each set on this
+   machine or on the account, with its pack. A set is used whole, only with the pack it was written
+   for, and never one the list marks `refused`. For each chosen pack that takes extra questions, run
+   `evalation-run --say sets <pack>` with the pack's handle. Where it prints a line, no set is written
+   for that pack: show the line and go on. Where it prints a question, first say
+   `evalation-say ev-run.another-set`, then ask it. Use each set ticked. Where they tick only the
+   answer to read the pack alone, or nothing, use no set with that pack. Where they tick that answer
+   beside a set, ask again. With more than three sets for the pack, the question is a single choice
+   between using the sets and reading the pack alone. On using the sets, ask
+   `evalation-run --say pick-sets <pack>` and use each set ticked, and where they tick none, ask the
+   single choice again. Ask nothing about a pack that takes no extra
+   questions, such as SOC 2 or ISO 27001, even where it is chosen alongside. Where no chosen pack
+   takes extra questions, never raise the person's own questions at all.
 
-   Pass each ticked set to step 2 with `--questions` and the path
-   `${CLAUDE_PLUGIN_ROOT}/bin/evalation-questions path <name>` prints, which fetches a set kept only on
-   the account. Each set prints in a sub-section of its own under "User provided questions", so two
-   sets may each hold a Q1. On "Write a new set for this pack", stop and have them run
-   `/ev-questions`, then ask this question again.
+   Pass each set chosen to step 4 with `--questions` and the path
+   `evalation-questions path "<name>" --run` prints, with the name in double
+   quotes. It fetches a set kept only on the account, and writes the run's own copy apart from any
+   draft the person is editing. Each set prints in a sub-section of its own under `User provided
+   questions`, so two sets may each hold a Q1.
 
-   On "Only my questions", offer the sets written for no pack the same way, by name, and pass the ones
-   ticked. That run names no packs at all and costs no credits. Where there are none, have them run
-   `/ev-questions` first.
+   On only the person's own questions, use the sets marked `"pack":"custom"`. With one, use it and
+   ask nothing. With two or more, ask `evalation-run --say only`. That run names no packs at all and
+   costs no credits.
 
-   **Say what this run will spend in the question itself.** It spends one pack credit for each pack
-   it reads, and `${CLAUDE_PLUGIN_ROOT}/bin/evalation-status` prints how many credits are left. Name
-   both numbers in each pack question and nowhere else. Where the packs ticked are more than the
-   balance, ask again before step 2 with the same options: the run is refused whole, with no part of
-   it served, so they choose between topping up and narrowing the selection, and this is the moment
-   to find that out.
+   **Each question says what this run will spend.** It spends one pack credit for each pack it
+   reads, and `evalation-status` prints how many credits are left. Where the packs chosen are more
+   than the balance, say so with `evalation-run --say short <P>`, with <P> the count of packs chosen, and ask
+   again before step 4 with the same questions: the run is refused whole, so this is the moment to
+   find that out.
 
-   Once they answer, start the run with no announcement. They chose the packs and were told the
-   cost, so a line restating either says nothing new.
+   Once they answer, go on with no announcement. They chose the packs and were told the cost, so a
+   line restating either says nothing new.
 
-2. **Start the run.**
+   Where `show`, `status`, `evalation-questions list` or `path` fails, stop and report it by the
+   fault paragraph above, before the run started.
+
+2. **Find out whether the packs read a scan, and ask about any scanner that is missing, before
+   anything is spent.**
 
    ```
-   ${CLAUDE_PLUGIN_ROOT}/bin/evalation-run <target> [pack ...] [--questions <file> ...]
+   evalation-run --scan [pack ...]
    ```
 
-   The target is the repository to read, and the working directory where none is named. The packs
-   are the ones the person chose in step 1, named here every time, so the run is against what they
-   asked for and never against a selection they did not see.
-
-   It returns the methodology, the entries to answer, what was admitted and what is left. **This is
-   the moment the run is counted**, so it happens once. If the reading goes badly, that is a reading
-   to redo and not a run to buy again.
-
-   **Save what it prints, exactly as printed, as `run.json`** in a scratch folder outside the
-   repository. Every later step reads the run from that file, so nothing in it is copied by hand.
-
-   Where it refuses for want of credit, the refusal says how many packs were asked for and how many
-   credits are left. Read both numbers out and stop. Nothing was read, nothing was counted, and the
-   two things that would change the answer are topping up and selecting fewer packs.
-
-   The target is a directory on this machine, the local clone, and the run reads that and nothing
-   else: it issues no call to the host the clone came from and holds no credential for it, so there is
-   nothing it could write to. Where it refuses with `no-such-target`, the path is not a directory this
-   machine can read. Read the reason out and stop. Nothing was read and nothing was counted.
-
-   **Where `scan.wanted` in `run.json` is false, skip steps 3 and 4 and say nothing about scanners.**
-   None of the selected packs reads a scan result, so a scan would be time spent on nothing any
-   report prints. Where it is true, `scan.for` names the packs that read it and `scan.phases` the
+   Name the packs chosen in step 1, or none on only the person's own questions. It asks the server
+   for the packs and spends nothing. Where `--scan` fails, show the line it prints as printed and stop. That line
+   says no pack credits were used and what to do next. **Where `wanted` is false, skip the rest of this step and step 3, and say
+   nothing about scanners.** None of the selected packs reads a scan result, so a scan would be
+   time spent on nothing any report prints. Where it is true, `for` names the packs that read it and `phases` the
    phases they read, joined with commas below as `<phases>`. Only those phases are offered and run.
 
-3. **Ask whether to install the scanners that are missing, and wait for the answer.**
-
    ```
-   ${CLAUDE_PLUGIN_ROOT}/bin/evalation-scan show --phases <phases>
+   evalation-scan show --phases <phases>
    ```
 
    Whether a pinned version carries a known advisory is a lookup against a database that moved this
    morning, and no reading answers it from memory. One tool per phase answers that class of question, and on
    a machine where the only thing installed is this plugin, none of them is here yet.
 
-   Where none is missing, say that all of them are installed, in those words and no more, and go on
-   to step 4.
+   `show` prints `said`, a line to show, or `asks`, a question to ask, and never both. Show `said`
+   exactly as printed. Where it names the tools already installed, go on to step 3. Where Homebrew
+   is not on this machine, ask nothing and never stop the run over it: a review with two of four
+   checks is worth having as long as it says which two.
 
-   `show` says which are missing and the command that would fetch each. Ask once, "Which scanners
-   should be installed on this machine? Tick each one to install.", allowing several answers, each
-   missing tool an option whose description says what it looks for, and say that it is their machine
-   and their choice. A tool left unticked is not installed. Say what
-   goes in the report either way: a tool they install checks its area, and a tool they decline leaves
-   that area read by you and by nothing else, which the report states where those findings appear.
-
-   On a yes, for the tools they agreed to:
+   Ask `asks` with AskUserQuestion, passing its questions unchanged. Each option is a missing tool,
+   labelled with its `offer`, and the tool behind each is the one whose phase carries that `offer`.
+   A tool left unticked is not installed. For the tools ticked, or on the answer to install where
+   one tool is missing:
 
    ```
-   ${CLAUDE_PLUGIN_ROOT}/bin/evalation-scan install <tool ...>
+   evalation-scan install <tool ...>
    ```
 
-   On a no, record it, because a decision somebody made reads differently in a report from a tool
-   nobody has heard of:
+   A tool that fails to install is recorded with its reason, so the report says it could not be
+   installed. Record each tool left unticked, with today's date, since a decision somebody made reads
+   differently in a report from a tool nobody has heard of. It is offered again on the next run:
 
    ```
-   ${CLAUDE_PLUGIN_ROOT}/bin/evalation-scan decline <tool ...>
+   evalation-scan decline <tool ...>
    ```
 
-   Where `show` says it cannot install anything, Homebrew is not on their machine. Say so, say the
-   review will run without those checks, and move on. Never stop the run over this: a review with two
-   of four checks is worth having as long as it says which two.
-
-4. **Run the scanners over the tree.**
+3. **Run the scanners over the tree, before anything is spent.**
 
    ```
-   ${CLAUDE_PLUGIN_ROOT}/bin/evalation-scan run <target> --phases <phases>
+   evalation-scan run <target> --phases <phases>
    ```
 
    It runs before the reading so that what it found is in front of you while you answer the
    dependency, supply-chain and secret concerns, and the items of a standard the scan settles.
 
-   It prints which phases ran and which did not, each with its reason. **Read that out.** A phase
-   that did not run found nothing and proves nothing, and a person handed a report has to know which
-   of those it was. The scan writes outside the repository and changes nothing in it, and where the
-   tree is a git repository it aborts if anything moved, and reports nothing.
+   Before it starts, say `evalation-say ev-run.scanning`, or `evalation-say ev-run.scanning-several`
+   where several repositories are read.
 
-   It reaches a vulnerability database, which is the only thing in this run that reaches anywhere.
-   It never reaches the host the clone came from and holds no credential for it.
+   It prints `said`, the plain sentences saying what was checked and what was not, and why. **Show
+   `said` as printed** and add nothing. An area that was not checked found nothing and proves
+   nothing, and a person handed a report has to know which of those it was. The scan writes outside
+   the repository and changes nothing in it.
+
+   Where the tree is a git repository and something changed it during the scan, the scan keeps
+   nothing and prints one line saying what to do. Show that line as printed and stop.
+
+   The dependency check looks up a public database of known security flaws. Nothing of the
+   repository is sent, and the scan never reaches the host the clone came from and holds no
+   credential for it.
+
+4. **Start the run.**
+
+   ```
+   evalation-run <target> [pack ...] [--questions <file> ...]
+   ```
+
+   Start it with no announcement. The target is the repository to read, and the working directory
+   where none is named. The packs are the ones the person chose in step 1, named here every time, so
+   the run is against what they asked for and never against a selection they did not see.
+
+   It asks Evalation's server for the methodology and the entries to answer. **This is the moment
+   the run is counted**, so it happens once. If the reading goes badly, that is a reading to redo
+   and not a run to buy again.
+
+   It writes the run file itself, outside the repository, and prints its path as `written`, and
+   each rubric's file under `rubrics`. Every later step reads the run from that file, called
+   `run.json` below, so nothing in it is copied by hand.
+
+   Where `already` is true, the server had counted this run before, after a start that was left
+   unclear. Say `evalation-say ev-run.already` and go on.
+
+   Where it cannot start, it prints one plain line saying why, whether pack credits were used and
+   what to do next. Show that line as printed and stop. Where it says it is not clear whether the run
+   started, never run it again yourself: the person checks their balance with /ev-account and runs
+   /ev-run again when they choose, and a run on the same folder with the same packs and question sets then counts as the same run.
+
+   The target is a directory on this machine, the local clone, and the run reads that and nothing
+   else: it issues no call to the host the clone came from and holds no credential for it, so there is
+   nothing it could write to.
 
 5. **Read the repository against every entry in `to_read`**, through `evalation-read` and nothing
    else. Follow the served methodology. Read the code that would carry the control, never the
    file whose name sounds like it should.
 
-   **The answer format is what `${CLAUDE_PLUGIN_ROOT}/bin/evalation-findings shape` prints.** It is
+   **The answer format is what `evalation-findings shape` prints.** It is
    printed from the lists the check holds, so it says everything the check will ask. Never open the
    plugin's own files to work the format out.
 
    **Read in groups, one reader each.** `evalation-findings groups run.json` splits `to_read` into
    groups of about twenty entries, each within one pack. Start one `evalation-plugin:reader` agent per
-   group, several at once, and give each the run file's path, its group number, the target and
+   group, several at once, with the line `evalation-say ev-run.reader-task` prints as its
+   description, and give each the run file's path, its group number, the target and
    `${CLAUDE_PLUGIN_ROOT}/bin` as where the commands are. Use that agent and never a general one: it
    holds only the shell, and the plugin's gate lets it run Evalation's reading commands one at a
    time and nothing else, so repository content reaches it only through the fence. It prints the
@@ -275,13 +327,17 @@ question what a tick does and what it costs, and let each answer's label say wha
    `part-<n>.json` beside the run file. A part that holds is one the whole check will accept, so a
    reader fixes its own part and nothing is fixed after the merge.
 
+   Before the readers start, say `evalation-run --say reading run.json`. As each reader hands in a
+   part that holds, say `evalation-say ev-run.part-read`, or `evalation-say ev-run.part-read-several`
+   where several repositories are read.
+
    ```
-   ${CLAUDE_PLUGIN_ROOT}/bin/evalation-read <target> map
-   ${CLAUDE_PLUGIN_ROOT}/bin/evalation-read <target> list [glob]
-   ${CLAUDE_PLUGIN_ROOT}/bin/evalation-read <target> search <pattern> [glob]
-   ${CLAUDE_PLUGIN_ROOT}/bin/evalation-read <target> outline <path>
-   ${CLAUDE_PLUGIN_ROOT}/bin/evalation-read <target> read <path> [from] [to]
-   ${CLAUDE_PLUGIN_ROOT}/bin/evalation-read <target> scan
+   evalation-read <target> map
+   evalation-read <target> list [glob]
+   evalation-read <target> search <pattern> [glob]
+   evalation-read <target> outline <path>
+   evalation-read <target> read <path> [from] [to]
+   evalation-read <target> scan
    ```
 
    **Start with `map`.** It says what the tree holds, what it is written in, which files are largest
@@ -351,11 +407,13 @@ question what a tick does and what it costs, and let each answer's label say wha
    what to fund and what to leave, and a sentence they cannot follow is a finding they cannot act on.
    Files, commands and package names go in as they are. Everything else is said in everyday words,
    active voice, short sentences, each point once. Where a technical name is the only accurate one,
-   say what it is in the same sentence. No dashes, no semicolons, no "X rather than Y", no "which is
-   why", no invented terms, no metaphors. Step 7 refuses what it can decide.
+   say what it is in the same sentence. No dashes, no semicolons, no flipped pairs such as one thing
+   set against another with `rather than`, no `which is why`, no invented terms, no metaphors. Step 7
+   refuses what it can decide.
 
    **Plainness never costs meaning.** Say what is at risk, what closing it takes, and what happens if
-   it is left. A finding stripped to "the telemetry guard is fine" has lost the thing somebody needed.
+   it is left. A finding stripped down to saying the telemetry guard is fine has lost the thing
+   somebody needed.
 
    Refused, because a reader is left deciding what a span and a builder are:
 
@@ -367,7 +425,7 @@ question what a tick does and what it costs, and let each answer's label say wha
    > developer assembled by hand and sent without going through the normal path.
 
    **A positive finding says a control is working, and what it owes is different.** Its remedy field
-   prints under the heading "What to keep", so it must not open on an order. An order names one thing
+   prints under the heading `What to keep`, so it must not open on an order. An order names one thing
    and leaves a reader deciding about everything it did not name.
 
    Refused, because a reader cannot tell whether the first guard is now disposable:
@@ -384,10 +442,11 @@ question what a tick does and what it costs, and let each answer's label say wha
    A citation is a path relative to the tree, a line range, the quote and its grade. **The quote must
    appear in those lines**, because step 7 opens the file and looks.
 
-7. **Merge the parts and check the whole, which is what writes the file.**
+7. **Merge the parts and check the whole, which is what writes the file.** Before it, say
+   `evalation-say ev-run.citations`.
 
    ```
-   ${CLAUDE_PLUGIN_ROOT}/bin/evalation-findings merge run.json --read-by "<model>" part-*.json | ${CLAUDE_PLUGIN_ROOT}/bin/evalation-findings - <target>
+   evalation-findings merge run.json --read-by "<model>" part-*.json | evalation-findings - <target>
    ```
 
    `--read-by` names the model that did the reading, as it names itself, for example
@@ -395,31 +454,29 @@ question what a tick does and what it costs, and let each answer's label say wha
    finding is worth less to whoever has to weigh it.
 
    It refuses and writes nothing where a citation does not hold, an entry was left unanswered, a
-   status is covered on prose alone, or a field a status owes is missing. **Fix the answers rather
-   than the check.** A citation that will not verify is one that was not read from the file, and the
+   status is covered on prose alone, or a field a status owes is missing. **Fix the answers and
+   leave the check alone.** A citation that will not verify is one that was not read from the file, and the
    remedy is to open the file and read it, never to soften the claim until it passes.
 
-8. **Ask whether they want the findings verified, and wait for the answer.** Ask it in these words:
-   "Would you like this session to independently verify the findings of the Evalation review packs?
-   It uses the model this session runs on and spends no pack credits. Verification status will be
-   recorded in the reports generated." The answers are "Yes, verify the findings" and "No, leave
-   them unverified". Never call it a second reading or a rerun: that reads as the
-   packs being run again and charged again. Then say in a sentence how it works: every claim the
-   reading made, answers and findings alike, is handed with the lines it cites to a reader that
-   starts fresh, which checks it against the repository and says whether it holds, so a confirmed
-   claim reads as verified and the rest stay asserted. Say roughly what it costs: one reading per
-   twelve claims, on their own model. Ask every run, since the spend is per run and never assumed.
+8. **Ask whether they want the claims checked, and wait for the answer.** Ask
+   `evalation-say ev-run.check`. Never call it a second reading or a rerun: that reads as the packs
+   being run again and charged again. Ask every run, since the spend is per run and never assumed.
 
-   On a no, run nothing and move on. Every claim stays asserted, which is what it already was.
+   On writing the reports now, run nothing and move on. Every claim stays asserted, which is what it
+   already was.
 
-   On a yes, plan it over the file step 7 wrote, the one it named as `written`:
+   On checking the claims, say `evalation-say ev-run.checking`, and as each verifier records its
+   answers, say `evalation-say ev-run.claims-part`. Before the corrections below, say
+   `evalation-say ev-run.sending-back`.
+
+   Then plan it over the file step 7 wrote, the one it named as `written`:
 
    ```
-   ${CLAUDE_PLUGIN_ROOT}/bin/evalation-verify plan <written> <target>
+   evalation-verify plan <written> <target>
    ```
 
    Then for each batch it names, 1 to the count, start a fresh `evalation-plugin:verifier` agent,
-   which holds nothing of this run, so a claim is never checked by the reading that made it. Several
+   with the line `evalation-say ev-run.verifier-task` prints as its description, which holds nothing of this run, so a claim is never checked by the reading that made it. Several
    at once is fine, since each batch keeps its answers apart. Give each one the findings file's
    path, its batch number, the target and `${CLAUDE_PLUGIN_ROOT}/bin` as where the commands are, and
    nothing more. It prints its grid, checks every row through `evalation-read`, and records its
@@ -432,7 +489,7 @@ question what a tick does and what it costs, and let each answer's label say wha
    Then write every answer onto the file, naming the model this session runs on as it names itself:
 
    ```
-   ${CLAUDE_PLUGIN_ROOT}/bin/evalation-verify apply <written> "<model>"
+   evalation-verify apply <written> "<model>"
    ```
 
    If the verifying stops part way, plan again: a claim already answered is skipped, whether or not
@@ -442,10 +499,11 @@ question what a tick does and what it costs, and let each answer's label say wha
    could not settle, goes back to a reader to be fixed against the repository, twice at most:
 
    ```
-   ${CLAUDE_PLUGIN_ROOT}/bin/evalation-verify corrections <written> <target>
+   evalation-verify corrections <written> <target>
    ```
 
-   For each group it names, start a fresh `evalation-plugin:corrector` agent and give it the findings
+   For each group it names, start a fresh `evalation-plugin:corrector` agent, with the line
+   `evalation-say ev-run.corrector-task` prints as its description, and give it the findings
    file's path, its group number, the target and `${CLAUDE_PLUGIN_ROOT}/bin` as where the commands
    are, and nothing more. It prints its group with `evalation-verify correction <written> <n>`, reads
    through `evalation-read`, and hands in its corrections on standard input with
@@ -454,37 +512,38 @@ question what a tick does and what it costs, and let each answer's label say wha
    write every group's corrections onto the file:
 
    ```
-   ${CLAUDE_PLUGIN_ROOT}/bin/evalation-verify corrected <written>
+   evalation-verify corrected <written>
    ```
 
    and verify again from `plan`, the same way as above. Plan takes only the corrected claims. Then run
    `corrections` once more: it takes only claims refused after their first correction. A claim still
    not confirmed after its second correction is reported as asserted, and the loop ends there.
 
-   Read out what the verifying counted, the corrections and the withdrawals.
+   Then say what the checking came to with `evalation-run --say tally <n> <v> <c> <w>`. Take <n> from
+   the first `apply`, all four of its counts added together, <v> from `verified` added over every
+   `apply`, and <c> and <w> from `corrected` and `withdrawn` added over every `corrected`.
 
 9. **Score it**, for a pack that is scored.
 
    ```
-   ${CLAUDE_PLUGIN_ROOT}/bin/evalation-score <findings.json> <rubric.json>
+   evalation-score <findings.json> <rubric.json>
    ```
 
-   The rubric is what step 2 returned in `rubrics`. Write it to a file beside the answers, pass it
-   here, and **delete it when the run is done**: it is served, never shipped, so it belongs in
-   this run and nowhere else. A pack step 2 returned no rubric for is not scored, and that is not a
-   failure.
+   The rubric is the file step 4 printed for that pack under `rubrics`. A pack with no file there
+   is not scored, and that is not a failure.
 
 10. **Produce the artefacts**, which are what somebody is actually given. Run `evalation-deliver`
    where the run read a concern set and `evalation-report` where it read a standard, both over the
    file step 7 wrote.
 
    ```
-   ${CLAUDE_PLUGIN_ROOT}/bin/evalation-deliver <written> "" <target>
-   ${CLAUDE_PLUGIN_ROOT}/bin/evalation-report  <written>
+   evalation-deliver <written> "" <target>
+   evalation-report  <written>
    ```
 
    Name no folder unless the person asked for a place. Both write into one folder per run under the
-   person's Documents folder, `Documents/Evalation/<repository>/<date> <run>`, where they can find it.
+   person's Documents folder, `Documents/Evalation/<repository>/<date> <HH.MM>`, named for the date
+   and time the run started, with ` (2)` added where another run already holds that minute.
    The repository names the folder and each file is named for the review it holds, so a folder of
    several reviews says which file is which:
 
@@ -501,30 +560,57 @@ question what a tick does and what it costs, and let each answer's label say wha
    A standard answers coverage, so `evalation-report` builds one evidence pack for each standard the
    run read: a clause per row with the question, the answer, the evidence and the status.
 
+   Before they start, say `evalation-say ev-run.writing`.
+
    **Both write PDFs**, printed here with the browser already on the machine, because a deliverable an
-   auditor is handed has to print the same everywhere. Where no browser is found they say so and
-   leave the page each PDF would have been printed from, which the person opens in any browser and
-   prints to PDF. Where a browser printed it, only the PDF is kept.
+   auditor is handed has to print the same everywhere. Where no browser is found they leave the page
+   each PDF would have been printed from, and say which to open and print by hand. Where a browser
+   printed it, only the PDF is kept.
 
    **Every PDF is signed by Evalation** as it is printed, so a reader that checks signatures shows an
    unchanged report as signed and an edited one as altered. Only the digest of the file is sent to be
-   signed, never its content. Where one could not be signed, both commands say so and why, and that
-   PDF carries "Signature missing, document cannot be verified" across the top of every page. Say so
-   in step 11 when it happens. Anybody holding a report can check it with
-   `${CLAUDE_PLUGIN_ROOT}/bin/evalation-check-pdf <report.pdf>`.
+   signed, never its content. Where one could not be signed, that PDF carries
+   `Signature missing, document cannot be verified` across the top of every page. The lines
+   `evalation-deliver` prints and the `said` that `evalation-report` prints say which reports were
+   left unprinted or unsigned, why, and what to do: show each exactly as printed in step 11, where it
+   is not empty. Anybody holding a report can check it with `evalation-check-pdf <report.pdf>`.
+
+   Where a report is not written, the command prints several lines: the file it did not write and
+   why, any report written before it in the same folder, that the findings are kept, and the file
+   to send to support. Show every line as printed and stop.
 
    The review pack carries no individual findings on purpose: a slide holding fifty of them is neither
    a slide anybody reads nor a document anybody can work from, and the detail is where they live.
 
-11. **Report what it found, in two or three sentences**, and say where the artefact is. Lead with what
-   would matter to somebody deciding what to do next: what is a total gap, what is only claimed rather
-   than implemented, what scored worst. Not a table of every entry, which is what the artefact is for.
-   Say the folder last, on its own line, because that is what they will want to open.
+11. **Say what it found and where the reports are.** First show what step 10 printed about reports
+   left unprinted or unsigned, where it printed anything. Then show what
+   `evalation-run --say done <written>` prints: one sentence per pack counted from the findings, a
+   line introducing the reports folder with its path alone on the next line, and the file to work from. Where the person named a folder at
+   step 10, name it after `<written>` in double quotes. Add nothing of your own, since the reports
+   hold every entry.
+
+## Printing a run's reports again
+
+Where the person asks only to print the last run's reports again, such as with /ev-run print
+again, skip the steps above and spend nothing. Run
+
+```
+evalation-run --last <target>
+```
+
+which prints `written`, the findings file of the newest run on this folder, and its `packs`. Where
+it fails, show the line it prints as printed and stop. Otherwise say `evalation-say ev-run.writing`
+and run step 10 over `written`: `evalation-deliver` where a pack's `kind` is
+`concern-set` and `evalation-report` where one is `standard`. The reports go into that run's own
+folder in place of the earlier copies. Then show anything step 10 printed about signing, then the
+lines `evalation-run --say folder <written>` prints, and nothing more.
 
 ## What this never does
 
-It changes nothing in the repository and it sends nothing anywhere. The findings are written on this
-machine and stay there, which is what the product is sold on.
+It changes nothing in the repository. Your code never leaves this machine. Evalation's server is
+asked for your balance and the packs, to start the run, and to sign each report from its digest
+alone, and the dependency check looks up a public database of known security flaws. The findings
+are written on this machine and stay there, which is what the product is sold on.
 
 It never marks something covered to be helpful. A false pass is worth less than nothing to somebody
 who bought this to find out where they stand, and a report that flatters a repository is the one thing

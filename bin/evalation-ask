@@ -58,10 +58,7 @@ function settings() {
       }
     }
   }
-  fail(
-    `no-settings: looked in ${places.join(", ")}, and one of them has to name this installation. ` +
-      "Run /ev-activate to sign in, since nothing here can ask anything until this installation holds a key.",
-  );
+  fail(`no-settings: looked in ${places.join(", ")}, and one of them has to name this installation. Run /ev-activate to sign in, since nothing here can ask anything until this installation holds a key.`); // say:allow: machine,a prefix line evalation-status and the other scripts read by its prefix
 }
 
 // Settings never hold a secret. They name one, and the store finds it wherever this machine keeps it.
@@ -174,7 +171,7 @@ fetch(`${base}${path}`, {
       } catch {
         // Not JSON. The body stands as the reason, which is better than replacing it with nothing.
       }
-      if (answer.status === 401 || answer.status === 403) {
+      if ((answer.status === 401 || answer.status === 403) && /seconds from now|outside the window/.test(said)) {
         said += ` | if the clock on this machine is more than ${WINDOW_SECONDS} seconds out, that alone refuses every ask`;
       }
       fail(`refused ${answer.status}: ${said}`);

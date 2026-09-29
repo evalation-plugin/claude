@@ -1,0 +1,21 @@
+{
+  "ev-account.damaged": { "say": "This machine's Evalation sign-in is damaged. Run /ev-activate and sign in with the same account as before, so your pack credits are there." },
+  "ev-account.damaged-named": { "say": "This machine's Evalation sign-in is damaged. Run /ev-activate and sign in with <email>, the same account as before, so your pack credits are there." },
+  "ev-account.packs-unread": { "say": "Your chosen packs could not be read just now. Run /ev-account again in a few minutes. If it still fails, contact support@evalation.ai." },
+  "ev-account.not-set-up": { "say": "This machine is not set up for Evalation yet. Run /ev-start to set it up." },
+  "ev-account.unreachable": { "say": "Evalation could not be reached. Check this machine is online, then run /ev-account again. If it still fails, contact support@evalation.ai." },
+  "ev-account.clock": { "say": "This machine's clock is wrong, so Evalation refused it. Set the clock to the right time, then run /ev-account again." },
+  "ev-account.refused": { "say": "Evalation no longer accepts this machine. Contact support@evalation.ai and we will sort it out." },
+  "ev-account.ended": { "say": "This machine's access to Evalation has ended. To renew it, email support@evalation.ai." },
+  "ev-account.other": { "say": "Evalation could not confirm this machine just now. Run /ev-account again in a few minutes. If it still fails, contact support@evalation.ai." },
+  "ev-account.signed-in": { "say": "Signed in as <email>." },
+  "ev-account.credits": { "say": "You have <credits> pack credits." },
+  "ev-account.credits-one": { "say": "You have one pack credit." },
+  "ev-account.credits-unread": { "say": "Your pack credits could not be read just now. Run /ev-account again in a minute." },
+  "ev-account.no-packs": { "say": "A pack is one thing your code is checked against, such as SOC 2, ISO 27001, GDPR, a security hardening review, or a review for a cyber insurer or investor. You can pick several. Run /ev-packs to choose yours." },
+  "ev-account.buy": { "say": "To buy pack credits, email support@evalation.ai." },
+  "ev-account.chosen": { "say": "You chose <titles>. A run against them uses <count> pack credits, one for each pack it reads. Run /ev-run in a repository to check it against them." },
+  "ev-account.chosen-one": { "say": "You chose <titles>. A run against it uses one pack credit. Run /ev-run in a repository to check it against that pack." },
+  "ev-account.short": { "say": "You chose <titles>. A run against them needs <count> pack credits, more than you have, so it would not start and no pack credits are used. To buy more pack credits, email support@evalation.ai, or choose fewer packs with /ev-packs." },
+  "ev-account.short-one": { "say": "You chose <titles>. A run against it needs one pack credit, more than you have, so it would not start and no pack credits are used. To buy pack credits, email support@evalation.ai." }
+}

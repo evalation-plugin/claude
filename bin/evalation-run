@@ -17,10 +17,12 @@
 
 const { randomBytes } = require("node:crypto");
 const { execFileSync } = require("node:child_process");
-const { existsSync, readFileSync, statSync } = require("node:fs");
-const { basename, resolve } = require("node:path");
+const { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } = require("node:fs");
+const { basename, dirname, join, relative, resolve, sep } = require("node:path");
+const { filesOf } = require("../lib/tree.js");
+const { pluginHome } = require("../lib/home.js");
 const { extended, packOf, problems } = require("../lib/questions.js");
-const { phasesRead } = require("../lib/scans.js");
+const { newestFor, phasesRead } = require("../lib/scans.js");
 const { runScript } = require("../lib/script.js");
 const { choose, solutionOf } = require("../lib/solution.js");
 
@@ -30,17 +32,104 @@ function fail(reason) {
   process.exit(1);
 }
 
-function ask(path, body) {
+function askedOnce(path, body) {
   try {
-    return JSON.parse(
-      runScript("evalation-ask", [path, JSON.stringify(body)], {
-        encoding: "utf8",
-        stdio: ["ignore", "pipe", "pipe"],
-      }),
-    );
+    return { answer: JSON.parse(runScript("evalation-ask", [path, JSON.stringify(body)], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] })) };
   } catch (thrown) {
-    fail(`the server refused: ${(thrown.stderr || thrown.message).toString().trim()}`);
+    return { refused: String(thrown.stderr || thrown.message).trim() };
   }
+}
+
+const unanswered = (said) => /^unreachable:/.test(said) || /^refused 5\d\d:/.test(said);
+
+function ask(path, body) {
+  let got = askedOnce(path, body);
+  for (let again = 0; again < 2 && got.refused !== undefined && unanswered(got.refused); again += 1) {
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 1000);
+    got = askedOnce(path, body);
+  }
+  return got;
+}
+
+const spoken = (name, values) => require("../lib/run-say.js").line(name, values);
+
+function faulted(detail, after = false, cause = after ? "ev-run.fault-after" : "ev-run.fault-before") {
+  fail(require("../lib/run-say.js").fault(spoken(cause), detail));
+}
+
+const CAUSES = {
+  "evalation-questions": "ev-run.fault-sets", "evalation-packs": "ev-run.fault-before", "evalation-status": "ev-run.fault-before",
+  "evalation-scan": "ev-run.fault-scan", "evalation-findings": "ev-run.fault-findings", "evalation-verify": "ev-run.fault-verify",
+  "evalation-score": "ev-run.fault-score", "evalation-report": "ev-run.fault-reports", "evalation-deliver": "ev-run.fault-reports",
+};
+
+function observedIn(said) {
+  const body = said.replace(/^refused \d+:\s*/, "");
+  try {
+    return (JSON.parse(body).refusals ?? []).map((one) => one.observed).join(" ");
+  } catch {
+    return body.split(" | ")[0];
+  }
+}
+
+function refusal(said) {
+  const credit = observedIn(said).match(/this run asks for (\d+) packs? and (?:no pack credits are left|([\d.]+) pack credits? (?:is|are) left)/);
+  if (/^refused 402:/.test(said) && credit) {
+    const count = Number(credit[1]);
+    if (count === 1) return { spent: false, said: spoken("ev-run.start-short-one") };
+    return { spent: false, said: credit[2] ? spoken("ev-run.start-short", { count, left: credit[2] }) : spoken("ev-run.start-short-none", { count }) };
+  }
+  if (/^refused 402:/.test(said)) return { spent: false, said: spoken("ev-run.start-ended") };
+  if (/^refused 40[13]:/.test(said)) return { spent: false, said: spoken("ev-run.start-not-accepted") };
+  if (SIGNED_OUT.test(said)) return { spent: false, said: spoken(NEVER_SET_UP.test(said) ? "ev-run.start-signed-out" : "ev-run.start-damaged") };
+  return { spent: null, said: spoken("ev-run.start-unclear") };
+}
+
+const SIGNED_OUT = /^(no-settings|no-key|no-installation|unreadable-key-reference|key-wrong-size|settings-unreadable):/;
+const NEVER_SET_UP = /^no-settings:/;
+
+const reasonOf = (thrown) => String(thrown?.stderr ?? "").trim().split("\n")[0]
+  .replace(/^(unreachable|clock|refused|not-set-up|damaged|unreadable|other): /, "");
+
+function unlisted(thrown) {
+  const said = reasonOf(thrown);
+  if (SIGNED_OUT.test(said)) return spoken(NEVER_SET_UP.test(said) ? "ev-run.signed-out" : "ev-run.damaged");
+  if (/^refused 402:/.test(said)) return spoken("ev-run.ended");
+  if (/^refused 40[13]:/.test(said)) return spoken("ev-run.not-accepted");
+  if (/^unreachable:/.test(said)) return spoken("ev-run.unreachable");
+  return spoken("ev-run.server-trouble");
+}
+
+function pendingAt() {
+  return join(pluginHome(), "runs", "pending.json");
+}
+
+function pending() {
+  if (!existsSync(pendingAt())) return {};
+  return JSON.parse(readFileSync(pendingAt(), "utf8"));
+}
+
+function keepPending(key, run) {
+  const held = pending();
+  if (run) held[key] = run;
+  else delete held[key];
+  mkdirSync(dirname(pendingAt()), { recursive: true, mode: 0o700 });
+  writeFileSync(pendingAt(), `${JSON.stringify(held, null, 2)}\n`);
+}
+
+function kept(document) {
+  const folder = join(pluginHome(), "runs", document.run);
+  mkdirSync(folder, { recursive: true, mode: 0o700 });
+  const written = join(folder, "run.json");
+  writeFileSync(written, `${JSON.stringify(document, null, 2)}\n`);
+  const rubrics = (document.rubrics ?? []).map((one) => {
+    const body = one?.body?.id ? one.body : one;
+    const pack = String(body.pack ?? one.rubric ?? "rubric").replace(/[^A-Za-z0-9._-]+/g, "-");
+    const at = join(folder, `rubric-${pack}.json`);
+    writeFileSync(at, `${JSON.stringify(body, null, 2)}\n`);
+    return { pack, written: at };
+  });
+  return { written, rubrics };
 }
 
 /**
@@ -161,23 +250,157 @@ function branchOf(where) {
   return { branch, main, on_main: branch === main, newest };
 }
 
+function described(solution) {
+  if (!solution) return null;
+  return {
+    ...solution,
+    repositories: solution.repositories.map((one) => {
+      if (one.vcs === "git") return one;
+      const files = filesOf(join(solution.root, one.folder)).map((file) => relative(join(solution.root, one.folder), file).split(sep).join("/")).sort();
+      return { ...one, files: files.length, first: files[0] ?? null };
+    }),
+  };
+}
+
+function lastRun(where) {
+  const folder = join(pluginHome(), "findings");
+  const named = target(where).repository;
+  let best = null;
+  for (const name of existsSync(folder) ? readdirSync(folder).filter((one) => one.endsWith(".json")) : []) {
+    let one;
+    try {
+      one = JSON.parse(readFileSync(join(folder, name), "utf8"));
+    } catch {
+      // empty-catch:allow: a file that will not parse is no earlier run, and the newest that does is wanted.
+      continue;
+    }
+    if (one.target?.repository !== named) continue;
+    if (!best || String(one.at) > String(best.document.at)) best = { written: join(folder, name), document: one };
+  }
+  return best;
+}
+
+function jsonOf(script, args) {
+  try {
+    return JSON.parse(runScript(script, args, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }));
+  } catch (thrown) {
+    const said = reasonOf(thrown);
+    if (script === "evalation-packs" || SIGNED_OUT.test(said) || /^(refused 40[123]|unreachable):/.test(said)) fail(unlisted(thrown));
+    faulted(`${script} ${args.join(" ")} failed: ${String(thrown.stderr || thrown.message).trim()}`, false, CAUSES[script]);
+  }
+}
+
+function credits() {
+  const said = runScript("evalation-status", [], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+  const left = said.match(/^pack credits left: (\S+)$/m);
+  if (left) return left[1];
+  const state = said.match(/^state: (\S+)$/m)?.[1];
+  const reason = said.match(/^reason: (\S+)$/m)?.[1];
+  if (state === "not-set-up") fail(spoken(/^sign-in: damaged$/m.test(said) ? "ev-run.damaged" : "ev-run.signed-out"));
+  if (state === "unreachable") fail(spoken("ev-run.unreachable"));
+  if (reason === "ended") fail(spoken("ev-run.ended"));
+  if (reason === "refused" || reason === "clock") fail(spoken("ev-run.not-accepted"));
+  return fail(spoken("ev-run.server-trouble"));
+}
+
+function saying(part, args) {
+  const words = require("../lib/run-say.js");
+  const at = () => args[0] || process.cwd();
+  const solution = () => described(solutionOf(at(), { asChosen: false }));
+  const chosen = () => solutionOf(at());
+  const facts = () => branchOf(at()) ?? faulted(`${at()} is no git checkout with a main branch`);
+  const titles = () => jsonOf("evalation-packs", ["titles"]);
+  const sets = () => jsonOf("evalation-questions", ["list"]).sets ?? [];
+  const usual = () => jsonOf("evalation-packs", ["show"]).packs ?? [];
+  const read = () => JSON.parse(readFileSync(at(), "utf8"));
+  const parts = {
+    found: () => words.found(solution()),
+    pick: () => words.pick(solution()),
+    evidence: () => words.evidence(solution()),
+    name: () => words.named(chosen()),
+    branches: () => words.branches(chosen()),
+    copies: () => words.copies(chosen()),
+    "off-main": () => words.offMain(facts()),
+    branch: () => words.branchAsk(facts()),
+    stale: () => words.staleSaid(facts()),
+    packs: () => words.packs({ repository: target(at()).repository, credits: credits(), usual: usual(), titles: titles(), sets: sets() }),
+    usual: () => words.usualAsk({ usual: usual(), titles: titles() }),
+    all: () => words.all({ titles: titles() }),
+    sets: () => words.setsFor({ pack: args[0], titles: titles(), sets: sets() }),
+    "pick-sets": () => words.pickSets({ pack: args[0], titles: titles(), sets: sets() }),
+    only: () => words.onlySets(sets()),
+    short: () => words.short(credits(), args[0]),
+    reading: () => words.reading(read()),
+    tally: () => words.tally(...args.slice(0, 4)),
+    done: () => words.done(read(), args[1]),
+    folder: () => words.folder(read(), args[1]),
+  };
+  if (!parts[part]) faulted(`usage: evalation-run --say <${Object.keys(parts).join("|")}> [argument ...]`);
+  let said;
+  try {
+    said = parts[part]();
+  } catch (thrown) {
+    faulted(`--say ${part}: ${thrown?.message ?? thrown}`, ["reading", "tally", "done", "folder"].includes(part));
+  }
+  if (said) process.stdout.write(`${said}\n`);
+}
+
 function main() {
-  // Asks the server nothing and counts nothing, so the command can ask it before a run and again
-  // when a stopped run resumes.
+  if (process.argv[2] === "--say") {
+    saying(process.argv[3], process.argv.slice(4));
+    return;
+  }
+  if (process.argv[2] === "--fault") {
+    const [command, ...detail] = process.argv.slice(3);
+    process.stdout.write(`${require("../lib/run-say.js").fault(spoken(CAUSES[command] ?? "ev-run.fault-after"), `${command ?? ""}: ${detail.join(" ")}`)}\n`);
+    return;
+  }
   if (process.argv[2] === "--branch") {
     const at = process.argv[3] || process.cwd();
     process.stdout.write(JSON.stringify({
+      repository: target(at).repository,
+      folder: resolve(at),
       ...(branchOf(at) ?? { branch: null, main: null, on_main: null }),
-      solution: solutionOf(at),
+      solution: described(solutionOf(at, { asChosen: false })),
     }) + "\n");
+    return;
+  }
+  if (process.argv[2] === "--titles") {
+    try {
+      process.stdout.write(runScript("evalation-packs", ["titles"], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }));
+    } catch (thrown) {
+      fail(unlisted(thrown));
+    }
+    return;
+  }
+  if (process.argv[2] === "--last") {
+    const found = lastRun(process.argv[3] || process.cwd());
+    if (!found) fail(spoken("ev-run.no-last"));
+    process.stdout.write(`${JSON.stringify({ written: found.written, at: found.document.at,
+      packs: (found.document.packs ?? []).map((one) => ({ pack: one.pack, kind: one.kind, title: one.title })) })}\n`);
+    return;
+  }
+  if (process.argv[2] === "--scan") {
+    const named = process.argv.slice(3).filter((one) => one.trim() !== "");
+    if (named.length === 0) {
+      process.stdout.write(`${JSON.stringify(scanFor([]))}\n`);
+      return;
+    }
+    let listed;
+    try {
+      listed = JSON.parse(runScript("evalation-packs", ["list"], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }));
+    } catch (thrown) {
+      fail(unlisted(thrown));
+    }
+    process.stdout.write(`${JSON.stringify(scanFor((listed.packs ?? []).filter((one) => named.includes(one.pack))))}\n`);
     return;
   }
   if (process.argv[2] === "--solution") {
     const at = process.argv[3];
-    if (!at || !solutionOf(at)) fail(`no-solution: ${at ?? "no folder named"} holds no repositories to read together`);
+    if (!at || !solutionOf(at)) fail(spoken("ev-run.no-solution"));
     const rest = process.argv.slice(4);
     const name = rest[rest.indexOf("--name") + 1];
-    if (rest.indexOf("--name") < 0 || !String(name ?? "").trim()) fail("no-name: name the solution with --name, the folder's name where the customer chose it");
+    if (rest.indexOf("--name") < 0 || !String(name ?? "").trim()) fail(spoken("ev-run.no-name"));
     const leave = rest.flatMap((one, index) => (rest[index - 1] === "--leave" ? [one] : []));
     choose(at, { name, leave });
     process.stdout.write(JSON.stringify(solutionOf(at)) + "\n");
@@ -194,18 +417,19 @@ function main() {
     else if (args[at].trim() !== "") wanted.push(args[at]);
   }
 
-  if (!existsSync(where)) fail(`no-such-target: ${where}`);
+  if (!existsSync(where)) fail(spoken("ev-run.no-folder", { folder: where }));
 
   // The target is a directory and nothing else, per section 1: the run reads the local clone, issues
   // no call to the host it came from and holds no credential for it, so there is nothing to prove
   // read-only against and nothing the run could write to. What it reads crosses evalation-read's
   // fence, which is the perimeter.
+  let folder = false;
   try {
-    if (!statSync(where).isDirectory()) fail(`no-such-target: ${where} is not a directory`);
-  } catch (thrown) {
-    if (String(thrown.message).startsWith("no-such-target")) throw thrown;
-    fail(`no-such-target: ${where} cannot be read`);
+    folder = statSync(where).isDirectory();
+  } catch {
+    fail(spoken("ev-run.unopened", { folder: where }));
   }
+  if (!folder) fail(spoken("ev-run.a-file", { folder: where }));
 
   // What to assess against: named on the command line where somebody named some, and the recorded
   // selection otherwise. Per run rather than per installation, because a consultant assesses one
@@ -224,52 +448,49 @@ function main() {
       packs = [];
     }
   }
-  if (packs.length === 0 && sets.length === 0) {
-    fail(
-      "nothing-selected: this run was given no packs and none are recorded.\n" +
-        "Run /ev-packs to choose what to be assessed against, or name them after the target.",
-    );
-  }
-  // Extra questions join a pack this run reads, so a set naming a pack nobody selected is refused
-  // before anything is spent.
-  for (const one of sets) {
-    if (one.pack !== "custom" && !packs.includes(one.pack)) {
-      fail(`unselected-pack: ${one.name} adds questions to ${one.pack}, which this run does not read`);
-    }
-  }
+  if (packs.length === 0 && sets.length === 0) fail(spoken("ev-run.no-packs"));
   if (sets.some((one) => one.pack !== "custom")) {
     let catalogue;
     try {
-      catalogue = JSON.parse(runScript("evalation-packs", ["titles"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }));
-    } catch {
-      fail("unreadable-catalogue: the packs could not be listed, so nothing was read and nothing was counted. Run /ev-run again once the server can be reached.");
+      catalogue = JSON.parse(runScript("evalation-packs", ["titles"], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }));
+    } catch (thrown) {
+      fail(unlisted(thrown));
     }
     for (const one of sets.filter((each) => each.pack !== "custom")) {
       const held = catalogue.find((each) => each.pack === one.pack);
-      if (!held?.extensible) {
-        fail(`unextendable-pack: ${one.name} adds questions to ${held?.title ?? one.pack}, which keeps the published ` +
-          "standard's own clauses. Add them to one of Evalation's own packs, or run them as a pack of their own. Nothing was counted.");
-      }
+      if (!held?.title) fail(spoken("ev-run.set-unknown-pack", { set: one.name }));
+      if (!packs.includes(one.pack)) fail(spoken("ev-run.set-unread-pack", { set: one.name, pack: held.title }));
+      if (!held.extensible) fail(spoken("ev-run.set-closed-pack", { set: one.name, pack: held.title }));
     }
   }
 
   // Named here, before the server is asked, so a retry after our own transport failed is the same run
   // rather than a second one to be charged for.
-  const run = `run-${randomBytes(6).toString("hex")}`;
+  const key = JSON.stringify([resolve(where), [...packs].sort(), sets.map((one) => `${one.pack}/${one.name}`).sort()]);
+  const run = pending()[key] ?? `run-${randomBytes(6).toString("hex")}`;
+  keepPending(key, run);
 
-  const answer = ask("/run", { run, packs });
-  process.stdout.write(JSON.stringify({ ...served({ ...answer, run }, sets), target: target(where) }, null, 2) + "\n");
+  const got = ask("/run", { run, packs });
+  if (got.refused !== undefined) {
+    const said = refusal(got.refused);
+    if (said.spent === false) keepPending(key, null);
+    fail(said.said);
+  }
+  counted = true;
+  const document = { ...served({ ...got.answer, run }, sets, where), target: target(where) };
+  const { written, rubrics } = kept(document);
+  keepPending(key, null);
+  process.stdout.write(`${JSON.stringify({ written, rubrics, remaining: document.remaining, already: document.already, scan: document.scan }, null, 2)}\n`);
 }
 
 function setFrom(file) {
   let set;
   try {
     set = JSON.parse(readFileSync(file, "utf8"));
-  } catch (thrown) {
-    fail(`unreadable-questions: ${file} (${thrown.message})`);
+  } catch {
+    fail(spoken("ev-run.set-unreadable"));
   }
-  const wrong = problems(set);
-  if (wrong.length > 0) fail(`questions-refused: ${file} is not read, since:\n  ${wrong.join("\n  ")}`);
+  if (problems(set).length > 0) fail(set?.name ? spoken("ev-run.set-broken", { set: set.name }) : spoken("ev-run.set-broken-unnamed"));
   return set;
 }
 
@@ -278,7 +499,7 @@ function setFrom(file) {
  * pack is built here and was never asked of the server, so it costs nothing, and extra questions join
  * the pack they name after its own entries.
  */
-function served(answer, sets = []) {
+function served(answer, sets = [], where = null) {
   let packs = answer.packs ?? [];
   for (const one of sets.filter((set) => set.pack !== "custom")) {
     packs = packs.map((pack) => (pack.pack === one.pack ? extended(pack, one) : pack));
@@ -306,10 +527,18 @@ function served(answer, sets = []) {
     // entry with nothing against it is a gap in the assessment.
     answered: settled(packs),
     to_read: reading(packs),
-    scan: scanFor(packs),
+    scan: { ...scanFor(packs), follows: where ? newestFor(where)?.document.at ?? null : null },
   };
 }
 
 module.exports = { target, branchOf, scanFor, served };
 
-if (require.main === module) main();
+let counted = false;
+
+if (require.main === module) {
+  try {
+    main();
+  } catch (thrown) {
+    faulted(thrown?.stack ?? thrown, counted);
+  }
+}

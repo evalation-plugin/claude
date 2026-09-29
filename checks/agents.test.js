@@ -69,6 +69,21 @@ test("the question checker prints its grid and records its verdict, and nothing 
   assert.strictEqual(bash("cat /tmp/draft.json", "evalation-plugin:question-checker").allowed, false);
 });
 
+test("the question checker is told what to hand back when its question has nothing to check", () => {
+  const text = readFileSync(join(ROOT, "agents", "question-checker.md"), "utf8");
+  assert.match(text, /Every row is checked\./);
+  assert.match(text, /no rows to check/);
+  assert.match(text, /"Nothing to check"/);
+});
+
+test("the question checker is told the plain lines verdict prints, with no count of rows", () => {
+  const text = readFileSync(join(ROOT, "agents", "question-checker.md"), "utf8");
+  assert.match(text, /Recorded\./);
+  assert.match(text, /Answer these again/);
+  assert.match(text, /Still to answer/);
+  assert.doesNotMatch(text, /how many rows/);
+});
+
 test("only the question checker records a verdict, and nothing names the file verdicts are kept in", () => {
   const session = (command) => gate({ tool_name: "Bash", tool_input: { command } });
   const recorded = "/x/bin/evalation-questions verdict /tmp/draft.json <<'EOF'\nQ1 C1: YES\nEOF";

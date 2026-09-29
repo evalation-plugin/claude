@@ -64,6 +64,17 @@ test("a scan item says what the scan says, and nothing else", () => {
   assert.deepStrictEqual(about(checked(document, busy), "hardening/SEC01"), []);
 });
 
+test("a scan taken before the run starts settles its items when the run follows it, and an older scan does not", () => {
+  const before = repository();
+  scanned(before, [], "2026-09-25T06:00:00.000Z");
+  const document = { ...run(before), at: "2026-09-26T00:00:00.000Z", follows_scan: "2026-09-25T06:00:00.000Z" };
+  assert.deepStrictEqual(about(checked(document, before), "hardening/SEC01"), []);
+  document.follows_scan = "2026-09-25T12:00:00.000Z";
+  assert.match(about(checked(document, before), "hardening/SEC01").join(), /item 2: found, and the scan settles this item as not-checked/);
+  delete document.follows_scan;
+  assert.match(about(checked(document, before), "hardening/SEC01").join(), /item 2: found, and the scan settles this item as not-checked/);
+});
+
 test("an answer naming another pack's entry is refused, and its own entries pass", () => {
   const document = run(tree);
   document.answers[0].because = "A guard exists, see SEC01, and restore steps are missing as CC6.1 records.";

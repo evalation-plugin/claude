@@ -1,6 +1,4 @@
 #!/usr/bin/env node
-//   evalation-remove folders                 the folders this machine read, whose Claude Code history can be cleared
-//   evalation-remove run [--clear-history]   revokes this installation, forgets its keys and deletes the evalation home
 "use strict";
 
 const { existsSync } = require("node:fs");
@@ -8,33 +6,53 @@ const { homedir } = require("node:os");
 const { join } = require("node:path");
 const { runScript } = require("../lib/script.js");
 const { pluginHome } = require("../lib/home.js");
-const { foldersRead, removal } = require("../lib/remove.js");
+const { holdsSaved, keysNamed, openBy, placesNamed, placesOf, pluginConversations, removal, reportsIn, reportsNamed, setsAsked, setsKept } = require("../lib/remove.js");
 const store = require("./evalation-store");
 
 const HOME = pluginHome();
 const CLAUDE = process.env.CLAUDE_CONFIG_DIR || join(homedir(), ".claude");
+const HERE = process.env.CLAUDE_CODE_SESSION_ID;
 
 function fail(reason) {
   process.stderr.write(`${reason}\n`);
   process.exit(1);
 }
 
-const [verb, flag] = process.argv.slice(2);
+const [verb, ...flags] = process.argv.slice(2);
 if (verb === "folders") {
-  const folders = foldersRead(HOME, process.cwd());
+  const others = pluginConversations(CLAUDE, { here: HERE }).filter((one) => one.id !== HERE);
+  const reports = reportsIn(HOME);
+  const places = placesOf(others);
   process.stdout.write(`${JSON.stringify({
-    home: HOME,
-    home_exists: existsSync(HOME),
-    folders,
-    history: folders.filter((one) => existsSync(join(CLAUDE, "projects", one.replace(/[^A-Za-z0-9]/g, "-")))),
+    holds_saved: holdsSaved(HOME),
+    holds_sign_in: existsSync(join(HOME, "evalation.local")),
+    sets_here: require("../lib/questions.js").saved(HOME).length,
+    reports,
+    reports_named: reportsNamed(reports),
+    conversations: others.length,
+    places,
+    places_named: placesNamed(places),
+    open: others.filter((one) => one.live).length,
+    open_by: openBy(CLAUDE, HERE),
   }, null, 2)}\n`);
+} else if (verb === "sets") {
+  const listing = require("../lib/questions.js").listed(HOME);
+  if (listing.account === "unreachable") fail("unreachable: the account's question sets could not be read");
+  const asked = setsAsked(listing);
+  process.stdout.write(asked ? `${JSON.stringify(asked)}\n` : "none\n");
+} else if (verb === "keep-sets") {
+  const { keepOnAccount } = require("../lib/questions.js");
+  const done = setsKept({ home: HOME, names: flags, keep: (name) => keepOnAccount(HOME, name) });
+  if (done.fails !== undefined) fail(`fails-check: ${done.fails}`);
+  if (done.notKept !== undefined) fail(`not-kept: ${done.notKept}\n${done.reason}`);
+  if (done.said) process.stdout.write(`${done.said}\n`);
 } else if (verb === "run") {
   try {
     const done = removal({
       home: HOME,
       claude: CLAUDE,
-      cwd: process.cwd(),
-      clearHistory: flag === "--clear-history",
+      here: HERE,
+      clearHistory: flags.includes("--clear-history"),
       revoke: () => {
         try {
           runScript("evalation-ask", ["/revoke", "{}"], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
@@ -43,11 +61,12 @@ if (verb === "folders") {
         }
       },
       forget: (service, account) => store.forget(service, account),
+      held: (service, account) => store.chosen().held(service, account),
     });
-    process.stdout.write(`${JSON.stringify(done, null, 2)}\n`);
+    process.stdout.write(`${JSON.stringify({ ...done, keys_named: done.keys_left.length > 0 ? keysNamed(done.keys_left) : null }, null, 2)}\n`);
   } catch (thrown) {
-    fail(`not-removed: ${thrown.message}`);
+    fail(`${thrown.reason === "unreachable" ? "unreachable" : "refused"}: nothing was removed (${thrown.message})`);
   }
 } else {
-  fail("usage: evalation-remove folders | run [--clear-history]");
+  fail("usage: evalation-remove folders | sets | keep-sets <name>... | run [--clear-history]");
 }

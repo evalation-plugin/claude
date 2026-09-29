@@ -3,7 +3,7 @@
 const test = require("node:test");
 const assert = require("node:assert");
 const { execFileSync } = require("node:child_process");
-const { existsSync, mkdtempSync } = require("node:fs");
+const { existsSync, mkdtempSync, readFileSync } = require("node:fs");
 const { tmpdir } = require("node:os");
 const { join } = require("node:path");
 const { repository, run, scanned } = require("./fixture.js");
@@ -131,6 +131,63 @@ test("an answer counts as cited when an item it looked for cites lines", () => {
   assert.strictEqual(citing(soc2), 1);
   soc2[0].looked_for = [{ result: "missing", searched: "Looked everywhere." }];
   assert.strictEqual(citing(soc2), 0);
+});
+
+test("a report that could not be signed gives the reason in plain words", () => {
+  const { unsignedWhy } = require("../lib/print.js");
+  const document = run(tree);
+  const asked = new Map(document.packs.flatMap((pack) => pack.entries_asked.map((one) => [`${pack.pack}/${one.identifier}`, one])));
+  const folder = mkdtempSync(join(tmpdir(), "evalation-sign-"));
+  const done = print(page(document, document.answers.filter((one) => one.pack === "soc2"), asked), join(folder, "pack.html"),
+    join(folder, "pack.pdf"), { run: "run-check" }, readingOf(document));
+  assert.strictEqual(done.signed, false);
+  assert.strictEqual(done.unsigned, "this machine is not signed in to Evalation");
+  assert.strictEqual(unsignedWhy("unreachable: https://api.evalation.ai/sign (fetch failed)"), "Evalation's server could not be reached");
+  assert.strictEqual(unsignedWhy("refused 402: the entitlement for this installation has ended, so nothing further can be served"),
+    "this machine's access to Evalation has ended");
+  assert.strictEqual(unsignedWhy("refused 422: this server holds no document signing key | print the report marked as unsigned"),
+    "Evalation's server could not sign it");
+});
+
+test("a page that fails its check stops the report with one plain line naming the file, never a trace", () => {
+  const { writeFileSync } = require("node:fs");
+  const { spawnSync } = require("node:child_process");
+  const document = { ...run(tree), schema: "evalation.findings.v1" };
+  document.target.repository = "{{ repository }}";
+  const folder = mkdtempSync(join(tmpdir(), "evalation-unfit-"));
+  const file = join(folder, "findings.json");
+  writeFileSync(file, JSON.stringify(document));
+  const said = (command) => spawnSync(process.execPath, [join(__dirname, "..", "bin", command), file, join(folder, command)], { encoding: "utf8" });
+  const report = said("evalation-report");
+  assert.strictEqual(report.status, 1);
+  const lines = report.stderr.trim().split("\n");
+  assert.deepStrictEqual(lines.slice(0, -1), [
+    "Evalation SOC 2 Trust Services Criteria Evidence Pack.pdf was not written, because the check made before printing found faults in its pages.",
+    "Your findings are kept, and the reports can be printed once this is fixed, with no new pack credits.",
+    "To have it fixed, email support@evalation.ai and attach this file, which holds the details:"]);
+  assert.match(readFileSync(lines.at(-1), "utf8"), /an unfilled slot reached the page: "\{\{ repository \}\}"/);
+  assert.doesNotMatch(report.stderr, /unfilled|\n\s+at /);
+  const deliver = said("evalation-deliver");
+  assert.strictEqual(deliver.status, 1);
+  assert.match(deliver.stderr, /^Evalation Hardening Review (Pack|Detail)\.pdf was not written, because the check made before printing found faults in its pages\.\n/);
+  assert.doesNotMatch(deliver.stderr, /unfilled|\n\s+at /);
+});
+
+test("any other print failure gives one plain line naming the file, and names the reports already written", () => {
+  const { unwritten } = require("../lib/print.js");
+  let thrown;
+  try {
+    print("<p>A page</p>", join(tree, "no-such-folder", "B Pack.html"), join(tree, "no-such-folder", "B Pack.pdf"), null, []);
+  } catch (caught) {
+    thrown = caught;
+  }
+  const said = unwritten(thrown, [join(tree, "A Pack.pdf")]);
+  assert.match(said, /^B Pack\.pdf was not written, because printing it stopped\.\nA Pack\.pdf was written before it, in the same folder\.\nYour findings are kept/);
+  const built = unwritten(new Error("boom")).split("\n");
+  assert.strictEqual(built[0], "The reports were not written, because building them stopped.");
+  assert.strictEqual(readFileSync(built.at(-1), "utf8").trim(), "boom");
+  assert.match(unwritten(Object.assign(new Error("spawnSync chrome ETIMEDOUT"), { code: "ETIMEDOUT", file: "/r/C Pack.pdf" })),
+    /^C Pack\.pdf was not written, because the browser took longer than two minutes to print it\.\n/);
 });
 
 test("a slot the reading did not write is still refused", () => {

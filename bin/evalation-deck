@@ -104,9 +104,14 @@ function oneLine(text, limit) {
 function labelled(document) {
   const name = document.tenant ?? "";
   if (!document.solution) return name;
-  const held = (document.solution.repositories ?? []).map((one) => one.repository);
-  const listed = `${name} · ${held.join(", ")}`;
-  return listed.length <= 105 ? listed : `${name} · ${held.length} repositories`;
+  const all = document.solution.repositories ?? [];
+  const held = all.filter((one) => one.vcs === "git").map((one) => one.repository);
+  const plain = all.filter((one) => one.vcs !== "git").map((one) => one.folder);
+  const listed = `${name} · ${held.join(", ")}${plain.length === 0 ? "" : ` · other folders: ${plain.join(", ")}`}`;
+  if (listed.length <= 105) return listed;
+  const counted = (count, one, many) => (count === 1 ? `one ${one}` : `${count} ${many}`);
+  const repositories = held.length === 1 ? "1 repository" : `${held.length} repositories`;
+  return `${name} · ${repositories}${plain.length === 0 ? "" : ` and ${counted(plain.length, "other folder", "other folders")}`}`;
 }
 
 function model(document) {
@@ -601,7 +606,7 @@ function deck(document, into, options = {}) {
 
   // 2 - what the tree is. Measured, so it owes nothing to anybody's account of the codebase.
   const glance = slides[1];
-  glance.xml = pptx.fill(glance.xml, held.solution ? { ...type, "Repository at a glance": "Solution at a glance" } : type);
+  glance.xml = pptx.fill(glance.xml, held.solution ? { ...type, "Repository at a glance": "Product at a glance" } : type);
   if (held.overview) {
     let xml = glance.xml;
     const languages = held.overview.languages ?? [];
@@ -800,11 +805,11 @@ function deck(document, into, options = {}) {
   readSlides(held.solution).forEach((page, at) => {
     const read = pptx.duplicateSlide(file, untouched, 1 + at);
     read.xml = retitled(pptx.fill(read.xml, type), {
-      "What we think of how it's built": at === 0 ? "Repositories read" : "Repositories read, continued",
-      COMMENTARY: "REPOSITORIES",
+      "What we think of how it's built": page.continued ? `${page.title}, continued` : page.title,
+      COMMENTARY: page.label,
     });
-    fillInOrder(read, "{{ Strength or risk headline }}", page.map((one) => one.headline));
-    fillInOrder(read, "{{ 2-3 sentence honest assessment; concrete and specific, not pitched. }}", page.map((one) => one.body));
+    fillInOrder(read, "{{ Strength or risk headline }}", page.blocks.map((one) => one.headline));
+    fillInOrder(read, "{{ 2-3 sentence honest assessment; concrete and specific, not pitched. }}", page.blocks.map((one) => one.body));
     trimUnused(read, "{{ Strength or risk headline }}");
     spread(read);
   });
@@ -1051,7 +1056,7 @@ function order(file, drop, summary) {
   });
 }
 
-module.exports = { deck };
+module.exports = { deck, labelled };
 
 if (require.main === module) {
   const [source, into] = process.argv.slice(2);

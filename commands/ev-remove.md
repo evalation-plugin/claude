@@ -1,59 +1,157 @@
 ---
-description: Remove Evalation from this machine. Revokes this machine's sign-in, deletes its keys and the hidden evalation folder, and offers to clear Claude Code's history of what was read.
-allowed-tools: Bash(evalation-remove:*)
+description: Remove Evalation from this machine. Signs this machine out, deletes what Evalation saved here, and offers to delete the Claude Code conversations that ran an Evalation command.
+allowed-tools: Bash(evalation-status:*), Bash(evalation-remove folders:*), Bash(evalation-remove sets:*), Bash(evalation-remove run:*), Bash(evalation-remove keep-sets:*), Bash(evalation-say:*)
 ---
 
 # Removing Evalation from this machine
 
 For a consultant leaving a customer's machine, or anyone who no longer wants Evalation here. The
-account stays, with any question sets kept on it, and so do the reports already printed to
-Documents. Only this machine's link to the account and what Evalation kept on it go.
+account stays, with its pack credits and any question sets kept on it, and so do the reports in
+Documents. Only this machine's sign in and what Evalation kept on it go. Other machines signed in to
+the account are unaffected.
+
+Every line the person reads comes from `evalation-say` or from a script, and you show it exactly as
+printed, never in words of your own. Where a step names several lines, run each and show them
+together as one paragraph, in the order given. A value such as <places_named> is that field of
+what `evalation-remove` printed, passed as it is.
 
 **Ask every question through the host's question interface**, the AskUserQuestion tool in Claude
-Code, with each answer one of its options. Never write a question and its answers as a list in text.
-Word each question so nobody has to guess what an answer does. Ask what will happen, never what to
-leave out, and let each answer's label say what choosing it does.
+Code, passing the `questions` a command prints unchanged. Never write a question and its answers as
+a list in text. Where the person picks Other and writes their own words, act on them where they
+plainly choose one of the answers. Otherwise show `evalation-say ev-remove.other` and stop.
+
+Never show the person a path inside Evalation's own folder, or any field name from what a command
+prints.
 
 ## What to do
 
-1. **Say what will be removed, then ask.**
+1. **Check what can be signed out.**
 
    ```
-   ${CLAUDE_PLUGIN_ROOT}/bin/evalation-remove folders
+   evalation-status
    ```
 
-   Say in a few lines: this machine's sign-in is revoked on the server, so its key stops working
-   everywhere. Its keys are deleted from the operating system's store. The hidden folder `home`
-   names is deleted, with the findings files, scans, pack choice and question sets kept on this
-   machine. Reports in Documents stay, and question sets kept on the account stay with the account.
-   Then ask "Remove Evalation from this machine?", with the answers "Remove it" and "Keep it".
-   On "Keep it", stop. Nothing was changed.
+   - `state: unreachable`: show `evalation-say ev-remove.unreachable` and stop.
+   - `state: not-set-up` with a `sign-in: damaged` line: the sign in is damaged, so Evalation cannot
+     sign this machine out. Go on, and in step 2 open with `evalation-say ev-remove.damaged`.
+   - `state: not-set-up` otherwise: this machine holds no sign in, so there is nothing to sign out.
+     Go on, and in step 2 open with `evalation-say ev-remove.not-signed-in`.
+   - `state: not-live` with `reason: clock`: show `evalation-say ev-remove.clock` and stop.
+   - `state: live`, or `state: not-live` for any other reason: go on.
 
-2. **Offer to clear Claude Code's history.** Where `history` names any folder, list them and say
-   that Claude Code keeps each conversation held in those folders, including what the reading said
-   about the code. Ask "Also clear Claude Code's history for these folders?", with the answers
-   "Clear it" and "Leave it". Clearing deletes those folders' conversations and their lines in
-   Claude Code's prompt history, and nothing of any other folder. Where `history` is empty, ask
-   nothing about it.
-
-3. **Remove it.**
+2. **Say what will be removed, then ask.**
 
    ```
-   ${CLAUDE_PLUGIN_ROOT}/bin/evalation-remove run [--clear-history]
+   evalation-remove folders
    ```
 
-   With `--clear-history` only where the person chose "Clear it". It revokes first, and where the
-   server cannot be reached it removes nothing, since the keys on this machine are the only thing
-   that can revoke it: say so, and that running `/ev-remove` again once the machine is online
-   finishes it.
-
-4. **Say what was removed and what is left to do.** Name the keys forgotten, the folder deleted and
-   any history cleared, from what `run` printed. Then say that the plugin cannot uninstall itself,
-   and give the last step:
+   Where the state was `live`, also run:
 
    ```
-   /plugin uninstall evalation
+   evalation-remove sets
    ```
 
-   Where the history was cleared, say that this conversation is still open and ends when the session
-   is closed.
+   It prints `none`, or the question about question sets saved only on this machine, with their
+   names in `sets`. Keep it for later in this step. Where it fails with `unreachable`, show
+   `evalation-say ev-remove.unreachable` and stop.
+
+   Where the state was `live` or `not-live`, show `evalation-say ev-remove.sign-out` and
+   `evalation-say ev-remove.folder`.
+
+   Where the state was `not-set-up` and `holds_saved` is true, after the opening line step 1 gave,
+   show `evalation-say ev-remove.folder-local`. Where `sets_here` is more than zero, add
+   `evalation-say ev-remove.sets-stay-local`.
+
+   Where the state was `live` or `not-live` and `holds_saved` is false, leave out the lines about
+   the folder and show `evalation-say ev-remove.nothing-saved` in their place.
+
+   Where the state was `not-set-up`, `holds_saved` is false and `holds_sign_in` is true, show
+   `evalation-say ev-remove.only-sign-in` after the opening line step 1 gave, then go on to the
+   Remove question below.
+
+   Where the state was `not-set-up` and both `holds_saved` and `holds_sign_in` are false, show only
+   `evalation-say ev-remove.nothing-else` after the opening line step 1 gave, never
+   `ev-remove.nothing-saved` as well, and ask nothing more in this step: go on to step 3 where
+   `conversations` is more than zero, or straight to step 4 where it is zero.
+
+   Where `reports_named` is not null, show
+   `evalation-say ev-remove.old-reports reports="<reports_named>"`.
+
+   Then run `evalation-say ev-remove.remove` and ask the question it prints. Where the state was
+   `not-set-up`, run `evalation-say ev-remove.remove-local` in its place. On `Keep it`, show
+   `evalation-say ev-remove.nothing-changed` and stop.
+
+   On `Remove it`, ask the question `evalation-remove sets` printed, where it printed one.
+
+3. **Offer to delete the conversations that used Evalation.** Where `conversations` is more than
+   one, show `evalation-say ev-remove.conversations count="<conversations>" places="<places_named>"`.
+   Where there is one, show `evalation-say ev-remove.conversation folder="<folder>" from="<from>"`,
+   with the `folder` and `from` of the one entry in `places`.
+
+   Where `open_by` is `claude-code`, add `evalation-say ev-remove.open-one` where `open` is one, or
+   `evalation-say ev-remove.open-many count="<open>"` where it is more. Where `open_by` is
+   `last-hour`, add `evalation-say ev-remove.recent-one` where `open` is one, or
+   `evalation-say ev-remove.recent-many count="<open>"` where it is more.
+
+   Then run `evalation-say ev-remove.clear` and ask the question it prints. Where `conversations`
+   is zero, ask nothing about conversations. Never delete anything else, and never anything in the
+   folder this session runs in.
+
+4. **Remove it.** Where they chose `Keep on my account`, first run this with every name in `sets`,
+   each in double quotes:
+
+   ```
+   evalation-remove keep-sets "<name>" ["<name>"...]
+   ```
+
+   On success it prints one line naming every set it kept: show it exactly as printed. It keeps
+   nothing until every set passes its check. Where it fails, show nothing it printed and read the
+   word before the first colon, with <name> the set named after it:
+
+   - `fails-check`: run `evalation-say ev-remove.set-fails set="<name>"` and ask the question it
+     prints. On `Stop so I can fix it`, show `evalation-say ev-remove.fix-set` and stop. On
+     `Delete it with the rest`, run `keep-sets` again without that name, where any are left.
+   - `not-kept`: show `evalation-say ev-remove.set-not-kept set="<name>"` and stop.
+
+   Then run:
+
+   ```
+   evalation-remove run [--clear-history]
+   ```
+
+   Add `--clear-history` where they chose `Delete them`. It signs the machine out before it deletes
+   anything. Where it fails, read the start of the reason:
+
+   - `unreachable`: show `evalation-say ev-remove.run-unreachable` and stop.
+   - `refused`: show `evalation-say ev-remove.run-refused` and stop.
+
+5. **Say what was removed and give the last step.** From what `run` printed, show these lines
+   together:
+
+   - Where `signed_out` is `now`, show `evalation-say ev-remove.signed-out`. Where it is
+     `already`, show `evalation-say ev-remove.already-out`, unless step 2 already said this machine
+     is not signed in. Where it is `not-revoked`, show `evalation-say ev-remove.not-revoked`.
+   - Where `folder_deleted` is true and `holds_saved` was true in step 2, show
+     `evalation-say ev-remove.folder-deleted`. Where it is false, show
+     `evalation-say ev-remove.folder-left`.
+   - Where `keys_left` names one key, show `evalation-say ev-remove.key-left keys="<keys_named>"`.
+     Where it names more, show `evalation-say ev-remove.keys-left count="<count>" keys="<keys_named>"`,
+     with <count> the number of keys in `keys_left`.
+   - Where `failed` names settings, show `evalation-say ev-remove.keys-unread`.
+   - Where conversations were chosen, show `evalation-say ev-remove.deleted count="<removed>"` with
+     `history.removed` as <removed>, or `evalation-say ev-remove.deleted-one` where it is one.
+     Where `history.kept_live` is `open` plus one, step 3 already said which were kept, so show
+     none of the kept lines. Otherwise, where `history.kept_by` is `claude-code`, show
+     `evalation-say ev-remove.kept-this` where `history.kept_live` is one, `evalation-say ev-remove.kept-two` where it is two, or
+     `evalation-say ev-remove.kept-more count="<others>"` where it is more, with <others> one less
+     than `history.kept_live`. Where `history.kept_by` is `last-hour`, show
+     `evalation-say ev-remove.recent-this` where `history.kept_live` is one, or
+     `evalation-say ev-remove.recent-more count="<kept>"` where it is more, with <kept> as
+     `history.kept_live`. Where `failed` names history, show
+     `evalation-say ev-remove.history-failed`.
+
+   Then show `evalation-say ev-remove.uninstall`, and give the one last step:
+
+   ```
+   /plugin uninstall evalation-plugin@evalation
+   ```

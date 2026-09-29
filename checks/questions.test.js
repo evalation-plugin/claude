@@ -11,6 +11,8 @@ const { home } = require("./fixture.js");
 const { CRITERIA, dropFromAccount, extended, extensible, fetched, fromAccount, grid, keepOnAccount, kept, listed, load, packOf, problems, save, saveChecked, saved, stamp, status, verdict } = require("../lib/questions.js");
 const { groupOf, methodology } = require("../bin/evalation-findings");
 const { served } = require("../bin/evalation-run");
+const { entries: lines, say } = require("../lib/say.js");
+const line = (name, values) => say(lines(), name, values);
 
 const OURS = { name: "Evalation's own questions.", attribution: "Evalation" };
 
@@ -57,7 +59,8 @@ test("a question keeps every requirement it needs, with no upper limit, and one 
   assert.deepStrictEqual([topics.about, topics.fault], ["question", "YES"]);
   const command = readFileSync(join(__dirname, "..", "commands", "ev-questions.md"), "utf8");
   assert.doesNotMatch(command, /2 to 8/);
-  assert.match(command, /became Q2 and Q3/);
+  assert.match(command, /evalation-say ev-questions\.split/);
+  assert.match(line("ev-questions.split", { asked: "is sign-in safe", questions: "Q2 and Q3" }), /became Q2 and Q3/);
 });
 
 test("a question may ask what git history shows, settled by the history phase", () => {
@@ -147,6 +150,24 @@ test("a set kept on the account is listed and used on another machine, and one t
   dropFromAccount("Broker questions", ask);
   assert.deepStrictEqual(listed(mkdtempSync(join(tmpdir(), "evalation-sets-")), ask).sets.map((one) => one.name), ["Tampered"]);
   assert.strictEqual(listed(laptop, () => { throw new Error("offline"); }).account, "unreachable");
+});
+
+test("a set the account holds that fails its check opens as a draft to fix, and a sound one opens as kept", () => {
+  const { opened } = require("../bin/evalation-questions");
+  const tampered = JSON.stringify(set([question("Q1; rm -rf /")], { name: "Tampered", pack: "cyber-insurance" }));
+  const sound = set([question("Q1")], { name: "Broker questions", pack: "cyber-insurance" });
+  const ask = (path) => {
+    if (path === "/sets") return { sets: [{ name: "Tampered", body: tampered }, { name: "Broker questions", body: JSON.stringify(sound) }] };
+    throw new Error(`no ${path}`);
+  };
+  const at = mkdtempSync(join(tmpdir(), "evalation-sets-"));
+  const draft = opened(at, "Tampered", ask);
+  assert.strictEqual(readFileSync(draft, "utf8"), tampered);
+  assert.deepStrictEqual(saved(at), []);
+  assert.ok(opened(at, "Broker questions", ask).endsWith("Broker questions.json"));
+  assert.deepStrictEqual(saved(at), ["Broker questions"]);
+  assert.throws(() => opened(at, "Missing", ask), /kept neither on this machine nor on the account/);
+  assert.throws(() => opened(at, "../escape", ask), /not a name a set is kept under/);
 });
 
 const scratch = () => mkdtempSync(join(tmpdir(), "evalation-sets-"));
@@ -248,11 +269,230 @@ test("questions are checked in parallel, one checker each, and every checker's v
   assert.deepStrictEqual(status(at, draft), [], "all three checkers' verdicts are recorded, each with a checker's stamp");
   const command = readFileSync(join(__dirname, "..", "commands", "ev-questions.md"), "utf8");
   assert.match(command, /one `question-checker` for each question/);
-  assert.match(command, /"Q3 checked"/);
-  assert.match(command, /"You have no saved question sets yet, so we'll write your first one\."/);
+  assert.match(command, /evalation-say ev-questions\.checked "title=<its title>"/);
+  assert.strictEqual(line("ev-questions.checked", { title: "Password reset protections" }), "Checked: Password reset protections");
+  const { setsQuestion, shown } = require("../lib/questions.js");
+  assert.strictEqual(setsQuestion({ account: "reached", sets: [] }), "You have no saved question sets yet, so we'll write your first one.");
   assert.doesNotMatch(command, /\(3 of 7\)|Checking your 7/, "the check quotes no counts, which a person cannot place");
-  assert.match(command, /\(in code\)/);
-  assert.match(command, /\(in a document\)/);
+  const scanned = question("Q1", { looks_for: [...question("Q1").looks_for, { find: "A privacy notice", proof: "written" },
+    { find: "No credentials committed to the repository", proof: "scan", phase: "secret" }] });
+  assert.strictEqual(shown(set([scanned, organisational("Q2")])), [
+    "Q1 Payments are recorded", "Where does this repository record each payment it takes?",
+    "  1. Code that writes a record for each payment, such as a payments table insert (in code)",
+    "  2. A test that takes a payment and checks the record exists (in code)",
+    "  3. A privacy notice (in a document)", "  4. No credentials committed to the repository (from a security tool)", "",
+    "Q2 Phishing training", "Where are records of phishing awareness training kept?", `  ${organisational("Q2").justification}`,
+  ].join("\n"));
+  assert.match(command, /evalation-questions show "<file>"/);
+});
+
+const CLI = join(__dirname, "..", "bin", "evalation-questions");
+const ran = (at, ...args) => {
+  const { spawnSync } = require("node:child_process");
+  const done = spawnSync(process.execPath, [CLI, ...args], { env: { ...process.env, EVALATION_PLUGIN_HOME: at }, encoding: "utf8" });
+  const printed = done.stdout.trim();
+  const answer = printed.startsWith(join(at, "drafts", "answer-")) && printed.endsWith(".txt") ? printed : null;
+  return { ...done, answer, out: answer && require("node:fs").existsSync(answer) ? readFileSync(answer, "utf8") : null };
+};
+const checkedBy = (at) => (draft) => {
+  const file = join(at, `${draft.name}.json`);
+  require("node:fs").writeFileSync(file, JSON.stringify(draft));
+  return ran(at, "check", file);
+};
+
+test("check hands the session plain faults and each question's number and title in a file of its own, with no criterion numbers, and prints nothing for the person", () => {
+  const at = scratch();
+  const run = checkedBy(at);
+  const refunds = question("Q2", { title: "Refunds are recorded", intent: "Where does this repository record each refund it makes?" });
+  const sound = set([question("Q1"), refunds], { name: "Grouped" });
+  verdict(at, sound, answered(grid(at, sound, CRITERIA, "Q1").rows));
+  const waiting = run(sound);
+  assert.deepStrictEqual([waiting.status, Boolean(waiting.answer), waiting.stderr], [0, true, ""]);
+  assert.strictEqual(waiting.out, "Waiting for the independent checker:\n  Q2 Refunds are recorded\nNot confirmed by the independent checker:\n  Q1 Payments are recorded\n");
+  const invoices = question("Q3", { title: "Invoices are recorded", intent: "Where does this repository record each invoice it sends?" });
+  const faulty = { ...sound, questions: [...sound.questions, invoices] };
+  stamp(at, "checker-3");
+  verdict(at, faulty, answered(grid(at, faulty, CRITERIA, "Q3").rows, { "Q3 item 1 C8": "\"Code that writes\"" }), CRITERIA, "Q3");
+  const said = run(faulty);
+  assert.deepStrictEqual([said.status, Boolean(said.answer)], [0, true]);
+  assert.match(said.out, /To fix:\n {2}Q3 Invoices are recorded, the item "Code that writes a record for each payment, such as a payments table insert" asks about something outside its question: "Code that writes"\n/);
+  assert.match(said.out, /Waiting for the independent checker:\n {2}Q2 Refunds are recorded\n/, "a fault never hides the questions still waiting");
+  assert.doesNotMatch(said.out, /\bC[0-9]+\b/);
+  assert.match(run({ ...sound, questions: [...sound.questions, question("Q4", { intent: "Is the code good" })] }).out, /To fix:\n {2}Q4 intent: not a question\n/);
+  const confirmed = set([refunds], { name: "Confirmed" });
+  stamp(at, "checker-1");
+  verdict(at, confirmed, answered(grid(at, confirmed).rows));
+  assert.strictEqual(run(confirmed).out, "holds\n");
+});
+
+test("draft, save and folder hand the session their answers in its own file and print nothing for the person", () => {
+  const at = scratch();
+  const folder = ran(at, "folder");
+  assert.deepStrictEqual([folder.status, folder.stdout], [0, `${join(at, "drafts")}\n`], "folder is read into the command text before the person sees anything");
+  const fresh = ran(at, "draft", "Board check");
+  assert.deepStrictEqual([fresh.status, Boolean(fresh.answer), fresh.out], [0, true,`${join(at, "drafts", "Board check.json")}\n`]);
+  const draft = set([question("Q1")]);
+  require("node:fs").writeFileSync(join(at, "drafts", "Board check.json"), JSON.stringify(draft));
+  stamp(at, "checker-1");
+  verdict(at, draft, answered(grid(at, draft).rows));
+  const kept = ran(at, "save", join(at, "drafts", "Board check.json"));
+  assert.deepStrictEqual([kept.status, Boolean(kept.answer), kept.out], [0, true,"saved\n"]);
+  const again = ran(at, "save", join(at, "drafts", "Board check.json"));
+  assert.deepStrictEqual([again.status, Boolean(again.answer), again.out], [0, true,"name taken: Board check is already saved, and is replaced only when asked\n"]);
+  const taken = ran(at, "draft", "Board check");
+  assert.deepStrictEqual([taken.status, Boolean(taken.answer), taken.out], [0, true,"name taken: Board check is already a saved set, so a new set needs another name\n"]);
+});
+
+test("questions a set was saved with unconfirmed stay settled, so a later change asks nothing about them", () => {
+  const at = scratch();
+  const first = set([titled("Q1", "Payments are recorded", "payment"), titled("Q2", "Refunds are recorded", "refund")], { name: "Kept unconfirmed" });
+  verdict(at, first, answered(grid(at, first).rows));
+  saveChecked(at, first, { unchecked: true });
+  const changed = set([...first.questions, titled("Q3", "Invoices are recorded", "invoice")], { name: "Kept unconfirmed" });
+  stamp(at, "checker-1");
+  verdict(at, changed, answered(grid(at, changed, CRITERIA, "Q3").rows), CRITERIA, "Q3");
+  const said = checkedBy(at)(changed);
+  assert.strictEqual(said.status, 0);
+  assert.strictEqual(said.out, "holds\n");
+  saveChecked(at, changed, { replace: true });
+  assert.deepStrictEqual(listed(at, () => ({ sets: [] })).sets[0].unchecked, ["Payments are recorded", "Refunds are recorded"]);
+});
+
+test("the check names each question by its number and title, leaves a question with a fault out of not confirmed, and asks only about questions newly unconfirmed", () => {
+  const { grouped } = require("../lib/questions.js");
+  const at = scratch();
+  const first = set([titled("Q1", "Payments are recorded", "payment"), titled("Q2", "Refunds are recorded", "refund")], { name: "Newly unconfirmed" });
+  verdict(at, first, answered(grid(at, first).rows));
+  assert.deepStrictEqual(grouped(at, first), { fix: [], waiting: [], unconfirmed: ["Q1 Payments are recorded", "Q2 Refunds are recorded"] });
+  saveChecked(at, first, { unchecked: true });
+  const changed = set([...first.questions, titled("Q3", "Invoices are recorded", "invoice"), titled("Q4", "Credits are recorded", "credit")], { name: "Newly unconfirmed" });
+  verdict(at, changed, answered(grid(at, changed, CRITERIA, "Q3").rows, { "Q3 item 1 C8": "\"Code that writes\"" }), CRITERIA, "Q3");
+  assert.deepStrictEqual(grouped(at, changed), {
+    fix: ["Q3 Invoices are recorded, the item \"Code that writes a record for each payment, such as a payments table insert\" asks about something outside its question: \"Code that writes\""],
+    waiting: ["Q4 Credits are recorded"],
+    unconfirmed: [],
+  });
+});
+
+test("draft refuses the name of a set already saved, so a new set never lands on a kept one", () => {
+  const { draftOf, fresh } = require("../bin/evalation-questions");
+  const at = scratch();
+  save(at, set([question("Q1")], { name: "Broker questions" }));
+  assert.throws(() => fresh(at, "Broker questions"), /^Error: Broker questions is already a saved set, so a new set needs another name$/);
+  assert.strictEqual(fresh(at, "Board questions"), draftOf(at, "Board questions"));
+});
+
+test("the round count follows the question's words, so renumbering a set never moves it to another question", () => {
+  const at = scratch();
+  const refunds = () => titled("Q2", "Refunds are recorded", "refund");
+  const words = ["A refund record written once and then removed", "A refund record kept once and then deleted", "A refund record made once and then cleared"];
+  let last;
+  words.forEach((find, round) => {
+    last = set([question("Q1"), { ...refunds(), looks_for: [{ find, proof: "runs" }, question("Q1").looks_for[1]] }], { name: "Renumbered" });
+    stamp(at, `checker-${round}`);
+    verdict(at, last, answered(grid(at, last, CRITERIA, "Q2").rows, { "Q2 item 1 C5": "\"once and then\"" }), CRITERIA, "Q2");
+  });
+  const [payments, spent] = last.questions;
+  const invoices = { ...titled("Q2", "Invoices are recorded", "invoice") };
+  const renumbered = set([payments, invoices, { ...spent, identifier: "Q3" }], { name: "Renumbered" });
+  stamp(at, "checker-9");
+  verdict(at, renumbered, answered(grid(at, renumbered, CRITERIA, "Q2").rows, { "Q2 C3": "\"invoice\"" }), CRITERIA, "Q2");
+  const said = status(at, renumbered);
+  assert.ok(said.includes("Q2 breaks C3: \"invoice\""), said.join("\n"));
+  assert.ok(said.includes("Q3 item 1 breaks C5: \"once and then\", after three rounds, so remove it"), said.join("\n"));
+});
+
+test("verdict tells the checker plainly what it recorded, with no counts or raw data", () => {
+  const { spawnSync } = require("node:child_process");
+  const at = scratch();
+  const draft = set([question("Q1")], { name: "Plain verdict" });
+  const file = join(at, "draft.json");
+  require("node:fs").writeFileSync(file, JSON.stringify(draft));
+  const CLI = join(__dirname, "..", "bin", "evalation-questions");
+  const rows = grid(at, draft, CRITERIA, "Q1").rows;
+  const run = (answers) => spawnSync(process.execPath, [CLI, "verdict", file, "Q1"], { input: answers, env: { ...process.env, EVALATION_PLUGIN_HOME: at }, encoding: "utf8" });
+  const partly = run(answered(rows.slice(0, 2)) + "\nQ1 item 2 C99: YES | \"Code\"");
+  assert.strictEqual(partly.stdout, "Answer these again:\n  Q1 item 2 C99: not a criterion this row is asked\nStill to answer:\n  Q1 item 2\n");
+  assert.strictEqual(run(answered(rows)).stdout, "Recorded.\n");
+});
+
+test("the list prints plain lines for the person, naming unconfirmed questions briefly", () => {
+  const { listSaid } = require("../lib/questions.js");
+  const titles = ["Planning a change", "Testing a change", "Reviewing a change", "GitHub connection", "Audit trail"];
+  assert.deepStrictEqual(listSaid({ account: "unreachable", sets: [
+    { name: "Broker questions", pack: "cyber-insurance", questions: 6, where: "machine", unchecked: titles },
+    { name: "Board questions", pack: "custom", questions: 2, where: "both", unchecked: titles.slice(0, 2) },
+    { name: "Investor questions", pack: "investment-diligence", questions: 2, where: "account" },
+    { name: "Diligence questions", pack: "investment-diligence", pack_title: "Evalation Investment Due Diligence", questions: 2, where: "machine" },
+    { name: "Tampered", where: "account", refused: "Q1; rm -rf /: an identifier is Q and a number" },
+  ] }, { "cyber-insurance": "Evalation Cyber Insurance Risk" }), [
+    line("ev-questions.listed-unreachable"),
+    "Broker questions, for Evalation Cyber Insurance Risk, kept on this machine. The independent checker has not confirmed Planning a change, Testing a change and 3 other questions.",
+    "Board questions, with no pack, kept on this machine and on your account. The independent checker has not confirmed Planning a change and Testing a change.",
+    "Investor questions, kept on your account.",
+    "Diligence questions, for Evalation Investment Due Diligence, kept on this machine.",
+    "Tampered on your account no longer meets the question rules. Choose it to fix it.",
+  ]);
+  assert.deepStrictEqual(listSaid({ account: "reached", sets: [] }), [line("ev-questions.listed-none")]);
+  assert.strictEqual(line("ev-questions.listed-unreachable"), "Your account could not be reached, so only sets on this machine are shown.");
+  assert.strictEqual(line("ev-questions.listed-none"), "You have no saved question sets yet.");
+  for (const line of listSaid({ account: "reached", sets: [{ name: "Broker questions", where: "machine", unchecked: titles }] })) {
+    assert.deepStrictEqual(require("../lib/prose.js").held(line), [], line);
+  }
+});
+
+test("a question drawn from a claimed feature may look for that feature itself", () => {
+  const favour = CRITERIA.find((one) => one.id === "C9");
+  assert.match(favour.asks, /claimed feature/);
+  for (const one of CRITERIA) assert.ok(one.says && require("../lib/prose.js").held(one.says).length === 0, one.id);
+});
+
+test("the command asks for a website's address in plain text, confirms claims through the interface, and words the wait, the approval and the end plainly", () => {
+  const { approval, packQuestion, setsQuestion } = require("../lib/questions.js");
+  const paras = commandText().split(/\n\s*\n/).map((one) => one.replace(/\s+/g, " "));
+  const command = paras.join("\n\n");
+  const address = paras.find((para) => para.includes("evalation-say ev-questions.address"));
+  assert.match(address ?? "", /next message/);
+  assert.strictEqual(line("ev-questions.address"), "What is the website's address?");
+  const claims = paras.find((para) => para.includes("evalation-questions choose-claims"));
+  assert.ok(claims, "the claims question comes from a script");
+  assert.doesNotMatch(claims, /next message/);
+  assert.match(command, /same site/);
+  assert.strictEqual(line("ev-questions.checking"), "Checking your questions against the rules for a question set. An independent checker that did not write them judges each question on its own. This can take a few minutes.");
+  assert.doesNotMatch(command, /so this takes a few minutes|which can take|A separate checker/);
+  const at = scratch();
+  const two = set([titled("Q1", "Password reset protections", "reset"), titled("Q2", "Logging admin actions", "log"), titled("Q3", "Refunds are recorded", "refund")], { name: "Approve" });
+  verdict(at, two, answered(grid(at, two, CRITERIA, "Q1").rows), CRITERIA, "Q1");
+  verdict(at, two, answered(grid(at, two, CRITERIA, "Q2").rows), CRITERIA, "Q2");
+  stamp(at, "checker-3");
+  verdict(at, two, answered(grid(at, two, CRITERIA, "Q3").rows), CRITERIA, "Q3");
+  assert.deepStrictEqual(JSON.parse(approval(at, two)).questions[0].question,
+    "The plugin could not confirm that the independent checker passed Password reset protections and Logging admin actions, since the part of the plugin that confirms each pass was not running in this session. Save them unchecked, or change something?");
+  const all = set(two.questions.slice(0, 2), { name: "Approve all" });
+  assert.match(JSON.parse(approval(at, all)).questions[0].question, /passed Password reset protections and Logging admin actions,/);
+  const one = set(two.questions.slice(0, 1), { name: "Approve one" });
+  assert.deepStrictEqual(JSON.parse(approval(at, one)).questions[0].options.map((each) => each.label), ["Save it unchecked", "Change something"]);
+  const many = set(["a", "b", "c", "d", "e"].map((what, index) => titled(`Q${index + 1}`, `Title ${what}`, what)).concat([{ ...two.questions[2], identifier: "Q6" }]), { name: "Approve many" });
+  for (const each of many.questions.slice(0, 5)) verdict(at, many, answered(grid(at, many, CRITERIA, each.identifier).rows), CRITERIA, each.identifier);
+  assert.match(JSON.parse(approval(at, many)).questions[0].question, /passed Title a, Title b and 3 other questions,/);
+  const texts = Object.entries(lines()).filter(([name]) => name.startsWith("ev-questions.")).map(([, each]) => each).flatMap((each) => [each.say, each.ask, ...(Array.isArray(each.options) ? each.options.flatMap((o) => [o.label, o.description]) : [])]).join("\n");
+  assert.doesNotMatch(texts, /Check them again|still could not confirm|with it marked/, "a recheck in the same session cannot change the result, so it is never offered");
+  assert.match(line("ev-questions.next-run-other", { pack: "Evalation Cyber Insurance Risk", name: "Broker questions" }), /^The packs you chose with \/ev-packs leave out Evalation Cyber Insurance Risk\./);
+  assert.doesNotMatch(texts, /usual packs/);
+  assert.match(line("ev-questions.unconfirmed-note"), /^The run and its report treat unconfirmed questions like any others/);
+  const sets = Array.from({ length: 6 }, (_, index) => ({ name: `Set ${index + 1}`, pack: "custom", where: "machine" }));
+  const first = JSON.parse(setsQuestion({ account: "reached", sets }));
+  assert.deepStrictEqual(first.questions.length, 1);
+  assert.deepStrictEqual(first.questions[0].options.map((each) => each.label), ["Write a new set", "Change Set 1", "Change Set 2", "Show more"]);
+  assert.strictEqual(first.questions[0].options[3].description, "Shows the rest.");
+  assert.deepStrictEqual(JSON.parse(setsQuestion({ account: "reached", sets }, {}, 2)).questions[0].options.map((each) => each.label), ["Change Set 3", "Change Set 4", "Change Set 5", "Change Set 6"]);
+  const packs = Array.from({ length: 4 }, (_, index) => ({ pack: `p${index}`, body: { kind: "standard", title: `Pack ${index}`, licence: OURS } }));
+  assert.deepStrictEqual(JSON.parse(packQuestion(packs)).questions[0].options.map((each) => each.label), ["Only my questions", "Pack 0", "Pack 1", "Show more"]);
+  assert.match(command, /Show more/);
+  assert.match(command, /lists under `Waiting for the independent checker`/);
+  assert.doesNotMatch(command, /for each question that has items/);
+  assert.match(command, /evalation-questions list --plain/);
+  assert.match(line("ev-questions.kept-organisation-added", { question: "Q8", added: "Q9" }), /I added Q9/);
 });
 
 test("a set is saved only when every row has passed its check, and the plugin tells the person only that it is checking", () => {
@@ -266,7 +506,19 @@ test("a set is saved only when every row has passed its check, and the plugin te
   const command = readFileSync(join(__dirname, "..", "commands", "ev-questions.md"), "utf8");
   assert.match(command, /three rounds/);
   assert.match(command, /Wrong:/);
-  assert.match(command, /"Checking your questions against the rules for a question set/);
+  assert.match(command, /evalation-say ev-questions\.checking/);
+  assert.match(line("ev-questions.checking"), /^Checking your questions against the rules for a question set/);
+});
+
+test("a row passed without the checker is asked again of the next checker, and a stamped pass is never asked again", () => {
+  const at = scratch();
+  const draft = set([question("Q1")], { name: "Recheck" });
+  verdict(at, draft, answered(grid(at, draft).rows));
+  assert.deepStrictEqual(grid(at, draft).rows.map((one) => one.label), ["Q1", "Q1 item 1", "Q1 item 2"], "an unstamped pass is judged again");
+  stamp(at, "checker-9");
+  verdict(at, draft, answered(grid(at, draft).rows));
+  assert.deepStrictEqual(grid(at, draft).rows, [], "a checker's own pass stays a pass");
+  assert.deepStrictEqual(status(at, draft), []);
 });
 
 test("a pass recorded without the gate's stamp for the question checker is named, and saved only when the person chooses to", () => {
@@ -286,8 +538,8 @@ test("a pass recorded without the gate's stamp for the question checker is named
   verdict(at, again, answered(grid(at, again).rows));
   assert.ok(status(at, again).includes("Q1: passed without the question checker"), "a stamp over a minute old counts for nothing");
   const command = readFileSync(join(__dirname, "..", "commands", "ev-questions.md"), "utf8");
-  assert.match(command, /passed without the question checker/);
-  assert.match(command, /save <file> --unchecked/);
+  assert.match(command, /Not confirmed by the independent checker/);
+  assert.match(command, /save "<file>" --unchecked/);
 });
 
 test("a set that comes back from the account is checked again, and one that is not a set is refused", () => {
@@ -369,4 +621,403 @@ test("a set is saved under its name, listed, loaded again, and never overwritten
 test("a set name that could leave the folder is refused", () => {
   assert.match(problems(set([question("Q1")], { name: "../../evil" })).join(), /name holds letters, numbers, spaces/);
   assert.ok(home);
+});
+
+const titled = (id, title, what) => question(id, { title, asked: `do we record each ${what}`, intent: `Where does this repository record each ${what} it takes?` });
+
+test("a set saved unchecked says so in the list, and a later change names only the rows that changed", () => {
+  const at = scratch();
+  const none = () => ({ sets: [] });
+  const first = set([titled("Q1", "Payments are recorded", "payment"), titled("Q2", "Refunds are recorded", "refund")], { name: "Saved unchecked" });
+  verdict(at, first, answered(grid(at, first).rows));
+  saveChecked(at, first, { unchecked: true });
+  assert.deepStrictEqual(listed(at, none).sets[0].unchecked, ["Payments are recorded", "Refunds are recorded"]);
+  const changed = set([...first.questions, titled("Q3", "Invoices are recorded", "invoice")], { name: "Saved unchecked" });
+  verdict(at, changed, answered(grid(at, changed, CRITERIA, "Q3").rows));
+  assert.deepStrictEqual(status(at, changed), [
+    "Q3: passed without the question checker", "Q3 item 1: passed without the question checker", "Q3 item 2: passed without the question checker"]);
+  assert.throws(() => saveChecked(at, changed, { replace: true }), /Q3: passed without the question checker/);
+  saveChecked(at, changed, { replace: true, unchecked: true });
+  assert.deepStrictEqual(listed(at, none).sets[0].unchecked, ["Payments are recorded", "Refunds are recorded", "Invoices are recorded"]);
+  const reworded = set([{ ...titled("Q1", "Payments are recorded", "card payment"), asked: "do we record each payment" }, ...changed.questions.slice(1)], { name: "Saved unchecked" });
+  stamp(at, "checker-1");
+  verdict(at, reworded, answered(grid(at, reworded, CRITERIA, "Q1").rows));
+  assert.deepStrictEqual(status(at, reworded), []);
+  saveChecked(at, reworded, { replace: true });
+  assert.deepStrictEqual(listed(at, none).sets[0].unchecked, ["Refunds are recorded", "Invoices are recorded"], "a question the checker confirms is no longer marked");
+  const fresh = scratch();
+  save(fresh, set([question("Q1")], { name: "Checked" }));
+  assert.strictEqual(listed(fresh, none).sets[0].unchecked, undefined);
+});
+
+test("path hands back a copy in the drafts folder, so a change never touches the saved set until it is saved", () => {
+  const { draftOf, opened } = require("../bin/evalation-questions");
+  const at = scratch();
+  const kept = set([titled("Q1", "Payments are recorded", "payment")], { name: "Broker questions", pack: "cyber-insurance" });
+  verdict(at, kept, answered(grid(at, kept).rows));
+  saveChecked(at, kept, { unchecked: true });
+  const draft = opened(at, "Broker questions", () => ({ sets: [] }));
+  assert.strictEqual(draft, join(at, "drafts", "Broker questions.json"));
+  assert.deepStrictEqual(JSON.parse(readFileSync(draft, "utf8")), kept, "the copy holds the set as written, and nothing of the plugin's own");
+  require("node:fs").writeFileSync(draft, JSON.stringify(set([question("Q2")], { name: "Broker questions" })));
+  assert.strictEqual(load(at, "Broker questions").questions[0].identifier, "Q1");
+  assert.strictEqual(draftOf(at, "New set"), join(at, "drafts", "New set.json"));
+  assert.ok(require("node:fs").existsSync(join(at, "drafts")));
+  assert.throws(() => draftOf(at, "../escape"), /not a name a set is kept under/);
+});
+
+test("the run's copy of a set goes apart from the drafts, so a draft being edited is never overwritten", () => {
+  const { opened } = require("../bin/evalation-questions");
+  const at = scratch();
+  const kept = set([titled("Q1", "Payments are recorded", "payment")], { name: "Broker questions", pack: "cyber-insurance" });
+  verdict(at, kept, answered(grid(at, kept).rows));
+  saveChecked(at, kept, { unchecked: true });
+  const draft = join(at, "drafts", "Broker questions.json");
+  require("node:fs").mkdirSync(join(at, "drafts"), { recursive: true });
+  require("node:fs").writeFileSync(draft, "part way through a change");
+  const copy = opened(at, "Broker questions", () => ({ sets: [] }), { run: true });
+  assert.strictEqual(copy, join(at, "runs", "questions", "Broker questions.json"));
+  assert.deepStrictEqual(JSON.parse(readFileSync(copy, "utf8")), kept);
+  assert.strictEqual(readFileSync(draft, "utf8"), "part way through a change");
+});
+
+test("grid says an organisation's question has no rows to check", () => {
+  const draft = set([question("Q1"), organisational("Q2")]);
+  assert.strictEqual(grid(scratch(), draft, CRITERIA, "Q2").text, "Q2 is kept as the organisation's and has no rows to check.");
+});
+
+const commandText = () => readFileSync(join(__dirname, "..", "commands", "ev-questions.md"), "utf8");
+
+test("every command the text runs is in the form its allowed tools match, with set names quoted", () => {
+  const command = commandText();
+  const allowed = [...command.match(/^allowed-tools: (.*)$/m)[1].matchAll(/Bash\(([^:)]+):\*\)/g)].map((one) => one[1]);
+  assert.doesNotMatch(command, /CLAUDE_PLUGIN_ROOT|\/evalation-/, "a full path matches no allowed tool, so it asks the person's permission");
+  const runs = [...command.matchAll(/(?<=`|^)evalation-[a-z-]+(?: [a-z-]+)?/gm)].map((one) => one[0]);
+  assert.ok(runs.length > 10);
+  assert.deepStrictEqual(runs.filter((one) => !allowed.some((prefix) => one.startsWith(prefix))), []);
+  for (const verb of ["path", "keep-on-account", "drop-from-account", "draft"]) assert.match(command, new RegExp(`evalation-questions ${verb} "<name>"`), verb);
+  assert.doesNotMatch(command, /(path|keep-on-account|drop-from-account|draft) <name>/);
+});
+
+test("the person approves the set before any save, and an unchecked save is the last step", () => {
+  const command = commandText();
+  const firstSave = command.indexOf("evalation-questions save");
+  assert.ok(firstSave > 0);
+  const approve = command.indexOf("evalation-questions approve \"<file>\"");
+  assert.ok(approve > 0 && approve < firstSave);
+  const { approval } = require("../lib/questions.js");
+  const at = scratch();
+  const draft = set([question("Q1")], { name: "Approved" });
+  assert.throws(() => approval(at, draft), /not shown for approval/);
+  stamp(at, "checker-1");
+  verdict(at, draft, answered(grid(at, draft).rows));
+  assert.deepStrictEqual(JSON.parse(approval(at, draft)), { questions: [{ question: "Save this set as written?", header: "Save", multiSelect: false,
+    options: [{ label: "Save it", description: "Keeps the set as shown." }, { label: "Change something", description: "Tell me what to change, and I check it again." }] }] });
+  assert.match(lines()["ev-questions.save-unchecked"].ask, /Save them unchecked, or change something\?$/);
+  assert.doesNotMatch(command, /until it prints `holds`/);
+  assert.doesNotMatch(command, /did not finish/);
+  assert.match(command, /save "<file>" --unchecked/);
+  assert.match(command, /Waiting for the independent checker/);
+  assert.match(command, /Not confirmed by the independent checker/);
+});
+
+test("the person reads titles, two suggested names, a plain change question, a draft in the drafts folder and an end line for the packs they run", () => {
+  const command = commandText();
+  const { namesQuestion, packQuestion } = require("../lib/questions.js");
+  assert.match(command, /"title=<its title>"/, "the person has not yet seen the numbers, so a check is named by title");
+  const named = JSON.parse(namesQuestion(["Broker questions", "Cyber insurance questions"], ["Board check"]));
+  assert.deepStrictEqual(named.questions[0].options.map((each) => each.label), ["Broker questions", "Cyber insurance questions"]);
+  assert.throws(() => namesQuestion(["Board check", "Other"], ["Board check"]), /already a saved set/);
+  assert.match(command, /choose-name "<first>" "<second>"/);
+  const change = command.split(/\n\s*\n/).find((para) => para.includes("evalation-say ev-questions.what-change"));
+  assert.match(change ?? "", /next\s+message/);
+  assert.strictEqual(line("ev-questions.what-change"), "What would you like changed?");
+  assert.match(command, /evalation-questions draft "<name>"/);
+  assert.match(command, /drafts folder/);
+  assert.match(lines()["ev-questions.next-run-other"].say, /Choose which packs to run/);
+  const pack = JSON.parse(packQuestion([{ pack: "cyber-insurance", body: { kind: "standard", title: "Evalation Cyber Insurance Risk", licence: OURS } },
+    { pack: "soc2", body: { kind: "standard", title: "SOC 2" } }]));
+  assert.deepStrictEqual(pack.questions[0].options.map((each) => each.label), ["Only my questions", "Evalation Cyber Insurance Risk"]);
+  assert.match(pack.questions[0].options[1].description, /^Your questions cost nothing extra\. The pack itself uses one pack credit when the run reads it\./);
+  assert.deepStrictEqual(JSON.parse(packQuestion(null)).questions[0].options.map((each) => each.label), ["Try again", "Run them on their own"]);
+  assert.doesNotMatch(command, /at no extra cost/);
+  assert.doesNotMatch(command, /email authentication/i);
+  assert.match(command, /second sign in factor required for staff/);
+});
+
+test("the person reads only the list and the plugin's plain lines, and every other answer reaches the session alone", () => {
+  const command = commandText();
+  const flat = command.replace(/\s+/g, " ");
+  assert.doesNotMatch(command, /person sees every command's output/);
+  assert.match(command, /!`evalation-questions folder`/, "the drafts folder is read into the text before the person sees anything");
+  assert.match(command, /!`evalation-questions criteria`/);
+  assert.doesNotMatch(command, /^evalation-questions criteria|(?<!!)`evalation-questions criteria`/m, "the criteria are never run where the person reads them");
+  assert.doesNotMatch(command, /evalation-packs (show|titles)/, "raw pack data never reaches the person");
+  assert.match(flat, /evalation-questions packs/);
+  assert.match(flat, /answer file/);
+  assert.doesNotMatch(flat, /said\.txt/);
+});
+
+test("packs hands the session the chosen packs and the packs that take questions, by title, and says so plainly when the server is out of reach", () => {
+  const { packsSaid } = require("../bin/evalation-questions");
+  const at = scratch();
+  require("node:fs").writeFileSync(join(at, "packs.json"), JSON.stringify({ packs: ["soc2", "cyber-insurance"] }));
+  const served = { packs: [
+    { pack: "cyber-insurance", body: { kind: "standard", title: "Evalation Cyber Insurance Risk", licence: OURS } },
+    { pack: "soc2", body: { kind: "standard", title: "SOC 2 Trust Services Criteria" } },
+  ] };
+  assert.strictEqual(packsSaid(at, () => served), [
+    "Chosen packs: Evalation Cyber Insurance Risk, SOC 2 Trust Services Criteria",
+    "Packs that take extra questions: Evalation Cyber Insurance Risk (cyber-insurance)",
+    "Chosen published standards: SOC 2 Trust Services Criteria",
+  ].join("\n"));
+  assert.strictEqual(packsSaid(at, () => { throw new Error("offline"); }), "The pack list could not be fetched.");
+});
+
+test("a suggested name never matches a saved set, and a name already taken is asked for again before any check", () => {
+  const flat = commandText().replace(/\s+/g, " ");
+  assert.match(flat, /never one `list` showed/);
+  assert.match(flat, /name taken/);
+  assert.ok(flat.indexOf("name taken") < flat.indexOf("ev-questions.checking"), "a clash on draft is settled before the check starts");
+});
+
+test("claims come in the page's own words, shared evenly over questions headed Claims k/n, four at a time", () => {
+  const { claimsQuestion } = require("../lib/questions.js");
+  const flat = commandText().replace(/\s+/g, " ");
+  assert.doesNotMatch(flat, /split four claims to each/);
+  assert.match(flat, /no two questions differ in size by more than one/);
+  const claims = Array.from({ length: 9 }, (_, at) => ({ claim: `The product does thing ${at + 1}.` }));
+  const asked = JSON.parse(claimsQuestion(claims)).questions;
+  assert.deepStrictEqual(asked.map((one) => [one.header, one.options.length, one.multiSelect]), [["Claims 1/3", 3, true], ["Claims 2/3", 3, true], ["Claims 3/3", 3, true]]);
+  assert.deepStrictEqual(asked[0].options[0], { label: "The product does thing 1", description: "The product does thing 1." });
+  assert.match(flat, /at most four at once/);
+  assert.match(flat, /word for word/);
+  assert.match(flat, /navigation link/);
+});
+
+test("Write a new set is the first answer, so it is never behind Show more, and each set names its pack", () => {
+  const { setsQuestion } = require("../lib/questions.js");
+  const asked = JSON.parse(setsQuestion({ account: "reached", sets: [
+    { name: "Broker questions", pack: "cyber-insurance", where: "machine" }, { name: "Board questions", pack: "custom", where: "both" },
+    { name: "Tampered", where: "account", refused: "Q1: an identifier is Q and a number" }] }, { "cyber-insurance": "Evalation Cyber Insurance Risk" }));
+  assert.deepStrictEqual(asked.questions[0].options, [
+    { label: "Write a new set", description: "Starts a new set of questions." },
+    { label: "Change Broker questions", description: "Shows the whole set, for Evalation Cyber Insurance Risk, so you can say what to change." },
+    { label: "Change Board questions", description: "Shows the whole set, with no pack, so you can say what to change." },
+    { label: "Fix Tampered", description: "Shows what no longer meets the rules so it can be fixed." },
+  ]);
+  assert.match(commandText(), /evalation-questions choose-set/);
+});
+
+test("the question scripts print what the person reads, and refuse a set not ready for approval with a reason", () => {
+  const at = scratch();
+  const draft = set([question("Q1")], { name: "Printed" });
+  const file = join(at, "Printed.json");
+  require("node:fs").writeFileSync(file, JSON.stringify(draft));
+  const shownOut = ran(at, "show", file);
+  assert.deepStrictEqual([shownOut.status, shownOut.stdout.split("\n")[0]], [0, "Q1 Payments are recorded"]);
+  const early = ran(at, "approve", file);
+  assert.deepStrictEqual([early.status, early.stdout], [1, ""]);
+  assert.match(early.stderr, /not shown for approval/);
+  stamp(at, "checker-1");
+  verdict(at, draft, answered(grid(at, draft).rows));
+  assert.strictEqual(JSON.parse(ran(at, "approve", file).stdout).questions[0].question, "Save this set as written?");
+  const claims = join(at, "claims.json");
+  require("node:fs").writeFileSync(claims, JSON.stringify([{ claim: "Sign in with passkeys." }, { claim: "Every admin action is logged." }]));
+  assert.strictEqual(JSON.parse(ran(at, "choose-claims", claims).stdout).questions[0].header, "Claims");
+  require("node:fs").writeFileSync(claims, JSON.stringify([{ claim: "Results are measured instead of guessed; always." }, { claim: "y." }]));
+  const kept = JSON.parse(ran(at, "choose-claims", claims).stdout).questions[0].options[0];
+  assert.match(JSON.stringify(kept), /measured instead of guessed; always/, "a site's own words are kept as given");
+});
+
+test("the walk's faults stay fixed: named unconfirmed questions, one standards line, path in said.txt, a short changed line and plain rules for names and links", () => {
+  const { approval, namesQuestion } = require("../lib/questions.js");
+  const { packsSaid } = require("../bin/evalation-questions");
+  const at = scratch();
+  const mixed = set([titled("Q1", "Password reset protections", "reset"), organisational("Q2"), titled("Q3", "Logging admin actions", "log")], { name: "Mixed" });
+  verdict(at, mixed, answered(grid(at, mixed, CRITERIA, "Q1").rows), CRITERIA, "Q1");
+  verdict(at, mixed, answered(grid(at, mixed, CRITERIA, "Q3").rows), CRITERIA, "Q3");
+  const asked = JSON.parse(approval(at, mixed)).questions[0];
+  assert.match(asked.question, /passed Password reset protections and Logging admin actions,/);
+  assert.match(asked.options[0].description, /they are marked as not confirmed/);
+  const one = set([mixed.questions[0], mixed.questions[1]], { name: "Mixed one" });
+  assert.match(JSON.parse(approval(at, one)).questions[0].options[0].description, /the question is marked as not confirmed/);
+  assert.strictEqual(lines()["ev-questions.all-questions"], undefined);
+
+  require("node:fs").writeFileSync(join(at, "packs.json"), JSON.stringify({ packs: ["soc2", "iso", "cyber-insurance"] }));
+  const served = { packs: [
+    { pack: "cyber-insurance", body: { kind: "standard", title: "Evalation Cyber Insurance Risk", licence: OURS } },
+    { pack: "soc2", body: { kind: "standard", title: "SOC 2" } },
+    { pack: "iso", body: { kind: "standard", title: "ISO 27001" } },
+  ] };
+  assert.match(packsSaid(at, () => served), /\nChosen published standards: SOC 2 and ISO 27001$/);
+  assert.match(line("ev-questions.keeps-clauses", { pack: "SOC 2 and ISO 27001" }), /^Published standards such as SOC 2 and ISO 27001 keep their own clauses/);
+
+  save(at, set([question("Q1")], { name: "Opened" }));
+  const opened = ran(at, "path", "Opened");
+  assert.deepStrictEqual([opened.status, Boolean(opened.answer), opened.out], [0, true,`${join(at, "drafts", "Opened.json")}\n`]);
+  assert.strictEqual(ran(at, "path", "Opened", "--run").stdout, `${join(at, "runs", "questions", "Opened.json")}\n`, "ev-run reads the run's copy from what path prints");
+
+  assert.strictEqual(line("ev-questions.change-saved", { name: "Opened" }), "Saved your changes to Opened.");
+  assert.ok(JSON.parse(namesQuestion(["Robust checks", "Other name"])).questions[0].options.some((each) => each.label === "Robust checks"));
+
+  const flat = commandText().replace(/\s+/g, " ");
+  assert.match(flat, /evalation-say ev-questions\.change-saved "name=<name>"/);
+  assert.match(flat, /unless its link text names a feature/);
+  assert.match(flat, /with the next page number after it\./);
+  assert.match(flat, /letters, numbers, spaces, hyphens and underscores/);
+  assert.match(flat, /shows each claim word for word/);
+  assert.match(flat, /`path` .*answer file/);
+  assert.match(flat, /`keep-on-account` and `drop-from-account`/);
+});
+
+function stubbed(at, account) {
+  const { createServer } = require("node:http");
+  const { mkdirSync, writeFileSync } = require("node:fs");
+  const { randomBytes } = require("node:crypto");
+  mkdirSync(join(at, "keys"), { recursive: true });
+  for (const one of ["installation-key", "receiving-key"]) writeFileSync(join(at, "keys", `evalation-plugin.box.${one}`), randomBytes(32).toString("base64"), { mode: 0o600 });
+  writeFileSync(join(at, "evalation.local"), JSON.stringify({ installation: "box", secrets: {
+    installation_key: "store:evalation-plugin/box.installation-key", receiving_key: "store:evalation-plugin/box.receiving-key" } }));
+  const server = createServer((req, res) => {
+    let body = "";
+    req.on("data", (chunk) => { body += chunk; });
+    req.on("end", () => {
+      const asked = body ? JSON.parse(body) : {};
+      let answer = {};
+      if (req.url.endsWith("/sets")) answer = { sets: [...account].map(([name, text]) => ({ name, body: text })) };
+      else if (req.url.endsWith("/sets/keep")) { account.set(asked.name, asked.body); answer = { kept: asked.name }; }
+      else if (req.url.endsWith("/sets/drop")) { account.delete(asked.name); answer = { dropped: asked.name }; }
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(JSON.stringify(answer));
+    });
+  });
+  return new Promise((ready) => server.listen(0, "127.0.0.1", () => ready(server.unref())));
+}
+
+function spawned(at, port, ...args) {
+  const { spawn } = require("node:child_process");
+  return new Promise((done) => {
+    const child = spawn(process.execPath, [CLI, ...args], { env: { ...process.env, EVALATION_PLUGIN_HOME: at, EVALATION_LOCAL: join(at, "evalation.local"),
+      EVALATION_KEY_STORE: "file", EVALATION_SERVER: `http://127.0.0.1:${port}` } });
+    let stdout = "";
+    let stderr = "";
+    child.stdout.on("data", (chunk) => { stdout += chunk; });
+    child.stderr.on("data", (chunk) => { stderr += chunk; });
+    child.on("exit", (status) => done({ status, stdout, stderr }));
+  });
+}
+
+test("walk five: keeping on the account says what happened, says nothing when the set was already there, and never dumps the set", async () => {
+  const at = scratch();
+  save(at, set([question("Q1")], { name: "Broker", pack: "cyber-insurance" }));
+  const account = new Map();
+  const server = await stubbed(at, account);
+  const port = server.address().port;
+  const first = await spawned(at, port, "keep-on-account", "Broker");
+  assert.deepStrictEqual([first.status, first.stdout], [0, `${line("shared.set-kept", { set: "Broker" })}\n`], first.stderr);
+  const again = await spawned(at, port, "keep-on-account", "Broker");
+  assert.deepStrictEqual([again.status, again.stdout], [0, ""], "a set already on the account gets no kept line when it changes");
+  const dropped = await spawned(at, port, "drop-from-account", "Broker");
+  assert.deepStrictEqual([dropped.status, dropped.stdout], [0, `${line("ev-questions.off-account", { set: "Broker" })}\n`]);
+  assert.strictEqual(line("ev-questions.off-account", { set: "Broker" }), "The question set Broker is no longer kept on your account.");
+  await new Promise((closed) => server.close(closed));
+  const offline = await spawned(at, port, "keep-on-account", "Broker");
+  assert.strictEqual(offline.status, 1);
+  assert.strictEqual(offline.stdout, "");
+  assert.match(offline.stderr, /^not-kept: Broker \(/);
+  assert.doesNotMatch(offline.stderr, /[{}]|Command failed/, "the error names the cause, never the set as JSON");
+  assert.strictEqual(line("ev-questions.set-not-kept", { set: "Broker" }),
+    "The question set Broker is kept on this machine only, since your account could not be reached. To try again later, run /ev-questions and ask to keep it on your account.");
+  const flat = commandText().replace(/\s+/g, " ");
+  assert.match(flat, /Where it fails, show `evalation-say ev-questions\.set-not-kept "set=<name>"`/);
+});
+
+test("walk five: each call writes its own answer file, so two sessions never overwrite each other", () => {
+  const at = scratch();
+  const one = ran(at, "draft", "First set");
+  const two = ran(at, "draft", "Second set");
+  assert.ok(one.answer && two.answer && one.answer !== two.answer);
+  assert.strictEqual(readFileSync(one.answer, "utf8"), `${join(at, "drafts", "First set.json")}\n`);
+  assert.strictEqual(readFileSync(two.answer, "utf8"), `${join(at, "drafts", "Second set.json")}\n`);
+});
+
+test("walk five: an unreachable pack list asks whether to try again or keep the questions on their own", () => {
+  const { packQuestion } = require("../lib/questions.js");
+  const asked = JSON.parse(packQuestion(null)).questions[0];
+  assert.strictEqual(asked.question, lines()["ev-questions.packs-unreachable"].ask);
+  assert.match(asked.question, /could not be reached/);
+  const flat = commandText().replace(/\s+/g, " ");
+  assert.match(flat, /On Try again, run `evalation-questions packs` and `evalation-questions choose-pack` again/);
+  assert.strictEqual(typeof line("ev-questions.no-pack-takes"), "string");
+});
+
+test("walk five: claim labels are the claim's own first words, and two alike claims get two labels", () => {
+  const { claimsQuestion } = require("../lib/questions.js");
+  const asked = JSON.parse(claimsQuestion([{ claim: "Every step is recorded in the audit log for ever." }, { claim: "Every step is recorded in the audit log for a year." },
+    { claim: "Tests that can't be skipped." }])).questions[0].options;
+  assert.strictEqual(asked[2].label, "Tests that can't be skipped");
+  assert.notStrictEqual(asked[0].label, asked[1].label);
+  assert.ok(asked.every((one) => one.label.length <= 60));
+  assert.ok("Every step is recorded in the audit log for ever.".startsWith(asked[0].label));
+  const flat = commandText().replace(/\s+/g, " ");
+  assert.match(flat, /`\[\{"claim": "<the claim word for word>"\}\]`/);
+  assert.doesNotMatch(flat, /a few words naming it>/);
+});
+
+test("walk five: pages after the first ask which saved set to change", () => {
+  const { setsQuestion } = require("../lib/questions.js");
+  const sets = Array.from({ length: 6 }, (_, index) => ({ name: `Set ${index + 1}`, pack: "custom", where: "machine" }));
+  assert.strictEqual(JSON.parse(setsQuestion({ account: "reached", sets }, {}, 2)).questions[0].question, "Which saved set would you like to change?");
+  assert.strictEqual(JSON.parse(setsQuestion({ account: "reached", sets })).questions[0].question, "Would you like to change a saved set, or write a new one?");
+});
+
+test("walk five: a claim that split gets a line naming the claim", () => {
+  assert.strictEqual(line("ev-questions.split-claim", { asked: "Nothing ships broken", questions: "Q2 and Q5" }),
+    "The claim 'Nothing ships broken' became Q2 and Q5, since it covers more than one topic and each topic is checked on its own.");
+  assert.match(commandText().replace(/\s+/g, " "), /evalation-say ev-questions\.split-claim "asked=<the claim>"/);
+});
+
+test("walk five: a question keeps its number, and a removed question's number is never used again", () => {
+  const { grouped } = require("../lib/questions.js");
+  const at = scratch();
+  const first = set([titled("Q1", "Payments are recorded", "payment"), titled("Q2", "Refunds are recorded", "refund"), titled("Q3", "Invoices are recorded", "invoice")], { name: "Numbered" });
+  save(at, first);
+  assert.strictEqual(load(at, "Numbered").numbered_to, 3);
+  const gap = set([first.questions[0], first.questions[2]], { name: "Numbered", numbered_to: 3 });
+  assert.deepStrictEqual(grouped(at, gap).fix, [], "a gap is accepted");
+  const renumbered = set([first.questions[0], { ...first.questions[2], identifier: "Q2" }], { name: "Numbered", numbered_to: 3 });
+  assert.ok(grouped(at, renumbered).fix.includes("Q2: this question was Q3, so it keeps Q3"), grouped(at, renumbered).fix.join("\n"));
+  save(at, gap, { replace: true });
+  assert.strictEqual(load(at, "Numbered").numbered_to, 3);
+  const reused = set([...gap.questions, titled("Q2", "Credits are recorded", "credit")], { name: "Numbered", numbered_to: 3 });
+  assert.ok(grouped(at, reused).fix.includes("Q2: a removed question used this number, so give this question a number after Q3"), grouped(at, reused).fix.join("\n"));
+  assert.throws(() => saveChecked(at, reused, { replace: true, unchecked: true }), /a removed question used this number/);
+  const swapped = set([first.questions[0], titled("Q3", "Credits are recorded", "credit")], { name: "Numbered", numbered_to: 3 });
+  assert.ok(grouped(at, swapped).fix.some((one) => /^Q3: /.test(one)), "a different question in a removed question's place is caught");
+  const reworded = set([first.questions[0], { ...first.questions[2], title: "Invoices are kept" }], { name: "Numbered", numbered_to: 3 });
+  assert.deepStrictEqual(grouped(at, reworded).fix, [], "the same asked words keep their number when the title changes");
+  const flat = commandText().replace(/\s+/g, " ");
+  assert.match(flat, /never used again/);
+  assert.doesNotMatch(flat, /number the set again in order/);
+});
+
+test("walk five: the pack is taken from the set's own record when the account is out of reach", () => {
+  const { withTitle } = require("../bin/evalation-questions");
+  const { setsQuestion } = require("../lib/questions.js");
+  assert.strictEqual(withTitle(set([question("Q1")], { pack: "cyber-insurance" }), { "cyber-insurance": "Evalation Cyber Insurance Risk" }).pack_title, "Evalation Cyber Insurance Risk");
+  assert.strictEqual(withTitle(set([question("Q1")], { pack: "cyber-insurance", pack_title: "Kept title" }), {}).pack_title, "Kept title");
+  assert.strictEqual(withTitle(set([question("Q1")]), { custom: "x" }).pack_title, undefined);
+  const at = scratch();
+  save(at, set([question("Q1")], { name: "Broker", pack: "cyber-insurance", pack_title: "Evalation Cyber Insurance Risk" }));
+  const offline = listed(at, () => { throw new Error("offline"); });
+  assert.strictEqual(offline.sets[0].pack_title, "Evalation Cyber Insurance Risk");
+  assert.strictEqual(JSON.parse(setsQuestion(offline, {})).questions[0].options[1].description, line("ev-questions.change-for", { pack: "Evalation Cyber Insurance Risk" }));
+});
+
+test("walk five: the checking line shows only when a question waits, and each question is reported checked once", () => {
+  const flat = commandText().replace(/\s+/g, " ");
+  assert.match(flat, /Where its answer lists questions under `Waiting for the independent checker`, show `evalation-say ev-questions\.checking` once/);
+  assert.match(flat, /neither `To fix` nor `Waiting for the independent checker`/);
+  assert.match(flat, /only the first time for each question/);
 });

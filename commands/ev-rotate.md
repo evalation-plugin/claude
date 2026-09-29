@@ -1,36 +1,51 @@
 ---
-description: Replace the key that opens what we serve. Needs no reason and causes no downtime.
+description: Replace the key this machine uses to open what Evalation sends it, for when this machine's copy may have been exposed. Free and instant.
+allowed-tools: Bash(evalation-rotate:*), Bash(evalation-say:*), Bash(evalation-status:*)
 ---
 
-# Replace the receiving key
+# Replace this machine's key
 
-What the server serves is encrypted to this installation, so it holds a key that opens it. This
-replaces that key. It takes one command, needs no coordination with us, and causes no downtime.
+What Evalation sends is locked to this machine, and this machine holds a key that opens it. This
+replaces that key, for use when this machine's copy may have been exposed, or on whatever schedule
+the customer's own policy sets. It takes one command, needs no reason given, costs nothing and causes
+no downtime.
 
-Reach for it when a machine holding the key may have been exposed, when somebody who had access to
-it no longer should, or on whatever schedule the customer's own policy sets. It costs nothing to run
-and needs no reason given.
+**Every line you say comes from the plugin or the script.** Where this file names a line as
+`evalation-say <name>`, run exactly that and show its output exactly as printed, with nothing added.
+Never write a line of your own for the person.
+
+It changes this machine's key and nothing else. A lost or stolen machine needs switching off, and
+replacing the key on another machine does not do that. Where they ask about a lost or stolen machine,
+show `evalation-say ev-rotate.lost`.
 
 ## What to do
 
 1. **Run it.**
 
    ```
-   ${CLAUDE_PLUGIN_ROOT}/bin/evalation-rotate
+   evalation-rotate
    ```
 
-2. **Report what it says.** It prints when the previous key stopped being accepted, and whether it
-   was retired at once. Ordinarily it is, because the new key is checked against what is actually
-   served before the old one is given up.
+2. **Show what it printed.** Where the first line it prints is a sentence, show that line exactly as
+   printed and nothing more. The script prints one line for each outcome, a key replaced or not, so
+   add no step, reason or second line of your own.
 
-3. **If it fails**, the message says so plainly and the old key is already back in place. Nothing is
-   lost and nothing needs undoing: the key the server holds returns to the old one when its window
-   closes. Report the reason and stop, never running it again on the assumption it will work
-   the second time.
+## When it does not work
+
+Where the first line starts with a lowercase word and a colon, show the line named for that word
+here. Never run it with `--reason`, which adds detail for support alone.
+
+- **`no-settings`** means this machine is not signed in. Show `evalation-say ev-account.not-set-up`.
+- **`sign-in-damaged`** means this machine's sign-in is damaged. Show
+  `evalation-say ev-rotate.damaged`, except where `evalation-status` prints a `signed in as:` line, show `evalation-say ev-rotate.damaged-named "email=<email>"` with the address from that line.
+- **`sign-in-unclear`** means this machine would not let Evalation read its sign-in. Show
+  `evalation-say ev-rotate.unclear`.
+- **`no-receiving-key`** means part of this machine's sign-in cannot be read. Show
+  `evalation-say ev-rotate.no-key`.
+- **`no-key`** means the same. Show `evalation-say ev-rotate.no-key`.
 
 ## What it never does
 
-It sends the public half and keeps the private half, which never leaves the operating system's own
-store and never appears in this conversation. It is authenticated by the seat's signing key and
-not by the key being replaced, so a lost or suspect receiving key is recoverable and never the end
-of the installation.
+It sends the public half and keeps the private half, which never leaves this machine and never
+appears in this conversation. It proves itself with this machine's sign-in and not with the key
+being replaced, so a lost or suspect key is recoverable and never the end of the installation.

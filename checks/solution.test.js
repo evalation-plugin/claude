@@ -43,8 +43,8 @@ test("a solution reads one instance of each repository and never a copy or a sec
   assert.deepStrictEqual(held.repositories.map((one) => [one.folder, one.repository]),
     [["api", "acme/api"], ["infra", "acme/infra"], ["notes", "notes"]]);
   assert.deepStrictEqual(held.left_out.map((one) => [one.folder, one.why]), [
-    ["api-copy", "a copy of api with no version control"],
-    ["api-old", "a second clone of acme/api, read from api"],
+    ["api-copy", "a copy of the folder \"api\" with no version control"],
+    ["api-old", "a second clone of acme/api, and the folder \"api\" is read in its place"],
   ]);
   const files = filesOf(at).map((one) => inRepository(at, one));
   assert.ok(files.includes("api/src/auth.js") && files.includes("infra/main.tf") && files.includes("notes/runbook.md"));
@@ -57,7 +57,7 @@ test("a repository the customer leaves out is never read, and the name they give
   const held = solutionOf(at);
   assert.strictEqual(held.name, "Acme platform");
   assert.deepStrictEqual(held.repositories.map((one) => one.folder), ["api", "infra"]);
-  assert.deepStrictEqual(held.left_out.find((one) => one.folder === "notes").why, "left out by the customer");
+  assert.deepStrictEqual(held.left_out.find((one) => one.folder === "notes").why, "not chosen for this review");
   assert.ok(!filesOf(at).map((one) => inRepository(at, one)).some((one) => one.startsWith("notes/")));
 });
 
@@ -98,12 +98,48 @@ test("the evidence pack names the solution, lists every repository on its openin
   ];
   const asked = new Map(document.packs[0].entries_asked.map((one) => [`soc2/${one.identifier}`, one]));
   const html = page(document, document.answers.filter((one) => one.pack === "soc2"), asked);
-  assert.match(html, /Solution: Acme platform/);
+  assert.match(html, /What this product evidences · Product: Acme platform/);
+  assert.match(html, /together as one product, Acme platform\./);
+  assert.match(html, /We read the 2 repositories of this product together/);
+  assert.doesNotMatch(html, /solution|Solution/);
   assert.match(html, /Repositories read/);
   for (const name of ["acme/api", "acme/infra", "notes"]) assert.ok(html.includes(name), name);
   assert.match(html, /acme\/infra · main\.tf:1/);
   assert.match(html, /<ul class="repos"><li><b>acme\/api<\/b> · folder api · branch main · commit [0-9a-f]{7} · last changed [^<]+<\/li>/);
-  assert.match(html, /<li><b>api-copy<\/b> · a copy of api with no version control<\/li>/);
+  assert.match(html, /<li><b>api-copy<\/b> · a copy of the folder (?:"|&quot;)api(?:"|&quot;) with no version control<\/li>/);
+});
+
+test("a folder with no version control is read for evidence and listed apart, never called a repository", () => {
+  const { readBlock, readSlides } = require("../lib/solution.js");
+  const at = solution();
+  choose(at, { name: "Acme platform", leave: [] });
+  const named = target(at);
+  const block = readBlock(named);
+  const [repositories, others] = block.split("Other folders (not under version control)");
+  assert.ok(others, "the block has a heading of its own for folders with no version control");
+  assert.match(repositories, /these 2 repositories/);
+  assert.ok(!repositories.includes("<b>notes</b>"));
+  assert.match(others, /<b>notes<\/b>/);
+  assert.match(others, /read for evidence too, and hold no code history, so they are not repositories/);
+  const pages = readSlides(named);
+  const repositoriesRead = pages.filter((one) => one.title === "Repositories read").flatMap((one) => one.blocks);
+  assert.deepStrictEqual(repositoriesRead.map((one) => one.headline), ["acme/api", "acme/infra"]);
+  const other = pages.filter((one) => one.title === "Other folders (not under version control)").flatMap((one) => one.blocks);
+  assert.deepStrictEqual(other.map((one) => one.headline), ["notes"]);
+  assert.doesNotMatch(other[0].body, /repositor/);
+});
+
+test("folders are listed in alphabetical order of the names they are shown by, and a plain folder says what it holds", () => {
+  const at = solution();
+  const web = repository(join(at, "a-web"));
+  git(web, "remote", "add", "origin", "https://github.com/acme/web.git");
+  const held = solutionOf(at);
+  assert.deepStrictEqual(held.repositories.map((one) => one.repository), ["acme/api", "acme/infra", "acme/web", "notes"]);
+  const checked = JSON.parse(execFileSync(process.execPath, [join(__dirname, "..", "bin", "evalation-run"), "--branch", at], { encoding: "utf8" }));
+  const notes = checked.solution.repositories.find((one) => one.folder === "notes");
+  assert.strictEqual(notes.files, 1);
+  assert.strictEqual(notes.first, "runbook.md");
+  assert.strictEqual(checked.solution.repositories.find((one) => one.folder === "api").files, undefined);
 });
 
 test("git history is read in each repository of a solution, and each result names its repository", () => {
@@ -152,7 +188,45 @@ test("the run command saves the name and the repositories left out, and the bran
   const checked = cli("--branch", at);
   assert.strictEqual(checked.solution.name, "Acme platform");
   assert.strictEqual(checked.solution.repositories.find((one) => one.folder === "api").on_main, true);
+  assert.deepStrictEqual(checked.solution.repositories.map((one) => one.folder), ["api", "infra", "notes"]);
   assert.strictEqual(cli("--branch", repository()).solution, null);
+});
+
+test("the folder questions and lines come from the run command ready to ask, in the catalogue's words and alphabetical order", () => {
+  const at = solution();
+  const said = (...args) => execFileSync(process.execPath, [join(__dirname, "..", "bin", "evalation-run"), "--say", ...args], { encoding: "utf8" });
+  const asked = (...args) => JSON.parse(said(...args)).questions;
+  assert.strictEqual(said("found", at), "We found 2 subfolders under version control and one that is not. The ones you choose are read together as one product, " +
+    "for the same pack credits as one repository. A second copy of a repository is never read.\n");
+  const [folders] = asked("pick", at);
+  assert.strictEqual(folders.header, "Folders");
+  assert.ok(folders.multiSelect);
+  assert.deepStrictEqual(folders.options, [{ label: "acme/api", description: "Reads its code from the folder api." },
+    { label: "acme/infra", description: "Reads its code from the folder infra." }]);
+  assert.strictEqual(asked("evidence", at)[0].question, "Use notes as evidence for the version controlled code? No extra pack credits.");
+  mkdirSync(join(at, "docs"));
+  writeFileSync(join(at, "docs", "a.md"), "# A\n");
+  writeFileSync(join(at, "docs", "b.md"), "# B\n");
+  const [evidence] = asked("evidence", at);
+  assert.strictEqual(evidence.header, "Evidence");
+  assert.deepStrictEqual(evidence.options, [{ label: "docs", description: "Holds 2 files, such as a.md." },
+    { label: "notes", description: "Holds one file, runbook.md." }]);
+  const folder = require("node:path").basename(at);
+  assert.deepStrictEqual(asked("name", at)[0].options, [{ label: `Use the folder name, ${folder}`, description: `The reports call it ${folder}.` },
+    { label: "Use acme", description: "The reports call it acme." }]);
+  const product = join(mkdtempSync(join(tmpdir(), "evalation-named-")), "Product");
+  cpSync(at, product, { recursive: true });
+  assert.deepStrictEqual(asked("name", product)[0].options[0], { label: "Use the folder name, Product", description: "The reports call it Product." });
+  choose(at, { name: "Acme platform" });
+  const [name] = asked("name", at);
+  assert.strictEqual(name.header, "Name");
+  assert.deepStrictEqual(name.options[0], { label: "Keep the name Acme platform", description: "The reports name the product Acme platform." });
+  assert.strictEqual(said("branches", at), "");
+  git(join(at, "infra"), "checkout", "-q", "-b", "feature");
+  assert.strictEqual(said("branches", at), "acme/infra is on feature in place of main.\n");
+  execFileSync("git", ["-c", "user.email=check@example.com", "-c", "user.name=check", "commit", "-q", "--allow-empty", "-m", "old"],
+    { cwd: join(at, "infra"), stdio: "ignore", env: { ...process.env, GIT_COMMITTER_DATE: "2026-02-03T00:00:00Z" } });
+  assert.strictEqual(said("copies", at), "The newest change in acme/infra is from 3 February 2026.\n");
 });
 
 test("the solution at a glance counts every repository's commits and contributors, and how many repositories it holds", () => {
@@ -161,8 +235,7 @@ test("the solution at a glance counts every repository's commits and contributor
   const held = inventory(at);
   assert.strictEqual(held.commits, 4);
   assert.strictEqual(held.contributors, 1);
-  assert.strictEqual(held.overview.inventory.REPOSITORIES, 3);
-  assert.strictEqual(held.overview.inventory.COMMITS, 4);
+  assert.strictEqual(held.overview.inventory.REPOSITORIES, 2);  assert.strictEqual(held.overview.inventory.COMMITS, 4);
 });
 
 test("a copy or a second clone can be neither read nor cited", () => {
@@ -181,7 +254,7 @@ test("a copy or a second clone can be neither read nor cited", () => {
   assert.ok(checked(document, at).includes("api-old/src/auth.js: cited from a folder this run does not read"));
 });
 
-test("the board pack's cover names every repository, and the Detail's subtitle names the solution alone", () => {
+test("the board pack's cover names every repository and the other folders apart, and the Detail's subtitle names the product alone", () => {
   const { reviewFindings } = require("../bin/evalation-deliver");
   const { synthesise } = require("../lib/synthesise.js");
   const { deck } = require("../bin/evalation-deck");
@@ -192,13 +265,24 @@ test("the board pack's cover names every repository, and the Detail's subtitle n
     findings: [{ id: "f-1", pack: "hardening", concern: "SEC01", severity: "high", title: "Queries built from input",
       observed: "Queries are built from input.", required: "Use parameters.", at: { path: "infra/main.tf", from: 1, to: 1 } }] };
   const built = reviewFindings(document);
-  assert.strictEqual(built.subtitle, "Detailed findings by discipline · Solution: Acme platform");
+  assert.strictEqual(built.subtitle, "Detailed findings by discipline · Product: Acme platform");
+  assert.match(built.meta.intro, /^We read the 2 repositories of this product together/);
   const { file } = deck(synthesise(built), join(mkdtempSync(join(tmpdir(), "evalation-deck-")), "Pack.pdf"), { render: false });
   const slides = file.entries.filter((one) => /^ppt\/slides\/slide\d+\.xml$/.test(one.name))
     .sort((a, b) => Number(a.name.match(/\d+/)[0]) - Number(b.name.match(/\d+/)[0]))
     .map((one) => pptx.shapes(one.content.toString("utf8")).map((shape) => shape.text).join(" "));
-  assert.match(slides[0], /ACME PLATFORM · ACME\/API, ACME\/INFRA, NOTES/);
-  assert.ok(slides.some((one) => /Solution at a glance/.test(one)));
+  assert.match(slides[0], /ACME PLATFORM · ACME\/API, ACME\/INFRA · OTHER FOLDERS: NOTES/);
+  assert.ok(slides.some((one) => /Product at a glance/.test(one)));
+  assert.ok(!slides.some((one) => /Solution at a glance/.test(one)));
+});
+
+test("a cover too long for the names counts only the repositories, and the other folders apart", () => {
+  const { labelled } = require("../bin/evalation-deck");
+  const repositories = [
+    ...["web", "mobile", "billing", "search", "payments", "identity", "notifications", "analytics"].map((one) => ({ folder: one, repository: `acme/${one}`, vcs: "git" })),
+    { folder: "docs", repository: "docs", vcs: null },
+  ];
+  assert.strictEqual(labelled({ tenant: "Acme", solution: { repositories } }), "Acme · 8 repositories and one other folder");
 });
 
 test("the board pack lists every repository on slides of their own, however many there are", () => {
@@ -219,9 +303,14 @@ test("the board pack lists every repository on slides of their own, however many
     .filter((one) => /Repositories read/.test(one));
   assert.strictEqual(texts.length, 2);
   const all = texts.join(" ");
-  for (const name of ["acme/api", "acme/infra", "notes", "acme/web", "acme/mobile", "acme/billing", "acme/search"]) assert.ok(all.includes(name), name);
-  assert.match(all, /api-copy\s*Left out, so each repository is read once: a copy of api with no version control\./);
+  for (const name of ["acme/api", "acme/infra", "acme/web", "acme/mobile", "acme/billing", "acme/search"]) assert.ok(all.includes(name), name);
+  assert.ok(!all.includes("notes") && !all.includes("api-copy"), "a folder with no version control is never on a repositories slide");
   assert.match(all, /Folder api · branch main · commit [0-9a-f]{7} · last changed/);
+  const rest = file.entries.filter((one) => /^ppt\/slides\/slide\d+\.xml$/.test(one.name))
+    .map((one) => pptx.shapes(one.content.toString("utf8")).map((shape) => shape.text).join(" "))
+    .filter((one) => !/Repositories read/.test(one)).join(" ");
+  assert.match(rest, /Other folders \(not under version control\)[\s\S]*notes/);
+  assert.match(rest, /api-copy\s*Left out: a copy of the folder "api" with no version control\./);
 });
 
 test("a scanner card names the repository of each place it lists", () => {
