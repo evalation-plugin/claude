@@ -14,10 +14,14 @@ that could impersonate them ever leaves it.
 
 **Ask every question through the host's question interface**, the AskUserQuestion tool in Claude
 Code, with each answer one of its options. Never write a question and its answers as a list in text.
+Word each question so nobody has to guess what an answer does. Ask what will happen, never what to
+leave out. A tick always means yes to that option, and each answer's label says what choosing it
+does.
 
 ## What to do
 
-1. **Ask which provider.** Google and Microsoft are the two. Ask even where one was named earlier in
+1. **Ask which provider**, as "Which account will you sign in with?", with the answers "Google"
+   and "Microsoft". Ask even where one was named earlier in
    this conversation: an attempt that already failed is a reason to ask again and never a reason to
    assume, because the provider is the most likely thing to have been wrong. Where one has already
    failed, say which and what it said, and offer the other first.

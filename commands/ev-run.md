@@ -57,6 +57,9 @@ something to report.
 
 **Ask every question through the host's question interface**, the AskUserQuestion tool in Claude
 Code, with each answer one of its options. Never write a question and its answers as a list in text.
+Word each question so nobody has to guess what an answer does. Ask what will happen, such as which
+packs to read, and never what to leave out. A tick always means yes to that option. Say in the
+question what a tick does and what it costs, and let each answer's label say what choosing it does.
 
 ## What to do
 
@@ -76,11 +79,12 @@ Code, with each answer one of its options. Never write a question and its answer
      that differs, its branch where `on_main` is false, and the date of its newest commit where
      `newest` is more than 14 days ago. Then name each folder in `solution.left_out` with its `why`,
      and say that a copy or a second clone of a repository is never read.
-   - Ask which repositories to read. With four or fewer, one question allowing several answers, each
-     repository an option. With more, one question: read all of them, or leave some out, and on
-     leave some out, ask which by folder.
-   - Ask what to call the solution in the reports, with the folder's name as one answer, and let
-     the person type another.
+   - Ask "Which repositories should this run read together? Tick each one to read." With four or
+     fewer, one question allowing several answers, each repository an option. With more, ask "Read
+     all <N> repositories together?" with the answers "Read all <N>" and "Choose which to read", and
+     on the second, ask the person to name the folders to read.
+   - Ask "What should the reports call this solution?", with "Use the folder name, <folder>" as one
+     answer, and let the person type another.
    - Save both, naming each folder to leave out:
 
      ```
@@ -88,9 +92,11 @@ Code, with each answer one of its options. Never write a question and its answer
      ```
 
    - Where any repository read has `on_main` false, say in one sentence which repositories are on
-     which branch in place of their main, and ask whether to go on or stop until they are back on
-     main. Where any has `newest` more than 14 days ago, say which, and ask whether to stop so they
-     can pull the latest changes or go on as they stand. Never switch a branch or pull yourself.
+     which branch in place of their main, and ask "Read these branches as they are?" with the
+     answers "Read them as they are" and "Stop, so I can switch them to main". Where any has
+     `newest` more than 14 days ago, say which, and ask "Read these clones as they are?" with the
+     answers "Read them as they are" and "Stop, so I can pull the latest changes". Never switch a
+     branch or pull yourself.
 
    Pack credits are the same whether one repository or many are read. The folder stays the target
    from here on, and the branch paragraphs below are for a single repository.
@@ -100,32 +106,35 @@ Code, with each answer one of its options. Never write a question and its answer
    A run assesses the repository's main branch, and
    the tree on disk is whatever is checked out. Where `on_main` is false, say in one sentence that
    this run is about to read `branch` in place of `main`, naming both, or a commit on no branch
-   where `branch` is null. Offer two answers: go on and read it, or stop and wait until the branch
-   is merged or removed. On stop, end the run there. Nothing was read and nothing was counted. Never
+   where `branch` is null. Ask "Read this branch as it is?" with the answers "Read it as it is"
+   and "Stop, so I can switch to main". On stop, end the run there. Nothing was read and nothing was counted. Never
    switch the branch yourself, since that changes the repository. When the person comes back to the
    run, in this conversation or a new one, run this check again before anything else and warn again
    if the tree is still off main. Where `on_main` is true or null, say nothing about branches: null
    means the target is no git checkout, or names no main to compare with.
 
    Where `newest`, the date of the newest commit on disk, is more than 14 days ago, say in one
-   sentence that the clone's newest commit is from that date, and ask whether to stop so they can
-   pull the latest changes, or go on and read it as it stands. A clone nobody pulled reads as a
+   sentence that the clone's newest commit is from that date, and ask "Read this clone as it is?"
+   with the answers "Read it as it is" and "Stop, so I can pull the latest changes". A clone nobody pulled reads as a
    project that stopped, which the history measures would report. Never pull yourself.
 
    Then ask which packs to read, naming each pack by its title from
    `${CLAUDE_PLUGIN_ROOT}/bin/evalation-packs titles` and never by its handle, in the alphabetical
-   order `titles` prints them in. The first question has one answer, from these options:
-   - "Run my usual packs", naming the recorded selection from
+   order `titles` prints them in. The first question is "Which packs should this run read?", with
+   one answer, from these options:
+   - "Run my usual packs", its description naming each pack in the recorded selection from
      `${CLAUDE_PLUGIN_ROOT}/bin/evalation-packs show`, left out where nothing is recorded
-   - "Choose from a list of available packs"
+   - "Choose which packs to run"
    - "Add my own questions": a custom pack of their questions alone, which costs no pack credits, or
      extra questions added to a pack, charged as that pack is
 
-   The follow-up is multi-select, so the person ticks as many packs as they want, and no option ever
-   combines packs. On the usual packs, it lists the recorded packs so they can drop any. On the list,
-   it lists every pack `titles` prints. Put four packs to a question, headed by their place in the
-   list ("Packs 1-4"), at most four questions at once, and ask again for the rest. The packs ticked
-   are the selection.
+   On "Run my usual packs", those packs are the selection and nothing more is asked about them: the
+   person has already said which to read. On "Choose which packs to run", ask "Which packs should
+   this run read? Tick each pack to read. Each one uses a pack credit, and you have <N>.", allowing
+   several answers, with every pack `titles` prints as an option and no option combining packs. Put
+   four packs to a question, headed by their place in the list ("Packs 1-4"), at most four questions
+   at once, and ask again for the rest. The packs ticked are the selection. Never list packs for the
+   person to untick or drop.
 
    A consultant assesses one client's tree against one set of obligations and the next against
    another, so the packs are a choice per run and never assumed. The packs the person ticks are what
@@ -192,8 +201,10 @@ Code, with each answer one of its options. Never write a question and its answer
    Where none is missing, say that all of them are installed, in those words and no more, and go on
    to step 4.
 
-   `show` says which are missing and the command that would fetch each. Ask once, naming every
-   missing tool, what each one looks for, and that it is their machine and their choice. Say what
+   `show` says which are missing and the command that would fetch each. Ask once, "Which scanners
+   should be installed on this machine? Tick each one to install.", allowing several answers, each
+   missing tool an option whose description says what it looks for, and say that it is their machine
+   and their choice. A tool left unticked is not installed. Say what
    goes in the report either way: a tool they install checks its area, and a tool they decline leaves
    that area read by you and by nothing else, which the report states where those findings appear.
 
@@ -375,7 +386,8 @@ Code, with each answer one of its options. Never write a question and its answer
 8. **Ask whether they want the findings verified, and wait for the answer.** Ask it in these words:
    "Would you like this session to independently verify the findings of the Evalation review packs?
    It uses the model this session runs on and spends no pack credits. Verification status will be
-   recorded in the reports generated." Never call it a second reading or a rerun: that reads as the
+   recorded in the reports generated." The answers are "Yes, verify the findings" and "No, leave
+   them unverified". Never call it a second reading or a rerun: that reads as the
    packs being run again and charged again. Then say in a sentence how it works: every claim the
    reading made, answers and findings alike, is handed with the lines it cites to a reader that
    starts fresh, which checks it against the repository and says whether it holds, so a confirmed

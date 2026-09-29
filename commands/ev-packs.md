@@ -14,6 +14,9 @@ Four packs is four credits every time that selection is run.
 
 **Ask every question through the host's question interface**, the AskUserQuestion tool in Claude
 Code, with each answer one of its options. Never write a question and its answers as a list in text.
+Word each question so nobody has to guess what an answer does. Ask what will happen, such as which
+packs to keep, and never what to leave out. A tick always means yes to that option. Say in the
+question what a tick does and what it costs, and let each answer's label say what choosing it does.
 
 ## What to do
 
@@ -23,8 +26,9 @@ Code, with each answer one of its options. Never write a question and its answer
    ${CLAUDE_PLUGIN_ROOT}/bin/evalation-packs show
    ```
 
-2. **Ask before changing it.** If a selection already stands, ask whether to keep it or choose
-   again, and stop there if they keep it. A selection silently replaced is one nobody agreed to, and
+2. **Ask before changing it.** If a selection already stands, ask "Keep your usual packs?", naming
+   them, with the answers "Keep these packs" and "Choose packs again", and stop there if they keep
+   it. A selection silently replaced is one nobody agreed to, and
    what was assessed against is evidence and not a preference.
 
 3. **Fetch the catalogue.**
@@ -37,8 +41,8 @@ Code, with each answer one of its options. Never write a question and its answer
    means the server could not be reached: say so plainly and stop. Never invent a catalogue, and
    never offer a pack the fetch did not return.
 
-4. **Ask which packs they want**, offering
-   exactly what the catalogue returned, in the alphabetical order it returned them. Where the
+4. **Ask which packs they want**, in the words "Which packs should your usual runs read? Tick each
+   pack to include.", allowing several answers, offering exactly what the catalogue returned, in the alphabetical order it returned them. Where the
    interface holds fewer options than there are packs, split them across questions in that same
    order. Name each pack by its `title` exactly as served, so SOC 2
    reads "SOC 2 Trust Services Criteria" and never `soc2`. The handle is what `set` takes and never

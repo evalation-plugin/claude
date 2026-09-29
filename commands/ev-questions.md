@@ -17,14 +17,18 @@ run adds over asking directly, so never skip the list.
 
 **Ask every question through the host's question interface**, the AskUserQuestion tool in Claude
 Code, with each answer one of its options. Never write a question and its answers as a list in text.
+Word each question so nobody has to guess what an answer does. Ask what will happen, such as which
+questions to keep, and never what to leave out. A tick always means yes to that option, and each
+answer's label says what choosing it does.
 
 ## 1. Where the questions go
 
-Ask which of these, in one question:
+Ask "Where should your questions go?", with one answer, from these:
 
-- **A custom pack of their own questions only.** It costs no pack credits.
-- **Extra questions for a pack they are running**, named by its title from
-  `${CLAUDE_PLUGIN_ROOT}/bin/evalation-packs titles`. They are charged as that pack is.
+- **"A pack of only my questions"**, whose description says it costs no pack credits.
+- **"Add them to a pack I'm running"**, then which pack by its title from
+  `${CLAUDE_PLUGIN_ROOT}/bin/evalation-packs titles`, whose description says they are charged as that
+  pack is.
 
 Then offer the sets kept on this machine, from `${CLAUDE_PLUGIN_ROOT}/bin/evalation-questions list`,
 to reuse as they are or to start from.
@@ -64,7 +68,8 @@ Write in plain English with New Zealand spelling, no dashes, no semicolons and n
 
 ## 4. Approve, check and keep
 
-Show each drafted question with its list and let the person approve, edit or drop it. Write the
+Show each drafted question with its list and ask "Keep this question?", with the answers "Keep
+it", "Change it" and "Remove it". Write the
 approved set as one JSON file, `{"name": "<a name they choose>", "pack": "custom" or the pack's
 handle, "questions": [...]}`, and run:
 
