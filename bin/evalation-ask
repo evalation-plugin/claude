@@ -174,7 +174,7 @@ fetch(`${base}${path}`, {
       } catch {
         // Not JSON. The body stands as the reason, which is better than replacing it with nothing.
       }
-      if (answer.status === 401 || answer.status === 403) {
+      if ((answer.status === 401 || answer.status === 403) && /seconds from now|outside the window/.test(said)) {
         said += ` | if the clock on this machine is more than ${WINDOW_SECONDS} seconds out, that alone refuses every ask`;
       }
       fail(`refused ${answer.status}: ${said}`);

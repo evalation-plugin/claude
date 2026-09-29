@@ -1,15 +1,17 @@
 ---
-description: Replace the key that opens what we serve. Needs no reason and causes no downtime.
+description: Replace the key this machine uses to open what Evalation sends it, for when this machine's copy may have been exposed. Free and instant.
 ---
 
-# Replace the receiving key
+# Replace this machine's key
 
-What the server serves is encrypted to this installation, so it holds a key that opens it. This
-replaces that key. It takes one command, needs no coordination with us, and causes no downtime.
+What Evalation sends is locked to this machine, and this machine holds a key that opens it. This
+replaces that key, for use when this machine's copy may have been exposed, or on whatever schedule
+the customer's own policy sets. It takes one command, needs no reason given, costs nothing and causes
+no downtime.
 
-Reach for it when a machine holding the key may have been exposed, when somebody who had access to
-it no longer should, or on whatever schedule the customer's own policy sets. It costs nothing to run
-and needs no reason given.
+It changes this machine's key and nothing else. A lost or stolen machine needs switching off, and
+replacing the key on another machine does not do that. Where they ask about a lost or stolen machine,
+say "Email support@evalation.ai and we will switch that machine off."
 
 ## What to do
 
@@ -19,18 +21,50 @@ and needs no reason given.
    ${CLAUDE_PLUGIN_ROOT}/bin/evalation-rotate
    ```
 
-2. **Report what it says.** It prints when the previous key stopped being accepted, and whether it
-   was retired at once. Ordinarily it is, because the new key is checked against what is actually
-   served before the old one is given up.
+2. **Say the one line it prints**: "Replaced this machine's key. The old key no longer works."
+   Nothing else follows, so end there.
 
-3. **If it fails**, the message says so plainly and the old key is already back in place. Nothing is
-   lost and nothing needs undoing: the key the server holds returns to the old one when its window
-   closes. Report the reason and stop, never running it again on the assumption it will work
-   the second time.
+## When it does not work
+
+Its first line is the one to say. The word on the line after it picks the one next step to add.
+Never run it with `--reason`, which adds detail for support alone.
+
+- **"The key was not replaced and the old one still works."** Add the step for the word:
+  - `clock`: "Set this machine's clock to the right time, then run /ev-rotate again."
+  - `unreachable`: "Check this machine is online, then run /ev-rotate again."
+  - `key-store-refused`: "Check this machine's password store is unlocked, then run /ev-rotate
+    again."
+  - `refused`: "Evalation no longer accepts this machine. Contact support@evalation.ai and we will
+    sort it out."
+  - `ended`: "This machine's access to Evalation has ended. To renew it, email
+    support@evalation.ai."
+  - anything else: "Contact support@evalation.ai and we will fix it."
+- **"The key change did not finish."** Both keys are kept on this machine, and running again
+  finishes the change without making another. Never say the old key still works. Add the step for
+  the word:
+  - `clock`: "Set this machine's clock to the right time, then run /ev-rotate again to finish it."
+  - `unreachable`: "Check this machine is online, then run /ev-rotate again to finish it."
+  - `refused`: "Evalation no longer accepts this machine. Contact support@evalation.ai and we will
+    sort it out."
+  - `ended`: "This machine's access to Evalation has ended. To renew it, email
+    support@evalation.ai."
+  - anything else: "Run /ev-rotate again to finish it." If it fails a second time, say "Contact
+    support@evalation.ai and we will finish it." and stop.
+- **`no-settings`** means this machine is not signed in. Say "This machine is not signed in to
+  Evalation yet. Run /ev-activate first."
+- **`sign-in-damaged`** means this machine's sign-in is damaged. Say "This machine's Evalation
+  sign-in is damaged, so the key was not replaced. Run /ev-activate to sign in again."
+- **`sign-in-unclear`** means this machine would not let Evalation read its sign-in. Say
+  "Evalation could not read this machine's sign-in, so the key was not replaced. Unlock this
+  machine's password store, then run /ev-rotate again. If it still fails, contact
+  support@evalation.ai."
+- **`no-receiving-key`** or **`no-key`** means part of this machine's sign-in cannot be read. Say
+  "Part of this machine's Evalation sign-in cannot be read, so the key was not replaced. Contact
+  support@evalation.ai and we will fix it."
 
 ## What it never does
 
-It sends the public half and keeps the private half, which never leaves the operating system's own
-store and never appears in this conversation. It is authenticated by the seat's signing key and
-not by the key being replaced, so a lost or suspect receiving key is recoverable and never the end
-of the installation.
+It sends the public half and keeps the private half, which never leaves this machine and never
+appears in this conversation. It proves itself with this machine's sign-in and not
+with the key being replaced, so a lost or suspect key is recoverable and never the end of the
+installation.

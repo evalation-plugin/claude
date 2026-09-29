@@ -306,6 +306,7 @@ function checked(document, where) {
   }
 
   const scanHeld = newestFor(where)?.document ?? null;
+  const scanSince = document.follows_scan ?? document.at;
   const lists = new Map();
   const settledBy = new Map();
   for (const pack of document.packs ?? []) {
@@ -357,7 +358,7 @@ function checked(document, where) {
 
     const list = lists.get(named);
     if (list) {
-      said.push(...followed(named, answer, list, where, scanHeld, document.at));
+      said.push(...followed(named, answer, list, where, scanHeld, scanSince));
     } else if (evidence.length === 0 && !searched) {
       // Something a person can check, whatever the status. An absence has no lines to cite, so it
       // says what was looked for and where, which a person can look for again. An answer with
@@ -408,7 +409,7 @@ function checked(document, where) {
     }
     if (!concerns.has(named)) said.push(`${named}: accounted for and never selected`);
     const list = lists.get(named);
-    if (list) itemsOf(named, row.looked_for, list, where, scanHeld, document.at, said);
+    if (list) itemsOf(named, row.looked_for, list, where, scanHeld, scanSince, said);
   }
   for (const one of [...concerns].sort()) {
     if (!accountedFor.has(one)) {
@@ -663,6 +664,7 @@ function skeleton(served, readBy) {
   return {
     run: served.run,
     at: served.at,
+    ...(served.scan?.follows ? { follows_scan: served.scan.follows } : {}),
     revision: served.revision,
     target: served.target,
     read_by: readBy,

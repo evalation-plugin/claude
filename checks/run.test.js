@@ -12,7 +12,7 @@ const { mkdtempSync, readFileSync, writeFileSync } = require("node:fs");
 const { tmpdir } = require("node:os");
 const { join } = require("node:path");
 const { home, repository } = require("./fixture.js");
-const { served } = require("../bin/evalation-run");
+const { scanFor, served } = require("../bin/evalation-run");
 const { grid, stamp } = require("../lib/questions.js");
 
 const BIN = join(__dirname, "..", "bin");
@@ -77,9 +77,9 @@ function read(tree, second) {
   stamp(home, "question-checker");
   sh("evalation-questions", ["verdict", setFile], passed.join("\n"));
   sh("evalation-questions", ["check", setFile]);
-  const run = served({ run: second ? "run-second" : "run-first", packs, revision: "1.82", skill: "Read the repository.", remaining: 9, rubrics: [rubric] }, [questions]);
+  sh("evalation-scan", ["run", tree, "--phases", scanFor(packs).phases.join(",")]);
+  const run = served({ run: second ? "run-second" : "run-first", packs, revision: "1.82", skill: "Read the repository.", remaining: 9, rubrics: [rubric] }, [questions], tree);
   writeFileSync(runFile, JSON.stringify({ ...run, target: { repository: "acme/app", path: tree } }));
-  sh("evalation-scan", ["run", tree, "--phases", run.scan.phases.join(",")]);
   assert.match(sh("evalation-findings", ["methodology", runFile]), /Read the repository\./);
   const groups = JSON.parse(sh("evalation-findings", ["groups", runFile]));
   const parts = groups.map((one) => {

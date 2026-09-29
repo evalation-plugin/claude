@@ -4,6 +4,7 @@ const test = require("node:test");
 const assert = require("node:assert");
 const { readFileSync, readdirSync } = require("node:fs");
 const { join } = require("node:path");
+require("./fixture.js");
 
 const COMMANDS = join(__dirname, "..", "commands");
 const register = () => JSON.parse(readFileSync(join(__dirname, "..", "lib", "asked.json"), "utf8"));
@@ -18,9 +19,19 @@ test("every question the register holds is asked, word for word, by its command"
 test("every quoted question a command asks is in the register", () => {
   const held = new Set(register().map((one) => `${one.command}|${one.asks}`));
   const unheld = commands().flatMap((file) => paragraphsOf(file).flatMap((para) =>
-    [...para.matchAll(/"([^"]{8,240}?\?)"/g)].map((found) => `${file.slice(0, -3)}|${found[1]}`)))
+    [...para.matchAll(/"([^"]{8,400})"/g)].map((found) => found[1]).filter((quote) => /\?$/.test(quote) || /^[^.!?]*\?\s/.test(quote))
+      .map((quote) => `${file.slice(0, -3)}|${quote}`)))
     .filter((one) => !held.has(one));
   assert.deepStrictEqual(unheld, []);
+});
+
+test("every line a command quotes for the plugin to say or copy passes the plugin's own wording rules", () => {
+  const { held } = require("../lib/prose.js");
+  const NAMED_AS_BANNED = new Set(["X rather than Y", "which is why"]);
+  const broken = commands().flatMap((file) => [...readFileSync(join(COMMANDS, file), "utf8").replace(/```[\s\S]*?```/g, "").replace(/\s+/g, " ")
+    .matchAll(/"([^"`$]{12,300})"/g)].map((found) => found[1])
+    .filter((line) => !NAMED_AS_BANNED.has(line) && held(line).length > 0).map((line) => `${file}: ${line}`));
+  assert.deepStrictEqual(broken, []);
 });
 
 test("a question asked through the question interface never shares its paragraph with plain text, and a plain one says so", () => {

@@ -30,7 +30,7 @@ const { join, resolve } = require("node:path");
 
 const { pluginHome } = require("../lib/home.js");
 const { changes, changesSection, earlierFor } = require("../lib/changes.js");
-const { print } = require("../lib/print.js");
+const { print, unwritten } = require("../lib/print.js");
 const { readingOf } = require("../lib/prose.js");
 const { cardOf, compared, compatible, named: phaseNamed, upgradeTo } = require("../lib/scans.js");
 const { consequences, remedies } = require("../lib/weaknesses.js");
@@ -581,23 +581,30 @@ function main() {
   const folder = into ? resolve(into) : reportsFolder(document);
   mkdirSync(folder, { recursive: true });
   keepFindings(resolve(source), folder);
-  const written = [...new Set(answers.map((one) => one.pack))].map((pack) => {
-    const own = answers.filter((one) => one.pack === pack);
-    const alone = { ...document, packs: (document.packs ?? []).filter((one) => one.pack === pack) };
-    const out = join(folder, `${reviewName(document, pack)} Evidence Pack.pdf`);
-    const done = print(page(alone, own, asked), `${out.replace(/\.pdf$/, "")}.html`, out, { run: document.run },
-      readingOf(document));
-    return {
-      pack,
-      written: done.printed ? out : done.page,
-      printed: done.printed,
-      signed: done.signed === true,
-      ...(done.unsigned ? { unsigned: `marked "Signature missing, document cannot be verified": ${done.unsigned}` } : {}),
-      entries: own.length,
-      cited: citing(own),
-      by_status: counted(own),
-    };
-  });
+  const printedSoFar = [];
+  let written;
+  try {
+    written = [...new Set(answers.map((one) => one.pack))].map((pack) => {
+      const own = answers.filter((one) => one.pack === pack);
+      const alone = { ...document, packs: (document.packs ?? []).filter((one) => one.pack === pack) };
+      const out = join(folder, `${reviewName(document, pack)} Evidence Pack.pdf`);
+      const done = print(page(alone, own, asked), `${out.replace(/\.pdf$/, "")}.html`, out, { run: document.run },
+        readingOf(document));
+      printedSoFar.push(done.printed ? out : done.page);
+      return {
+        pack,
+        written: done.printed ? out : done.page,
+        printed: done.printed,
+        signed: done.signed === true,
+        ...(done.unsigned ? { unsigned: done.unsigned } : {}),
+        entries: own.length,
+        cited: citing(own),
+        by_status: counted(own),
+      };
+    });
+  } catch (thrown) {
+    fail(unwritten(thrown, printedSoFar));
+  }
 
   process.stdout.write(`${JSON.stringify({ folder, packs: written }, null, 2)}\n`);
 }

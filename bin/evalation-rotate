@@ -1,83 +1,81 @@
 #!/usr/bin/env node
-// evalation-rotate - replaces this installation's receiving key.
-//
-// A key that cannot be changed is one nobody may ever suspect, so this is a thing the customer does
-// rather than a support request. One command, no coordination, no downtime.
-//
-// The order matters more than the cryptography here, because the failure this must never have is a
-// customer left holding a key the server does not know or a key the server knows and they cannot
-// use. So the old private half is kept until the new one has been shown to open something real, and
-// the server is told to retire the old one only after that.
-//
-//   generate, keeping the private half out of sight
-//   send the public half, unconfirmed, so the server keeps the old key readable for a window
-//   put the new private half in the store, keeping the old beside it
-//   fetch something and open it, which is the only proof that any of this worked
-//   tell the server it may retire the old key, and drop our copy of it
-//
-// Interrupted anywhere before the fourth step, the old key still works and the window closes on its
-// own. Interrupted after it, the new key works and the old one expires unused.
 "use strict";
 
-const { generateKeyPairSync } = require("node:crypto");
+const { createPrivateKey, createPublicKey, generateKeyPairSync } = require("node:crypto");
 const { readFileSync } = require("node:fs");
 const { pluginHome } = require("../lib/home.js");
 const { join } = require("node:path");
 const { runScript } = require("../lib/script.js");
+const { why } = require("./evalation-status");
 
 const store = require("./evalation-store");
 
-/**
- * The names this installation's receiving keys are kept under, read from the settings rather than
- * rebuilt here.
- *
- * Rebuilt from a constant they are the same names for every installation on the machine, and a
- * rotation would then replace another installation's key with this one's. The settings already
- * record where this installation's key is, so reading them is both correct and one fewer place that
- * has to agree. An older installation whose settings name the shared slot keeps rotating exactly
- * where it always did.
- */
-function named() {
-  const settings = process.env.EVALATION_LOCAL || join(pluginHome(), "evalation.local");
-  let held;
-  try {
-    held = JSON.parse(readFileSync(settings, "utf8"));
-  } catch (thrown) {
-    fail(`no-settings: ${settings} could not be read, so there is no way to tell which installation this is (${thrown.message})`);
-  }
-  const reference = store.referenced(held?.secrets?.receiving_key);
-  if (!reference) {
-    fail(
-      `no-receiving-key: ${settings} names no receiving key, so there is nothing to rotate. ` +
-        "Activate this installation first.",
-    );
-  }
-  return { service: reference.service, current: reference.account, previous: `${reference.account}-previous` };
-}
-
-const { service: SERVICE, current: CURRENT, previous: PREVIOUS } = named();
+const NOT_REPLACED = "The key was not replaced and the old one still works.";
+const NOT_FINISHED = "The key change did not finish.";
+const REPLACED = "Replaced this machine's key. The old key no longer works.\n";
+const PKCS8_X25519 = Buffer.from("302e020100300506032b656e04220420", "hex");
+const DAMAGED = "sign-in-damaged: this machine's Evalation sign-in could not be read, so nothing was changed";
 
 function fail(reason) {
   process.stderr.write(reason + "\n");
   process.exit(1);
 }
 
-function ask(path, body) {
-  try {
-    return JSON.parse(runScript("evalation-ask", [path, JSON.stringify(body)], {
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "pipe"],
-    }));
-  } catch (thrown) {
-    fail(`the server refused: ${(thrown.stderr || thrown.message).toString().trim()}`);
+function stop(first, kind, detail) {
+  fail([first, kind, ...(process.argv.includes("--reason") ? [detail] : [])].join("\n"));
+}
+
+function reasonOf(thrown) {
+  return (thrown.stderr || thrown.message).toString().trim();
+}
+
+function stopped(first, thrown) {
+  const detail = reasonOf(thrown);
+  stop(first, why(detail), detail);
+}
+
+function signsIn(held) {
+  const reference = store.referenced(held?.secrets?.installation_key);
+  let key = null;
+  if (typeof held?.installation === "string" && reference) {
+    try {
+      key = store.held(reference.service, reference.account);
+    } catch (thrown) {
+      if (!store.absent(thrown)) fail("sign-in-unclear: this machine's Evalation sign-in could not be read just now, so nothing was changed");
+    }
   }
+  if (!key || Buffer.from(key, "base64").length !== 32) fail(DAMAGED);
 }
 
-function keep(account, value) {
-  store.keep(SERVICE, account, value);
+function named() {
+  const settings = process.env.EVALATION_LOCAL || join(pluginHome(), "evalation.local");
+  let text;
+  try {
+    text = readFileSync(settings, "utf8");
+  } catch {
+    fail("no-settings: this machine is not signed in to Evalation, so there is nothing to replace");
+  }
+  let held;
+  try {
+    held = JSON.parse(text);
+  } catch {
+    fail(DAMAGED);
+  }
+  signsIn(held);
+  const reference = store.referenced(held?.secrets?.receiving_key);
+  if (!reference) fail("no-receiving-key: this machine's sign-in names no key to replace, so nothing was changed");
+  return { service: reference.service, current: reference.account, previous: `${reference.account}-previous` };
 }
 
-/** Null rather than a throw, because the caller is asking whether one is there at all. */
+const { service: SERVICE, current: CURRENT, previous: PREVIOUS } = named();
+
+function ask(path, body) {
+  return JSON.parse(runScript("evalation-ask", [path, JSON.stringify(body)], {
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "pipe"],
+  }));
+}
+
 function held(account) {
   try {
     return store.held(SERVICE, account);
@@ -86,48 +84,91 @@ function held(account) {
   }
 }
 
+function forget(account) {
+  try {
+    store.forget(SERVICE, account);
+  } catch {
+    return;
+  }
+}
+
+function publicOf(raw) {
+  const key = createPrivateKey({ key: Buffer.concat([PKCS8_X25519, Buffer.from(raw, "base64")]), format: "der", type: "pkcs8" });
+  const pub = createPublicKey(key).export({ type: "spki", format: "der" });
+  return [...pub.subarray(pub.length - 32)];
+}
+
+function restored(standing) {
+  try {
+    store.keep(SERVICE, CURRENT, standing);
+  } catch {
+    return false;
+  }
+  forget(PREVIOUS);
+  return true;
+}
+
+function finished(sent) {
+  try {
+    const packs = ask("/packs", {});
+    if (!Array.isArray(packs.packs)) throw new Error("what came back is not a catalogue");
+    ask("/rotate", { receiving_key: sent, confirmed: true });
+  } catch (thrown) {
+    stopped(NOT_FINISHED, thrown);
+  }
+  forget(PREVIOUS);
+  process.stdout.write(REPLACED);
+  process.exit(0);
+}
+
+let current;
+try {
+  current = store.held(SERVICE, CURRENT);
+  if (!current) throw new Error("it is empty");
+} catch {
+  fail("no-key: this machine's current key could not be read, so nothing was changed");
+}
+
+const older = held(PREVIOUS);
+if (older === current) forget(PREVIOUS);
+else if (older) {
+  let sent = null;
+  try {
+    sent = publicOf(current);
+  } catch {
+    if (!restored(older)) stop(NOT_FINISHED, "key-store-refused", "the kept key is not a key and the one before it could not be put back");
+    current = older;
+  }
+  if (sent) {
+    try {
+      ask("/rotate", { receiving_key: sent, confirmed: false });
+    } catch (thrown) {
+      stopped(NOT_FINISHED, thrown);
+    }
+    finished(sent);
+  }
+}
+
 const { privateKey, publicKey } = generateKeyPairSync("x25519");
 const priv = privateKey.export({ type: "pkcs8", format: "der" });
 const pub = publicKey.export({ type: "spki", format: "der" });
-// The raw thirty-two bytes are the tail of each encoding, and raw is what a key is.
 const fresh = priv.subarray(priv.length - 32).toString("base64");
 const offered = [...pub.subarray(pub.length - 32)];
 
-const standing = held(CURRENT);
-
-process.stderr.write("offering the new key\n");
-const answered = ask("/rotate", { receiving_key: offered, confirmed: false });
-
-// Kept before the swap, so an interruption between the two leaves something to go back to.
-if (standing) keep(PREVIOUS, standing);
-keep(CURRENT, fresh);
-
-process.stderr.write("checking the new key opens what is served\n");
 try {
-  const packs = ask("/packs", {});
-  if (!Array.isArray(packs.packs)) throw new Error("what came back is not a catalogue");
-  process.stderr.write(`opened ${packs.packs.length} pack(s) at revision ${packs.revision}\n`);
+  store.keep(SERVICE, PREVIOUS, current);
+  store.keep(SERVICE, CURRENT, fresh);
 } catch (thrown) {
-  // Put back exactly what was there. The server still accepts the old key for its window, so this
-  // is a recovery rather than an outage.
-  if (standing) keep(CURRENT, standing);
-  fail(
-    `the new key did not open what is served, so the old one is back in place: ${thrown.message}\n` +
-      "nothing was lost, and the key the server holds returns to the old one when its window closes",
-  );
+  restored(current);
+  stop(NOT_REPLACED, "key-store-refused", thrown.message);
 }
 
-ask("/rotate", { receiving_key: offered, confirmed: true });
 try {
-  store.forget(SERVICE, PREVIOUS);
-} catch {
-  // Nothing to drop, which is the ordinary case on a first rotation.
+  ask("/rotate", { receiving_key: offered, confirmed: false });
+} catch (thrown) {
+  const detail = reasonOf(thrown);
+  if (/^refused 4\d\d:/.test(detail) && restored(current)) stop(NOT_REPLACED, why(detail), detail);
+  stop(NOT_FINISHED, why(detail), detail);
 }
 
-process.stdout.write(
-  JSON.stringify({
-    rotated: true,
-    previous_accepted_until: answered.previous_until ?? null,
-    previous_retired: true,
-  }) + "\n",
-);
+finished(offered);

@@ -235,7 +235,11 @@ function forget(service, account) {
   chosen().forget(service, account);
 }
 
-module.exports = { keep, keepUntaken, held, forget, referenced, chosen, file, stores };
+function absent(thrown) {
+  return thrown?.status === 44 || /^nothing at /.test(thrown?.message ?? "");
+}
+
+module.exports = { absent, keep, keepUntaken, held, forget, referenced, chosen, file, stores };
 
 // Run directly, it says what this machine would use and proves it can be written to and read back.
 // That is what activation calls before it asks the server for anything, so a machine with nowhere to

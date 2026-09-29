@@ -28,6 +28,9 @@ to happen cannot agree to it. Lead with what they get, not with how it works.
 **One step at a time.** Do the next thing and say what follows. Never run the whole sequence silently
 and announce it afterwards.
 
+**A count of one is singular.** Wherever a number of pack credits below is 1, write "one pack
+credit", never "1 pack credits".
+
 **Ask every question through the host's question interface**, the AskUserQuestion tool in Claude
 Code, with each answer one of its options. Never write a question and its answers as a list in text.
 Word each question so nobody has to guess what an answer does. Ask what will happen, never what to
@@ -47,35 +50,38 @@ does.
    ${CLAUDE_PLUGIN_ROOT}/bin/evalation-status
    ```
 
-   It always succeeds and names a state on its first line. Read that line and not the prose under
-   it, which may be reworded, and report none of these as an error:
+   It always succeeds and names a state on its first line. Report none of these as an error:
 
-   - **`state: not-set-up`**: go to step 3 without saying anything about it.
+   - **`state: not-set-up`**: go to step 3 without saying anything about it, also where a
+     `sign-in: damaged` line follows, since signing in again replaces a damaged sign-in.
    - **`state: live`** means set up and paid up. Go to step 4.
-   - **`state: not-live`** means set up, but the server will not serve it. Report the reason in their
-     words. A clock more than five minutes out refuses every ask on its own, so where the reason
-     points at the proof, tell them to check the machine's clock. Then stop.
-   - **`state: unreachable`** is our end or their network. Say so plainly and stop, and do not tell
-     them to try again in a loop.
+   - **`state: not-live`** means set up, but the server refuses it. Say the line for its `reason:`
+     line and stop:
+     - `reason: clock`: "This machine's clock is wrong, so Evalation refused it. Set the clock to
+       the right time, then run /ev-start again."
+     - `reason: refused`: "Evalation no longer accepts this machine. Contact support@evalation.ai
+       and we will sort it out."
+     - `reason: ended`: "This machine's access to Evalation has ended. To renew it, email
+       support@evalation.ai."
+     - `reason: other`: "Evalation could not confirm this machine just now. Run /ev-start again in
+       a few minutes. If it still fails, contact support@evalation.ai."
+   - **`state: unreachable`** is our end or their network. Say "Evalation could not be reached.
+     Check this machine is online, then run /ev-start again. If it still fails, contact
+     support@evalation.ai." and stop.
 
 3. **Take them through signing in**, which is the whole of setting up.
 
-   Tell them first, in about this much detail and in your own words: Evalation needs to know whose
-   account to bill, so they sign in with Google or Microsoft in their own browser. No password comes
-   near us. Their machine makes two keys and keeps both private halves, so from then on it proves
-   itself by signing and never by holding anything worth stealing.
+   Tell them first, in your own words: "Signing in links this machine to your Evalation account.
+   No pack credits are used until you run /ev-run."
 
-   **Ask which provider they want every single time, and never carry one forward.** Offer Google and
-   Microsoft as a question, even where they named one earlier in this conversation. An attempt that
-   failed is the strongest reason to ask again and not the weakest: the provider is the thing most
-   likely to have been what was wrong, and answering it for them from a previous turn sends them
-   straight back into the failure they just came out of. Where an attempt has already failed, say
-   which provider it was and what it said, and offer the other one first.
+   Then run `/ev-activate` straight away. It asks which account to sign in with, explains the
+   sign-in and says which account it signed in as, so ask nothing and explain nothing more here, and
+   never name the account again. Where it did not finish, it has already said the next step, so stop.
 
-   Then run `/ev-activate`, which does the rest and knows what to do when it goes wrong.
-
-   When it finishes, say the account it signed in as and that this machine is now set up. Then go to
-   step 4.
+   When it finishes, run `${CLAUDE_PLUGIN_ROOT}/bin/evalation-status` and read the `pack credits
+   left` line as <N>. Say "Each run uses one pack credit for each pack it reads. You have <N> pack
+   credits." Where the line is absent, say "Your pack credits could not be read just now. Run
+   /ev-account in a minute to see them." and name no number of your own. Then go to step 4.
 
 4. **Find out what they have chosen to be assessed against.**
 
@@ -88,16 +94,29 @@ does.
 
 5. **Take them through choosing**, if nothing is selected.
 
-   Tell them what a pack is before offering a list: one subject a run reads their repository against.
-   A published standard such as SOC 2, ISO 27001, GDPR or the EU AI Act. A set of concerns of ours
-   such as hardening or cyber. Or a composition authored for one use, such as a review for cyber
-   insurance underwriting, or for an investor reading a codebase against what its founder claims of
-   it. They can pick several, and picking several is the ordinary case.
+   Run `/ev-packs` straight away. It says what a pack is, fetches the real list and records what they
+   choose, so say nothing about packs here.
 
-   Then run `/ev-packs`, which fetches the real catalogue and records what they choose.
+6. **Close in two or three sentences.** What they are set up to do, and the one thing to do next.
+   Count the packs `evalation-packs show` lists as <M>, and read <N> from the `pack credits left`
+   line of `evalation-status`.
 
-6. **Close in two or three sentences.** What they are set up to do, and the one thing to do next,
-   which is `/ev-run` to read a repository against what they chose.
+   Where <M> is 0, because they stopped without choosing, end with "Run /ev-packs when you are ready
+   to choose what to check against." and nothing more.
+
+   Run `git rev-parse --is-inside-work-tree 2>/dev/null` in the current folder. Where it prints
+   `true`, the next step is "Run /ev-run here to check this repository." Otherwise it is "Next, open
+   Claude Code in the repository you want checked and run /ev-run."
+
+   Follow it with the cost, which depends on <N>:
+
+   - <N> at least <M>: "It uses <M> pack credits, and you have <N>."
+   - <N> below <M>: "This selection uses <M> pack credits and you have <N>, so a run would not start.
+     To buy more pack credits, email support@evalation.ai, or choose fewer packs with /ev-packs."
+   - The `pack credits left` line absent: "Your pack credits could not be read just now. Run
+     /ev-account in a minute to see them."
+
+   Where the packs were already chosen before this ran, end with "Run /ev-packs to change them."
 
    Not a status report. No numbered summary of what happened, no list of everything now true of the
    machine, and no restating of steps they just watched: they were there. The screen at the end of
@@ -105,10 +124,11 @@ does.
 
 ## What this never does
 
-It reads nothing in their repository and writes nothing into it. Everything it records is the
+It reads nothing in their repository beyond whether the current folder is one, and writes nothing
+into it. Everything it records is the
 installation's own configuration, which lives beside their settings and never in the tree being
 assessed, because that tree is the subject and writing into it would change the thing this product
 exists not to touch.
 
-It prints no key. Both keys live in the operating system's own store, never in a file, never in the
+It prints no key. Both keys stay on this machine where only this person can read them, never in the
 settings and never in this conversation.

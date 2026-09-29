@@ -3,26 +3,52 @@
 
 const { runScript } = require("../lib/script.js");
 
+const DAMAGED = /^(settings-unreadable|no-installation|no-key|unreadable-key-reference|key-wrong-size):/;
+
 function ask(path) {
   return JSON.parse(runScript("evalation-ask", [path, "{}"], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }));
 }
 
-function main() {
-  let pinned;
+function why(reason) {
+  if (/^unreachable:/.test(reason)) return "unreachable";
+  if (/^refused 401:/.test(reason)) return /seconds from now/.test(reason) ? "clock" : "refused";
+  if (/^refused 402:/.test(reason)) return "ended";
+  return "other";
+}
+
+function signedInAs() {
+  const { existsSync, readFileSync } = require("node:fs");
+  const { join } = require("node:path");
+  const { pluginHome } = require("../lib/home.js");
+  const file = process.env.EVALATION_LOCAL || join(pluginHome(), "evalation.local");
+  if (!existsSync(file)) return null;
   try {
-    pinned = ask("/pin");
+    return JSON.parse(readFileSync(file, "utf8")).signed_in_as ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function main() {
+  const email = signedInAs();
+  const named = email ? `signed in as: ${email}\n` : "";
+  try {
+    ask("/pin");
   } catch (thrown) {
     const reason = String(thrown.stderr || thrown.message).trim();
-    if (/no-settings:|no-installation:|no-key:|unreadable-key-reference:/.test(reason)) {
-      process.stdout.write(`state: not-set-up\nseat: not set up on this machine yet\ndetail: ${reason}\n`);
-    } else if (/unreachable:/.test(reason)) {
-      process.stdout.write(`state: unreachable\nseat: unknown, because the server could not be reached\ndetail: ${reason}\n`);
+    const detail = process.argv.includes("--reason") ? `detail: ${reason}\n` : "";
+    if (/^no-settings:/.test(reason)) {
+      process.stdout.write(`state: not-set-up\n${named}${detail}`);
+    } else if (DAMAGED.test(reason)) {
+      process.stdout.write(`state: not-set-up\n${named}sign-in: damaged\n${detail}`);
+    } else if (why(reason) === "unreachable") {
+      process.stdout.write(`state: unreachable\n${named}${detail}`);
     } else {
-      process.stdout.write(`state: not-live\nseat: not live\nreason: ${reason}\n`);
+      process.stdout.write(`state: not-live\n${named}reason: ${why(reason)}\n${detail}`);
     }
     return;
   }
-  process.stdout.write(`state: live\nseat: live\nreleased revision: ${pinned.revision}\n`);
+  process.stdout.write(`state: live\n${named}`);
   try {
     process.stdout.write(`pack credits left: ${ask("/runs").remaining}\n`);
   } catch {
@@ -30,4 +56,6 @@ function main() {
   }
 }
 
-main();
+module.exports = { why };
+
+if (require.main === module) main();

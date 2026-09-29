@@ -43,8 +43,8 @@ test("a solution reads one instance of each repository and never a copy or a sec
   assert.deepStrictEqual(held.repositories.map((one) => [one.folder, one.repository]),
     [["api", "acme/api"], ["infra", "acme/infra"], ["notes", "notes"]]);
   assert.deepStrictEqual(held.left_out.map((one) => [one.folder, one.why]), [
-    ["api-copy", "a copy of api with no version control"],
-    ["api-old", "a second clone of acme/api, read from api"],
+    ["api-copy", "a copy of the folder \"api\" with no version control"],
+    ["api-old", "a second clone of acme/api, and the folder \"api\" is read in its place"],
   ]);
   const files = filesOf(at).map((one) => inRepository(at, one));
   assert.ok(files.includes("api/src/auth.js") && files.includes("infra/main.tf") && files.includes("notes/runbook.md"));
@@ -57,7 +57,7 @@ test("a repository the customer leaves out is never read, and the name they give
   const held = solutionOf(at);
   assert.strictEqual(held.name, "Acme platform");
   assert.deepStrictEqual(held.repositories.map((one) => one.folder), ["api", "infra"]);
-  assert.deepStrictEqual(held.left_out.find((one) => one.folder === "notes").why, "left out by the customer");
+  assert.deepStrictEqual(held.left_out.find((one) => one.folder === "notes").why, "not chosen for this review");
   assert.ok(!filesOf(at).map((one) => inRepository(at, one)).some((one) => one.startsWith("notes/")));
 });
 
@@ -103,7 +103,23 @@ test("the evidence pack names the solution, lists every repository on its openin
   for (const name of ["acme/api", "acme/infra", "notes"]) assert.ok(html.includes(name), name);
   assert.match(html, /acme\/infra · main\.tf:1/);
   assert.match(html, /<ul class="repos"><li><b>acme\/api<\/b> · folder api · branch main · commit [0-9a-f]{7} · last changed [^<]+<\/li>/);
-  assert.match(html, /<li><b>api-copy<\/b> · a copy of api with no version control<\/li>/);
+  assert.match(html, /<li><b>api-copy<\/b> · a copy of the folder (?:"|&quot;)api(?:"|&quot;) with no version control<\/li>/);
+});
+
+test("a folder with no version control is read for evidence and listed apart, never called a repository", () => {
+  const { readBlock, readSlides } = require("../lib/solution.js");
+  const at = solution();
+  choose(at, { name: "Acme platform", leave: [] });
+  const named = target(at);
+  const block = readBlock(named);
+  const [repositories, others] = block.split("Other folders (not under version control)");
+  assert.ok(others, "the block has a heading of its own for folders with no version control");
+  assert.match(repositories, /these 2 repositories/);
+  assert.ok(!repositories.includes("<b>notes</b>"));
+  assert.match(others, /<b>notes<\/b>/);
+  assert.match(others, /read for evidence too, and hold no code history, so they are not repositories/);
+  const notes = readSlides(named).flat().find((one) => one.headline === "notes");
+  assert.match(notes.body, /^A folder with no version control, read for evidence, and not a repository\./);
 });
 
 test("git history is read in each repository of a solution, and each result names its repository", () => {
@@ -152,6 +168,7 @@ test("the run command saves the name and the repositories left out, and the bran
   const checked = cli("--branch", at);
   assert.strictEqual(checked.solution.name, "Acme platform");
   assert.strictEqual(checked.solution.repositories.find((one) => one.folder === "api").on_main, true);
+  assert.deepStrictEqual(checked.solution.repositories.map((one) => one.folder), ["api", "infra", "notes"]);
   assert.strictEqual(cli("--branch", repository()).solution, null);
 });
 
@@ -220,7 +237,7 @@ test("the board pack lists every repository on slides of their own, however many
   assert.strictEqual(texts.length, 2);
   const all = texts.join(" ");
   for (const name of ["acme/api", "acme/infra", "notes", "acme/web", "acme/mobile", "acme/billing", "acme/search"]) assert.ok(all.includes(name), name);
-  assert.match(all, /api-copy\s*Left out, so each repository is read once: a copy of api with no version control\./);
+  assert.match(all, /api-copy\s*Left out: a copy of the folder "api" with no version control\./);
   assert.match(all, /Folder api · branch main · commit [0-9a-f]{7} · last changed/);
 });
 

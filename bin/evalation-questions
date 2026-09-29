@@ -3,18 +3,54 @@
 //
 //   evalation-questions check <file>            prints each problem, or that the set holds
 //   evalation-questions save <file> [--replace] keeps the set under its name on this machine
-//   evalation-questions list                    the sets on this machine and the account, with pack and size
-//   evalation-questions path <name>             where a set is, fetched from the account where needed
+//   evalation-questions list [--plain]          the sets on this machine and the account, as data or as lines for the person
+//   evalation-questions path <name>             a draft copy of a set, fetched from the account where needed
+//   evalation-questions draft <name>            where to write a new set's draft
 //   evalation-questions keep-on-account <name>  keeps a set on the account as well
 //   evalation-questions drop-from-account <name> stops keeping a set on the account
 "use strict";
 
-const { readFileSync } = require("node:fs");
+const { mkdirSync, readFileSync, writeFileSync } = require("node:fs");
 const { pluginHome } = require("../lib/home.js");
 const { join } = require("node:path");
-const { CRITERIA, dropFromAccount, fetched, grid, keepOnAccount, listed, problems, saveChecked, status, verdict } = require("../lib/questions.js");
+const { CRITERIA, dropFromAccount, fetched, fromAccount, grid, grouped, keepOnAccount, listed, listSaid, saveChecked, verdict, withoutMark } = require("../lib/questions.js");
+const { runScript } = require("../lib/script.js");
 
 const HOME = pluginHome();
+const NAME = /^[A-Za-z0-9][A-Za-z0-9 _-]{0,59}$/;
+
+function askServer(path, body) {
+  return JSON.parse(runScript("evalation-ask", [path, JSON.stringify(body)], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }));
+}
+
+function draftOf(home, name) {
+  if (!NAME.test(String(name))) throw new Error(`${name}: not a name a set is kept under`);
+  mkdirSync(join(home, "drafts"), { recursive: true, mode: 0o700 });
+  return join(home, "drafts", `${name}.json`);
+}
+
+function opened(home, name, ask = askServer) {
+  try {
+    const kept = JSON.parse(readFileSync(fetched(home, name, ask), "utf8"));
+    const draft = draftOf(home, name);
+    writeFileSync(draft, JSON.stringify(withoutMark(kept), null, 2) + "\n", { mode: 0o600 });
+    return draft;
+  } catch (thrown) {
+    if (!NAME.test(String(name))) throw thrown;
+    const held = (ask("/sets", {}).sets ?? []).find((one) => one.name === name);
+    if (!held) throw thrown;
+    let sound = true;
+    try {
+      fromAccount(held);
+    } catch {
+      sound = false;
+    }
+    if (sound) throw thrown;
+    const draft = draftOf(home, name);
+    writeFileSync(draft, String(held.body ?? ""), { mode: 0o600 });
+    return draft;
+  }
+}
 
 function fail(reason) {
   process.stderr.write(`${reason}\n`);
@@ -29,48 +65,64 @@ function read(file) {
   }
 }
 
-const [verb, arg, ...flags] = process.argv.slice(2);
-if (verb === "check") {
-  const set = read(arg);
-  const wrong = [...problems(set), ...status(HOME, set)];
-  if (wrong.length > 0) fail(`${wrong.length} to fix:\n  ${wrong.join("\n  ")}`);
-  process.stdout.write("holds\n");
-} else if (verb === "save") {
-  try {
-    const set = read(arg);
-    saveChecked(HOME, set, { replace: flags.includes("--replace"), unchecked: flags.includes("--unchecked") });
-    process.stdout.write(`kept as ${set.name}\n`);
-  } catch (thrown) {
-    fail(thrown.message);
+function main() {
+  const [verb, arg, ...flags] = process.argv.slice(2);
+  if (verb === "check") {
+    const { fix, waiting, unconfirmed } = grouped(HOME, read(arg));
+    const said = [["To fix:", fix], ["Waiting for the independent checker:", waiting], ["Not confirmed by the independent checker:", unconfirmed]]
+      .filter(([, rows]) => rows.length > 0).map(([head, rows]) => `${head}\n  ${rows.join("\n  ")}\n`).join("");
+    process.stdout.write(said || "holds\n");
+    process.exitCode = fix.length > 0 ? 1 : 0;
+  } else if (verb === "draft") {
+    try {
+      process.stdout.write(`${draftOf(HOME, arg)}\n`);
+    } catch (thrown) {
+      fail(thrown.message);
+    }
+  } else if (verb === "save") {
+    try {
+      const set = read(arg);
+      saveChecked(HOME, set, { replace: flags.includes("--replace"), unchecked: flags.includes("--unchecked") });
+      process.stdout.write(`kept as ${set.name}\n`);
+    } catch (thrown) {
+      fail(thrown.message);
+    }
+  } else if (verb === "list") {
+    process.stdout.write(arg === "--plain" ? `${listSaid(listed(HOME)).join("\n")}\n` : `${JSON.stringify(listed(HOME))}\n`);
+  } else if (verb === "path") {
+    try {
+      process.stdout.write(`${opened(HOME, arg)}\n`);
+    } catch (thrown) {
+      fail(`no-such-set: ${arg} (${thrown.message})`);
+    }
+  } else if (verb === "keep-on-account") {
+    try {
+      keepOnAccount(HOME, arg);
+      process.stdout.write(`${arg} is kept on your account\n`);
+    } catch (thrown) {
+      fail(`not-kept: ${arg} (${thrown.message})`);
+    }
+  } else if (verb === "drop-from-account") {
+    try {
+      dropFromAccount(arg);
+      process.stdout.write(`${arg} is no longer kept on your account\n`);
+    } catch (thrown) {
+      fail(`not-dropped: ${arg} (${thrown.message})`);
+    }
+  } else if (verb === "criteria") {
+    process.stdout.write(`${CRITERIA.map((one) => `${one.id}, for each ${one.about}, a fault where the answer is ${one.fault}: ${one.asks}`).join("\n")}\n`);
+  } else if (verb === "grid") {
+    process.stdout.write(`${grid(HOME, read(arg), CRITERIA, flags[0]).text}\n`);
+  } else if (verb === "verdict") {
+    const { refused, unchecked } = verdict(HOME, read(arg), readFileSync(0, "utf8"), CRITERIA, flags[0]);
+    const said = [["Answer these again:", refused], ["Still to answer:", unchecked]]
+      .filter(([, rows]) => rows.length > 0).map(([head, rows]) => `${head}\n  ${rows.join("\n  ")}\n`).join("");
+    process.stdout.write(said || "Recorded.\n");
+  } else {
+    fail("usage: evalation-questions check <file> | criteria | grid <file> [Qn] | verdict <file> [Qn] (answers on stdin) | save <file> [--replace] [--unchecked] | list [--plain] | path <name> | draft <name> | keep-on-account <name> | drop-from-account <name>");
   }
-} else if (verb === "list") {
-  process.stdout.write(`${JSON.stringify(listed(HOME))}\n`);
-} else if (verb === "path") {
-  try {
-    process.stdout.write(`${fetched(HOME, arg)}\n`);
-  } catch (thrown) {
-    fail(`no-such-set: ${arg} (${thrown.message})`);
-  }
-} else if (verb === "keep-on-account") {
-  try {
-    keepOnAccount(HOME, arg);
-    process.stdout.write(`${arg} is kept on your account\n`);
-  } catch (thrown) {
-    fail(`not-kept: ${arg} (${thrown.message})`);
-  }
-} else if (verb === "drop-from-account") {
-  try {
-    dropFromAccount(arg);
-    process.stdout.write(`${arg} is no longer kept on your account\n`);
-  } catch (thrown) {
-    fail(`not-dropped: ${arg} (${thrown.message})`);
-  }
-} else if (verb === "criteria") {
-  process.stdout.write(`${CRITERIA.map((one) => `${one.id}, for each ${one.about}, a fault where the answer is ${one.fault}: ${one.asks}`).join("\n")}\n`);
-} else if (verb === "grid") {
-  process.stdout.write(`${grid(HOME, read(arg), CRITERIA, flags[0]).text}\n`);
-} else if (verb === "verdict") {
-  process.stdout.write(`${JSON.stringify(verdict(HOME, read(arg), readFileSync(0, "utf8"), CRITERIA, flags[0]))}\n`);
-} else {
-  fail("usage: evalation-questions check <file> | criteria | grid <file> [Qn] | verdict <file> [Qn] (answers on stdin) | save <file> [--replace] [--unchecked] | list | path <name> | keep-on-account <name> | drop-from-account <name>");
 }
+
+module.exports = { draftOf, opened };
+
+if (require.main === module) main();

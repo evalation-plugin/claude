@@ -32,6 +32,7 @@ const HOME = pluginHome();
 const { keepFindings, reportsFolder, reviewName } = require("../lib/reports.js");
 const { cardWorst } = require("../lib/scans.js");
 const { readingOf } = require("../lib/prose.js");
+const { unwritten } = require("../lib/print.js");
 const { inventory } = require("./evalation-inventory");
 const { deck } = require("./evalation-deck");
 const { detail } = require("./evalation-detail");
@@ -327,16 +328,36 @@ function deliver(source, named, target) {
   const seal = { run: document.run };
   const theirs = readingOf(document);
   const one = deck(shaped, pack, { seal, theirs });
-  const two = detail(shaped, findings, seal, theirs);
+  let two;
+  try {
+    two = detail(shaped, findings, seal, theirs);
+  } catch (thrown) {
+    throw Object.assign(thrown instanceof Error ? thrown : new Error(String(thrown)), { written: [one.printed ? pack : one.page] });
+  }
 
   return {
     into, pack, findings,
     printed: one.printed && two.printed,
-    unsigned: [one, two].map((each) => each.unsigned).filter(Boolean),
+    pages: [one, two].map((each) => each.page).filter(Boolean),
+    unsigned: [[pack, one], [findings, two]].filter(([, each]) => each.unsigned).map(([file, each]) => ({ file, why: each.unsigned })),
   };
 }
 
-module.exports = { deliver, reviewFindings };
+/** What the person is told once the reports are made. */
+function said(done) {
+  const lines = done.printed
+    ? [`Wrote ${basename(done.pack)} and ${basename(done.findings)} into ${done.into}`]
+    : [`No browser was found to print the reports, so they are not signed. Open each of these in a browser and print it to PDF: ` +
+      `${done.pages.map((one) => basename(one)).join(" and ")}, in ${done.into}. A PDF printed by hand is not signed by Evalation. ` +
+      "For signed copies, install Google Chrome, Chromium or Microsoft Edge, then ask Claude to print the reports again."];
+  for (const one of done.unsigned) {
+    lines.push(`${basename(one.file)} is not signed because ${one.why}, and each page says "Signature missing, document cannot be verified". ` +
+      "Once that is fixed, ask Claude to print the reports again for signed copies.");
+  }
+  return `${lines.join("\n")}\n`;
+}
+
+module.exports = { deliver, reviewFindings, said };
 
 if (require.main === module) {
   const [source, into, target] = process.argv.slice(2);
@@ -345,13 +366,12 @@ if (require.main === module) {
     process.exit(2);
   }
   // An empty folder argument takes the default, so a repository can be named without a folder.
-  const done = deliver(source, into || null, target);
-  process.stdout.write(done.printed
-    ? `wrote ${basename(done.pack)} and ${basename(done.findings)} into ${done.into}\n`
-    : `the pages were written into ${done.into} but no browser was found to print them. Open them and print to PDF.\n`);
-  // Said on its own line, since a report marked unsigned is one a person should know about before
-  // they hand it on.
-  if (done.unsigned.length > 0) {
-    process.stdout.write(`not signed, and marked "Signature missing, document cannot be verified": ${done.unsigned[0]}\n`);
+  let done;
+  try {
+    done = deliver(source, into || null, target);
+  } catch (thrown) {
+    process.stderr.write(`${unwritten(thrown, thrown?.written ?? [])}\n`);
+    process.exit(1);
   }
+  process.stdout.write(said(done));
 }

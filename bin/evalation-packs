@@ -15,13 +15,41 @@ function usage() {
   process.exit(2);
 }
 
+const SUMMARIES = {
+  "cyber-insurance": "What a cyber insurer asks before it offers cover, answered from your code.",
+  dora: "EU rules on how banks, insurers and other financial firms manage technology risk.",
+  "eu-ai-act": "EU duties for anyone who builds, sells or uses an AI system.",
+  gdpr: "EU rules on collecting and handling personal data.",
+  hardening: "Whether your code would stand up to attackers, outages and mistakes.",
+  hipaa: "US rules for keeping health information private and secure.",
+  "investment-diligence": "What investors and buyers check in the software of a company.",
+  iso27001: "The international information security certification.",
+  iso42001: "The international certification for managing AI systems.",
+  "nist-ai-rmf": "US guidance on finding and managing the risks of AI systems.",
+  "nist-csf": "US framework for running a security programme.",
+  "nist-ssdf": "US practices for building software securely.",
+  "nz-privacy-act": "New Zealand rules on collecting and handling personal information.",
+  "owasp-agentic-threats": "Known attacks on AI agents and how to counter them.",
+  "owasp-agentic-top-ten": "The ten biggest security risks in apps built on AI agents.",
+  "owasp-asvs": "Detailed security requirements for web applications.",
+  "pci-dss": "Rules for anyone who takes or stores card payments.",
+  soc2: "The US security audit most business software customers ask for.",
+};
+
 const byTitle = (a, b) => (a.toLowerCase() < b.toLowerCase() ? -1 : a.toLowerCase() > b.toLowerCase() ? 1 : 0);
 
 function list() {
+  let said;
+  try {
+    said = runScript("evalation-ask", ["/packs", "{}"], { encoding: "utf8", stdio: ["ignore", "pipe", "inherit"] });
+  } catch {
+    process.exit(1);
+  }
   let served;
   try {
-    served = JSON.parse(runScript("evalation-ask", ["/packs", "{}"], { encoding: "utf8", stdio: ["ignore", "pipe", "inherit"] }));
+    served = JSON.parse(said);
   } catch {
+    process.stderr.write("packs-unreadable: the server sent a pack list this plugin cannot read. Try again in a few minutes, and email support@evalation.ai if it keeps happening.\n");
     process.exit(1);
   }
   served.packs = [...(served.packs ?? [])].sort((a, b) => byTitle(a.body?.title ?? a.pack, b.body?.title ?? b.pack));
@@ -35,9 +63,22 @@ function main() {
   } else if (what === "list") {
     process.stdout.write(`${JSON.stringify(list(), null, 2)}\n`);
   } else if (what === "titles") {
-    process.stdout.write(`${JSON.stringify(list().packs.map((one) => ({ pack: one.pack, title: one.body?.title ?? null, extensible: extensible(one.body) })))}\n`);
+    const packs = list().packs;
+    const questions = Math.ceil(packs.length / 4);
+    const questionOf = (at) => {
+      const size = Math.floor(packs.length / questions);
+      const larger = packs.length % questions;
+      return at < larger * (size + 1) ? Math.floor(at / (size + 1)) + 1 : larger + Math.floor((at - larger * (size + 1)) / size) + 1;
+    };
+    process.stdout.write(`${JSON.stringify(packs.map((one, at) => ({ pack: one.pack, title: one.body?.title ?? null, summary: one.body?.summary ?? SUMMARIES[one.pack] ?? null, extensible: extensible(one.body), question: questionOf(at) })))}\n`);
   } else if (what === "set") {
     if (rest.length === 0) usage();
+    const offered = new Set(list().packs.map((one) => one.pack));
+    const unknown = rest.filter((one) => !offered.has(one));
+    if (unknown.length > 0) {
+      process.stderr.write(`unknown-pack: ${unknown.join(", ")} is not a pack evalation-packs titles offers, so nothing was saved\n`);
+      process.exit(1);
+    }
     const body = `${JSON.stringify({ packs: rest, chosen: new Date().toISOString().replace(/\.\d{3}Z$/, "Z") }, null, 2)}\n`;
     mkdirSync(HOME, { recursive: true });
     writeFileSync(SELECTION, body);

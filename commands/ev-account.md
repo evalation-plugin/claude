@@ -1,8 +1,8 @@
 ---
-description: Evalation seat status. Shows whether the seat is live, what is selected, and what to do next.
+description: "Your Evalation account: pack credits left and the packs you chose."
 ---
 
-# Where the seat stands
+# Your account
 
 ## What to do
 
@@ -12,14 +12,10 @@ description: Evalation seat status. Shows whether the seat is live, what is sele
    ${CLAUDE_PLUGIN_ROOT}/bin/evalation-status
    ```
 
-   There is no local answer to this. The seat is proven by the server verifying a signature it holds
-   the public half of, so a cached answer would report a seat that lapsed an hour ago as live.
-   Report what it returns and never infer the seat from whether anything appeared in this
+   There is no local answer to this. The server proves the account by verifying a signature it holds
+   the public half of, so a cached answer would report an account that lapsed an hour ago as live.
+   Report what it returns and never infer the account's state from whether anything appeared in this
    conversation.
-
-   It prints the pack credits left as well, which is what a run spends: one credit for each pack it
-   reads. Report that number as it comes back, and where the line is absent say the balance could
-   not be read and name no number of your own.
 
 2. **Read what is selected.**
 
@@ -27,22 +23,51 @@ description: Evalation seat status. Shows whether the seat is live, what is sele
    ${CLAUDE_PLUGIN_ROOT}/bin/evalation-packs show
    ```
 
-3. **Say what is next, in one line.**
+3. **Say what is next, going by the `state:` line.** Each case below is the whole reply for that
+   state.
 
-   - `state: not-set-up`: say one line, that this machine is not set up yet and `/ev-start` does it.
-     Nothing more. It is the normal path and not a fault, and explaining that nothing is wrong is
-     what makes a person think something is.
-   - Seat not live for any other reason: report the reason the status gave. A clock more than five
-     minutes out refuses every ask on its own, so say that where the reason points at the proof.
-   - Live with no packs selected: say what a pack is in one line and offer `/ev-packs`.
-   - Live with packs selected: name them by their titles from
-     `${CLAUDE_PLUGIN_ROOT}/bin/evalation-packs titles`, never by handle, say what a run against them spends and what is left, and
-     say `/ev-run` reads a repository against them.
-   - Live with fewer credits than the selection has packs: say both numbers and that a run is
-     refused whole, with no part of it served, so the choice is to top up or to select fewer packs.
+   - `state: not-set-up` with a `sign-in: damaged` line: say "This machine's Evalation sign-in is
+     damaged. Run /ev-activate to sign in again."
+   - `state: not-set-up` alone: say one line, that this machine is not set up yet and `/ev-start`
+     does it. Nothing more. It is the normal path and not a fault, and explaining that nothing is
+     wrong is what makes a person think something is.
+   - `state: unreachable`: say "Evalation could not be reached. Check this machine is online, then
+     run /ev-account again."
+   - `state: not-live`: say the line for its `reason:` line.
+     - `reason: clock`: "This machine's clock is wrong, so Evalation refused it. Set the clock to
+       the right time, then run /ev-account again."
+     - `reason: refused`: "Evalation no longer accepts this machine. Contact support@evalation.ai
+       and we will sort it out."
+     - `reason: ended`: "This machine's access to Evalation has ended. To renew it, email
+       support@evalation.ai."
+     - `reason: other`: "Evalation could not confirm this machine just now. Run /ev-account again
+       in a few minutes. If it still fails, contact support@evalation.ai."
+   - `state: live`: follow the steps under "A live account".
+
+## A live account
+
+1. Where it prints `signed in as:`, open with "Signed in as <email>." Where it does not, name no
+   account and say nothing about its absence. A machine set up before the account was recorded
+   does not print it.
+
+2. Read the pack credits left from the `pack credits left` line, and report that number as it
+   comes back. Where the line is absent, say "Your pack credits could not be read just now. Run
+   /ev-account again in a minute." and name no number of your own. Wherever a number of pack
+   credits is 1, write "one pack credit", never "1 pack credits".
+
+3. Then one of these:
+
+   - No packs selected: say what a pack is in one line and offer `/ev-packs`.
+   - Packs selected: name them by their titles from
+     `${CLAUDE_PLUGIN_ROOT}/bin/evalation-packs titles`, never by handle, say how many credits a run
+     against them uses and how many are left, and say `/ev-run` checks a repository against them.
+     A run uses one pack credit for each pack it reads.
+   - Fewer credits than the selection has packs: say both numbers and "A run with more packs than
+     credits does not start, and no pack credits are used. To buy more pack credits, email
+     support@evalation.ai, or choose fewer packs with /ev-packs."
 
 ## What this never does
 
 It reads nothing in the repository, and it prints nothing of the installation key. The key proves
-this installation is itself and lives in the operating system's own store, never in a file, never in
+this installation is itself and stays on this machine where only this person can read it, never in
 the settings and never in a transcript.

@@ -82,6 +82,79 @@ function installer(tool) {
   return { command: BREW, args: ["install", tool], said: `${BREW} install ${tool}` };
 }
 
+const TOOLS = {
+  trivy: { name: "Trivy", does: "checks dependencies for known security flaws", page: "https://github.com/aquasecurity/trivy" },
+  syft: { name: "Syft", does: "lists every dependency", page: "https://github.com/anchore/syft" },
+  semgrep: { name: "Semgrep", does: "finds risky code patterns", page: "https://github.com/semgrep/semgrep" },
+  gitleaks: { name: "Gitleaks", does: "finds passwords and keys committed to the code", page: "https://github.com/gitleaks/gitleaks" },
+  git: { name: "git", does: "reads the commit history", page: "https://git-scm.com/downloads" },
+};
+
+const CHECKS = {
+  sca: "dependencies for known security flaws",
+  sbom: "the list of every dependency",
+  sast: "risky code patterns",
+  secret: "passwords and keys committed to the code",
+  history: "the commit history",
+};
+
+const nameOf = (tool) => TOOLS[tool]?.name ?? tool;
+
+function today() {
+  const now = new Date();
+  return [now.getFullYear(), now.getMonth() + 1, now.getDate()].map((one) => String(one).padStart(2, "0")).join("-");
+}
+
+function spoken(day) {
+  return day
+    ? new Date(`${day}T00:00:00Z`).toLocaleDateString("en-NZ", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" })
+    : null;
+}
+
+function missingWhy(tool, held) {
+  const failed = held.could_not_install[tool];
+  if (failed) return `${nameOf(tool)} could not be installed (${failed.why})`;
+  if (held.declined.includes(tool)) {
+    const on = spoken(held.declined_on[tool]);
+    return `the person running the review chose not to install ${nameOf(tool)}${on ? ` on ${on}` : ""}`;
+  }
+  return `${nameOf(tool)} is not installed on this machine`;
+}
+
+function missingReason(tool, held) {
+  if (held.could_not_install[tool]) return "could-not-install";
+  return held.declined.includes(tool) ? "declined" : "missing";
+}
+
+function toldWhy(one) {
+  const tool = nameOf(one.tool);
+  const said = {
+    declined: `you chose not to install ${tool}${one.declined_on ? ` on ${one.declined_on}` : ""}`,
+    "could-not-install": `${tool} could not be installed on this machine`,
+    missing: `${tool} is not installed on this machine`,
+    off: "it is turned off in this machine's Evalation settings",
+    "no-adapter": `this version of Evalation cannot run ${tool}`,
+    failed: `${tool} stopped before it finished`,
+    "no-history": "the folder has no git history",
+  };
+  return said[one.reason] ?? `${tool} did not run`;
+}
+
+function listed(items) {
+  if (items.length < 3) return items.join(" and ");
+  return `${items.slice(0, -1).join(", ")}, and ${items.at(-1)}`;
+}
+
+function readOut(phases) {
+  const checked = phases.filter((one) => one.ran).map((one) => CHECKS[one.phase] ?? one.phase);
+  const lines = checked.length > 0 ? [`Checked: ${listed(checked)}.`] : [];
+  for (const one of phases.filter((each) => !each.ran)) {
+    lines.push(`Not checked: ${CHECKS[one.phase] ?? one.phase}, since ${toldWhy(one)}.` +
+      (one.reason === "declined" ? ` To change that, run /ev-run again and tick ${nameOf(one.tool)} when asked.` : ""));
+  }
+  return lines.join(" ");
+}
+
 function fail(reason) {
   process.stderr.write(`${reason}\n`);
   process.exit(1);
@@ -113,6 +186,8 @@ function phases() {
     floor: held.floor ?? FLOOR,
     drop_transitive_below_floor: held.drop_transitive_below_floor ?? true,
     declined: held.declined ?? [],
+    declined_on: held.declined_on ?? {},
+    could_not_install: held.could_not_install ?? {},
     phases: built,
   };
 }
@@ -363,8 +438,8 @@ function authorship(out) {
 
 /** The history phase, read from the checkout itself, since the copy the other tools read has none. */
 function history(root, isRepository, named) {
-  if (!named.enabled) return { phase: "history", tool: "git", ran: false, why: "it is turned off", findings: [] };
-  if (!isRepository) return { phase: "history", tool: "git", ran: false, why: "the target has no git history", findings: [] };
+  if (!named.enabled) return { phase: "history", tool: "git", ran: false, reason: "off", why: "it is turned off", findings: [] };
+  if (!isRepository) return { phase: "history", tool: "git", ran: false, reason: "no-history", why: "the target has no git history", findings: [] };
   try {
     const git = (...args) => execFileSync("git", ["-C", root, ...args],
       { encoding: "utf8", maxBuffer: 256 * 1024 * 1024, stdio: ["ignore", "pipe", "ignore"] });
@@ -379,7 +454,7 @@ function history(root, isRepository, named) {
     return { phase: "history", tool: "git", ran: true,
       findings: [...authorship(commits.map((one) => one.who).join("\n")), ...measured({ commits, tags, tracked, now: Date.now() })] };
   } catch (thrown) {
-    return { phase: "history", tool: "git", ran: false, why: `git could not read the history: ${thrown.message}`, findings: [] };
+    return { phase: "history", tool: "git", ran: false, reason: "failed", why: `git could not read the history: ${thrown.message}`, findings: [] };
   }
 }
 
@@ -401,7 +476,7 @@ function historyAcross(root, solution, named) {
   const each = held.map((one) => ({ one, said: history(join(root, one.folder), true, named) }));
   const ran = each.filter(({ said }) => said.ran);
   const missed = each.filter(({ said }) => !said.ran);
-  if (ran.length === 0) return { phase: "history", tool: "git", ran: false, why: missed.map(({ one, said }) => `${one.repository}: ${said.why}`).join("; "), findings: [] };
+  if (ran.length === 0) return { phase: "history", tool: "git", ran: false, reason: missed[0].said.reason, why: missed.map(({ one, said }) => `${one.repository}: ${said.why}`).join("; "), findings: [] };
   return {
     phase: "history", tool: "git", ran: true,
     ...(missed.length > 0 ? { why: `not read in ${missed.map(({ one, said }) => `${one.repository} (${said.why})`).join(", ")}` } : {}),
@@ -409,10 +484,10 @@ function historyAcross(root, solution, named) {
   };
 }
 
-function secretAcross(root, solution, named, declined, copy) {
+function secretAcross(root, solution, named, held, copy) {
   const each = solution.repositories.map((one) => {
     const git = one.vcs === "git";
-    const said = runPhase("secret", named, join(git ? root : copy, one.folder), git, declined);
+    const said = runPhase("secret", named, join(git ? root : copy, one.folder), git, held);
     const findings = said.findings.map((found) => {
       const path = `${one.folder}/${found.at?.path ?? ""}`;
       return {
@@ -497,28 +572,29 @@ function witness(target) {
  * One phase. Returns what it found and how it went, and never both a skip and a finding: a phase
  * that could not run has no opinion about the repository.
  */
-function runPhase(phase, named, target, isRepository, declined) {
+function runPhase(phase, named, target, isRepository, held) {
   const override = process.env[`EVALATION_${phase.toUpperCase()}_CMD`];
   const adapter = ADAPTERS[named.tool];
 
-  if (!named.enabled) return { phase, tool: named.tool, ran: false, why: "it is turned off", findings: [] };
+  if (!named.enabled) return { phase, tool: named.tool, ran: false, reason: "off", why: "it is turned off", findings: [] };
   if (!override) {
     // Why it did not run, in the words a person reading the report will be given. A declined install
-    // is a decision somebody made and reads as one, which is a different thing from a tool nobody
-    // has heard of, and a report that flattens the two says less than either.
+    // is a decision somebody made and reads as one, a failed install is not a decision, and a
+    // report that flattens them says less than either.
     if (!onThisMachine(named.tool)) {
       return {
         phase,
         tool: named.tool,
         ran: false,
-        why: declined.includes(named.tool)
-          ? `${named.tool} is not on this machine and installing it was declined for this run`
-          : `${named.tool} is not on this machine`,
+        reason: missingReason(named.tool, held),
+        why: missingWhy(named.tool, held),
+        ...(held.declined.includes(named.tool) && !held.could_not_install[named.tool]
+          ? { declined_on: spoken(held.declined_on[named.tool]) } : {}),
         findings: [],
       };
     }
     if (!adapter) {
-      return { phase, tool: named.tool, ran: false, why: `this build knows no adapter for ${named.tool}`, findings: [] };
+      return { phase, tool: named.tool, ran: false, reason: "no-adapter", why: `this build knows no adapter for ${named.tool}`, findings: [] };
     }
   }
 
@@ -559,6 +635,7 @@ function runPhase(phase, named, target, isRepository, declined) {
       phase,
       tool: named.tool,
       ran: false,
+      reason: "failed",
       why: `the tool did not finish: ${String(thrown.message ?? thrown).split("\n")[0]}`,
       findings: [],
     };
@@ -610,17 +687,17 @@ function scan(target, only = null) {
       .map(([phase, named]) => (phase === "history"
         ? (solution ? historyAcross(root, solution, named) : history(root, isRepository, named))
         : phase === "secret" && solution
-        ? secretAcross(root, solution, named, held.declined, copy.path)
+        ? secretAcross(root, solution, named, held, copy.path)
         : runPhase(phase, named, phase === "secret" && isRepository ? root : copy.path,
-          phase === "secret" && isRepository, held.declined)));
+          phase === "secret" && isRepository, held)));
   } finally {
     copy.done();
   }
 
   const after = watched();
   if (before !== null && after !== null && before !== after) {
-    fail("the target changed while it was being scanned, so nothing was written. A scan that moves " +
-      "the tree has changed the thing it measured.");
+    fail("Something changed the repository while it was being scanned, so the scan was not kept. " +
+      "Stop whatever is changing it, then run /ev-run again.");
   }
 
   const all = ran.flatMap((one) => one.findings);
@@ -672,7 +749,12 @@ function show(only = null) {
       on_this_machine: onThisMachine(named.tool),
       adapter: Boolean(ADAPTERS[named.tool]) || phase === "history",
       declined: held.declined.includes(named.tool),
+      declined_on: held.declined.includes(named.tool) ? spoken(held.declined_on[named.tool]) : null,
+      could_not_install: held.could_not_install[named.tool]
+        ? { ...held.could_not_install[named.tool], on: spoken(held.could_not_install[named.tool].on) } : null,
       install_with: onThisMachine(named.tool) ? null : installer(named.tool).said,
+      offer: `${nameOf(named.tool)}, ${TOOLS[named.tool]?.does ?? `checks ${CHECKS[phase]}`}`,
+      install_page: TOOLS[named.tool]?.page ?? null,
     }])),
     tools_this_knows: Object.keys(ADAPTERS),
     at: SETTINGS,
@@ -695,28 +777,45 @@ function install(tools) {
     const how = installer(tool);
     try {
       execFileSync(how.command, how.args, { stdio: ["ignore", "ignore", "pipe"], timeout: 900_000 });
-      done.push({ tool, installed: onThisMachine(tool) });
+      done.push(onThisMachine(tool)
+        ? { tool, installed: true }
+        : { tool, installed: false, why: `${BREW} finished but ${tool} is still not on the path` });
     } catch (thrown) {
-      done.push({ tool, installed: false, why: String(thrown.message ?? thrown).split("\n")[0] });
+      const said = String(thrown.stderr ?? "").split("\n").map((line) => line.trim()).filter(Boolean);
+      done.push({ tool, installed: false, why: said.at(-1) ?? String(thrown.message ?? thrown).split("\n")[0] });
     }
   }
-  // Anything that did not arrive is recorded as declined for the same reason a refusal is: the
-  // review is about to run without it and the report has to say so either way.
-  const stillMissing = done.filter((one) => !one.installed).map((one) => one.tool);
-  if (stillMissing.length > 0) decline(stillMissing, { quiet: true });
+  const held = settings();
+  const scan = held.scan ?? {};
+  const failed = { ...(scan.could_not_install ?? {}) };
+  const declinedOn = { ...(scan.declined_on ?? {}) };
+  for (const one of done) {
+    delete declinedOn[one.tool];
+    if (one.installed) delete failed[one.tool];
+    else failed[one.tool] = { why: one.why, on: today() };
+  }
+  const took = new Set(done.map((one) => one.tool));
+  keep({ ...held, scan: { ...scan, declined: (scan.declined ?? []).filter((one) => !took.has(one)),
+    declined_on: declinedOn, could_not_install: failed } });
   process.stdout.write(`${JSON.stringify({ installed: done }, null, 2)}\n`);
 }
 
-/** Written down, because a person who said no has made a decision and the report names it as one. */
-function decline(tools, { quiet = false } = {}) {
+/** Written down with its date, because a person who said no has made a decision and the report names it as one. */
+function decline(tools) {
   for (const tool of tools) {
     if (!ADAPTERS[tool]) fail(`this build knows no tool called ${JSON.stringify(tool)}.`);
   }
   const held = settings();
-  const next = { ...held, scan: { ...(held.scan ?? {}) } };
-  next.scan.declined = [...new Set([...(held.scan?.declined ?? []), ...tools])].sort();
-  keep(next);
-  if (!quiet) show();
+  const scan = held.scan ?? {};
+  const failed = { ...(scan.could_not_install ?? {}) };
+  const declinedOn = { ...(scan.declined_on ?? {}) };
+  for (const tool of tools) {
+    delete failed[tool];
+    declinedOn[tool] = today();
+  }
+  keep({ ...held, scan: { ...scan, declined: [...new Set([...(scan.declined ?? []), ...tools])].sort(),
+    declined_on: declinedOn, could_not_install: failed } });
+  show();
 }
 
 const USAGE = `usage: evalation-scan <verb>
@@ -749,9 +848,14 @@ function main() {
       const { path, document } = scan(left[0], only);
       process.stdout.write(`${JSON.stringify({
         written: path,
-        phases_that_ran: document.phases.filter((one) => one.ran).map((one) => one.phase),
-        phases_that_did_not: document.phases.filter((one) => !one.ran)
-          .map((one) => `${one.phase}: ${one.why}`),
+        said: readOut(document.phases),
+        checked: document.phases.filter((one) => one.ran).map((one) => CHECKS[one.phase] ?? one.phase),
+        not_checked: document.phases.filter((one) => !one.ran).map((one) => ({
+          checks: CHECKS[one.phase] ?? one.phase,
+          why: one.why,
+          ...(one.declined_on ? { declined_on: one.declined_on } : {}),
+          ...(TOOLS[one.tool] ? { tool: nameOf(one.tool) } : {}),
+        })),
         findings: document.findings.length,
         below_floor: document.below_floor,
       }, null, 2)}\n`);

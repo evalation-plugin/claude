@@ -23,7 +23,7 @@ const { generateKeyPairSync, randomBytes, createHash } = require("node:crypto");
 const { execFileSync } = require("node:child_process");
 const store = require("./evalation-store");
 const { spawnScript } = require("../lib/script.js");
-const { existsSync, mkdirSync, writeFileSync } = require("node:fs");
+const { existsSync, mkdirSync, readFileSync, writeFileSync } = require("node:fs");
 const { join, dirname } = require("node:path");
 const { hostname, userInfo } = require("node:os");
 const { pluginHome } = require("../lib/home.js");
@@ -33,7 +33,12 @@ const SERVER = "https://api.evalation.ai";
 const base = process.env.EVALATION_SERVER || SERVER;
 const SETTINGS = process.env.EVALATION_LOCAL || join(pluginHome(), "evalation.local");
 
+const WAITING = "Waiting for you to finish signing in, for up to five minutes.\n";
+
+let listener = null;
+
 function fail(reason) {
+  if (listener) listener.kill();
   process.stderr.write(reason + "\n");
   process.exit(1);
 }
@@ -162,14 +167,14 @@ function somewhere_to_keep_it() {
     fail(
       `no-key-store: this machine has nowhere to keep a private key (${thrown.message}).\n` +
         "Nothing was created and nothing needs undoing. Set EVALATION_KEY_STORE=file to keep the " +
-        "keys in a file only you can read, under ~/.evalation-plugin/keys, then run this again.",
+        `keys in a file only you can read, under ${join(pluginHome(), "keys")}, then run this again.`,
     );
   }
 }
 
 // One line out of the listener while it keeps running, since the port has to be usable before the
 // redirect it is waiting for arrives.
-function awaited(listener, pattern, whenGone) {
+function awaited(listener, pattern) {
   return new Promise((resolve, reject) => {
     let seen = "";
     const read = (chunk) => {
@@ -181,7 +186,7 @@ function awaited(listener, pattern, whenGone) {
       }
     };
     listener.stdout.on("data", read);
-    listener.on("exit", () => reject(new Error(whenGone)));
+    listener.on("exit", (code) => reject(code));
   });
 }
 
@@ -189,11 +194,8 @@ async function main() {
   const provider = process.argv[2] || "google";
   const wanted = process.argv[3];
 
-  if (existsSync(SETTINGS)) {
-    fail(
-      `already-activated: ${SETTINGS} exists, and a second installation on one machine is a second ` +
-        "thing to be billed for. Remove it and its keys to activate again.",
-    );
+  if (signedIn()) {
+    fail("already-activated: this machine is already signed in to Evalation. Run /ev-account to see its pack credits.");
   }
 
   // Before a browser opens or a server is asked anything, because the alternative is an installation
@@ -218,9 +220,12 @@ async function main() {
   const verifier = b64url(randomBytes(32));
   const challenge = b64url(createHash("sha256").update(verifier, "ascii").digest());
 
-  const listener = spawnScript("evalation-loopback", [], { stdio: ["ignore", "pipe", "inherit"] });
-  const bound = await awaited(listener, /port=(\d+)/, "the listener stopped before it bound a port")
-    .catch((thrown) => fail(thrown.message));
+  listener = spawnScript("evalation-loopback", [], { stdio: ["ignore", "pipe", "pipe"] });
+  let said = "";
+  listener.stderr.on("data", (chunk) => { said += chunk; });
+  for (const signal of ["SIGINT", "SIGTERM", "SIGHUP"]) process.on(signal, () => fail("stopped: the sign-in was stopped, so nothing was activated"));
+  const bound = await awaited(listener, /port=(\d+)/)
+    .catch(() => fail(`no-listener: this machine would not let the sign-in wait for the browser (${said.trim() || "no reason given"}), so nothing was activated`));
 
   const started = await ask("/activate/start", {
     code_challenge: challenge,
@@ -241,11 +246,7 @@ async function main() {
   // a browser this cannot see, so a refusal there never reaches the listener: the wait then runs its
   // full length and ends with a timeout that names none of what the person was looking at. They are
   // the only one who knows, so ask them.
-  process.stderr.write(
-    "waiting for you to finish in the browser, up to five minutes.\n" +
-      "If the browser shows an error rather than a sign-in page, stop this and say what it said. " +
-      "That error never reaches this command, so otherwise it waits out the whole five minutes.\n",
-  );
+  process.stderr.write(WAITING);
 
   // Matched on the whole line rather than on the code, because a provider that refuses redirects
   // here too, with a reason and an empty code. Waiting for a code that is never coming would hold a
@@ -253,8 +254,9 @@ async function main() {
   const back = await awaited(
     listener,
     /code=([^&\s]*)&state=([^&\s]*)&error=([^&\s]*)/,
-    "the sign-in was not completed",
-  ).catch((thrown) => fail(thrown.message));
+  ).catch((code) => fail(code === 3
+    ? "timed-out: the sign-in was not finished within five minutes, so nothing was activated"
+    : `no-listener: the sign-in stopped waiting for the browser (${said.trim() || "no reason given"}), so nothing was activated`));
 
   const refused = decodeURIComponent(back[3]);
   if (refused) {
@@ -287,23 +289,7 @@ async function main() {
   // The settings name where each key is and hold neither, so this file can be read out or pasted
   // into a ticket without carrying anything worth having.
   mkdirSync(dirname(SETTINGS), { recursive: true });
-  writeFileSync(
-    SETTINGS,
-    JSON.stringify(
-      {
-        schema: "evalation.local.v1",
-        installation: done.installation,
-        secrets: {
-          // Naming no platform, so one settings file reads the same on every machine and the store
-          // resolves it to whatever this one actually has.
-          installation_key: `store:${SERVICE}/${slot(done.installation, "installation-key")}`,
-          receiving_key: `store:${SERVICE}/${slot(done.installation, "receiving-key")}`,
-        },
-      },
-      null,
-      2,
-    ) + "\n",
-  );
+  writeFileSync(SETTINGS, JSON.stringify(settingsOf(done), null, 2) + "\n");
 
   process.stdout.write(
     JSON.stringify({
@@ -317,6 +303,39 @@ async function main() {
 
 // How the keys are named is read by a check, and requiring this file to read it must not open a
 // browser and sign somebody in. Run directly it activates; required, it only says what it would name.
-module.exports = { slot };
+function signedIn() {
+  if (!existsSync(SETTINGS)) return false;
+  let held;
+  try {
+    held = JSON.parse(readFileSync(SETTINGS, "utf8"));
+  } catch {
+    // empty-catch:allow: settings that will not parse hold no sign-in, so signing in again replaces them.
+    return false;
+  }
+  const reference = store.referenced(held?.secrets?.installation_key);
+  if (!reference || typeof held?.installation !== "string") return false;
+  let key;
+  try {
+    key = store.held(reference.service, reference.account);
+  } catch (thrown) {
+    if (store.absent(thrown)) return false;
+    fail("sign-in-unclear: this machine's Evalation sign-in could not be read. Nothing was changed.");
+  }
+  return Boolean(key) && Buffer.from(key, "base64").length === 32;
+}
+
+function settingsOf(done) {
+  return {
+    schema: "evalation.local.v1",
+    installation: done.installation,
+    ...(done.email ? { signed_in_as: done.email } : {}),
+    secrets: {
+      installation_key: `store:${SERVICE}/${slot(done.installation, "installation-key")}`,
+      receiving_key: `store:${SERVICE}/${slot(done.installation, "receiving-key")}`,
+    },
+  };
+}
+
+module.exports = { settingsOf, slot, WAITING };
 
 if (require.main === module) main();

@@ -1,6 +1,4 @@
 #!/usr/bin/env node
-//   evalation-remove folders                 the folders this machine read, whose Claude Code history can be cleared
-//   evalation-remove run [--clear-history]   revokes this installation, forgets its keys and deletes the evalation home
 "use strict";
 
 const { existsSync } = require("node:fs");
@@ -8,33 +6,35 @@ const { homedir } = require("node:os");
 const { join } = require("node:path");
 const { runScript } = require("../lib/script.js");
 const { pluginHome } = require("../lib/home.js");
-const { foldersRead, removal } = require("../lib/remove.js");
+const { openBy, pluginConversations, removal, reportsIn } = require("../lib/remove.js");
 const store = require("./evalation-store");
 
 const HOME = pluginHome();
 const CLAUDE = process.env.CLAUDE_CONFIG_DIR || join(homedir(), ".claude");
+const HERE = process.env.CLAUDE_CODE_SESSION_ID;
 
 function fail(reason) {
   process.stderr.write(`${reason}\n`);
   process.exit(1);
 }
 
-const [verb, flag] = process.argv.slice(2);
+const [verb, ...flags] = process.argv.slice(2);
 if (verb === "folders") {
-  const folders = foldersRead(HOME, process.cwd());
+  const others = pluginConversations(CLAUDE, { here: HERE }).filter((one) => one.id !== HERE);
   process.stdout.write(`${JSON.stringify({
-    home: HOME,
     home_exists: existsSync(HOME),
-    folders,
-    history: folders.filter((one) => existsSync(join(CLAUDE, "projects", one.replace(/[^A-Za-z0-9]/g, "-")))),
+    reports: reportsIn(HOME),
+    conversations: others.length,
+    open: others.filter((one) => one.live).length,
+    open_by: openBy(CLAUDE, HERE),
   }, null, 2)}\n`);
 } else if (verb === "run") {
   try {
     const done = removal({
       home: HOME,
       claude: CLAUDE,
-      cwd: process.cwd(),
-      clearHistory: flag === "--clear-history",
+      here: HERE,
+      clearHistory: flags.includes("--clear-history"),
       revoke: () => {
         try {
           runScript("evalation-ask", ["/revoke", "{}"], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
@@ -46,7 +46,7 @@ if (verb === "folders") {
     });
     process.stdout.write(`${JSON.stringify(done, null, 2)}\n`);
   } catch (thrown) {
-    fail(`not-removed: ${thrown.message}`);
+    fail(`${thrown.reason === "unreachable" ? "unreachable" : "refused"}: nothing was removed (${thrown.message})`);
   }
 } else {
   fail("usage: evalation-remove folders | run [--clear-history]");
