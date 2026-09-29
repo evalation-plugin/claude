@@ -33,8 +33,11 @@ Ask "Where should your questions go?", with one answer, from these:
   takes no extra questions, so it is never offered here. Offer this answer only where at least one
   pack is extensible.
 
-Then offer the sets kept on this machine, from `${CLAUDE_PLUGIN_ROOT}/bin/evalation-questions list`,
-to reuse as they are or to start from.
+Then offer the sets kept on this machine for that pack alone, from
+`${CLAUDE_PLUGIN_ROOT}/bin/evalation-questions list`, which names each set's pack, to change or to
+start from. A person may keep several sets, one for the cyber insurance pack and another for the
+investment pack, and each is written for its own pack and offered only with it. Suggest a name for a
+new set that says what it is for, such as "Broker questions", so it is easy to find again.
 
 ## 2. Gather the questions
 

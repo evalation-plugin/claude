@@ -141,6 +141,15 @@ question what a tick does and what it costs, and let each answer's label say wha
    another, so the packs are a choice per run and never assumed. The packs the person ticks are what
    step 2 is given. Nothing is counted until step 2, so asking costs nothing.
 
+   Once the packs are chosen, look at the sets kept on this machine with
+   `${CLAUDE_PLUGIN_ROOT}/bin/evalation-questions list`. Where any was written for a pack this run
+   reads, ask "Add your saved questions to this run? Tick each set to add.", allowing several
+   answers, each set an option labelled with its name and described by its pack's title and how many
+   questions it holds. Offer only the sets for packs this run reads, and never one written for another
+   pack. Pass each ticked set to step 2 with `--questions` and the path
+   `${CLAUDE_PLUGIN_ROOT}/bin/evalation-questions path <name>` prints. Each prints in a section of its
+   own, "User provided questions" with the set's name.
+
    On "Add my own questions", stop and have them run `/ev-questions`, which drafts the questions with
    them, turns any website claims into questions and gives back a file. Pass each such file to step 2
    with `--questions <file>`. A file of extra questions names its pack, which the run reads. When they

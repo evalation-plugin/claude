@@ -3,14 +3,14 @@
 //
 //   evalation-questions check <file>            prints each problem, or that the set holds
 //   evalation-questions save <file> [--replace] keeps the set under its name on this machine
-//   evalation-questions list                    the names of the sets kept here
+//   evalation-questions list                    the sets kept here, each with its pack and size
 //   evalation-questions path <name>             where a kept set is, to pass to evalation-run --questions
 "use strict";
 
 const { readFileSync } = require("node:fs");
 const { homedir } = require("node:os");
 const { join } = require("node:path");
-const { load, problems, save, saved } = require("../lib/questions.js");
+const { kept, load, problems, save } = require("../lib/questions.js");
 
 const HOME = process.env.EVALATION_HOME || join(homedir(), ".evalation");
 
@@ -41,7 +41,7 @@ if (verb === "check") {
     fail(thrown.message);
   }
 } else if (verb === "list") {
-  process.stdout.write(`${JSON.stringify(saved(HOME))}\n`);
+  process.stdout.write(`${JSON.stringify(kept(HOME))}\n`);
 } else if (verb === "path") {
   try {
     load(HOME, arg);
