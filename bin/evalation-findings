@@ -22,7 +22,7 @@
 const { createHash } = require("node:crypto");
 const { existsSync, mkdirSync, readFileSync, writeFileSync } = require("node:fs");
 const { dirname, join, resolve, relative, isAbsolute } = require("node:path");
-const { homedir } = require("node:os");
+const { pluginHome } = require("../lib/home.js");
 
 const { cardOf, cardWorst, named: phaseNamed, newestFor, phasesRead } = require("../lib/scans.js");
 const { facing, held, own } = require("../lib/prose.js");
@@ -75,7 +75,7 @@ function scanSays(want, scan, since) {
 const ORDERS = ["keep", "leave", "retain", "preserve", "maintain", "continue", "don't", "do",
   "avoid", "ensure", "make", "consider", "carry"];
 
-const HOME = process.env.EVALATION_HOME || join(homedir(), ".evalation");
+const HOME = pluginHome();
 
 // A credential never reaches a report, per the findings detail: a finding that quotes one has
 // published it into a PDF. Two shapes a machine can decide. A value of sixteen or more characters,

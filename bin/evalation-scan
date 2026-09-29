@@ -33,7 +33,8 @@
 const { execFileSync } = require("node:child_process");
 const { existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync,
   statSync, writeFileSync } = require("node:fs");
-const { homedir, tmpdir } = require("node:os");
+const { tmpdir } = require("node:os");
+const { pluginHome } = require("../lib/home.js");
 const { basename, dirname, isAbsolute, join, resolve } = require("node:path");
 
 const { SCANS } = require("../lib/scans.js");
@@ -41,7 +42,7 @@ const { copied, inRepository } = require("../lib/tree.js");
 const { solutionOf } = require("../lib/solution.js");
 const { cwesOf } = require("../lib/weaknesses.js");
 
-const HOME = process.env.EVALATION_HOME || join(homedir(), ".evalation");
+const HOME = pluginHome();
 const SETTINGS = process.env.EVALATION_LOCAL || join(HOME, "evalation.local");
 
 // Worst last. A floor keeps the noise of a thousand negligible transitive advisories out of a report

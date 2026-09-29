@@ -7,10 +7,11 @@ const { existsSync } = require("node:fs");
 const { homedir } = require("node:os");
 const { join } = require("node:path");
 const { runScript } = require("../lib/script.js");
+const { pluginHome } = require("../lib/home.js");
 const { foldersRead, removal } = require("../lib/remove.js");
 const store = require("./evalation-store");
 
-const HOME = process.env.EVALATION_HOME || join(homedir(), ".evalation");
+const HOME = pluginHome();
 const CLAUDE = process.env.CLAUDE_CONFIG_DIR || join(homedir(), ".claude");
 
 function fail(reason) {

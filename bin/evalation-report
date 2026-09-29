@@ -28,7 +28,7 @@
 const { mkdirSync, readFileSync } = require("node:fs");
 const { join, resolve } = require("node:path");
 
-const { homedir } = require("node:os");
+const { pluginHome } = require("../lib/home.js");
 const { changes, changesSection, earlierFor } = require("../lib/changes.js");
 const { print } = require("../lib/print.js");
 const { readingOf } = require("../lib/prose.js");
@@ -38,7 +38,7 @@ const { keepFindings, reportsFolder, reviewName } = require("../lib/reports.js")
 const { CHROME, css, escaped, paginator, scanResults } = require("../lib/sheet.js");
 const { readBlock, shownPath } = require("../lib/solution.js");
 
-const HOME = process.env.EVALATION_HOME || join(homedir(), ".evalation");
+const HOME = pluginHome();
 
 let target = null;
 

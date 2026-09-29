@@ -2,12 +2,12 @@
 "use strict";
 
 const { existsSync, mkdirSync, readFileSync, writeFileSync } = require("node:fs");
-const { homedir } = require("node:os");
+const { pluginHome } = require("../lib/home.js");
 const { join } = require("node:path");
 const { runScript } = require("../lib/script.js");
 const { extensible } = require("../lib/questions.js");
 
-const HOME = process.env.EVALATION_HOME || join(homedir(), ".evalation");
+const HOME = pluginHome();
 const SELECTION = join(HOME, "packs.json");
 
 function usage() {

@@ -1,7 +1,5 @@
 // fixture - a repository, a scan of it and a run over it, small enough to read and real enough that
 // the findings check, the score and the tree are driven as they are in a customer's run.
-//
-// EVALATION_HOME is set before anything of the plugin is loaded, since lib/scans.js reads it once.
 "use strict";
 
 const { execFileSync } = require("node:child_process");
@@ -10,7 +8,7 @@ const { tmpdir } = require("node:os");
 const { join } = require("node:path");
 
 const home = mkdtempSync(join(tmpdir(), "evalation-home-"));
-process.env.EVALATION_HOME = home;
+process.env.EVALATION_PLUGIN_HOME = home;
 
 const git = (cwd, ...args) => execFileSync("git", args, { cwd, stdio: "ignore" });
 

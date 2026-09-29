@@ -489,7 +489,7 @@ question what a tick does and what it costs, and let each answer's label say wha
    - `Evalation Hardening Review Pack.pdf` and `Evalation Hardening Review Detail.pdf`
    - one evidence pack per standard, such as `Evalation SOC 2 Trust Services Criteria Evidence Pack.pdf`
    - `Evalation Findings.json`, a copy of the findings file, which is what the engine ingests to work
-     the findings. The one under `~/.evalation` stays the record.
+     the findings. The one under `~/.evalation-plugin` stays the record.
 
    A concern set answers findings, so `evalation-deliver` builds its two: the review detail, which
    carries every finding with its remediation and is what somebody works from, and the review pack,

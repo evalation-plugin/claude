@@ -26,9 +26,10 @@ const { execFileSync } = require("node:child_process");
 const { chmodSync, existsSync, mkdirSync, readFileSync, statSync, writeFileSync, unlinkSync } =
   require("node:fs");
 const { join, dirname } = require("node:path");
-const { homedir, platform } = require("node:os");
+const { platform } = require("node:os");
+const { pluginHome } = require("../lib/home.js");
 
-const HOME = process.env.EVALATION_HOME || join(homedir(), ".evalation");
+const HOME = pluginHome();
 
 /** Where the file tier keeps a key, one file per account so a rotation replaces one thing. */
 function beside(service, account) {
@@ -261,7 +262,7 @@ if (require.main === module) {
     process.stderr.write(
       `no-key-store: ${thrown.message}\n` +
         "This machine has nowhere to keep a private key. Set EVALATION_KEY_STORE=file to keep it in " +
-        "a file only you can read, under ~/.evalation/keys.\n",
+        "a file only you can read, under ~/.evalation-plugin/keys.\n",
     );
     process.exit(1);
   }

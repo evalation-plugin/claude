@@ -25,12 +25,13 @@ const store = require("./evalation-store");
 const { spawnScript } = require("../lib/script.js");
 const { existsSync, mkdirSync, writeFileSync } = require("node:fs");
 const { join, dirname } = require("node:path");
-const { homedir, hostname, userInfo } = require("node:os");
+const { hostname, userInfo } = require("node:os");
+const { pluginHome } = require("../lib/home.js");
 
-const SERVICE = "evalation";
+const SERVICE = "evalation-plugin";
 const SERVER = "https://api.evalation.ai";
 const base = process.env.EVALATION_SERVER || SERVER;
-const SETTINGS = process.env.EVALATION_LOCAL || join(homedir(), ".evalation", "evalation.local");
+const SETTINGS = process.env.EVALATION_LOCAL || join(pluginHome(), "evalation.local");
 
 function fail(reason) {
   process.stderr.write(reason + "\n");
@@ -161,7 +162,7 @@ function somewhere_to_keep_it() {
     fail(
       `no-key-store: this machine has nowhere to keep a private key (${thrown.message}).\n` +
         "Nothing was created and nothing needs undoing. Set EVALATION_KEY_STORE=file to keep the " +
-        "keys in a file only you can read, under ~/.evalation/keys, then run this again.",
+        "keys in a file only you can read, under ~/.evalation-plugin/keys, then run this again.",
     );
   }
 }

@@ -24,11 +24,11 @@
 const { existsSync, mkdirSync, readFileSync, writeFileSync } = require("node:fs");
 const { basename, join, resolve } = require("node:path");
 
-const { homedir } = require("node:os");
+const { pluginHome } = require("../lib/home.js");
 const { changes, earlierFor } = require("../lib/changes.js");
 const { synthesise } = require("../lib/synthesise.js");
 
-const HOME = process.env.EVALATION_HOME || join(homedir(), ".evalation");
+const HOME = pluginHome();
 const { keepFindings, reportsFolder, reviewName } = require("../lib/reports.js");
 const { cardWorst } = require("../lib/scans.js");
 const { readingOf } = require("../lib/prose.js");
