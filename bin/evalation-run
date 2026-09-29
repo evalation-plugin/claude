@@ -236,6 +236,21 @@ function main() {
       fail(`unselected-pack: ${one.name} adds questions to ${one.pack}, which this run does not read`);
     }
   }
+  if (sets.some((one) => one.pack !== "custom")) {
+    let catalogue;
+    try {
+      catalogue = JSON.parse(runScript("evalation-packs", ["titles"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }));
+    } catch {
+      fail("unreadable-catalogue: the packs could not be listed, so nothing was read and nothing was counted. Run /ev-run again once the server can be reached.");
+    }
+    for (const one of sets.filter((each) => each.pack !== "custom")) {
+      const held = catalogue.find((each) => each.pack === one.pack);
+      if (!held?.extensible) {
+        fail(`unextendable-pack: ${one.name} adds questions to ${held?.title ?? one.pack}, which keeps the published ` +
+          "standard's own clauses. Add them to one of Evalation's own packs, or run them as a pack of their own. Nothing was counted.");
+      }
+    }
+  }
 
   // Named here, before the server is asked, so a retry after our own transport failed is the same run
   // rather than a second one to be charged for.

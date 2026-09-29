@@ -8,7 +8,7 @@ const { mkdtempSync } = require("node:fs");
 const { tmpdir } = require("node:os");
 const { join } = require("node:path");
 const { home } = require("./fixture.js");
-const { extended, load, packOf, problems, save, saved } = require("../lib/questions.js");
+const { extended, extensible, kept, load, packOf, problems, save, saved } = require("../lib/questions.js");
 const { groupOf, methodology } = require("../bin/evalation-findings");
 const { served } = require("../bin/evalation-run");
 
@@ -60,12 +60,52 @@ test("the custom pack is built locally, marks every entry the customer's, and na
   assert.strictEqual(pack.body.entries[0].written_by, "customer");
 });
 
-test("extra questions join a served pack after its own entries, and a clashing identifier is refused", () => {
-  const servedPack = { pack: "cyber-insurance", kind: "standard", body: { kind: "standard", title: "Cyber insurance", entries: [{ identifier: "Q1" }, { identifier: "INS01" }] } };
+test("extra questions join one of our own packs in a section of their own, and a clashing identifier is refused", () => {
+  const servedPack = { pack: "cyber-insurance", kind: "standard", body: { kind: "standard", version_is_ours: true, title: "Cyber insurance",
+    sections: [{ identifier: "S1", title: "Sign-in and access" }], entries: [{ identifier: "Q1", section: "S1" }, { identifier: "INS01", section: "S1" }] } };
   assert.throws(() => extended(servedPack, set([question("Q1")], { pack: "cyber-insurance" })), /Q1 is already an entry of cyber-insurance/);
   const grown = extended(servedPack, set([question("Q2")], { pack: "cyber-insurance" }));
   assert.deepStrictEqual(grown.body.entries.map((one) => one.identifier), ["Q1", "INS01", "Q2"]);
   assert.strictEqual(grown.body.entries[2].written_by, "customer");
+  assert.deepStrictEqual(grown.body.sections.map((one) => one.title), ["Sign-in and access", "User provided questions: Board check"]);
+  assert.strictEqual(grown.body.entries[2].section, grown.body.sections[1].identifier);
+  assert.strictEqual(grown.body.entries[0].section, "S1");
+});
+
+test("two sets for one pack each print in a section of their own", () => {
+  const servedPack = { pack: "cyber-insurance", kind: "standard", body: { kind: "standard", version_is_ours: true, title: "Cyber insurance",
+    sections: [{ identifier: "S1", title: "Sign-in and access" }], entries: [{ identifier: "CYB01", section: "S1" }] } };
+  const once = extended(servedPack, set([question("Q1")], { name: "Broker questions", pack: "cyber-insurance" }));
+  const twice = extended(once, set([question("Q2")], { name: "Board questions", pack: "cyber-insurance" }));
+  assert.deepStrictEqual(twice.body.sections.map((one) => one.title),
+    ["Sign-in and access", "User provided questions: Broker questions", "User provided questions: Board questions"]);
+  assert.deepStrictEqual(twice.body.entries.map((one) => one.section), ["S1", twice.body.sections[1].identifier, twice.body.sections[2].identifier]);
+  assert.notStrictEqual(twice.body.sections[1].identifier, twice.body.sections[2].identifier);
+});
+
+test("the sets kept here are listed with the pack each was written for", () => {
+  const at = mkdtempSync(join(tmpdir(), "evalation-sets-"));
+  save(at, set([question("Q1")], { name: "Broker questions", pack: "cyber-insurance" }));
+  save(at, set([question("Q1"), question("Q2")], { name: "Investor questions", pack: "investment-diligence" }));
+  assert.deepStrictEqual(kept(at), [
+    { name: "Broker questions", pack: "cyber-insurance", questions: 1 },
+    { name: "Investor questions", pack: "investment-diligence", questions: 2 },
+  ]);
+});
+
+test("a pack holding a published standard's clauses takes no extra questions, and neither does a concern set", () => {
+  const soc2 = { pack: "soc2", kind: "standard", body: { kind: "standard", version_is_ours: false, title: "SOC 2", entries: [{ identifier: "CC6.1" }] } };
+  assert.throws(() => extended(soc2, set([question("Q1")], { pack: "soc2" })), /SOC 2 keeps the published standard's own clauses, so it takes no extra questions/);
+  assert.strictEqual(extensible(soc2.body), false);
+  assert.strictEqual(extensible({ kind: "concern-set", version_is_ours: true }), false);
+  assert.strictEqual(extensible({ kind: "standard", version_is_ours: true }), true);
+});
+
+test("a pack with no sections keeps its own entries under its title, and the extra questions under theirs", () => {
+  const ours = { pack: "investment-diligence", kind: "standard", body: { kind: "standard", version_is_ours: true, title: "Investment due diligence", entries: [{ identifier: "INV01" }] } };
+  const grown = extended(ours, set([question("Q1")], { pack: "investment-diligence" }));
+  assert.deepStrictEqual(grown.body.sections.map((one) => one.title), ["Investment due diligence", "User provided questions: Board check"]);
+  assert.deepStrictEqual(grown.body.entries.map((one) => one.section), [grown.body.sections[0].identifier, grown.body.sections[1].identifier]);
 });
 
 test("a run with custom questions reads them, asks the server for none of them, and charges nothing for them", () => {
