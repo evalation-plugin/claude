@@ -12,7 +12,7 @@
 const { readFileSync } = require("node:fs");
 const { pluginHome } = require("../lib/home.js");
 const { join } = require("node:path");
-const { CRITERIA, dropFromAccount, fetched, keepOnAccount, listed, problems, review, save } = require("../lib/questions.js");
+const { CRITERIA, dropFromAccount, fetched, grid, keepOnAccount, listed, problems, saveChecked, status, verdict } = require("../lib/questions.js");
 
 const HOME = pluginHome();
 
@@ -31,13 +31,14 @@ function read(file) {
 
 const [verb, arg, flag] = process.argv.slice(2);
 if (verb === "check") {
-  const wrong = problems(read(arg));
+  const set = read(arg);
+  const wrong = [...problems(set), ...status(HOME, set)];
   if (wrong.length > 0) fail(`${wrong.length} to fix:\n  ${wrong.join("\n  ")}`);
   process.stdout.write("holds\n");
 } else if (verb === "save") {
   try {
     const set = read(arg);
-    save(HOME, set, { replace: flag === "--replace" });
+    saveChecked(HOME, set, { replace: flag === "--replace" });
     process.stdout.write(`kept as ${set.name}\n`);
   } catch (thrown) {
     fail(thrown.message);
@@ -65,9 +66,11 @@ if (verb === "check") {
     fail(`not-dropped: ${arg} (${thrown.message})`);
   }
 } else if (verb === "criteria") {
-  process.stdout.write(`${CRITERIA.join("\n")}\n`);
-} else if (verb === "review") {
-  process.stdout.write(`${review(read(arg))}\n`);
+  process.stdout.write(`${CRITERIA.map((one) => `${one.id}, for each ${one.about}, a fault where the answer is ${one.fault}: ${one.asks}`).join("\n")}\n`);
+} else if (verb === "grid") {
+  process.stdout.write(`${grid(HOME, read(arg)).text}\n`);
+} else if (verb === "verdict") {
+  process.stdout.write(`${JSON.stringify(verdict(HOME, read(arg), readFileSync(0, "utf8")))}\n`);
 } else {
-  fail("usage: evalation-questions check <file> | criteria | review <file> | save <file> [--replace] | list | path <name> | keep-on-account <name> | drop-from-account <name>");
+  fail("usage: evalation-questions check <file> | criteria | grid <file> | verdict <file> (answers on stdin) | save <file> [--replace] | list | path <name> | keep-on-account <name> | drop-from-account <name>");
 }

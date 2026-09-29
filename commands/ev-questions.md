@@ -70,9 +70,9 @@ name no technology, assume none, and let a technology appear only as a "such as"
 fits any repository read against its pack. The criteria every set is held to are printed by
 `${CLAUDE_PLUGIN_ROOT}/bin/evalation-questions criteria`, so read them before drafting.
 
-A question a repository cannot answer, such as how a team feels, whether customers like a feature or
-anything about people's intentions, is said so plainly and either rewritten into what the code can
-show, with the person's agreement, or left out. For each question that stays, draft:
+No question is left out. One the code cannot answer as asked, such as how a team feels or whether
+customers like a feature, is reworded into what the code can show, and its `asked` keeps the words
+the person wrote. For each question, draft:
 
 - `identifier`: Q1, Q2 and on, in order.
 - `asked`: the customer's words this question came from, exactly as written, or the claim they
@@ -120,17 +120,19 @@ Write the set as one JSON file, `{"name": "<its name>", "pack": "custom" or the 
 such as "Broker questions", and never names the repository this session is open in or anything in
 it. A name the person gives is used as they give it, whatever it names.
 
-**Recheck it before anyone sees it.** Start the `question-checker` agent, which did not write the set,
-with the file's path. It checks every question and every item against the criteria and
-hands back each one that breaks a criterion, or PASS. Fix every one it names, write the file again
-and start a fresh checker, until one hands back PASS. Never mark a line fixed without changing the
-set. Stop fixing after three rounds, and settle what is left yourself: remove every item the third
-checker still named, leave out any question with fewer than two items left, and start one more
-checker on the result, which passes, since taking an item out adds no fault. Then show the set, and
-above it one plain line for each thing removed and why, such as "Removed Q3's alert item, which
-named a judgement". The person is never handed a flag to decide. On "Change something" afterwards,
-put back what they ask for, reworded, and recheck it the same way. Never show a set a checker has
-not passed.
+**Recheck it before anyone sees it.** Tell the person "Checking your questions" and nothing more about
+the check: no counts, no rounds and no checker's findings. Start the `question-checker` agent, which
+did not write the set, with the file's path. It answers each numbered criterion for each question and
+each item, and the plugin records its verdicts against the words it judged. Then run
+`evalation-questions check <file>`, which names each row not yet checked and each fault, with the
+criterion and the words that break it. Reword every row it names and start a fresh checker, which is
+asked only the rows whose words changed, since a row keeps its verdict while its words stay the same.
+A row still failing after three rounds is named "after three rounds, so remove it": remove that item,
+or that question where the fault is on the question itself, and drop a question left with fewer than
+two items. Then show the set, and above it one plain line for each thing removed, naming the criterion
+it broke in plain words, such as "Removed Q3's alert item, which held two conditions". The person is
+never handed a flag to decide. On "Change something" afterwards, put back what they ask for,
+reworded, and recheck it the same way. Never show a set until `check` prints `holds`.
 
 Then show the whole set, every question with its list, and ask "Save this set as written?", with the
 answers "Save it" and "Change something". On "Change something", ask what, make the changes across

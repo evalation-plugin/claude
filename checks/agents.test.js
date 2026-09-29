@@ -60,10 +60,23 @@ test("the session's own calls and other agents' calls pass the gate", () => {
   assert.ok(bash("ls", "general-purpose").allowed);
 });
 
-test("the question checker runs the review of a draft and nothing else", () => {
-  assert.ok(bash("evalation-questions review /tmp/draft.json", "evalation-plugin:question-checker").allowed);
+test("the question checker prints its grid and records its verdict, and nothing else", () => {
+  assert.ok(bash("evalation-questions grid /tmp/draft.json", "evalation-plugin:question-checker").allowed);
+  assert.ok(bash("evalation-questions verdict /tmp/draft.json <<'EOF'\nQ1 C1: YES\nEOF", "evalation-plugin:question-checker").allowed);
   assert.strictEqual(bash("evalation-questions save /tmp/draft.json", "evalation-plugin:question-checker").allowed, false);
   assert.strictEqual(bash("cat /tmp/draft.json", "evalation-plugin:question-checker").allowed, false);
+});
+
+test("only the question checker records a verdict, and nothing names the file verdicts are kept in", () => {
+  const session = (command) => gate({ tool_name: "Bash", tool_input: { command } });
+  const recorded = "/x/bin/evalation-questions verdict /tmp/draft.json <<'EOF'\nQ1 C1: YES\nEOF";
+  for (const said of [session(recorded), bash(recorded, "general-purpose"), bash(recorded)]) {
+    assert.strictEqual(said.allowed, false);
+    assert.match(said.said, /only the question checker records a verdict/);
+  }
+  assert.strictEqual(session("node -e 1 > ~/.evalation-plugin/questions-checked.json").allowed, false);
+  assert.strictEqual(gate({ tool_name: "Write", tool_input: { file_path: "/h/.evalation-plugin/questions-checked.json", content: "{}" } }).allowed, false);
+  assert.ok(session("/x/bin/evalation-questions check /tmp/draft.json").allowed);
 });
 
 test("the plugin ships the four agents with the shell alone, and the gate as a hook", () => {
