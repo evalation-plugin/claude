@@ -238,7 +238,7 @@ function scanned(document) {
   const phases = document.scan?.phases ?? [];
   if (!phases.length) {
     return `<div class="block"><h2>What the tools checked</h2>
-<p class="none">No scan was run over ${document.solution ? "this solution" : "this repository"}.</p></div>`;
+<p class="none">No scan was run over ${document.solution ? "this product" : "this repository"}.</p></div>`;
   }
 
   const rows = phases.map((one) => {

@@ -206,6 +206,17 @@ test("a key store that refuses the new key gives a prefixed reason and no stack 
   }
 });
 
+test("the command text says a sentence the script prints only where it is one, and gives a step for every word each sentence can carry", () => {
+  const flat = COMMAND.replace(/\s+/g, " ");
+  assert.match(flat, /Where the first line is one of the two sentences below, say it\./);
+  const notReplaced = flat.slice(flat.indexOf(`**"${NOT_REPLACED}"**`), flat.indexOf(`**"${NOT_FINISHED}"**`));
+  const notFinished = flat.slice(flat.indexOf(`**"${NOT_FINISHED}"**`), flat.indexOf("**`no-settings`**"));
+  assert.doesNotMatch(notReplaced, /`unreachable`/);
+  assert.match(notFinished, /"Other Evalation commands on this machine may not work until it finishes\."/);
+  assert.match(notFinished, /`key-store-refused`: "Check this machine's password store \(Keychain on a Mac\) is unlocked, then run \/ev-rotate again to finish it\."/);
+  assert.doesNotMatch(flat, /password store(?! \(Keychain on a Mac\))/);
+});
+
 test("the command text promises nothing for a lost machine and sends that case to support", () => {
   const description = COMMAND.split("\n").find((line) => line.startsWith("description:"));
   assert.doesNotMatch(description, /lost|left/);

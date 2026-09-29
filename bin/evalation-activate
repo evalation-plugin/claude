@@ -233,13 +233,13 @@ async function main() {
     provider,
   });
 
-  process.stderr.write(`signing in with ${provider}\n`);
+  process.stderr.write(`signing in with ${provider}\nsign-in address: ${started.authorization_url}\n`);
   try {
     const [opener, ...args] = process.platform === "darwin" ? ["open"]
       : process.platform === "win32" ? ["rundll32", "url.dll,FileProtocolHandler"] : ["xdg-open"];
     execFileSync(opener, [...args, started.authorization_url], { stdio: ["ignore", "ignore", "ignore"] });
   } catch {
-    process.stderr.write(`could not open a browser. Sign in here:\n${started.authorization_url}\n`);
+    process.stderr.write("could not open a browser\n");
   }
 
   // Said before the wait rather than after it. Whatever the provider does with the sign-in happens in

@@ -6,7 +6,7 @@ const { homedir } = require("node:os");
 const { join } = require("node:path");
 const { runScript } = require("../lib/script.js");
 const { pluginHome } = require("../lib/home.js");
-const { openBy, pluginConversations, removal, reportsIn } = require("../lib/remove.js");
+const { openBy, placesOf, pluginConversations, removal, reportsIn } = require("../lib/remove.js");
 const store = require("./evalation-store");
 
 const HOME = pluginHome();
@@ -25,6 +25,7 @@ if (verb === "folders") {
     home_exists: existsSync(HOME),
     reports: reportsIn(HOME),
     conversations: others.length,
+    places: placesOf(others),
     open: others.filter((one) => one.live).length,
     open_by: openBy(CLAUDE, HERE),
   }, null, 2)}\n`);
@@ -43,6 +44,7 @@ if (verb === "folders") {
         }
       },
       forget: (service, account) => store.forget(service, account),
+      held: (service, account) => store.chosen().held(service, account),
     });
     process.stdout.write(`${JSON.stringify(done, null, 2)}\n`);
   } catch (thrown) {

@@ -415,9 +415,11 @@ const ADAPTERS = {
  * git log. Only the shares are kept: a name or an address is somebody's personal data and says
  * nothing a buyer needs. One person holding most of the work is the risk a buyer asks about.
  */
+const botAccount = (address) => /\[bot\]@/.test(address);
+
 function authorship(out) {
   const counts = new Map();
-  for (const one of String(out).split("\n").map((line) => line.trim().toLowerCase()).filter(Boolean)) {
+  for (const one of String(out).split("\n").map((line) => line.trim().toLowerCase()).filter((line) => line && !botAccount(line))) {
     counts.set(one, (counts.get(one) ?? 0) + 1);
   }
   const total = [...counts.values()].reduce((sum, one) => sum + one, 0);

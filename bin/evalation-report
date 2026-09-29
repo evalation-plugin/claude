@@ -30,7 +30,7 @@ const { join, resolve } = require("node:path");
 
 const { pluginHome } = require("../lib/home.js");
 const { changes, changesSection, earlierFor } = require("../lib/changes.js");
-const { print, unwritten } = require("../lib/print.js");
+const { print, unsignedThen, unwritten } = require("../lib/print.js");
 const { readingOf } = require("../lib/prose.js");
 const { cardOf, compared, compatible, named: phaseNamed, upgradeTo } = require("../lib/scans.js");
 const { consequences, remedies } = require("../lib/weaknesses.js");
@@ -42,7 +42,7 @@ const HOME = pluginHome();
 
 let target = null;
 
-const here = () => (target?.kind === "solution" ? "this solution" : "this repository");
+const here = () => (target?.kind === "solution" ? "this product" : "this repository");
 
 // The vocabulary, in the order a reader should meet it: what is wrong first, what is right after,
 // and what is nobody's or somebody else's last. Coverage is this pack's own, as severity is the
@@ -401,7 +401,7 @@ function opening(document, answers, packs, asked) {
   const marks = grades(asked);
   const parts = [
     ["Identifier", `The standard's number and short name for the ${noun.one}.`],
-    ["Asked", `The question put to ${document.target?.kind === "solution" ? "the solution" : "the repository"}, in italics.`],
+    ["Asked", `The question put to ${document.target?.kind === "solution" ? "the product" : "the repository"}, in italics.`],
     ["Answer", `What ${document.target?.kind === "solution" ? "the repositories show" : "the repository shows"}, and why that earns this status.`],
     ["Where it rests", (document.target?.kind === "solution" ? "The repository, file and lines" : "The file and lines") + " on the grey bar, the quoted line under them, and how strong the evidence is on the right. For something missing, the search we made, so anyone can repeat it."],
     ["Looked for", "The things the standard looks for, numbered, each marked found, missing, no evidence found or does not apply. The status follows from how many were found. An item marked scanned was settled by a scanner run during the review, and the scanner's results are listed at the end."],
@@ -415,7 +415,7 @@ function opening(document, answers, packs, asked) {
   }
 
   const whole = document.target?.kind === "solution"
-    ? `the ${(document.target.repositories ?? []).length} repositories of this solution together`
+    ? `the ${(document.target.repositories ?? []).filter((one) => one.vcs === "git").length} repositories of this product together`
     : "the repository";
   return `<div class="block">
 ${facts(document, answers, packs)}
@@ -506,9 +506,9 @@ function page(document, answers, asked) {
 
   const title = "Evalation Evidence Pack";
   const subtitle = document.target?.kind === "solution"
-    ? `What this solution evidences · Solution: ${repository}`
-    : `What this repository evidences · Repo: ${repository}`;
-  const foot = `${title}. Assessed ${dated(document.at)} at governance revision ` +
+    ? `What this product evidences · Product: ${repository}`
+    : `What this repository evidences · Repository: ${repository}`;
+  const foot = `${title}. Assessed ${dated(document.at)} against question revision ` +
     `${document.revision ?? ""}.`;
 
   return `<!doctype html><meta charset="utf-8"><title>${escaped(title)}</title>
@@ -596,7 +596,7 @@ function main() {
         written: done.printed ? out : done.page,
         printed: done.printed,
         signed: done.signed === true,
-        ...(done.unsigned ? { unsigned: done.unsigned } : {}),
+        ...(done.unsigned ? { unsigned: done.unsigned, then: unsignedThen(done.unsigned) } : {}),
         entries: own.length,
         cited: citing(own),
         by_status: counted(own),

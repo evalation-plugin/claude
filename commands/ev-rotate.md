@@ -26,24 +26,28 @@ say "Email support@evalation.ai and we will switch that machine off."
 
 ## When it does not work
 
-Its first line is the one to say. The word on the line after it picks the one next step to add.
+Where the first line is one of the two sentences below, say it. The word on the line after it picks
+the one next step to add. Otherwise read the prefix of the first line and say the line given for it.
 Never run it with `--reason`, which adds detail for support alone.
 
 - **"The key was not replaced and the old one still works."** Add the step for the word:
   - `clock`: "Set this machine's clock to the right time, then run /ev-rotate again."
-  - `unreachable`: "Check this machine is online, then run /ev-rotate again."
-  - `key-store-refused`: "Check this machine's password store is unlocked, then run /ev-rotate
-    again."
+  - `key-store-refused`: "Check this machine's password store (Keychain on a Mac) is unlocked, then
+    run /ev-rotate again."
   - `refused`: "Evalation no longer accepts this machine. Contact support@evalation.ai and we will
     sort it out."
   - `ended`: "This machine's access to Evalation has ended. To renew it, email
     support@evalation.ai."
   - anything else: "Contact support@evalation.ai and we will fix it."
 - **"The key change did not finish."** Both keys are kept on this machine, and running again
-  finishes the change without making another. Never say the old key still works. Add the step for
-  the word:
+  finishes the change without making another. Never say the old key still works. Say next "Other
+  Evalation commands on this machine may not work until it finishes.", since they open what
+  Evalation sends with the new key, and Evalation may not use it yet. Then add the step for the
+  word:
   - `clock`: "Set this machine's clock to the right time, then run /ev-rotate again to finish it."
   - `unreachable`: "Check this machine is online, then run /ev-rotate again to finish it."
+  - `key-store-refused`: "Check this machine's password store (Keychain on a Mac) is unlocked, then
+    run /ev-rotate again to finish it."
   - `refused`: "Evalation no longer accepts this machine. Contact support@evalation.ai and we will
     sort it out."
   - `ended`: "This machine's access to Evalation has ended. To renew it, email
@@ -56,7 +60,7 @@ Never run it with `--reason`, which adds detail for support alone.
   sign-in is damaged, so the key was not replaced. Run /ev-activate to sign in again."
 - **`sign-in-unclear`** means this machine would not let Evalation read its sign-in. Say
   "Evalation could not read this machine's sign-in, so the key was not replaced. Unlock this
-  machine's password store, then run /ev-rotate again. If it still fails, contact
+  machine's password store (Keychain on a Mac), then run /ev-rotate again. If it still fails, contact
   support@evalation.ai."
 - **`no-receiving-key`** or **`no-key`** means part of this machine's sign-in cannot be read. Say
   "Part of this machine's Evalation sign-in cannot be read, so the key was not replaced. Contact

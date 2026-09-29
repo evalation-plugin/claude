@@ -196,7 +196,7 @@ function inventory(where) {
     LANGUAGES: written.length,
   };
   if (commits) counts.COMMITS = Number(commits);
-  if (solution) counts.REPOSITORIES = solution.repositories.length;
+  if (solution) counts.REPOSITORIES = solution.repositories.filter((one) => one.vcs === "git").length;
 
   const declared = dependencies(where, held.paths);
   if (declared) counts.DEPENDENCIES = declared;

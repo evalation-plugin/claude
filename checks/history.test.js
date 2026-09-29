@@ -27,6 +27,13 @@ test("a history spread across people finds nothing, and a bare majority is mediu
   assert.strictEqual(authorship(log({ a: 6, b: 4 }))[0].severity, "medium");
 });
 
+test("commits a code host's bot account made are not counted as a person's", () => {
+  const found = authorship(log({ "a@x.io": 7, "49699333+dependabot[bot]@users.noreply.github.com": 3 }));
+  assert.strictEqual(found[0].severity, "high");
+  assert.match(found[0].body, /Of 7 commits/);
+  assert.match(found[0].title, /one person/);
+});
+
 test("a single author is high, and a year with no commits says so", () => {
   assert.match(authorship(log({ a: 5 }))[0].title, /one person/);
   assert.match(authorship("")[0].body, /No commits/);

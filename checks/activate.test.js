@@ -92,9 +92,47 @@ test("the sign-in command text says what it can keep true on every machine, and 
   assert.doesNotMatch(flat, /kept in this machine's password store/);
   assert.match(flat, /`sign-in-unclear`[^`]*"[^"]*nothing was changed[^"]*"/);
   assert.match(flat, /Never mention keys, installations or digital signatures to them\./);
-  assert.match(flat, /"Which account will you sign in with now\?"/);
+  assert.match(flat, /"Which account will you sign in with now\? This machine stays signed in with the account you choose\."/);
+  assert.match(flat, /"Which account will you sign in with\? This machine stays signed in with the account you choose\."/);
   assert.doesNotMatch(flat, /"Sign in again\?"/);
-  assert.match(flat, /At `state: not-set-up`, go on to step 2/);
+  assert.match(flat, /`state: not-set-up`: go on to step 2/);
+});
+
+test("the sign-in command text shows the address at once, hears the person during the wait, and words every line the same way each run", () => {
+  const flat = COMMAND.replace(/\s+/g, " ");
+  assert.match(flat, /`sign-in address:`/);
+  assert.match(flat, /"No browser opened, so open this address to sign in:"/);
+  assert.match(flat, /"A browser should now show the sign-in page\. If it does not, open this address:"/);
+  assert.match(flat, /"It waits up to five minutes\. If the page shows an error in place of a sign-in page, tell me what it says\."/);
+  assert.match(flat, /Where their message says what the browser showed/);
+  assert.doesNotMatch(flat, /press Esc/);
+  assert.match(flat, /`state: live` or `state: unreachable`: say "This machine is already signed in to Evalation\."/);
+  assert.match(flat, /`state: not-live`: run `\/ev-account` and say nothing of your own/);
+  assert.match(flat, /"This machine needs to sign in to Evalation again\. Your pack credits and reports are kept\."/);
+  assert.match(flat, /`unreachable`[^`]*"Evalation could not be reached, so nothing was created\. Check this machine is online, then run \/ev-activate again\. If it still fails, contact support@evalation\.ai\."/);
+  assert.match(flat, /"That way to sign in is not offered yet\."/);
+  assert.doesNotMatch(flat, /answers "Google"/);
+  for (const label of ["Sign in with Google", "Sign in with Microsoft"]) {
+    assert.strictEqual(flat.split(`"${label}", described as`).length - 1, 2, label);
+  }
+  assert.match(flat, /"Stop for now", described as/);
+  assert.match(flat, /header "Sign in"/);
+  assert.match(flat, /"To use Evalation on another computer, sign in there with the same account\. It costs nothing extra\."/);
+  assert.ok(flat.includes("Your sign-in stays on this machine, and only your login on this computer can use it."));
+  assert.doesNotMatch(flat, /password store(?! \(Keychain on a Mac\))(?! Evalation can use)/);
+});
+
+test("the sign-in address is printed before the wait, even where a browser opens", async (t) => {
+  if (process.platform === "win32") return t.skip("the opener here is a shell script");
+  const bin = mkdtempSync(join(tmpdir(), "evalation-browser-"));
+  const opener = join(bin, process.platform === "darwin" ? "open" : "xdg-open");
+  writeFileSync(opener, "#!/bin/sh\nexit 0\n", { mode: 0o755 });
+  const ran = await signIn(() => [200, { authorization_url: "http://127.0.0.1:1/signin", state: "s" }],
+    { PATH: `${bin}:/usr/bin:/bin`, EVALATION_LOOPBACK_TIMEOUT_MS: "300" });
+  const at = ran.stderr.indexOf("sign-in address: http://127.0.0.1:1/signin\n");
+  assert.ok(at >= 0, ran.stderr);
+  assert.ok(at < ran.stderr.indexOf(WAITING), ran.stderr);
+  assert.doesNotMatch(ran.stderr, /could not open a browser/);
 });
 
 test("while it waits, the script says so once and leaves the Esc line to the session", () => {
@@ -128,10 +166,11 @@ test("a machine with nowhere to keep a key is told the folder this machine reall
   assert.doesNotMatch(ran.stderr, /~\/\.evalation-plugin/);
 });
 
-test("the sign-in command text checks the machine first, waits long enough, and tells Esc apart from the timeout", () => {
+test("the sign-in command text checks the machine first, waits in the background, and tells a stop apart from the timeout", () => {
   assert.ok(COMMAND.indexOf("bin/evalation-status") < COMMAND.indexOf("Which account will you sign in with?"));
-  assert.match(COMMAND, /360000/);
+  assert.match(COMMAND, /`run_in_background`/);
+  assert.doesNotMatch(COMMAND, /360000/);
   assert.match(COMMAND, /`timed-out`/);
-  assert.match(COMMAND, /Esc/);
+  assert.match(COMMAND, /`stopped`/);
   assert.doesNotMatch(COMMAND, /which account and how many/);
 });

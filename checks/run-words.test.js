@@ -107,9 +107,32 @@ test("delivering with no browser names each page to open and says a PDF printed 
 test("an unsigned report names its file and reason, and how to get a signed copy", () => {
   const { said } = require("../bin/evalation-deliver");
   const text = said({ printed: true, into: "/r", pack: "/r/A Pack.pdf", findings: "/r/A Detail.pdf",
-    unsigned: [{ file: "/r/A Pack.pdf", why: "the server could not be reached" }] });
-  assert.match(text, /A Pack\.pdf is not signed because the server could not be reached/);
-  assert.match(text, /print the reports again/);
+    unsigned: [{ file: "/r/A Pack.pdf", why: "Evalation's server could not be reached" }] });
+  assert.match(text, /A Pack\.pdf is not signed because Evalation's server could not be reached/);
+  assert.match(text, /Once this machine is online, run \/ev-run print again for signed copies\. Printing again uses no pack credits\./);
+  assert.doesNotMatch(text, /ask Claude/);
+  const printless = said({ printed: false, into: "/r", pages: ["/r/A Pack.html"], unsigned: [] });
+  assert.match(printless, /then run \/ev-run print again/);
+});
+
+test("each reason a report is unsigned comes with a step the person can take, and the server's own fault goes to support", () => {
+  const { unsignedThen, unsignedWhy } = require("../lib/print.js");
+  const steps = ["unreachable: x", "no-settings: x", "refused 402: x", "refused 401: x", "refused 500: x"].map((one) => unsignedThen(unsignedWhy(one)));
+  for (const one of steps) assert.match(one, /run \/ev-run print again for signed copies\. Printing again uses no pack credits\.$/);
+  assert.match(steps[1], /^Run \/ev-activate to sign in/);
+  assert.match(steps[2], /support@evalation\.ai/);
+  assert.match(steps[4], /^Email support@evalation\.ai, then/);
+});
+
+test("the evidence pack names the repository in full and the question revision, in words a reader can place", () => {
+  const { run } = require("./fixture.js");
+  const { page } = require("../bin/evalation-report");
+  const document = run(repository());
+  const asked = new Map(document.packs[0].entries_asked.map((one) => [`soc2/${one.identifier}`, one]));
+  const html = page(document, document.answers.filter((one) => one.pack === "soc2"), asked);
+  assert.match(html, /What this repository evidences · Repository: acme\/app/);
+  assert.match(html, /Assessed [^.]+ against question revision 1\.80\./);
+  assert.doesNotMatch(html, /governance revision|Repo:/);
 });
 
 test("ev-run says each thing once, in the words the reports use, and asks only what it can ask", () => {
@@ -129,6 +152,32 @@ test("ev-run says each thing once, in the words the reports use, and asks only w
     "\"A second copy of a repository is never read.\"",
     "Running the free security tools over the repositories.",
     "Where `--scan` fails, show the line it prints as printed and stop.",
+    "${CLAUDE_PLUGIN_ROOT}/bin/evalation-run --titles",
+    "Where `--titles` fails, show the line it prints as printed and stop.",
+    "`${CLAUDE_PLUGIN_ROOT}/bin/evalation-questions path \"<name>\" --run`",
+    "Where `show`, `status`, `evalation-questions list` or `path` fails",
+    "with the same packs and question sets",
+    "Where there are no usual packs and no set written for no pack, skip this question and ask the full list at once",
+    "\"Keep the name <name>\"",
+    "\"The reports name the product <name>.\"",
+    "Your findings are kept, and the reports can be printed once this is fixed, with no new pack credits.",
+    "## Printing a run's reports again",
+    "${CLAUDE_PLUGIN_ROOT}/bin/evalation-run --last <target>",
+    "The ones you choose are read together as one product, for the same pack credits as one repository.",
+    "Each pack ticked uses one pack credit.",
+    "No extra pack credits.",
+    "Name the balance only in the first pack question and the full list, and say what a tick costs in every question.",
+    "Reading takes a while and uses a good part of your Claude usage.",
+    "Your own Claude session rereads each claim from scratch on the model you chose.",
+    "\"<tools>, the free security tools this review uses, are already installed.\"",
+    "\"Nothing is read and no pack credits are used. Switch to main, then run /ev-run again.\"",
+    "\"Nothing is read and no pack credits are used. Pull the latest changes, then run /ev-run again.\"",
+    "This run had already started, so no more pack credits were used.",
+    "`\"pack\":\"custom\"`",
+    "in alphabetical order of their labels",
+    "\"Which folders without version control should this run use as evidence for the code? Tick each one to use.\"",
+    "\"Use your question set \"<set name>\" with <pack title>? No extra pack credits.\"",
+    "joined with commas and a final and",
   ];
   const unsaid = [
     "can also take your own questions. To add some, stop here",
@@ -139,9 +188,32 @@ test("ev-run says each thing once, in the words the reports use, and asks only w
     "Reading it as it is makes the report describe the code as it was on that date.",
     "and that reading them as they are makes the report describe each as it was on that date",
     "This folder holds <N> repositories.",
+    "evalation-packs titles",
+    "questions path <name>",
+    "They are read together as one product, for the same pack credits as one.",
+    "a fair share of your Claude usage",
+    "since each part is read by its own agent",
+    "fresh reader",
+    "prints one line naming the file and writes nothing more",
+    "\"The free security tools this review uses, <tools>, are already installed.\"",
+    "Use your question set <set name>",
+    "They are used only as evidence when judging the version controlled code. Tick",
+    "and nowhere else",
+    "ask to print them again for signed copies",
   ];
   assert.deepStrictEqual(said.filter((one) => !text.includes(one)), []);
   assert.deepStrictEqual(unsaid.filter((one) => text.includes(one)), []);
+});
+
+test("every question ev-run asks names its header", () => {
+  const text = require("node:fs").readFileSync(join(__dirname, "..", "commands", "ev-run.md"), "utf8").replace(/\s+/g, " ");
+  const asks = [...text.matchAll(/\bask (?:once, )?"([^"]+\?)/gi)];
+  assert.ok(asks.length >= 12, `found ${asks.length} questions`);
+  const unheaded = asks.filter((one, at) => {
+    const upTo = asks[at + 1]?.index ?? text.length;
+    return !/\bheaded "(?:[^"<]{1,12}|[^"<]{1,8} <k>\/<n>)"/i.test(text.slice(one.index, Math.min(upTo, one.index + 1200)));
+  }).map((one) => one[1]);
+  assert.deepStrictEqual(unheaded, []);
 });
 
 test("the branch check names the repository and its folder, so the pack question can say which is read", () => {

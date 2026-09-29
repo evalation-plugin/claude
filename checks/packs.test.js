@@ -94,7 +94,41 @@ test("one pack is one pack credit", () => {
 const flat = COMMAND.replace(/\s+/g, " ");
 
 test("keeping the usual packs says what they cost and what is left", () => {
-  assert.match(flat, /On "Keep these packs"[^.]*, say "Your code is still checked against <titles>, using <M> pack credits each time\. You have <N> pack credits left\."/);
+  assert.match(flat, /On "Keep these packs"[^.]*, say "Your checks still use <titles>, <M> pack credits each time\. You have <N> pack credits left\."/);
+  assert.doesNotMatch(flat, /Your code is still checked against|Your code will be checked against/);
+});
+
+test("set takes the titles a person reads and prints only those titles", async () => {
+  const home = machine();
+  const ran = await packs(home, ["set", "SOC 2 Trust Services Criteria", "gdpr"]);
+  assert.strictEqual(ran.status, 0, ran.stderr);
+  assert.strictEqual(ran.stdout, "SOC 2 Trust Services Criteria\nGeneral Data Protection Regulation (GDPR)\n");
+  assert.deepStrictEqual(JSON.parse((await packs(home, ["show"])).stdout).packs, ["soc2", "gdpr"]);
+  assert.match(flat, /evalation-packs set "<title>" \["<title>"\.\.\.\]/);
+  assert.doesNotMatch(flat, /set <pack>/);
+});
+
+test("a damaged sign-in is told to sign in again, ahead of the line for a machine never signed in", () => {
+  const damaged = flat.indexOf("`sign-in: damaged` line: say \"This machine's Evalation sign-in is damaged. Run /ev-activate to sign in again.\"");
+  assert.ok(damaged > 0 && damaged < flat.indexOf("This machine is not signed in to Evalation yet."), "the damaged line comes first");
+});
+
+test("the usual packs are named in the question, and packs chosen now are marked in the chooser", () => {
+  assert.match(flat, /ask "Keep your usual packs, <titles>\?"/);
+  assert.match(flat, /Where `show` named the pack, end its description with "Chosen now\."/);
+});
+
+test("the same packs ticked again, or nothing ticked, change nothing and save nothing", () => {
+  assert.match(flat, /Where they tick nothing in any question, or tick exactly the packs `show` named, run nothing, say "Nothing changed\. Your checks still use <titles>\."[^.]*and go to step 9\./);
+  assert.match(flat, /Where they pick Other and write that they want none from that question, take it as nothing ticked there\./);
+});
+
+test("a pack list that fails for a reason not named is still explained", () => {
+  assert.match(flat, /Otherwise say the words after the colon in plain words and stop\./);
+});
+
+test("the next step says the person can pick other packs when they run a check", () => {
+  assert.match(flat, /"Next, run \/ev-run to check a repository against these packs\. It also lets you pick other packs for that check alone\."/);
 });
 
 test("what a pack is, is said only once the machine is known to be signed in", () => {

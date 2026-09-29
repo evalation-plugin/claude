@@ -73,14 +73,14 @@ function started(home) {
 
 const keyIn = (home, name) => (existsSync(join(home, "keys", name)) ? readFileSync(join(home, "keys", name), "utf8") : null);
 
-test("this installation's own keys move from the engine's store name to the plugin's, and no other key under it is touched", () => {
+test("this installation's own keys are copied from the engine's store name to the plugin's, the originals kept for any other settings naming them", () => {
   const home = signedInUnderTheEngineName();
   started(home);
   const settings = JSON.parse(readFileSync(join(home, "evalation.local"), "utf8"));
   assert.deepStrictEqual(settings.secrets, { installation_key: "store:evalation-plugin/box.installation-key", receiving_key: "store:evalation-plugin/box.receiving-key" });
   assert.strictEqual(settings.installation, "box");
   assert.deepStrictEqual(["installation-key", "receiving-key", "receiving-key-previous"].map((one) => keyIn(home, `evalation-plugin.box.${one}`)), ["install", "receive", "before"]);
-  assert.deepStrictEqual(["installation-key", "receiving-key", "receiving-key-previous"].map((one) => keyIn(home, `evalation.box.${one}`)), [null, null, null]);
+  assert.deepStrictEqual(["installation-key", "receiving-key", "receiving-key-previous"].map((one) => keyIn(home, `evalation.box.${one}`)), ["install", "receive", "before"]);
   assert.strictEqual(keyIn(home, "evalation.engine-box.installation-key"), "the engine's own");
 });
 

@@ -32,7 +32,7 @@ const HOME = pluginHome();
 const { keepFindings, reportsFolder, reviewName } = require("../lib/reports.js");
 const { cardWorst } = require("../lib/scans.js");
 const { readingOf } = require("../lib/prose.js");
-const { unwritten } = require("../lib/print.js");
+const { unsignedThen, unwritten } = require("../lib/print.js");
 const { inventory } = require("./evalation-inventory");
 const { deck } = require("./evalation-deck");
 const { detail } = require("./evalation-detail");
@@ -242,12 +242,12 @@ function reviewFindings(document) {
     .filter(Boolean))].sort();
 
   const solution = document.target?.kind === "solution" ? document.target : null;
-  const whole = solution ? `the ${(solution.repositories ?? []).length} repositories of this solution together` : "the repository";
+  const whole = solution ? `the ${(solution.repositories ?? []).filter((one) => one.vcs === "git").length} repositories of this product together` : "the repository";
   const built = {
     title: "Evalation Hardening Review",
     subtitle: solution
-      ? `Detailed findings by discipline · Solution: ${repository}`
-      : `Detailed findings by discipline · Repo: ${repository}`,
+      ? `Detailed findings by discipline · Product: ${repository}`
+      : `Detailed findings by discipline · Repository: ${repository}`,
     tenant: repository,
     solution,
     generated_at: String(document.at ?? "").slice(0, 10).replace(/-/g, ""),
@@ -349,10 +349,10 @@ function said(done) {
     ? [`Wrote ${basename(done.pack)} and ${basename(done.findings)} into ${done.into}`]
     : [`No browser was found to print the reports, so they are not signed. Open each of these in a browser and print it to PDF: ` +
       `${done.pages.map((one) => basename(one)).join(" and ")}, in ${done.into}. A PDF printed by hand is not signed by Evalation. ` +
-      "For signed copies, install Google Chrome, Chromium or Microsoft Edge, then ask Claude to print the reports again."];
+      "For signed copies, install Google Chrome, Chromium or Microsoft Edge, then run /ev-run print again. Printing again uses no pack credits."];
   for (const one of done.unsigned) {
     lines.push(`${basename(one.file)} is not signed because ${one.why}, and each page says "Signature missing, document cannot be verified". ` +
-      "Once that is fixed, ask Claude to print the reports again for signed copies.");
+      unsignedThen(one.why));
   }
   return `${lines.join("\n")}\n`;
 }

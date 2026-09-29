@@ -4,16 +4,16 @@
 //   evalation-questions check <file>            prints each problem, or that the set holds
 //   evalation-questions save <file> [--replace] keeps the set under its name on this machine
 //   evalation-questions list [--plain]          the sets on this machine and the account, as data or as lines for the person
-//   evalation-questions path <name>             a draft copy of a set, fetched from the account where needed
+//   evalation-questions path <name> [--run]     a draft copy of a set, or with --run the run's own copy, fetched from the account where needed
 //   evalation-questions draft <name>            where to write a new set's draft
 //   evalation-questions keep-on-account <name>  keeps a set on the account as well
 //   evalation-questions drop-from-account <name> stops keeping a set on the account
 "use strict";
 
-const { mkdirSync, readFileSync, writeFileSync } = require("node:fs");
+const { existsSync, mkdirSync, readFileSync, writeFileSync } = require("node:fs");
 const { pluginHome } = require("../lib/home.js");
 const { join } = require("node:path");
-const { CRITERIA, dropFromAccount, fetched, fromAccount, grid, grouped, keepOnAccount, listed, listSaid, saveChecked, verdict, withoutMark } = require("../lib/questions.js");
+const { CRITERIA, dropFromAccount, extensible, fetched, fromAccount, grid, grouped, keepOnAccount, listed, listSaid, saveChecked, saved, verdict, withoutMark } = require("../lib/questions.js");
 const { runScript } = require("../lib/script.js");
 
 const HOME = pluginHome();
@@ -29,10 +29,54 @@ function draftOf(home, name) {
   return join(home, "drafts", `${name}.json`);
 }
 
-function opened(home, name, ask = askServer) {
+function fresh(home, name) {
+  if (saved(home).includes(name)) throw new Error(`${name} is already a saved set, so a new set needs another name`);
+  return draftOf(home, name);
+}
+
+function tell(home, text) {
+  mkdirSync(join(home, "drafts"), { recursive: true, mode: 0o700 });
+  writeFileSync(join(home, "drafts", "said.txt"), `${text}\n`, { mode: 0o600 });
+}
+
+function served(ask) {
+  return ask("/packs", {}).packs ?? [];
+}
+
+function packsSaid(home, ask = askServer) {
+  let packs;
+  try {
+    packs = served(ask);
+  } catch {
+    return "The pack list could not be fetched.";
+  }
+  const selection = join(home, "packs.json");
+  const chosen = existsSync(selection) ? JSON.parse(readFileSync(selection, "utf8")).packs ?? [] : [];
+  const titleOf = (one) => one.body?.title ?? one.pack;
+  const picked = packs.filter((one) => chosen.includes(one.pack)).map(titleOf);
+  const open = packs.filter((one) => extensible(one.body)).map((one) => `${titleOf(one)} (${one.pack})`);
+  return [`Chosen packs: ${picked.join(", ") || "none"}`, `Packs that take extra questions: ${open.join(", ") || "none"}`].join("\n");
+}
+
+function titles(ask = askServer) {
+  try {
+    return Object.fromEntries(served(ask).filter((one) => one.body?.title).map((one) => [one.pack, one.body.title]));
+  } catch {
+    return {};
+  }
+}
+
+function runCopyOf(home, name) {
+  if (!NAME.test(String(name))) throw new Error(`${name}: not a name a set is kept under`);
+  mkdirSync(join(home, "runs", "questions"), { recursive: true, mode: 0o700 });
+  return join(home, "runs", "questions", `${name}.json`);
+}
+
+function opened(home, name, ask = askServer, { run = false } = {}) {
+  const copyOf = run ? runCopyOf : draftOf;
   try {
     const kept = JSON.parse(readFileSync(fetched(home, name, ask), "utf8"));
-    const draft = draftOf(home, name);
+    const draft = copyOf(home, name);
     writeFileSync(draft, JSON.stringify(withoutMark(kept), null, 2) + "\n", { mode: 0o600 });
     return draft;
   } catch (thrown) {
@@ -46,7 +90,7 @@ function opened(home, name, ask = askServer) {
       sound = false;
     }
     if (sound) throw thrown;
-    const draft = draftOf(home, name);
+    const draft = copyOf(home, name);
     writeFileSync(draft, String(held.body ?? ""), { mode: 0o600 });
     return draft;
   }
@@ -71,27 +115,32 @@ function main() {
     const { fix, waiting, unconfirmed } = grouped(HOME, read(arg));
     const said = [["To fix:", fix], ["Waiting for the independent checker:", waiting], ["Not confirmed by the independent checker:", unconfirmed]]
       .filter(([, rows]) => rows.length > 0).map(([head, rows]) => `${head}\n  ${rows.join("\n  ")}\n`).join("");
-    process.stdout.write(said || "holds\n");
-    process.exitCode = fix.length > 0 ? 1 : 0;
+    tell(HOME, said.trimEnd() || "holds");
+  } else if (verb === "folder") {
+    process.stdout.write(`${join(HOME, "drafts")}\n`);
+    mkdirSync(join(HOME, "drafts"), { recursive: true, mode: 0o700 });
+  } else if (verb === "packs") {
+    tell(HOME, packsSaid(HOME));
   } else if (verb === "draft") {
     try {
-      process.stdout.write(`${draftOf(HOME, arg)}\n`);
+      tell(HOME, fresh(HOME, arg));
     } catch (thrown) {
-      fail(thrown.message);
+      tell(HOME, saved(HOME).includes(arg) ? `name taken: ${thrown.message}` : thrown.message);
     }
   } else if (verb === "save") {
+    const set = read(arg);
+    const replace = flags.includes("--replace");
     try {
-      const set = read(arg);
-      saveChecked(HOME, set, { replace: flags.includes("--replace"), unchecked: flags.includes("--unchecked") });
-      process.stdout.write(`kept as ${set.name}\n`);
+      saveChecked(HOME, set, { replace, unchecked: flags.includes("--unchecked") });
+      tell(HOME, "saved");
     } catch (thrown) {
-      fail(thrown.message);
+      tell(HOME, !replace && saved(HOME).includes(set.name) ? `name taken: ${thrown.message}` : thrown.message);
     }
   } else if (verb === "list") {
-    process.stdout.write(arg === "--plain" ? `${listSaid(listed(HOME)).join("\n")}\n` : `${JSON.stringify(listed(HOME))}\n`);
+    process.stdout.write(arg === "--plain" ? `${listSaid(listed(HOME), titles()).join("\n")}\n` : `${JSON.stringify(listed(HOME))}\n`);
   } else if (verb === "path") {
     try {
-      process.stdout.write(`${opened(HOME, arg)}\n`);
+      process.stdout.write(`${opened(HOME, arg, askServer, { run: flags.includes("--run") })}\n`);
     } catch (thrown) {
       fail(`no-such-set: ${arg} (${thrown.message})`);
     }
@@ -119,10 +168,10 @@ function main() {
       .filter(([, rows]) => rows.length > 0).map(([head, rows]) => `${head}\n  ${rows.join("\n  ")}\n`).join("");
     process.stdout.write(said || "Recorded.\n");
   } else {
-    fail("usage: evalation-questions check <file> | criteria | grid <file> [Qn] | verdict <file> [Qn] (answers on stdin) | save <file> [--replace] [--unchecked] | list [--plain] | path <name> | draft <name> | keep-on-account <name> | drop-from-account <name>");
+    fail("usage: evalation-questions folder | check <file> | criteria | packs | grid <file> [Qn] | verdict <file> [Qn] (answers on stdin) | save <file> [--replace] [--unchecked] | list [--plain] | path <name> [--run] | draft <name> | keep-on-account <name> | drop-from-account <name>");
   }
 }
 
-module.exports = { draftOf, opened };
+module.exports = { draftOf, fresh, opened, packsSaid };
 
 if (require.main === module) main();

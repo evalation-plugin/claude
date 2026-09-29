@@ -111,6 +111,7 @@ test("a start that never got an answer says credits may have been used and how t
   assert.match(first.stderr, /not clear whether/);
   assert.match(first.stderr, /\/ev-account/);
   assert.match(first.stderr, /never charged twice/);
+  assert.match(first.stderr, /with the same packs and question sets/);
   assert.doesNotMatch(first.stderr, /unreachable|fetch|http/);
 
   const back = await server([{ body: served }]);
@@ -185,6 +186,49 @@ test("packs that cannot be read for the scan question say so plainly, with no pa
   held.close();
   assert.strictEqual(ran.code, 1);
   assert.match(ran.stderr, /^[A-Z][^\n]*[Nn]o pack credits were used\. [^\n]+\.\n$/);
+});
+
+test("the pack titles on a machine not signed in say plainly to sign in, with no code and no path", async () => {
+  const home = mkdtempSync(join(tmpdir(), "evalation-signed-out-"));
+  const { held } = await server([{ body: { revision: "1.86", packs: [{ pack: "soc2", body: SOC2 }] } }]);
+  const ran = await started(home, held.address().port, "--titles");
+  held.close();
+  assert.strictEqual(ran.code, 1);
+  assert.strictEqual(ran.stderr, "This machine is not signed in to Evalation, so the packs could not be read. No pack credits were used. Run /ev-activate to sign in.\n");
+  const damaged = machine();
+  writeFileSync(join(damaged, "keys", "evalation-plugin.box.installation-key"), "short");
+  const again = await server([{ body: { revision: "1.86", packs: [{ pack: "soc2", body: SOC2 }] } }]);
+  const broken = await started(damaged, again.held.address().port, "--titles");
+  again.held.close();
+  assert.strictEqual(broken.stderr, ran.stderr);
+});
+
+test("the pack titles on a signed in machine are printed as evalation-packs gives them", async () => {
+  const { held } = await server([{ body: { revision: "1.86", packs: [{ pack: "soc2", body: SOC2 }, { pack: "iso27001", body: ISO }] } }]);
+  const ran = await started(machine(), held.address().port, "--titles");
+  held.close();
+  assert.strictEqual(ran.code, 0, ran.stderr);
+  assert.deepStrictEqual(JSON.parse(ran.stdout).map((one) => one.title), ["ISO/IEC 27001", "SOC 2 Trust Services Criteria"]);
+});
+
+test("the last run of a folder is found for printing its reports again, and a folder never run says so plainly", async () => {
+  const home = machine();
+  const { target } = require("../bin/evalation-run");
+  const named = target(tree).repository;
+  mkdirSync(join(home, "findings"), { recursive: true });
+  const kept = (file, at, repository) => writeFileSync(join(home, "findings", file), JSON.stringify({ schema: "evalation.findings.v1", run: file, at,
+    target: { repository }, packs: [{ pack: "soc2", kind: "standard", title: "SOC 2 Trust Services Criteria" }] }));
+  kept("older.json", "2026-09-20T00:00:00.000Z", named);
+  kept("newer.json", "2026-09-28T00:00:00.000Z", named);
+  kept("other.json", "2026-09-29T00:00:00.000Z", "acme/other");
+  const ran = await started(home, 9, "--last", tree);
+  assert.strictEqual(ran.code, 0, ran.stderr);
+  const said = JSON.parse(ran.stdout);
+  assert.strictEqual(said.written, join(home, "findings", "newer.json"));
+  assert.deepStrictEqual(said.packs, [{ pack: "soc2", kind: "standard", title: "SOC 2 Trust Services Criteria" }]);
+  const none = await started(machine(), 9, "--last", tree);
+  assert.strictEqual(none.code, 1);
+  assert.strictEqual(none.stderr, "This folder has no earlier run on this machine, so there are no reports to print again. No pack credits were used.\n");
 });
 
 test("whether the chosen packs want the scanners is known before anything is spent", async () => {

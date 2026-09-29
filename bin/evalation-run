@@ -17,8 +17,9 @@
 
 const { randomBytes } = require("node:crypto");
 const { execFileSync } = require("node:child_process");
-const { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } = require("node:fs");
-const { basename, dirname, join, resolve } = require("node:path");
+const { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } = require("node:fs");
+const { basename, dirname, join, relative, resolve, sep } = require("node:path");
+const { filesOf } = require("../lib/tree.js");
 const { pluginHome } = require("../lib/home.js");
 const { extended, packOf, problems } = require("../lib/questions.js");
 const { newestFor, phasesRead } = require("../lib/scans.js");
@@ -83,7 +84,7 @@ function refusal(said) {
   }
   const why = unanswered(said) ? "Evalation's server could not be reached" : "Evalation's server did not answer in a way this machine could read";
   return { spent: null, said: `${why}, so it is not clear whether this run started. If it did, its pack credits were used, and ` +
-    "/ev-account shows your balance. Run /ev-run again on the same folder with the same packs: the server counts that as this " +
+    "/ev-account shows your balance. Run /ev-run again on the same folder with the same packs and question sets: the server counts that as this " +
     "same run, so it is never charged twice." };
 }
 
@@ -258,17 +259,60 @@ function branchOf(where) {
   return { branch, main, on_main: branch === main, newest };
 }
 
+function described(solution) {
+  if (!solution) return null;
+  return {
+    ...solution,
+    repositories: solution.repositories.map((one) => {
+      if (one.vcs === "git") return one;
+      const files = filesOf(join(solution.root, one.folder)).map((file) => relative(join(solution.root, one.folder), file).split(sep).join("/")).sort();
+      return { ...one, files: files.length, first: files[0] ?? null };
+    }),
+  };
+}
+
+function lastRun(where) {
+  const folder = join(pluginHome(), "findings");
+  const named = target(where).repository;
+  let best = null;
+  for (const name of existsSync(folder) ? readdirSync(folder).filter((one) => one.endsWith(".json")) : []) {
+    let one;
+    try {
+      one = JSON.parse(readFileSync(join(folder, name), "utf8"));
+    } catch {
+      // empty-catch:allow: a file that will not parse is no earlier run, and the newest that does is wanted.
+      continue;
+    }
+    if (one.target?.repository !== named) continue;
+    if (!best || String(one.at) > String(best.document.at)) best = { written: join(folder, name), document: one };
+  }
+  return best;
+}
+
 function main() {
-  // Asks the server nothing and counts nothing, so the command can ask it before a run and again
-  // when a stopped run resumes.
   if (process.argv[2] === "--branch") {
     const at = process.argv[3] || process.cwd();
     process.stdout.write(JSON.stringify({
       repository: target(at).repository,
       folder: resolve(at),
       ...(branchOf(at) ?? { branch: null, main: null, on_main: null }),
-      solution: solutionOf(at, { asChosen: false }),
+      solution: described(solutionOf(at, { asChosen: false })),
     }) + "\n");
+    return;
+  }
+  if (process.argv[2] === "--titles") {
+    try {
+      process.stdout.write(runScript("evalation-packs", ["titles"], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }));
+    } catch (thrown) {
+      fail(unlisted(thrown));
+    }
+    return;
+  }
+  if (process.argv[2] === "--last") {
+    const found = lastRun(process.argv[3] || process.cwd());
+    if (!found) fail("This folder has no earlier run on this machine, so there are no reports to print again. No pack credits were used.");
+    process.stdout.write(`${JSON.stringify({ written: found.written, at: found.document.at,
+      packs: (found.document.packs ?? []).map((one) => ({ pack: one.pack, kind: one.kind, title: one.title })) })}\n`);
     return;
   }
   if (process.argv[2] === "--scan") {

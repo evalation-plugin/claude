@@ -98,7 +98,10 @@ test("the evidence pack names the solution, lists every repository on its openin
   ];
   const asked = new Map(document.packs[0].entries_asked.map((one) => [`soc2/${one.identifier}`, one]));
   const html = page(document, document.answers.filter((one) => one.pack === "soc2"), asked);
-  assert.match(html, /Solution: Acme platform/);
+  assert.match(html, /What this product evidences · Product: Acme platform/);
+  assert.match(html, /together as one product, Acme platform\./);
+  assert.match(html, /We read the 2 repositories of this product together/);
+  assert.doesNotMatch(html, /solution|Solution/);
   assert.match(html, /Repositories read/);
   for (const name of ["acme/api", "acme/infra", "notes"]) assert.ok(html.includes(name), name);
   assert.match(html, /acme\/infra · main\.tf:1/);
@@ -118,8 +121,25 @@ test("a folder with no version control is read for evidence and listed apart, ne
   assert.ok(!repositories.includes("<b>notes</b>"));
   assert.match(others, /<b>notes<\/b>/);
   assert.match(others, /read for evidence too, and hold no code history, so they are not repositories/);
-  const notes = readSlides(named).flat().find((one) => one.headline === "notes");
-  assert.match(notes.body, /^A folder with no version control, read for evidence, and not a repository\./);
+  const pages = readSlides(named);
+  const repositoriesRead = pages.filter((one) => one.title === "Repositories read").flatMap((one) => one.blocks);
+  assert.deepStrictEqual(repositoriesRead.map((one) => one.headline), ["acme/api", "acme/infra"]);
+  const other = pages.filter((one) => one.title === "Other folders (not under version control)").flatMap((one) => one.blocks);
+  assert.deepStrictEqual(other.map((one) => one.headline), ["notes"]);
+  assert.doesNotMatch(other[0].body, /repositor/);
+});
+
+test("folders are listed in alphabetical order of the names they are shown by, and a plain folder says what it holds", () => {
+  const at = solution();
+  const web = repository(join(at, "a-web"));
+  git(web, "remote", "add", "origin", "https://github.com/acme/web.git");
+  const held = solutionOf(at);
+  assert.deepStrictEqual(held.repositories.map((one) => one.repository), ["acme/api", "acme/infra", "acme/web", "notes"]);
+  const checked = JSON.parse(execFileSync(process.execPath, [join(__dirname, "..", "bin", "evalation-run"), "--branch", at], { encoding: "utf8" }));
+  const notes = checked.solution.repositories.find((one) => one.folder === "notes");
+  assert.strictEqual(notes.files, 1);
+  assert.strictEqual(notes.first, "runbook.md");
+  assert.strictEqual(checked.solution.repositories.find((one) => one.folder === "api").files, undefined);
 });
 
 test("git history is read in each repository of a solution, and each result names its repository", () => {
@@ -178,8 +198,7 @@ test("the solution at a glance counts every repository's commits and contributor
   const held = inventory(at);
   assert.strictEqual(held.commits, 4);
   assert.strictEqual(held.contributors, 1);
-  assert.strictEqual(held.overview.inventory.REPOSITORIES, 3);
-  assert.strictEqual(held.overview.inventory.COMMITS, 4);
+  assert.strictEqual(held.overview.inventory.REPOSITORIES, 2);  assert.strictEqual(held.overview.inventory.COMMITS, 4);
 });
 
 test("a copy or a second clone can be neither read nor cited", () => {
@@ -198,7 +217,7 @@ test("a copy or a second clone can be neither read nor cited", () => {
   assert.ok(checked(document, at).includes("api-old/src/auth.js: cited from a folder this run does not read"));
 });
 
-test("the board pack's cover names every repository, and the Detail's subtitle names the solution alone", () => {
+test("the board pack's cover names every repository and the other folders apart, and the Detail's subtitle names the product alone", () => {
   const { reviewFindings } = require("../bin/evalation-deliver");
   const { synthesise } = require("../lib/synthesise.js");
   const { deck } = require("../bin/evalation-deck");
@@ -209,13 +228,24 @@ test("the board pack's cover names every repository, and the Detail's subtitle n
     findings: [{ id: "f-1", pack: "hardening", concern: "SEC01", severity: "high", title: "Queries built from input",
       observed: "Queries are built from input.", required: "Use parameters.", at: { path: "infra/main.tf", from: 1, to: 1 } }] };
   const built = reviewFindings(document);
-  assert.strictEqual(built.subtitle, "Detailed findings by discipline · Solution: Acme platform");
+  assert.strictEqual(built.subtitle, "Detailed findings by discipline · Product: Acme platform");
+  assert.match(built.meta.intro, /^We read the 2 repositories of this product together/);
   const { file } = deck(synthesise(built), join(mkdtempSync(join(tmpdir(), "evalation-deck-")), "Pack.pdf"), { render: false });
   const slides = file.entries.filter((one) => /^ppt\/slides\/slide\d+\.xml$/.test(one.name))
     .sort((a, b) => Number(a.name.match(/\d+/)[0]) - Number(b.name.match(/\d+/)[0]))
     .map((one) => pptx.shapes(one.content.toString("utf8")).map((shape) => shape.text).join(" "));
-  assert.match(slides[0], /ACME PLATFORM · ACME\/API, ACME\/INFRA, NOTES/);
-  assert.ok(slides.some((one) => /Solution at a glance/.test(one)));
+  assert.match(slides[0], /ACME PLATFORM · ACME\/API, ACME\/INFRA · OTHER FOLDERS: NOTES/);
+  assert.ok(slides.some((one) => /Product at a glance/.test(one)));
+  assert.ok(!slides.some((one) => /Solution at a glance/.test(one)));
+});
+
+test("a cover too long for the names counts only the repositories, and the other folders apart", () => {
+  const { labelled } = require("../bin/evalation-deck");
+  const repositories = [
+    ...["web", "mobile", "billing", "search", "payments", "identity", "notifications", "analytics"].map((one) => ({ folder: one, repository: `acme/${one}`, vcs: "git" })),
+    { folder: "docs", repository: "docs", vcs: null },
+  ];
+  assert.strictEqual(labelled({ tenant: "Acme", solution: { repositories } }), "Acme · 8 repositories and one other folder");
 });
 
 test("the board pack lists every repository on slides of their own, however many there are", () => {
@@ -236,9 +266,14 @@ test("the board pack lists every repository on slides of their own, however many
     .filter((one) => /Repositories read/.test(one));
   assert.strictEqual(texts.length, 2);
   const all = texts.join(" ");
-  for (const name of ["acme/api", "acme/infra", "notes", "acme/web", "acme/mobile", "acme/billing", "acme/search"]) assert.ok(all.includes(name), name);
-  assert.match(all, /api-copy\s*Left out: a copy of the folder "api" with no version control\./);
+  for (const name of ["acme/api", "acme/infra", "acme/web", "acme/mobile", "acme/billing", "acme/search"]) assert.ok(all.includes(name), name);
+  assert.ok(!all.includes("notes") && !all.includes("api-copy"), "a folder with no version control is never on a repositories slide");
   assert.match(all, /Folder api · branch main · commit [0-9a-f]{7} · last changed/);
+  const rest = file.entries.filter((one) => /^ppt\/slides\/slide\d+\.xml$/.test(one.name))
+    .map((one) => pptx.shapes(one.content.toString("utf8")).map((shape) => shape.text).join(" "))
+    .filter((one) => !/Repositories read/.test(one)).join(" ");
+  assert.match(rest, /Other folders \(not under version control\)[\s\S]*notes/);
+  assert.match(rest, /api-copy\s*Left out: a copy of the folder "api" with no version control\./);
 });
 
 test("a scanner card names the repository of each place it lists", () => {

@@ -39,10 +39,10 @@ does.
 
 ## What to do
 
-1. **Open with what this is and what happens next**, in a sentence or two. Not what you are about to
-   check: what they are about to get. A person whose first sight of a product is a command running has
-   been given no reason to trust it, and one whose first sight is a status report has been handed
-   somebody else's diagnostics.
+1. **Open with what this is**, in these words: "Evalation checks your code against the security and
+   compliance standards you choose, and writes reports on what it finds." A person whose first sight
+   of a product is a command running has been given no reason to trust it, and one whose first sight
+   is a status report has been handed somebody else's diagnostics.
 
 2. **Find out where they are.**
 
@@ -52,8 +52,9 @@ does.
 
    It always succeeds and names a state on its first line. Report none of these as an error:
 
-   - **`state: not-set-up`**: go to step 3 without saying anything about it, also where a
-     `sign-in: damaged` line follows, since signing in again replaces a damaged sign-in.
+   - **`state: not-set-up`**: go to step 3, saying nothing about the state itself. Where a
+     `sign-in: damaged` line follows, first say "This machine needs to sign in to Evalation again.
+     Your pack credits and reports are kept." Signing in again replaces a damaged sign-in.
    - **`state: live`** means set up and paid up. Go to step 4.
    - **`state: not-live`** means set up, but the server refuses it. Say the line for its `reason:`
      line and stop:
@@ -71,17 +72,14 @@ does.
 
 3. **Take them through signing in**, which is the whole of setting up.
 
-   Tell them first, in your own words: "Signing in links this machine to your Evalation account.
-   No pack credits are used until you run /ev-run."
+   Say: "Signing in sets up your Evalation account, or links this machine to it if you already have
+   one."
 
    Then run `/ev-activate` straight away. It asks which account to sign in with, explains the
    sign-in and says which account it signed in as, so ask nothing and explain nothing more here, and
    never name the account again. Where it did not finish, it has already said the next step, so stop.
-
-   When it finishes, run `${CLAUDE_PLUGIN_ROOT}/bin/evalation-status` and read the `pack credits
-   left` line as <N>. Say "Each run uses one pack credit for each pack it reads. You have <N> pack
-   credits." Where the line is absent, say "Your pack credits could not be read just now. Run
-   /ev-account in a minute to see them." and name no number of your own. Then go to step 4.
+   When it finishes, go to step 4. Credits wait for the close, once `/ev-packs` has said what a pack
+   is.
 
 4. **Find out what they have chosen to be assessed against.**
 
@@ -89,17 +87,21 @@ does.
    ${CLAUDE_PLUGIN_ROOT}/bin/evalation-packs show
    ```
 
-   Where nothing is selected, go to step 5 without remarking on it. Where something is, name each
-   pack by its title from `${CLAUDE_PLUGIN_ROOT}/bin/evalation-packs titles`, never by handle.
+   Where nothing is selected, go to step 5 without remarking on it. Where something is, say "You are
+   set up to check code against <titles>.", naming each pack by its title from
+   `${CLAUDE_PLUGIN_ROOT}/bin/evalation-packs titles`, never by handle. That sentence opens the close
+   in step 6.
 
 5. **Take them through choosing**, if nothing is selected.
 
-   Run `/ev-packs` straight away. It says what a pack is, fetches the real list and records what they
-   choose, so say nothing about packs here.
+   Run `/ev-packs` straight away. It says what a pack is and what packs cost, fetches the real list
+   and records what they choose, so say nothing about packs here. Where it finds 0 pack credits left,
+   say "To buy pack credits, email support@evalation.ai." straight after it says what packs cost,
+   before it asks which packs they want.
 
-6. **Close in two or three sentences.** What they are set up to do, and the one thing to do next.
-   Count the packs `evalation-packs show` lists as <M>, and read <N> from the `pack credits left`
-   line of `evalation-status`.
+6. **Close in up to four sentences**, counting the one step 4 or `/ev-packs` gave on what they are
+   set up to check. Run `${CLAUDE_PLUGIN_ROOT}/bin/evalation-status` again and read <N> from its
+   `pack credits left` line, and count the packs `evalation-packs show` lists as <M>.
 
    Where <M> is 0, because they stopped without choosing, end with "Run /ev-packs when you are ready
    to choose what to check against." and nothing more.
@@ -110,13 +112,12 @@ does.
 
    Follow it with the cost, which depends on <N>:
 
-   - <N> at least <M>: "It uses <M> pack credits, and you have <N>."
+   - <N> at least <M>: "It uses <M> pack credits, and you have <N>." Where the packs were already
+     chosen before this ran, end with "Run /ev-packs to change them."
    - <N> below <M>: "This selection uses <M> pack credits and you have <N>, so a run would not start.
      To buy more pack credits, email support@evalation.ai, or choose fewer packs with /ev-packs."
    - The `pack credits left` line absent: "Your pack credits could not be read just now. Run
      /ev-account in a minute to see them."
-
-   Where the packs were already chosen before this ran, end with "Run /ev-packs to change them."
 
    Not a status report. No numbered summary of what happened, no list of everything now true of the
    machine, and no restating of steps they just watched: they were there. The screen at the end of

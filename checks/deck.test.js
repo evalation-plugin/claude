@@ -51,6 +51,14 @@ test("a short slide keeps every block's bar, and its blocks sit at the template'
   assert.ok(blocks[1].top - blocks[0].top < 1_000_000, "blocks at the template's pitch, not spread over the slide");
 });
 
+test("the board pack's own words say product and count only repositories under version control", () => {
+  const solution = { repositories: [{ folder: "api", vcs: "git" }, { folder: "web", vcs: "git" }, { folder: "docs", vcs: null }] };
+  const shaped = synthesise({ ...reviewFindings({ ...hardening("2026-09-25T00:00:00.000Z", ["found", "missing"], 64), target: { repository: "Acme" } }), solution });
+  const said = JSON.stringify([shaped.exec_summary, shaped.commentary]);
+  assert.doesNotMatch(said, /solution/i);
+  assert.match(said, /The product scores 64/);
+});
+
 test("a deck with no earlier run has no such slide", () => {
   const shaped = synthesise(reviewFindings({ ...hardening("2026-09-25T00:00:00.000Z", ["found", "missing"], 64), target: { repository: "acme/first" } }));
   const { file } = deck(shaped, join(mkdtempSync(join(tmpdir(), "evalation-deck-")), "Pack.pdf"), { render: false });

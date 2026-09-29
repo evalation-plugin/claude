@@ -14,7 +14,7 @@ act on them where they plainly choose among the answers, such as naming a pack. 
 did not follow and ask the same question again.
 
 Name every pack by its title exactly as `titles` gives it, so SOC 2 reads "SOC 2 Trust Services
-Criteria" and never `soc2`. The handle is what `set` takes and never what a person is shown.
+Criteria" and never `soc2`. A handle is never what a person is shown, so `set` takes titles too.
 
 ## What to do
 
@@ -24,8 +24,10 @@ Criteria" and never `soc2`. The handle is what `set` takes and never what a pers
    evalation-status
    ```
 
-   - `state: not-set-up`: say "This machine is not signed in to Evalation yet. Run /ev-activate to
-     sign in." and stop.
+   - `state: not-set-up` with a `sign-in: damaged` line: say "This machine's Evalation sign-in is
+     damaged. Run /ev-activate to sign in again." and stop.
+   - `state: not-set-up` otherwise: say "This machine is not signed in to Evalation yet. Run
+     /ev-activate to sign in." and stop.
    - `state: unreachable`: say "Evalation could not be reached. Check this machine is online and run
      /ev-packs again." and stop.
    - `state: not-live`: give the reason it names in plain words and what it says to do about the
@@ -56,15 +58,17 @@ Criteria" and never `soc2`. The handle is what `set` takes and never what a pers
    - `unreachable`: say "Evalation could not be reached. Check this machine is online and run
      /ev-packs again."
 
+   Otherwise say the words after the colon in plain words and stop.
+
    Never invent a catalogue, and never offer a pack `titles` did not return. Where `show` names a
    handle `titles` does not hold, call it "a pack Evalation no longer offers".
 
-3. **Ask before changing it.** Where `show` names packs, ask "Keep your usual packs?", naming them
-   by title in the question, with the answers "Keep these packs", described as "Your code stays
-   checked against these packs.", and "Choose packs again", described as "Pick from every pack
-   Evalation offers.". On "Keep these packs", say "Your code is still checked against <titles>,
-   using <M> pack credits each time. You have <N> pack credits left." With one pack, the first
-   sentence ends "using one pack credit each time". Where <M> is more than <N>, add "A check will not
+3. **Ask before changing it.** Where `show` names packs, ask "Keep your usual packs, <titles>?",
+   with the answers "Keep these packs", described as "Your checks keep using these packs.", and
+   "Choose packs again", described as "Pick from every pack Evalation offers.". On "Keep these
+   packs", say "Your checks still use <titles>, <M> pack credits each time. You have <N> pack
+   credits left." With one pack, the first sentence ends "one pack credit each time". Where <M> is
+   more than <N>, add "A check will not
    start until you have more. To buy more pack credits, email support@evalation.ai." Where the
    credits could not be read, leave out the credits left. Then go to step 9. A selection silently
    replaced is one nobody agreed to. Where `show` names none, say "No packs are chosen yet." and go
@@ -77,13 +81,16 @@ Criteria" and never `soc2`. The handle is what `set` takes and never what a pers
 5. **Ask which packs they want.** Offer every pack `titles` returned, in its order, one question for
    each `question` number it gives, holding the packs with that number, so each question offers two
    to four. Each question allows several answers. Each answer's label is the pack's title and its
-   description is the pack's `summary`. Ask up to four questions at a time, each headed "Packs
-   <k>/<n>", where <n> is the highest `question` number, and asking "Which packs from <first title> to <last title> should each check of your code
-   use?", with the first and last titles that question offers, so no two questions read the same.
+   description is the pack's `summary`. Where `show` named the pack, end its description with
+   "Chosen now." Ask up to four questions at a time, each headed "Packs <k>/<n>", where <n> is the
+   highest `question` number, and asking "Which packs from <first title> to <last title> should
+   each check of your code use?", with the first and last titles that question offers, so no two
+   questions read the same. Where they pick Other and write that they want none from that question, take it as nothing ticked there.
 
-   Where they tick nothing in any question, run nothing, say "Nothing changed. Your code is still
-   checked against <titles>." with the titles of the packs `show` named, and go to step 8. Where
-   nothing was chosen before either, say "Nothing changed. No packs are chosen yet." and stop.
+   Where they tick nothing in any question, or tick exactly the packs `show` named, run nothing,
+   say "Nothing changed. Your checks still use <titles>." with the titles of the packs `show`
+   named, and go to step 9. Where nothing was chosen before either, say "Nothing changed. No packs
+   are chosen yet." and stop.
 
 6. **Check the credits cover it.** Where they tick more packs than they have credits, say "These
    packs use <M> pack credits every time your code is checked, and you have <N>, so a check will not
@@ -95,18 +102,19 @@ Criteria" and never `soc2`. The handle is what `set` takes and never what a pers
 7. **Record it.**
 
    ```
-   evalation-packs set <pack> [<pack>...]
+   evalation-packs set "<title>" ["<title>"...]
    ```
 
-   Pass the handles `titles` gave for the titles they ticked. Where it prints `unknown-pack`, a handle
-   was mistyped: run it again with the handles exactly as `titles` gave them.
+   Pass the titles they ticked, each in double quotes, exactly as `titles` gave them. It prints the
+   titles it saved. Where it prints `unknown-pack`, a title was mistyped: run it again with the
+   titles exactly as `titles` gave them.
 
-8. **Say what they chose.** After a new choice say "Your code will be checked against <titles>,
-   using <M> pack credits each time. You can change this with /ev-packs." With one pack, the first
-   sentence ends "using one pack credit each time".
+8. **Say what they chose.** After a new choice say "From now on your checks use <titles>, <M> pack
+   credits each time. You can change this with /ev-packs." With one pack, the first sentence ends
+   "one pack credit each time".
 
 9. **Say what is next**, in these words: "Next, run /ev-run to check a repository against these
-   packs. A check can also name its own packs for that check alone."
+   packs. It also lets you pick other packs for that check alone."
 
 ## What this never does
 

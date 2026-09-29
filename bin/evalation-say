@@ -1,0 +1,28 @@
+#!/usr/bin/env node
+"use strict";
+
+const { readFileSync } = require("node:fs");
+const { entries, say } = require("../lib/say.js");
+
+const [name, ...rest] = process.argv.slice(2);
+if (!name) {
+  process.stderr.write("usage: evalation-say <name> [blank=value ...] [--options <file>]\n");
+  process.exit(2);
+}
+const values = {};
+let given;
+for (let at = 0; at < rest.length; at += 1) {
+  if (rest[at] === "--options") {
+    given = JSON.parse(readFileSync(rest[at + 1] === "-" ? 0 : rest[at + 1], "utf8"));
+    at += 1;
+  } else {
+    const split = rest[at].indexOf("=");
+    if (split > 0) values[rest[at].slice(0, split)] = rest[at].slice(split + 1);
+  }
+}
+try {
+  process.stdout.write(`${say(entries(), name, values, given)}\n`);
+} catch (thrown) {
+  process.stderr.write(`${thrown.message}\n`);
+  process.exit(1);
+}

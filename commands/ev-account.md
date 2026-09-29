@@ -27,12 +27,12 @@ description: "Your Evalation account: pack credits left and the packs you chose.
    state.
 
    - `state: not-set-up` with a `sign-in: damaged` line: say "This machine's Evalation sign-in is
-     damaged. Run /ev-activate to sign in again."
-   - `state: not-set-up` alone: say one line, that this machine is not set up yet and `/ev-start`
-     does it. Nothing more. It is the normal path and not a fault, and explaining that nothing is
+     damaged. Your pack credits and reports are kept. Run /ev-activate to sign in again."
+   - `state: not-set-up` alone: say "This machine is not set up for Evalation yet. Run /ev-start to
+     set it up." Nothing more. It is the normal path and not a fault, and explaining that nothing is
      wrong is what makes a person think something is.
    - `state: unreachable`: say "Evalation could not be reached. Check this machine is online, then
-     run /ev-account again."
+     run /ev-account again. If it still fails, contact support@evalation.ai."
    - `state: not-live`: say the line for its `reason:` line.
      - `reason: clock`: "This machine's clock is wrong, so Evalation refused it. Set the clock to
        the right time, then run /ev-account again."
@@ -46,25 +46,30 @@ description: "Your Evalation account: pack credits left and the packs you chose.
 
 ## A live account
 
+Say these lines in order, as one reply, and nothing else. Wherever a number of pack credits is 1,
+write "one pack credit", never "1 pack credits".
+
 1. Where it prints `signed in as:`, open with "Signed in as <email>." Where it does not, name no
    account and say nothing about its absence. A machine set up before the account was recorded
    does not print it.
 
-2. Read the pack credits left from the `pack credits left` line, and report that number as it
-   comes back. Where the line is absent, say "Your pack credits could not be read just now. Run
-   /ev-account again in a minute." and name no number of your own. Wherever a number of pack
-   credits is 1, write "one pack credit", never "1 pack credits".
+2. Read <N> from the `pack credits left` line, exactly as it comes back, and say "You have <N> pack
+   credits." Where the line is absent, say "Your pack credits could not be read just now. Run
+   /ev-account again in a minute." and name no number of your own.
 
-3. Then one of these:
+3. Then one of these, counting the packs `show` lists as <M> and naming each by its title from
+   `${CLAUDE_PLUGIN_ROOT}/bin/evalation-packs titles`, never by handle:
 
-   - No packs selected: say what a pack is in one line and offer `/ev-packs`.
-   - Packs selected: name them by their titles from
-     `${CLAUDE_PLUGIN_ROOT}/bin/evalation-packs titles`, never by handle, say how many credits a run
-     against them uses and how many are left, and say `/ev-run` checks a repository against them.
-     A run uses one pack credit for each pack it reads.
-   - Fewer credits than the selection has packs: say both numbers and "A run with more packs than
-     credits does not start, and no pack credits are used. To buy more pack credits, email
-     support@evalation.ai, or choose fewer packs with /ev-packs."
+   - No packs selected: say "A pack is one thing your code is checked against, such as SOC 2,
+     ISO 27001, GDPR, a security hardening review, or a review for a cyber insurer or investor. You
+     can pick several. Run /ev-packs to choose yours." Where <N> is 0, add "To buy pack credits,
+     email support@evalation.ai."
+   - Packs selected: say "You chose <titles>. A run against them uses <M> pack credits, one for each
+     pack it reads. Run /ev-run in a repository to check it against them." With one pack, the
+     second sentence is "A run against it uses one pack credit."
+   - In place of the line above, where <N> is below <M>: say "You chose <titles>. A run against them
+     needs <M> pack credits, more than you have, so it would not start and no pack credits are used.
+     To buy more pack credits, email support@evalation.ai, or choose fewer packs with /ev-packs."
 
 ## What this never does
 
