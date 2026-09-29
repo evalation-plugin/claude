@@ -331,7 +331,9 @@ question what a tick does and what it costs, and let each answer's label say wha
 
    **An entry carrying `looks_for` is answered item by item.** Look for each item, record it found,
    missing or not applying in `looked_for`, and the status is the count `shape` gives. The count is
-   the status, so settle each item as its words say and never lean an item to reach a status. A
+   the status, so settle each item as its words say and as it means within the entry's question, and
+   never lean an item to reach a status. A product feature doing its own job never meets an item about
+   the service's own security, governance or dealings with its users. A
    concern carrying `looks_for` records its items the same way, in its `accounted` row, and the
    hardness score is counted from those rows: each missing item costs the severity the pack gives
    it. Its findings then say what was found and what fixes it.

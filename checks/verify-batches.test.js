@@ -41,6 +41,18 @@ test("every batch's grid is shown to its verifier whole", () => {
   }
 });
 
+test("the reader and the verifier are both told an item is found only where the lines are what it means within its question", () => {
+  const { tree, file } = written();
+  verify(["plan", file, tree]);
+  const grid = verify(["grid", file, "1"]).stdout.replace(/\s+/g, " ");
+  const FINDINGS = join(__dirname, "..", "bin", "evalation-findings");
+  const shape = spawnSync(process.execPath, [FINDINGS, "shape"], { encoding: "utf8" }).stdout.replace(/\s+/g, " ");
+  for (const told of [grid, shape]) {
+    assert.match(told, /what the item means within the entry's question/);
+    assert.match(told, /product doing its own job/);
+  }
+});
+
 test("planning again keeps answers recorded and not yet applied, each on its own claim", () => {
   const { tree, file } = written();
   verify(["plan", file, tree]);
