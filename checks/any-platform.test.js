@@ -14,6 +14,22 @@ const BIN = join(__dirname, "..", "bin");
 const script = (name, args, env = {}) =>
   spawnSync(process.execPath, [join(BIN, name), ...args], { encoding: "utf8", env: { ...process.env, ...env } });
 
+test("the file key store reads its own key on Windows, where every file reports mode 666", () => {
+  const { file } = require("../bin/evalation-store");
+  file.keep("evalation-check", "windows-mode", "a-key");
+  const { chmodSync } = require("node:fs");
+  const { home } = require("./fixture.js");
+  chmodSync(join(home, "keys", "evalation-check.windows-mode"), 0o666);
+  const was = Object.getOwnPropertyDescriptor(process, "platform");
+  Object.defineProperty(process, "platform", { value: "win32" });
+  try {
+    assert.strictEqual(file.held("evalation-check", "windows-mode"), "a-key");
+  } finally {
+    Object.defineProperty(process, "platform", was);
+  }
+  assert.throws(() => file.held("evalation-check", "windows-mode"), /somebody other than you can read/, "elsewhere a readable key is still refused");
+});
+
 test("every plugin script is a Node program, so it runs wherever Claude Code does", () => {
   const unparsed = readdirSync(BIN).filter((name) => spawnSync(process.execPath, ["--check", join(BIN, name)]).status !== 0);
   assert.deepStrictEqual(unparsed, []);
