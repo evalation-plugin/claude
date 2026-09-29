@@ -57,7 +57,7 @@ test("the first check says when the clone's newest commit was made, so a clone n
 
 test("a customer question's rule is held to its phase", () => {
   const { problems } = require("../lib/questions.js");
-  const asked = (rule) => ({ name: "Board check", pack: "custom", questions: [{ identifier: "Q1", title: "Releases",
+  const asked = (rule) => ({ name: "Board check", pack: "custom", questions: [{ identifier: "Q1", title: "Releases", asked: "how often do we release",
     intent: "How often does the team release?", looks_for: [
       { find: "Release notes for each version", proof: "written" },
       { find: "Releases tagged at least four times in the last year", proof: "scan", phase: "history", at_least: "low", rule },

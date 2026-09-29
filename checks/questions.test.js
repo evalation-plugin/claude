@@ -16,6 +16,7 @@ const OURS = { name: "Evalation's own questions.", attribution: "Evalation" };
 
 const question = (id, extra = {}) => ({
   identifier: id, title: "Payments are recorded", intent: "Where does this repository record each payment it takes?",
+  asked: "do we keep a record of payments",
   looks_for: [
     { find: "Code that writes a record for each payment, such as a payments table insert", proof: "runs" },
     { find: "A test that takes a payment and checks the record exists", proof: "runs" },
@@ -26,6 +27,15 @@ const set = (questions, extra = {}) => ({ name: "Board check", pack: "custom", q
 
 test("a well formed set has no problems", () => {
   assert.deepStrictEqual(problems(set([question("Q1"), question("Q2")])), []);
+});
+
+test("a question keeps the customer's own words it came from, and the review shows them beside the draft", () => {
+  const bare = question("Q1");
+  delete bare.asked;
+  assert.deepStrictEqual(problems(set([bare])), ["Q1 asked: missing. Record the customer's own words this question came from, or the claim they confirmed"]);
+  const shown = review(set([question("Q1", { asked: "does this repo use rust", intent: "Where does this repository use Rust?" })], { pack: "cyber-insurance" }));
+  assert.match(shown, /Q1 asked: does this repo use rust\nQ1 question: Where does this repository use Rust\?/);
+  assert.ok(CRITERIA.some((one) => /asked/.test(one) && /technology/.test(one)), "anything specific must come from the words asked");
 });
 
 test("each question is held to the rules a pack's entry is", () => {
