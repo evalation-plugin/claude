@@ -431,13 +431,13 @@ function licences(out, files) {
       const held = one.Licenses ?? [];
       const named = `${one.Name} ${one.Version ?? ""}`.trim();
       if (held.length === 0) {
-        if (relation !== "indirect") bare.push({ named, lockfile: lockfile.Target });
+        if (relation !== "indirect") bare.push({ named, lockfile: lockfile.Target, package: { name: one.Name, version: one.Version ?? "", licence: null } });
         continue;
       }
       const grades = held.map(licenceGrade);
       if (grades.includes(null)) continue;
       const grade = grades.reduce((mildest, each) => (ranked(each) < ranked(mildest) ? each : mildest));
-      restricted.push({ named: `${named} (${held.join(", ")})`, grade, lockfile: lockfile.Target });
+      restricted.push({ named: `${named} (${held.join(", ")})`, grade, lockfile: lockfile.Target, package: { name: one.Name, version: one.Version ?? "", licence: held.join(", ") } });
     }
   }
   const at = (list) => ({ path: [...new Set(list.map((one) => one.lockfile))].join(", ") });
@@ -445,12 +445,12 @@ function licences(out, files) {
   if (restricted.length > 0) {
     findings.push({ key: "licence:restricted", phase: "licence", at: at(restricted),
       severity: restricted.map((one) => one.grade).reduce((worst, one) => (ranked(one) > ranked(worst) ? one : worst)),
-      title: "Dependencies under a restrictive licence",
+      title: "Dependencies under a restrictive licence", packages: restricted.map((one) => one.package),
       body: `${restricted.length} of the ${total} production dependencies ${restricted.length === 1 ? "is" : "are"} under a licence that can oblige the product to share its own code: ${listedUpTo(restricted.map((one) => one.named))}.` }); // say:allow: report,a scanner result printed in the reports
   }
   if (bare.length > 0) {
     findings.push({ key: "licence:unknown", phase: "licence", severity: "medium", at: at(bare),
-      title: "Dependencies declaring no licence",
+      title: "Dependencies declaring no licence", packages: bare.map((one) => one.package),
       body: `${bare.length} of the production dependencies the repository names itself ${bare.length === 1 ? "declares" : "declare"} no licence: ${listedUpTo(bare.map((one) => one.named))}.` }); // say:allow: report,a scanner result printed in the reports
   }
   return { findings, lockfiles: lockfiles.length, unread };
@@ -499,6 +499,76 @@ function people(authors) {
     return `@${at}`;
   });
   return keys.map((one) => one && find(one));
+}
+
+const PUBLIC_MAIL = new Set(["gmail.com", "googlemail.com", "outlook.com", "hotmail.com", "live.com", "msn.com", "yahoo.com",
+  "icloud.com", "me.com", "mac.com", "aol.com", "proton.me", "protonmail.com", "pm.me", "gmx.com", "gmx.net", "gmx.de", "mail.com",
+  "yandex.com", "yandex.ru", "qq.com", "163.com", "126.com", "fastmail.com", "hey.com", "zoho.com", "tutanota.com", "web.de"]);
+const domainOf = (address) => String(address).trim().toLowerCase().split("@")[1] ?? "";
+const privateAddress = (address) => /(^|[.+@])noreply\b/.test(String(address).toLowerCase());
+const nobodysDomain = (domain) => !domain.includes(".") || PUBLIC_MAIL.has(domain) || /\.(local|lan|localdomain|internal|home)$/.test(domain) ||
+  /(^|\.)noreply\./.test(domain);
+const atCompany = (address, domains) => !privateAddress(address) &&
+  domains.some((one) => domainOf(address) === one.toLowerCase() || domainOf(address).endsWith(`.${one.toLowerCase()}`));
+
+function everyone(authors) {
+  const who = people(authors);
+  const held = new Map();
+  authors.forEach((one, at) => {
+    if (!who[at]) return;
+    if (!held.has(who[at])) held.set(who[at], { name: one.name.trim(), addresses: new Set(), commits: 0 });
+    const person = held.get(who[at]);
+    person.addresses.add(one.address.trim().toLowerCase());
+    person.commits += 1;
+  });
+  return [...held.values()].map((one) => ({ ...one, addresses: [...one.addresses].sort() }));
+}
+
+function outsiders(authors, domains) {
+  const all = everyone(authors);
+  const outside = all.filter((one) => !one.addresses.some((address) => atCompany(address, domains)))
+    .map((one) => ({ name: one.name || one.addresses[0], addresses: one.addresses, commits: one.commits,
+      ...(one.addresses.every(privateAddress) ? { why: "commits only through a code host's private address, so cannot be shown to be staff" } : {}) }))
+    .sort((a, b) => b.commits - a.commits || a.name.localeCompare(b.name));
+  if (outside.length === 0) return null;
+  return { key: "history:outside-contributors", phase: "history", severity: "low", at: { path: "git history" }, names_people: true,
+    title: "People outside the company who committed",
+    body: `${outside.length} of the ${all.length} people who ever committed have no commit address at ${domains.join(" or ")}.`, // say:allow: report,a scanner result printed in the reports
+    people: outside };
+}
+
+function domainChoices(authors, organisation = []) {
+  const counts = new Map();
+  for (const one of everyone(authors)) {
+    for (const domain of new Set(one.addresses.filter((address) => !privateAddress(address)).map(domainOf))) {
+      if (nobodysDomain(domain)) continue;
+      const held = counts.get(domain) ?? { people: 0, commits: 0 };
+      counts.set(domain, { people: held.people + 1, commits: held.commits + one.commits });
+    }
+  }
+  const ours = [...new Set(organisation.map((one) => one.toLowerCase()))].filter((one) => !nobodysDomain(one));
+  const seen = [...counts].filter(([domain]) => !ours.includes(domain))
+    .sort((a, b) => b[1].people - a[1].people || b[1].commits - a[1].commits || a[0].localeCompare(b[0]));
+  return [
+    ...ours.map((domain) => ({ domain, description: line("ev-run.domain-organisation") })),
+    ...seen.map(([domain, held]) => ({ domain, description: held.people === 1 ? line("ev-run.domain-person")
+      : line("ev-run.domain-people", { count: String(held.people) }) })),
+  ].slice(0, 6);
+}
+
+function authorsOver(root, solution) {
+  const roots = solution ? solution.repositories.filter((one) => one.vcs === "git").map((one) => join(root, one.folder)) : [root];
+  return roots.flatMap((at) => {
+    try {
+      return execFileSync("git", ["-C", at, "log", "--no-merges", "--format=%aN%x1f%aE"], { encoding: "utf8", maxBuffer: 256 * 1024 * 1024, stdio: ["ignore", "pipe", "ignore"] })
+        .split("\n").filter(Boolean).map((one) => {
+          const [name, address] = one.split("\x1f");
+          return { name, address };
+        });
+    } catch {
+      return [];
+    }
+  });
 }
 
 /**
@@ -843,7 +913,20 @@ function asked(rest) {
   return { only, rest: rest.filter((_, index) => index !== at && index !== at + 1) };
 }
 
-function scan(target, only = null) {
+function domainsAsked(rest) {
+  const at = rest.indexOf("--domains");
+  if (at < 0) return { domains: [], rest };
+  const domains = String(rest[at + 1] ?? "").split(",").map((one) => one.trim().toLowerCase().replace(/^@/, "")).filter(Boolean);
+  return { domains, rest: rest.filter((_, index) => index !== at && index !== at + 1) };
+}
+
+function withOutsiders(said, authors, domains) {
+  if (!said.ran || domains.length === 0) return said;
+  const found = outsiders(authors, domains);
+  return { ...said, domains, measures: [...MEASURES.history, "history:outside-contributors"], findings: [...said.findings, ...(found ? [found] : [])] };
+}
+
+function scan(target, only = null, { domains = [] } = {}) {
   const root = resolve(target);
   try {
     if (!statSync(root).isDirectory()) fail(`${target} is not a directory`);
@@ -869,7 +952,7 @@ function scan(target, only = null) {
     ran = Object.entries(held.phases)
       .filter(([phase]) => !only || only.includes(phase))
       .map(([phase, named]) => (phase === "history"
-        ? (solution ? historyAcross(root, solution, named) : history(root, isRepository, named))
+        ? withOutsiders(solution ? historyAcross(root, solution, named) : history(root, isRepository, named), authorsOver(root, solution), domains)
         : phase === "secret" && solution
         ? secretAcross(root, solution, named, held, copy.path)
         : phase === "licence"
@@ -909,7 +992,7 @@ function scan(target, only = null) {
     witnessed: before !== null,
     phases: ran.map(({ findings, inventory, ...said }) => ({
       ...said,
-      ...(said.ran ? { measures: MEASURES[said.phase] ?? [said.phase] } : {}),
+      ...(said.ran ? { measures: said.measures ?? MEASURES[said.phase] ?? [said.phase] } : {}),
       found: findings.length,
       ...(inventory ? { inventory } : {}),
     })),
@@ -1039,7 +1122,8 @@ const USAGE = `usage: evalation-scan <verb>
   show [--phases a,b]      what would run, what of it is on this machine, and how to get the rest
   install <tool ...>       fetch a scanner this build knows, with the person's yes
   decline <tool ...>       record that a scanner was not wanted, so the report can say so
-  run <target> [--phases a,b]
+  domains <target>         the question asking which email domains are the company's
+  run <target> [--phases a,b] [--domains a.com,b.com]
                            scan a repository with those phases, or all, and write what they found
   set <phase> <tool|off>   name the tool for a phase, or turn the phase off
 `;
@@ -1058,10 +1142,21 @@ function main() {
       if (rest.length === 0) fail("usage: evalation-scan decline <tool ...>");
       decline(rest);
       return;
+    case "domains": {
+      if (!rest[0]) fail("usage: evalation-scan domains <target>");
+      const root = resolve(rest[0]);
+      const solution = existsSync(join(root, ".git")) ? null : solutionOf(root);
+      const choices = domainChoices(authorsOver(root, solution), settings().organisation_domains ?? []);
+      const { entries, say } = require("../lib/say.js");
+      process.stdout.write(`${JSON.stringify(choices.length === 0 ? { said: line("ev-run.domains-type"), asks: null }
+        : { said: null, asks: JSON.parse(say(entries(), "ev-run.domains", {}, choices.map((one) => ({ label: one.domain, description: one.description })))) }, null, 2)}\n`);
+      return;
+    }
     case "run": {
-      const { only, rest: left } = asked(rest);
-      if (!left[0]) fail("usage: evalation-scan run <target> [--phases a,b]");
-      const { path, document } = scan(left[0], only);
+      const { only, rest: afterPhases } = asked(rest);
+      const { domains, rest: left } = domainsAsked(afterPhases);
+      if (!left[0]) fail("usage: evalation-scan run <target> [--phases a,b] [--domains a.com,b.com]");
+      const { path, document } = scan(left[0], only, { domains });
       process.stdout.write(`${JSON.stringify({
         written: path,
         said: readOut(document.phases),
@@ -1112,7 +1207,7 @@ function main() {
 
 const argvOf = (phase, target) => adapterFor(phase, DEFAULTS[phase].tool).argv(target, null, false);
 
-module.exports = { adapterFor, argvOf, authorship, licenceRead: licences, licences, measured, practices, scan };
+module.exports = { adapterFor, argvOf, authorship, domainChoices, licenceRead: licences, licences, measured, outsiders, practices, scan };
 
 if (require.main === module) {
   try {

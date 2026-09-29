@@ -32,6 +32,7 @@ const { pluginHome } = require("../lib/home.js");
 const { changes, changesSection, earlierFor } = require("../lib/changes.js");
 const { print, unprintedSaid, unsignedSaid, unsignedThen, unwritten } = require("../lib/print.js");
 const { readingOf } = require("../lib/prose.js");
+const { line } = require("../lib/run-say.js");
 const { cardOf, compared, compatible, named: phaseNamed, settled, upgradeTo } = require("../lib/scans.js");
 const { consequences, remedies } = require("../lib/weaknesses.js");
 const { keepFindings, reportsFolder, reviewName } = require("../lib/reports.js");
@@ -62,7 +63,7 @@ function fail(reason) {
 }
 
 function faulted(detail) {
-  const { fault, line } = require("../lib/run-say.js");
+  const { fault } = require("../lib/run-say.js");
   fail(fault(line("ev-run.fault-reports"), detail));
 }
 
@@ -205,6 +206,17 @@ function closing(answer) {
   return "";
 }
 
+const namesPeople = (answers) => answers.some((one) => (one.raised ?? []).some((each) => each.person));
+
+function raisedList(answer) {
+  return (answer.raised ?? []).map((one) => {
+    const said = one.person
+      ? `${one.person.name}, ${one.person.addresses.join(", ")}, ${one.person.commits} ${one.person.commits === 1 ? "commit" : "commits"}${one.person.why ? `. ${one.person.why}` : ""}`
+      : `${one.package.name} ${one.package.version}, ${one.package.licence ?? "declares no licence"}`;
+    return `<div class="cite item"><div class="where"><span>${escaped(said)}</span></div></div>`;
+  }).join("");
+}
+
 function entry(answer, asked, pack, scan) {
   const clause = asked.get(`${answer.pack}/${answer.entry}`);
   const colour = colourOf(answer.status);
@@ -218,6 +230,7 @@ function entry(answer, asked, pack, scan) {
   const body = [
     clause?.intent ? `<p class="asked">${escaped(clause.intent)}</p>` : "",
     answer.because ? `<p class="because">${escaped(answer.because)}</p>` : "",
+    raisedList(answer),
     answer.from === "authored" ? ""
       : clause?.looks_for?.length && Array.isArray(answer.looked_for) ? items(answer, clause.looks_for, scan)
       : evidence(answer),
@@ -437,6 +450,7 @@ something missing, the search that did not find it. ${answers.length - read === 
 ${answers.length - read} are about how the organisation runs, which a repository does not record, so
 the pack answers them and says so on each one. `}We read the code without running it and changed
 nothing.</p>
+${namesPeople(answers) ? `<p class="intro">${escaped(line("ev-run.names-people-page"))}</p>` : ""}
 <p class="intro">A review like this shows how each control is designed and whether the code puts it in
 place. Some standards also ask whether a control worked over a period of months. That takes records
 from those months, which a repository does not keep, so this report cannot answer it.</p>
@@ -607,6 +621,7 @@ function main() {
         entries: own.length,
         cited: citing(own),
         by_status: counted(own),
+        ...(namesPeople(own) ? { names_people: true } : {}),
       };
     });
   } catch (thrown) {
@@ -619,7 +634,8 @@ function main() {
 function said(written, folder) {
   const pages = written.filter((one) => !one.printed).map((one) => one.written);
   return [...(pages.length > 0 ? [unprintedSaid(pages, folder)] : []),
-    ...written.filter((one) => one.unsigned).map((one) => unsignedSaid(one.written, one.unsigned))].join("\n");
+    ...written.filter((one) => one.unsigned).map((one) => unsignedSaid(one.written, one.unsigned)),
+    ...(written.some((one) => one.names_people) ? [line("ev-run.names-people")] : [])].join("\n");
 }
 
 function citing(answers) {

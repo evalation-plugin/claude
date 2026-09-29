@@ -640,6 +640,34 @@ function pick(value, names) {
  * pack settled itself. A reading adds its answers, findings and accounted rows and nothing else, so
  * none of what makes an assessment resolve back to its entries is copied by hand.
  */
+function raise(document, scan) {
+  const raisedBy = new Map();
+  for (const pack of document.packs ?? []) {
+    for (const one of pack.entries_asked ?? []) if (one.raised_by?.length) raisedBy.set(`${pack.pack}/${one.identifier}`, one.raised_by);
+  }
+  const dropped = new Set();
+  for (const answer of document.answers ?? []) {
+    const rules = raisedBy.get(`${answer.pack}/${answer.entry}`);
+    if (!rules) continue;
+    const unsettled = rules.map((rule) => scanSays({ phase: String(rule).split(":")[0], rule }, scan)).find((one) => one.result === "not-checked");
+    const fired = (scan?.findings ?? []).filter((one) => rules.some((rule) => one.key === rule || String(one.key).startsWith(`${rule}:`)));
+    if (fired.length > 0) {
+      answer.raised = fired.flatMap((one) => [...(one.people ?? []).map((person) => ({ person })), ...(one.packages ?? []).map((item) => ({ package: item }))]);
+      answer.because = `The scan found what only the organisation can settle, and each is listed below${unsettled ? `, though ${unsettled.why}` : ""}.`;
+    } else if (unsettled) {
+      answer.because = `Not checked, since ${unsettled.why}.`;
+    } else {
+      dropped.add(`${answer.pack}/${answer.entry}`);
+    }
+  }
+  document.answers = (document.answers ?? []).filter((one) => !dropped.has(`${one.pack}/${one.entry}`));
+  for (const pack of document.packs ?? []) {
+    pack.selected = (pack.selected ?? []).filter((one) => !dropped.has(`${pack.pack}/${one}`));
+    pack.entries_asked = (pack.entries_asked ?? []).filter((one) => !dropped.has(`${pack.pack}/${one.identifier}`));
+  }
+  return document;
+}
+
 function skeleton(served, readBy) {
   return {
     run: served.run,
@@ -656,7 +684,7 @@ function skeleton(served, readBy) {
         kind: body.kind ?? one.kind,
         ...pick(body, ["title", "version", "entry_noun", "sections"]),
         selected: entries.map((entry) => entry.identifier),
-        entries_asked: entries.map((entry) => pick(entry, ["identifier", "shown", "title", "intent", "looks_for", "section", "obligation", "note", "bears_on", "in_force"])),
+        entries_asked: entries.map((entry) => pick(entry, ["identifier", "shown", "title", "intent", "looks_for", "section", "obligation", "note", "bears_on", "in_force", "raised_by"])),
       };
     }),
     answers: [...(served.answered ?? [])],
@@ -988,9 +1016,10 @@ function main() {
     if (read.length > 0) {
       document.scan.relevant = (scan.document.findings ?? [])
         .filter((one) => read.includes(one.phase))
-        .map((one) => pick(one, ["key", "phase", "severity", "title", "package", "version", "fixed", "transitive", "relation", "via", "at", "body", "link", "cwe"]));
+        .map((one) => pick(one, ["key", "phase", "severity", "title", "package", "version", "fixed", "transitive", "relation", "via", "at", "body", "link", "cwe", "names_people"]));
     }
   }
+  raise(document, scan?.document ?? null);
 
   // Ordered, so that two runs of the same assessment write the same file. Nothing here changes what
   // was found: it settles the order answers happen to arrive in, which is the last thing left that
@@ -1028,6 +1057,6 @@ function main() {
   );
 }
 
-module.exports = { credentialIn, checked, groupOf, methodology, skeletonOf: skeleton };
+module.exports = { credentialIn, checked, groupOf, methodology, raise, skeletonOf: skeleton };
 
 if (require.main === module) main();
