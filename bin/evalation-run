@@ -182,6 +182,7 @@ function settled(packs) {
           : `${entry.title} is about how the organisation runs, which a repository does not record, ` +
             "so the pack answers it.",
         justification: entry.justification,
+        ...(entry.raised_by?.length ? { raised_by: entry.raised_by } : {}),
       });
     }
   }
@@ -205,7 +206,8 @@ function scanFor(packs) {
   const as = (pack) => ({ kind: pack.body?.kind, entries: pack.body?.entries ?? [] });
   const by = packs.filter((pack) => phasesRead([as(pack)]).length > 0);
   const phases = phasesRead(packs.map(as));
-  return { wanted: phases.length > 0, phases, for: by.map((pack) => pack.body?.title ?? pack.pack) };
+  const asksDomains = packs.some((pack) => (pack.body?.entries ?? []).some((entry) => (entry.raised_by ?? []).includes("history:outside-contributors")));
+  return { wanted: phases.length > 0, phases, for: by.map((pack) => pack.body?.title ?? pack.pack), asks_domains: asksDomains };
 }
 
 /** What a command says, or nothing where it says nothing or is not there. Never a throw. */
