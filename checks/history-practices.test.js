@@ -27,9 +27,26 @@ test("commits made by people with no commit in the last 90 days are rated by the
   assert.doesNotMatch(said.body, /left|here/);
 });
 
+test("departure is measured from the newest commit in the history, so a clone nobody pulled is not everyone gone", () => {
+  const stale = [
+    ...Array.from({ length: 6 }, (_, at) => commit(200 + at, "here", "PAY-1", "src/b.js", "src/b.test.js")),
+    ...Array.from({ length: 4 }, (_, at) => commit(320 + at, "left", "PAY-1", "src/a.js", "src/a.test.js")),
+  ];
+  assert.deepStrictEqual(keyed(measure(stale), "history:departed"), ["medium"]);
+  const solo = Array.from({ length: 10 }, (_, at) => commit(150 + at * 10, "only", "PAY-1", "src/a.js", "src/a.test.js"));
+  assert.deepStrictEqual(keyed(measure(solo), "history:departed"), []);
+});
+
+test("the pull request number a code host appends to a squash-merged subject is not a ticket", () => {
+  const squashed = Array.from({ length: 10 }, (_, at) => commit(5 + at, "a", `Tidy the login page (#${40 + at})\n\nWork on the form.`, "src/a.js", "src/a.test.js"));
+  assert.deepStrictEqual(keyed(measure(squashed), "history:tickets"), ["low"]);
+  const named = Array.from({ length: 10 }, (_, at) => commit(5 + at, "a", `Fix #${at + 1} on the login page (#${40 + at})`, "src/a.js", "src/a.test.js"));
+  assert.deepStrictEqual(keyed(measure(named), "history:tickets"), []);
+});
+
 test("commits whose message names no ticket are low under half", () => {
   const messages = (named) => Array.from({ length: 10 }, (_, at) =>
-    commit(5 + at, "a", at < named ? (at % 2 ? `Fix login (#${40 + at})` : `PAY-${at + 1} charge once`) : "Tidy things", "src/a.js", "tests/a.js"));
+    commit(5 + at, "a", at < named ? (at % 2 ? `Fix login for #${40 + at}` : `PAY-${at + 1} charge once`) : "Tidy things", "src/a.js", "tests/a.js"));
   assert.deepStrictEqual(keyed(measure(messages(4)), "history:tickets"), ["low"]);
   assert.deepStrictEqual(keyed(measure(messages(5)), "history:tickets"), []);
   assert.match(measure(messages(4)).find((one) => one.key === "history:tickets").body, /40%/);
@@ -91,7 +108,7 @@ test("each new history card says what closes it", () => {
   const { scanResults } = require("../lib/sheet.js");
   const scans = require("../lib/scans.js");
   const { consequences, remedies } = require("../lib/weaknesses.js");
-  const findings = measure([commit(120, "a", "Tidy", "src/a.js"), commit(100, "a", 'Revert "Tidy"', "src/a.js"), commit(10, "b", "Tidy", "src/b.js")],
+  const findings = measure([commit(130, "a", "Tidy", "src/a.js"), commit(120, "a", 'Revert "Tidy"', "src/a.js"), commit(10, "b", "Tidy", "src/b.js")],
     { lines: 1000, markers: 9 });
   assert.deepStrictEqual(findings.map((one) => one.key).sort(), ["history:departed", "history:markers", "history:reverts", "history:tests", "history:tickets"]);
   const html = scanResults({ findings, intro: "x", tagWord: "", tagOf: () => [], phaseOf: scans.named, consequences, remedies,

@@ -70,6 +70,17 @@ test("the phase has a name a person reads, a pack item may name it, and trivy is
   assert.ok(argv.includes("license") && !argv.includes("--include-dev-deps"));
 });
 
+test("the bill of materials makes no licence claim, since its copy holds no installed dependency", () => {
+  const { adapterFor } = require("../bin/evalation-scan");
+  const syft = JSON.stringify({ artifacts: [{ name: "a", version: "1", type: "npm", licenses: [] }, { name: "b", version: "2", type: "npm", licenses: [] }] });
+  const held = adapterFor("sbom", "syft").read(syft);
+  assert.deepStrictEqual(held.inventory, { components: 2, ecosystems: { npm: 2 } });
+  const inventory = { phase: "sbom", ran: true, tool: "syft", inventory: { components: 934, ecosystems: { npm: 600 }, declaring_no_licence: 934, some_of_them: ["a@1"] } };
+  assert.doesNotMatch(scans.said({ floor: "low", phases: [inventory], findings: [] }), /licence/);
+  const { scanned } = require("../bin/evalation-detail");
+  assert.doesNotMatch(scanned({ scan: { phases: [inventory] } }), /licence/);
+});
+
 test("a checkout with no installed dependencies says the licences were not read", () => {
   const tree = repository();
   const phase = scan(tree, ["licence"]).document.phases.find((one) => one.phase === "licence");

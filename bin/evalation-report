@@ -32,7 +32,7 @@ const { pluginHome } = require("../lib/home.js");
 const { changes, changesSection, earlierFor } = require("../lib/changes.js");
 const { print, unprintedSaid, unsignedSaid, unsignedThen, unwritten } = require("../lib/print.js");
 const { readingOf } = require("../lib/prose.js");
-const { cardOf, compared, compatible, named: phaseNamed, upgradeTo } = require("../lib/scans.js");
+const { cardOf, compared, compatible, named: phaseNamed, settled, upgradeTo } = require("../lib/scans.js");
 const { consequences, remedies } = require("../lib/weaknesses.js");
 const { keepFindings, reportsFolder, reviewName } = require("../lib/reports.js");
 const { CHROME, css, escaped, paginator, scanResults } = require("../lib/sheet.js");
@@ -142,6 +142,8 @@ function scanned(want, row, scan) {
   const level = want.at_least ? ` at ${want.at_least} or above` : "";
   if (row.result === "not-checked") {
     const ran = (scan?.phases ?? []).find((one) => one.phase === want.phase);
+    const says = settled(want, scan);
+    if (ran?.ran && says.result === "not-checked") return `<p class="looked">${escaped(`Not checked, since ${says.why}.`)}</p>`;
     return `<p class="looked">${escaped(ran && !ran.ran ? `The ${phase} did not run: ${ran.why}.` : `The ${phase} was not run over ${here()} in this run.`)}</p>`; // say:allow: report,printed on the evidence pack PDF
   }
   // Counted once per result, as the table lists them. The same advisory in two lockfiles is one.
@@ -624,7 +626,7 @@ function citing(answers) {
   return answers.filter((one) => [one, ...(one.looked_for ?? [])].some((row) => (row.evidence ?? []).length > 0)).length;
 }
 
-module.exports = { citing, page, said };
+module.exports = { citing, page, said, scannedLine: scanned };
 
 if (require.main === module) {
   try {

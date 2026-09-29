@@ -244,8 +244,7 @@ function scanned(document) {
   const rows = phases.map((one) => {
     const said = one.ran
       ? (one.inventory
-        ? `${escaped(one.tool)} counted ${one.inventory.components} components, ` +
-          `${one.inventory.declaring_no_licence} declaring no licence`
+        ? `${escaped(one.tool)} counted ${one.inventory.components} components`
         : `${escaped(one.tool)} found ${one.found}`)
       : `did not run: ${escaped(one.why ?? "no reason recorded")}`;
     return `<dt${one.ran ? "" : ' class="off"'}>${escaped(named(one.phase))}</dt>` +
@@ -379,7 +378,7 @@ function detail(document, into, seal, theirs = []) {
   return print(html, `${into.replace(/\.pdf$/, "")}.html`, into, seal, theirs);
 }
 
-module.exports = { detail };
+module.exports = { detail, scanned };
 
 if (require.main === module) {
   const [source, into] = process.argv.slice(2);

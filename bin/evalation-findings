@@ -24,7 +24,7 @@ const { existsSync, mkdirSync, readFileSync, writeFileSync } = require("node:fs"
 const { dirname, join, resolve, relative, isAbsolute } = require("node:path");
 const { pluginHome } = require("../lib/home.js");
 
-const { cardOf, cardWorst, named: phaseNamed, newestFor, phasesRead } = require("../lib/scans.js");
+const { cardOf, cardWorst, newestFor, phasesRead, settled: scanSays } = require("../lib/scans.js");
 const { facing, held, own } = require("../lib/prose.js");
 const { fenced } = require("../lib/fence.js");
 const { infrastructureIn } = require("../lib/infrastructure.js");
@@ -48,26 +48,6 @@ const RESULTS = ["found", "missing", "does-not-apply", "not-checked", "no-eviden
 // A scanner's severities, worst first. An item the scan settles names the lowest that counts.
 const SEVERITY = ["critical", "high", "medium", "low", "info"];
 
-/**
- * What the scan says about one item, decided from the scan alone: found where the phase ran after
- * the run began and holds nothing at the item's severity or above, missing where it holds some, and
- * not checked where it did not run. A scan from before the run is an answer about an older tree.
- */
-function scanSays(want, scan, since) {
-  const phase = (scan?.phases ?? []).find((one) => one.phase === want.phase);
-  const fresh = scan && (!since || String(scan.at) >= String(since));
-  if (!phase?.ran || !fresh) {
-    return { result: "not-checked", over: [], why: !scan || !fresh ? "no scan was run over this tree in this run" : `the ${phaseNamed(want.phase)} did not run: ${phase?.why ?? "it was not in the scan"}` };
-  }
-  const floor = want.at_least ? SEVERITY.indexOf(want.at_least) : SEVERITY.length - 1;
-  // Counted once per result. The same advisory in two lockfiles is one weakness, not two. An item
-  // naming a rule is settled by that rule's results alone, so one phase can answer several items.
-  const seen = new Set();
-  const ruled = (one) => !want.rule || one.key === want.rule || String(one.key).startsWith(`${want.rule}:`);
-  const over = (scan.findings ?? []).filter((one) => one.phase === want.phase && ruled(one) && SEVERITY.indexOf(one.severity) >= 0 &&
-    SEVERITY.indexOf(one.severity) <= floor && !seen.has(one.key) && seen.add(one.key));
-  return { result: over.length === 0 ? "found" : "missing", over };
-}
 
 // A positive finding says a control is working. Its remedy field is printed under "What to keep",
 // and an order opening it is read as an order: "Keep the second guard" tells a reader to keep one

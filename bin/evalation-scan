@@ -70,6 +70,11 @@ const DEFAULTS = {
 
 const FLOOR = "low";
 
+const MEASURES = {
+  history: ["concentration", "quiet", "releases", "dormant", "area", "slowing", "departed", "tickets", "tests", "reverts", "markers"].map((one) => `history:${one}`),
+  licence: ["licence:restricted", "licence:unknown"],
+};
+
 // How a tool gets onto a machine that has none of them, which is every customer's machine on the
 // first run. The plugin is the only thing they installed, so a scanner it needs is a scanner it has
 // to offer to fetch: told to go and install four tools themselves, most people run the review
@@ -336,31 +341,11 @@ const ADAPTERS = {
   syft: {
     phase: "sbom",
     argv: (target) => ["scan", `dir:${target}`, "-o", "syft-json", "-q"],
-    // An inventory, not findings. What a reviewer answering the bill of materials needs is how much
-    // is in there, what it is written against, and how much of it declares no licence, since an
-    // undeclared licence is the one thing in a bill of materials that is somebody's problem later.
     read: (out) => {
-      const held = JSON.parse(out || "{}");
-      const parts = held.artifacts ?? [];
+      const parts = JSON.parse(out || "{}").artifacts ?? [];
       const ecosystems = {};
-      const unlicensed = [];
-      for (const one of parts) {
-        ecosystems[one.type ?? "unknown"] = (ecosystems[one.type ?? "unknown"] ?? 0) + 1;
-        const licences = (one.licenses ?? [])
-          .map((each) => each.value || each.spdxExpression || "").filter(Boolean);
-        if (licences.length === 0) unlicensed.push(`${one.name}@${one.version ?? ""}`);
-      }
-      return {
-        findings: [],
-        inventory: {
-          components: parts.length,
-          ecosystems,
-          declaring_no_licence: unlicensed.length,
-          // Named to a bound. A tree with four hundred unlicensed components needs the number and a
-          // sample, and a report carrying all four hundred is a report nobody reads.
-          some_of_them: unlicensed.sort().slice(0, 12),
-        },
-      };
+      for (const one of parts) ecosystems[one.type ?? "unknown"] = (ecosystems[one.type ?? "unknown"] ?? 0) + 1;
+      return { findings: [], inventory: { components: parts.length, ecosystems } };
     },
   },
 
@@ -480,7 +465,8 @@ const BY_PHASE = {
         const said = licences(out, filesOf(root).map((one) => inRepository(root, one)));
         if (said.lockfiles === 0) return { skipped: "no-lockfile", why: "the repository holds no dependency lockfile to read licences from" };
         if (said.unread.length === said.lockfiles) return { skipped: "not-installed", why: `no dependency licences could be read from ${said.unread.join(", ")}, since the dependencies are not installed here` };
-        return { findings: said.findings, ...(said.unread.length > 0 ? { why: `licences not read for ${said.unread.join(", ")}, since those dependencies are not installed here or the tool reads no licences for them` } : {}) };
+        return { findings: said.findings, unread: said.unread,
+          ...(said.unread.length > 0 ? { why: `licences not read for ${said.unread.join(", ")}, since those dependencies are not installed here or the tool reads no licences for them` } : {}) };
       },
     },
   },
@@ -564,7 +550,7 @@ function history(root, isRepository, named) {
     const now = Date.now();
     return { phase: "history", tool: "git", ran: true,
       findings: [...authorship(commits.map((one) => `${one.name}\x1f${one.address}`).join("\n")), ...measured({ commits: byPeople, tags, tracked, now }),
-        ...practices({ commits: byPeople, now, source: markersIn(root, tracked) })] };
+        ...practices({ commits: byPeople, source: markersIn(root, tracked) })] };
   } catch (thrown) {
     return { phase: "history", tool: "git", ran: false, reason: "failed", why: `git could not read the history: ${thrown.message}`, findings: [] };
   }
@@ -591,7 +577,7 @@ function historyAcross(root, solution, named) {
   if (ran.length === 0) return { phase: "history", tool: "git", ran: false, reason: missed[0].said.reason, why: missed.map(({ one, said }) => `${one.repository}: ${said.why}`).join("; "), findings: [] };
   return {
     phase: "history", tool: "git", ran: true,
-    ...(missed.length > 0 ? { why: `not read in ${missed.map(({ one, said }) => `${one.repository} (${said.why})`).join(", ")}` } : {}),
+    ...(missed.length > 0 ? { why: `not read in ${missed.map(({ one, said }) => `${one.repository} (${said.why})`).join(", ")}`, unread: missed.map(({ one }) => one.repository) } : {}),
     findings: ran.flatMap(({ one, said }) => said.findings.map((found) => placed(found, one))),
   };
 }
@@ -616,7 +602,7 @@ function secretAcross(root, solution, named, held, copy) {
   const missed = each.filter(({ said }) => !said.ran);
   return {
     ...ran[0].said,
-    ...(missed.length > 0 ? { why: `not read in ${missed.map(({ one, said }) => `${one.repository} (${said.why})`).join(", ")}` } : {}),
+    ...(missed.length > 0 ? { why: `not read in ${missed.map(({ one, said }) => `${one.repository} (${said.why})`).join(", ")}`, unread: missed.map(({ one }) => one.repository) } : {}),
     findings: ran.flatMap(({ said }) => said.findings),
   };
 }
@@ -679,7 +665,11 @@ const isTest = (path) => {
 const isSource = (path, head = "") => !path.split("/").some(skipped) && languageOf(path, head)?.type === "programming";
 const MARKER = /\b(TODO|FIXME|HACK|XXX)\b/;
 const TICKET = /(^|[^\w&])#\d+\b|\b[A-Z][A-Z0-9]{1,9}-\d+\b/;
-const REVERT = /^Revert\b|This reverts commit [0-9a-f]{7,}/m;
+const unsquashed = (message) => {
+  const [subject, ...rest] = String(message ?? "").split("\n");
+  return [subject.replace(/\s*\(#\d+\)\s*$/, ""), ...rest].join("\n");
+};
+const REVERT =/^Revert\b|This reverts commit [0-9a-f]{7,}/m;
 
 function markersIn(root, tracked) {
   const attributes = attributesOf(root, tracked);
@@ -705,7 +695,7 @@ function markersIn(root, tracked) {
   return { lines, markers };
 }
 
-function practices({ commits, now, source }) {
+function practices({ commits, source }) {
   const found = [];
   const total = commits.length;
   const share = (part, whole) => Math.round((part / whole) * 100);
@@ -713,14 +703,15 @@ function practices({ commits, now, source }) {
   if (total > 0) {
     const last = new Map();
     for (const one of commits) last.set(one.who, Math.max(last.get(one.who) ?? 0, Date.parse(one.at)));
-    const gone = new Set([...last].filter(([, when]) => now - when > 90 * DAY).map(([who]) => who));
+    const newest = Math.max(...last.values());
+    const gone = new Set([...last].filter(([, when]) => newest - when > 90 * DAY).map(([who]) => who));
     const theirs = commits.filter((one) => gone.has(one.who)).length;
     if (theirs / total >= 0.25) {
       found.push({ key: "history:departed", phase: "history", severity: theirs / total >= 0.5 ? "high" : "medium", at,
         title: "Much of the work made by people no longer committing",
-        body: `Of ${total} commits in the last twelve months, ${share(theirs, total)}% were made by ${gone.size} of ${last.size} people with no commit in the last three months.` }); // say:allow: report,a scanner result printed in the reports
+        body: `Of ${total} commits in the last twelve months, ${share(theirs, total)}% were made by ${gone.size} of ${last.size} people with no commit in the three months before the newest commit.` }); // say:allow: report,a scanner result printed in the reports
     }
-    const ticketed = commits.filter((one) => TICKET.test(one.message ?? "")).length;
+    const ticketed = commits.filter((one) => TICKET.test(unsquashed(one.message))).length;
     if (ticketed / total < 0.5) {
       found.push({ key: "history:tickets", phase: "history", severity: "low", at,
         title: "Few changes name the ticket they answer",
@@ -819,7 +810,8 @@ function runPhase(phase, named, target, isRepository, held) {
     const found = (Array.isArray(answered) ? answered : answered.findings ?? [])
       .map((one) => ({ ...one, phase, tool: named.tool }));
     const inventory = Array.isArray(answered) ? null : answered.inventory ?? null;
-    return { phase, tool: named.tool, ran: true, ...(answered.why ? { why: answered.why } : {}), findings: found, inventory };
+    return { phase, tool: named.tool, ran: true, ...(answered.why ? { why: answered.why } : {}),
+      ...(answered.unread?.length ? { unread: answered.unread } : {}), findings: found, inventory };
   } catch (thrown) {
     // Said rather than swallowed, and with no findings, since a tool that fell over knows nothing
     // about this repository and a phase reported clean on a crash is the worst answer available.
@@ -917,6 +909,7 @@ function scan(target, only = null) {
     witnessed: before !== null,
     phases: ran.map(({ findings, inventory, ...said }) => ({
       ...said,
+      ...(said.ran ? { measures: MEASURES[said.phase] ?? [said.phase] } : {}),
       found: findings.length,
       ...(inventory ? { inventory } : {}),
     })),
@@ -1119,7 +1112,7 @@ function main() {
 
 const argvOf = (phase, target) => adapterFor(phase, DEFAULTS[phase].tool).argv(target, null, false);
 
-module.exports = { argvOf, authorship, licences, measured, practices, scan };
+module.exports = { adapterFor, argvOf, authorship, licenceRead: licences, licences, measured, practices, scan };
 
 if (require.main === module) {
   try {
