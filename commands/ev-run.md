@@ -129,7 +129,8 @@ and each answer's label says what choosing it does.
    - Where any repository read has `on_main` false, say which with `evalation-run --say branches
      <target>` and ask `evalation-say ev-run.branches`. Where any has `newest` more than 14 days ago,
      say which with `evalation-run --say copies <target>` and ask `evalation-say ev-run.copies`. On
-     either stop, end the run there. Never switch a branch or pull yourself.
+     either stop, end the run there. Never switch a branch or pull yourself. On the answer to talk
+     it through, answer what they ask, then ask the same question again.
 
    The folder stays the target from here on, and the branch paragraphs below are for a single
    repository.
@@ -146,7 +147,8 @@ and each answer's label says what choosing it does.
 
    Where `newest`, the date of the newest commit on disk, is more than 14 days ago, say so with
    `evalation-run --say stale <target>` and ask `evalation-say ev-run.copy`. On stop, end the run
-   there. Never pull yourself.
+   there. Never pull yourself. On the answer to talk it through, answer what they ask, then ask the
+   same question again.
 
    Then ask which packs to read. The questions name each pack by its title, and the answers come
    back as titles: map each to its handle through what `--titles` printed.

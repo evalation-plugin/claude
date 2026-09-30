@@ -5,6 +5,7 @@ const { spawnSync } = require("node:child_process");
 const { runScript } = require("../lib/script.js");
 const { why } = require("./evalation-status");
 const { entries, say } = require("../lib/say.js");
+const { answered } = require("../lib/answer.js");
 
 const LINES = entries();
 const line = (name, values) => say(LINES, name, values);
@@ -98,6 +99,7 @@ function main() {
       const price = priced();
       process.stdout.write(`price: ${money(price.currency, price.cents)}\nquestion: ${question(price)}\n`);
     } else if (mode === "checkout") {
+      answered([typed]);
       process.stdout.write(checkout(typed));
     } else {
       process.stderr.write("usage: evalation-buy price | evalation-buy checkout <count>\n");

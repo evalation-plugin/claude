@@ -1,6 +1,6 @@
 {
-  "ev-questions.saved-sets": { "ask": "Would you like to change a saved set, or write a new one?", "header": "Saved sets", "options": "given" },
-  "ev-questions.saved-sets-more": { "ask": "Which saved set would you like to change?", "header": "Saved sets", "options": "given" },
+  "ev-questions.saved-sets": { "ask": "Would you like to change a saved set, or write a new one?", "header": "Sets", "options": "given" },
+  "ev-questions.saved-sets-more": { "ask": "Which saved set would you like to change?", "header": "Sets", "options": "given" },
   "ev-questions.listed-unreachable": { "say": "Your account could not be reached, so only sets on this machine are shown." },
   "ev-questions.listed-none": { "say": "You have no saved question sets yet." },
   "ev-questions.listed-for": { "say": "<name>, for <pack>, <where>." },

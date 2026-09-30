@@ -6,6 +6,7 @@ const { homedir } = require("node:os");
 const { join } = require("node:path");
 const { runScript } = require("../lib/script.js");
 const { pluginHome } = require("../lib/home.js");
+const { answered } = require("../lib/answer.js");
 const { holdsSaved, keysNamed, openBy, placesNamed, placesOf, pluginConversations, removal, reportsIn, reportsNamed, setsAsked, setsKept } = require("../lib/remove.js");
 const store = require("./evalation-store");
 
@@ -41,6 +42,7 @@ if (verb === "folders") {
   const asked = setsAsked(listing);
   process.stdout.write(asked ? `${JSON.stringify(asked)}\n` : "none\n");
 } else if (verb === "keep-sets") {
+  answered(flags);
   const { keepOnAccount } = require("../lib/questions.js");
   const done = setsKept({ home: HOME, names: flags, keep: (name) => keepOnAccount(HOME, name) });
   if (done.fails !== undefined) fail(`fails-check: ${done.fails}`);

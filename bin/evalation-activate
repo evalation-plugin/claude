@@ -25,6 +25,7 @@ const store = require("./evalation-store");
 const { runScript, spawnScript } = require("../lib/script.js");
 const { approvalOf, lineFor, nameOf, ACCOUNT, ADDRESS } = require("../lib/approval.js");
 const { entries, say } = require("../lib/say.js");
+const { answered } = require("../lib/answer.js");
 const { existsSync, mkdirSync, readFileSync, writeFileSync } = require("node:fs");
 const { join, dirname } = require("node:path");
 const { hostname, userInfo } = require("node:os");
@@ -366,6 +367,7 @@ function settled(membership, provider, request) {
 }
 
 function company(args) {
+  if (args[0] !== "--later") answered([args.join(" ")]);
   const local = JSON.parse(readFileSync(SETTINGS, "utf8"));
   const membership = membershipOf(local.sign_in?.membership);
   const provider = local.sign_in?.provider;

@@ -130,5 +130,6 @@ test("the plugin registers the fetch at session start and the notice on each pro
   const hooks = JSON.parse(readFileSync(join(__dirname, "..", "hooks", "hooks.json"), "utf8")).hooks;
   const command = (event) => hooks[event]?.flatMap((one) => one.hooks.map((each) => each.command));
   assert.deepStrictEqual(command("SessionStart"), ["${CLAUDE_PLUGIN_ROOT}/bin/evalation-news start"]);
-  assert.deepStrictEqual(command("UserPromptSubmit"), ["${CLAUDE_PLUGIN_ROOT}/bin/evalation-news prompt"]);
+  assert.deepStrictEqual(command("UserPromptSubmit"), ["${CLAUDE_PLUGIN_ROOT}/bin/evalation-news prompt", "${CLAUDE_PLUGIN_ROOT}/bin/evalation-unanswered prompt"]);
+  assert.deepStrictEqual(command("PostToolUse"), ["${CLAUDE_PLUGIN_ROOT}/bin/evalation-unanswered asked"]);
 });

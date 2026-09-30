@@ -59,6 +59,7 @@ test("every line and question the plugin holds passes its own wording rules and 
     for (const text of words) for (const found of held(text)) broken.push(`${name}: ${found.rule ?? found} in "${text}"`);
     if (one.ask) {
       if ((one.header ?? "").length === 0 || one.header.length > 12) broken.push(`${name}: header must be 1 to 12 characters`);
+      if (one.options === "given" && one.header.length > 8) broken.push(`${name}: a header split into lists gains " 1/2", so it must be 1 to 8 characters`);
       if (one.options !== "given" && !(Array.isArray(one.options) && one.options.length >= 2 && one.options.length <= 4)) broken.push(`${name}: two to four answers`);
       if (Array.isArray(one.options) && one.options.some((each) => !each.description)) broken.push(`${name}: an answer with no description`);
     }

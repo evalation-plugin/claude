@@ -1,6 +1,14 @@
 {
   "releases": [
     {
+      "version": "0.68.0",
+      "date": "2026-09-30",
+      "notes": [
+        "When you skip a question, the command now stops, saves nothing from it and waits for you to say what to do next.",
+        "When a run asks whether to read copies more than 14 days old, you can now talk it through before you choose."
+      ]
+    },
+    {
       "version": "0.67.0",
       "date": "2026-09-30",
       "notes": [

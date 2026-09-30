@@ -25,6 +25,7 @@ const { extended, packOf, problems } = require("../lib/questions.js");
 const { newestFor, phasesRead } = require("../lib/scans.js");
 const { runScript } = require("../lib/script.js");
 const { choose, solutionOf } = require("../lib/solution.js");
+const { answered } = require("../lib/answer.js");
 
 
 function fail(reason) {
@@ -411,11 +412,11 @@ function main() {
   }
   if (process.argv[2] === "--solution") {
     const at = process.argv[3];
-    if (!at || !solutionOf(at)) fail(spoken("ev-run.no-solution"));
     const rest = process.argv.slice(4);
-    const name = rest[rest.indexOf("--name") + 1];
-    if (rest.indexOf("--name") < 0 || !String(name ?? "").trim()) fail(spoken("ev-run.no-name"));
+    const name = rest.includes("--name") ? rest[rest.indexOf("--name") + 1] : undefined;
     const leave = rest.flatMap((one, index) => (rest[index - 1] === "--leave" ? [one] : []));
+    answered([name, ...leave]);
+    if (!at || !solutionOf(at)) fail(spoken("ev-run.no-solution"));
     choose(at, { name, leave });
     process.stdout.write(JSON.stringify(solutionOf(at)) + "\n");
     return;
@@ -428,8 +429,9 @@ function main() {
   const wanted = [];
   for (let at = 0; at < args.length; at += 1) {
     if (args[at] === "--questions") sets.push(setFrom(args[++at]));
-    else if (args[at].trim() !== "") wanted.push(args[at]);
+    else wanted.push(args[at]);
   }
+  answered(wanted);
 
   if (!existsSync(where)) fail(spoken("ev-run.no-folder", { folder: where }));
 

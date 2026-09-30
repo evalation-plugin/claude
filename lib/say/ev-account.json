@@ -24,7 +24,7 @@
   "ev-account.chosen-one": { "say": "You chose <titles>. A run against it uses one pack credit. Run /ev-run in a repository to check it against that pack." },
   "ev-account.short": { "say": "You chose <titles>. A run against them needs <count> pack credits, more than you have, so it would not start and no pack credits are used. To run it, buy more pack credits or choose fewer packs with /ev-packs." },
   "ev-account.short-one": { "say": "You chose <titles>. A run against it needs one pack credit, more than you have, so it would not start and no pack credits are used. To run it, buy pack credits." },
-  "ev-account.buy-ask": { "ask": "Buy pack credits? They're <price> each, and nothing is charged until you pay on Stripe's page. To buy another number, pick Other and type it.", "header": "Buy credits", "options": "given" },
+  "ev-account.buy-ask": { "ask": "Buy pack credits? They're <price> each, and nothing is charged until you pay on Stripe's page. To buy another number, pick Other and type it.", "header": "Credits", "options": "given" },
   "ev-account.buy-count": { "say": "Buy <count> for <total>" },
   "ev-account.buy-count-means": { "say": "Opens Stripe's payment page for <count> pack credits." },
   "ev-account.buy-none": { "say": "Not now" },

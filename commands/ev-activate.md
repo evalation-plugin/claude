@@ -122,8 +122,8 @@ choosing it does.
 6. **Ask which company this sign-in is for.** Where it prints `question`, ask it with AskUserQuestion,
    passing its questions unchanged. Where they pick the company it offers, or type a name of their
    own, such as a client's, run `evalation-activate company "<answer>"` with the label they picked or
-   the words they typed, in double quotes. Where they pick the answer to leave it for now, or leave
-   the question unanswered, run `evalation-activate company --later`. Where they pick the answer to type the name and type nothing, ask the question again. Where either fails with
+   the words they typed, in double quotes. Where they pick the answer to leave it for now, run
+   `evalation-activate company --later`. Where they pick the answer to type the name and type nothing, ask the question again. Where either fails with
    `company-unusable`, show `evalation-say ev-activate.company-unusable` and ask the question again.
    Where it fails with `company-unsent`, show `evalation-say ev-activate.company-unsent` and go on to
    the next step as though it printed nothing. Use what it prints in place of the sign-in's own output

@@ -88,7 +88,6 @@
   "ev-run.set-unknown-pack": { "say": "Your question set <set> adds questions to a pack this run cannot read, so the run did not start and no pack credits were used. Run /ev-run again and leave the set out." },
   "ev-run.set-closed-pack": { "say": "Your question set <set> adds questions to <pack>, which takes no extra questions, so the run did not start and no pack credits were used. Run /ev-run again and leave the set out." },
   "ev-run.no-solution": { "say": "This folder holds no repositories to read together, so nothing was saved and no pack credits were used. Run /ev-run again from the folder that holds them." },
-  "ev-run.no-name": { "say": "The product was given no name for the reports, so nothing was saved and no pack credits were used. Run /ev-run again and name it when asked." },
   "ev-run.no-last": { "say": "This folder has no earlier run on this machine, so there are no reports to print again. No pack credits were used." },
 
   "ev-run.start-short": { "say": "This run reads <count> packs, which needs <count> pack credits, and you have <left>. It did not start, and no pack credits were used. To buy more pack credits, run /ev-account, then run /ev-run again, or choose fewer packs." },
@@ -144,7 +143,8 @@
   "ev-run.copies": { "ask": "Read these copies as they are?", "header": "Copies",
     "options": [
       { "label": "Read them as they are", "description": "The report describes each repository as of its newest change." },
-      { "label": "Stop, so I can update them", "description": "Nothing is read and no pack credits are used. Update the ones you want, then run /ev-run again. Only the copies still older than 14 days are asked about again." }
+      { "label": "Stop, so I can update them", "description": "Nothing is read and no pack credits are used. Update the ones you want, then run /ev-run again. Only the copies still older than 14 days are asked about again." },
+      { "label": "Talk it through", "description": "Ask about these copies before you decide. Nothing is read until you choose." }
     ] },
 
   "ev-run.no-branch": { "say": "a commit on no branch" },
@@ -158,7 +158,8 @@
   "ev-run.copy": { "ask": "Read this copy as it is?", "header": "Copy",
     "options": [
       { "label": "Read it as it is", "description": "The report describes the code as it was on that date." },
-      { "label": "Stop, so I can update it", "description": "Nothing is read and no pack credits are used. Pull the latest changes, then run /ev-run again." }
+      { "label": "Stop, so I can update it", "description": "Nothing is read and no pack credits are used. Pull the latest changes, then run /ev-run again." },
+      { "label": "Talk it through", "description": "Ask about this copy before you decide. Nothing is read until you choose." }
     ] },
 
   "ev-run.packs": { "ask": "Which packs should this run read for <repository>? Each pack uses one pack credit, and you have <credits>. Reading takes a while and uses a good part of your Claude usage.", "header": "Packs", "options": "given" },
