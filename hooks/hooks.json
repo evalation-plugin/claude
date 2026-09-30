@@ -25,6 +25,12 @@
     ],
     "PreToolUse": [
       {
+        "matcher": "Read|Write",
+        "hooks": [
+          { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/bin/evalation-drafts" }
+        ]
+      },
+      {
         "matcher": "*",
         "hooks": [
           { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/bin/evalation-gate" }

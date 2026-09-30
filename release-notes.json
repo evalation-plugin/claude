@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "0.69.3",
+      "date": "2026-09-30",
+      "notes": [
+        "Writing your own questions no longer asks your permission to read or write Evalation's own draft files."
+      ]
+    },
+    {
       "version": "0.69.2",
       "date": "2026-09-30",
       "notes": [
