@@ -14,7 +14,7 @@ const { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writ
 const { randomBytes } = require("node:crypto");
 const { pluginHome } = require("../lib/home.js");
 const { join } = require("node:path");
-const { CRITERIA, approval, askServer, changed, claimsQuestion, dropFromAccount, extensible, fetched, fromAccount, grid, grouped, keepOnAccount, listed, listSaid, namesQuestion,
+const { CRITERIA, actionQuestion, approval, askServer, changed, claimsQuestion, deleteSet, dropFromAccount, extensible, fetched, fromAccount, grid, grouped, keepOnAccount, listed, listSaid, namesQuestion,
   packNamed, packQuestion, progress, saveChecked, saved, setsQuestion, shown, verdict, withoutMark } = require("../lib/questions.js");
 const { entries: lines, say } = require("../lib/say.js");
 const { answered } = require("../lib/answer.js");
@@ -186,8 +186,19 @@ function main() {
     } catch (thrown) {
       fail(`not-dropped: ${arg} (${thrown.message})`);
     }
+  } else if (verb === "choose-action") {
+    process.stdout.write(`${actionQuestion(listed(HOME))}\n`);
   } else if (verb === "choose-set") {
-    process.stdout.write(`${setsQuestion(listed(HOME), titles(), Number(arg ?? 1))}\n`);
+    const deleting = process.argv.includes("--delete");
+    const page = process.argv.slice(3).find((one) => /^\d+$/.test(one));
+    process.stdout.write(`${setsQuestion(listed(HOME), titles(), Number(page ?? 1), deleting ? "delete" : "change")}\n`);
+  } else if (verb === "delete") {
+    try {
+      deleteSet(HOME, arg);
+      process.stdout.write(`${say(lines(), "ev-questions.deleted", { name: arg })}\n`);
+    } catch {
+      process.stdout.write(`${say(lines(), "ev-questions.not-deleted", { name: arg })}\n`);
+    }
   } else if (verb === "choose-pack") {
     let packs = null;
     try {
@@ -224,7 +235,7 @@ function main() {
       .filter(([, rows]) => rows.length > 0).map(([head, rows]) => `${head}\n  ${rows.join("\n  ")}\n`).join("");
     process.stdout.write(said || "Recorded.\n");
   } else {
-    fail("usage: evalation-questions folder | check <file> | criteria | packs | choose-set [page] | choose-pack [page] | pack-named <typed> | choose-claims <file> | choose-name <name> <name> | show <file> | approve <file> |grid <file> [Qn] | verdict <file> [Qn] (answers on stdin) | save <file> [--replace] [--unchecked] | list [--plain] | path <name> [--run] | draft <name> | keep-on-account <name> | drop-from-account <name>");
+    fail("usage: evalation-questions folder | check <file> | criteria | packs | choose-action | choose-set [page] [--delete] | delete <name> | choose-pack [page] | pack-named <typed> | choose-claims <file> | choose-name <name> <name> | show <file> | approve <file> |grid <file> [Qn] | verdict <file> [Qn] (answers on stdin) | save <file> [--replace] [--unchecked] | list [--plain] | path <name> [--run] | draft <name> | keep-on-account <name> | drop-from-account <name>");
   }
 }
 

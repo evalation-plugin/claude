@@ -495,9 +495,9 @@ test("the command asks for a website's address in plain text, confirms claims th
   const sets = Array.from({ length: 6 }, (_, index) => ({ name: `Set ${index + 1}`, pack: "custom", where: "machine" }));
   const first = JSON.parse(setsQuestion({ account: "reached", sets }));
   assert.deepStrictEqual(first.questions.length, 1);
-  assert.deepStrictEqual(first.questions[0].options.map((each) => each.label), ["Write a new set", "Change Set 1", "Change Set 2", "Show more"]);
+  assert.deepStrictEqual(first.questions[0].options.map((each) => each.label), ["Change Set 1", "Change Set 2", "Change Set 3", "Show more"]);
   assert.strictEqual(first.questions[0].options[3].description, "Shows the rest.");
-  assert.deepStrictEqual(JSON.parse(setsQuestion({ account: "reached", sets }, {}, 2)).questions[0].options.map((each) => each.label), ["Change Set 3", "Change Set 4", "Change Set 5", "Change Set 6"]);
+  assert.deepStrictEqual(JSON.parse(setsQuestion({ account: "reached", sets }, {}, 2)).questions[0].options.map((each) => each.label), ["Change Set 4", "Change Set 5", "Change Set 6"]);
   const packs = Array.from({ length: 4 }, (_, index) => ({ pack: `p${index}`, body: { kind: "standard", title: `Pack ${index}`, licence: OURS } }));
   assert.deepStrictEqual(JSON.parse(packQuestion(packs)).questions[0].options.map((each) => each.label), ["Only my questions", "Pack 0", "Pack 1", "Show more"]);
   assert.match(command, /Show more/);
@@ -805,18 +805,60 @@ test("claims come in the page's own words, shared evenly over questions headed C
   assert.match(flat, /navigation link/);
 });
 
-test("Write a new set is the first answer, so it is never behind Show more, and each set names its pack", () => {
+const THREE = { account: "reached", sets: [
+  { name: "Broker questions", pack: "cyber-insurance", where: "machine" }, { name: "Board questions", pack: "custom", where: "both" },
+  { name: "Tampered", where: "account", refused: "Q1: an identifier is Q and a number" }] };
+
+test("the first question asks what to do, offering change and delete only where a saved set exists", () => {
+  const { actionQuestion } = require("../lib/questions.js");
+  assert.strictEqual(actionQuestion({ account: "reached", sets: [] }), "You have no saved question sets yet, so let's write your first one.");
+  const asked = JSON.parse(actionQuestion(THREE)).questions[0];
+  assert.strictEqual(asked.question, "What would you like to do?");
+  assert.deepStrictEqual(asked.options.map((one) => one.label), ["Write a new set", "Change a set", "Delete a set"]);
+  assert.match(commandText(), /evalation-questions choose-action/);
+});
+
+test("changing asks which set, each named with its pack, and never offers writing a new one there", () => {
   const { setsQuestion } = require("../lib/questions.js");
-  const asked = JSON.parse(setsQuestion({ account: "reached", sets: [
-    { name: "Broker questions", pack: "cyber-insurance", where: "machine" }, { name: "Board questions", pack: "custom", where: "both" },
-    { name: "Tampered", where: "account", refused: "Q1: an identifier is Q and a number" }] }, { "cyber-insurance": "Evalation Cyber Insurance Risk" }));
-  assert.deepStrictEqual(asked.questions[0].options, [
-    { label: "Write a new set", description: "Starts a new set of questions." },
+  const asked = JSON.parse(setsQuestion(THREE, { "cyber-insurance": "Evalation Cyber Insurance Risk" }, 1, "change")).questions[0];
+  assert.strictEqual(asked.question, "Which set would you like to change?");
+  assert.deepStrictEqual(asked.options, [
     { label: "Change Broker questions", description: "Shows the whole set, for Evalation Cyber Insurance Risk." },
     { label: "Change Board questions", description: "Shows the whole set, with no pack." },
     { label: "Fix Tampered", description: "Shows what needs fixing." },
   ]);
-  assert.match(commandText(), /evalation-questions choose-set/);
+});
+
+test("deleting asks which set, and each answer names the delete and where it reaches", () => {
+  const { setsQuestion } = require("../lib/questions.js");
+  const asked = JSON.parse(setsQuestion(THREE, {}, 1, "delete")).questions[0];
+  assert.strictEqual(asked.question, "Which set should be deleted?");
+  assert.deepStrictEqual(asked.options, [
+    { label: "Delete Broker questions", description: "Deletes it from this machine." },
+    { label: "Delete Board questions", description: "Deletes it from this machine and your account." },
+    { label: "Delete Tampered", description: "Deletes it from your account." },
+  ]);
+  assert.match(commandText(), /evalation-questions delete "<name>"/);
+  const sure = JSON.parse(line("ev-questions.confirm-delete", { name: "Board questions" })).questions[0];
+  assert.strictEqual(sure.question, "Delete Board questions? You can't undo this.");
+  assert.deepStrictEqual(sure.options.map((one) => one.label), ["Delete it", "Keep it"]);
+  assert.match(commandText(), /evalation-say ev-questions\.confirm-delete "name=<name>"/);
+});
+
+test("a delete removes the set from this machine and the account, and deletes nothing when the account can't be reached", () => {
+  const { deleteSet } = require("../lib/questions.js");
+  const at = scratch();
+  require("node:fs").mkdirSync(join(at, "questions"), { recursive: true });
+  require("node:fs").writeFileSync(join(at, "questions", "Board questions.json"), JSON.stringify(set([question("Q1")], { name: "Board questions" })));
+  const asked = [];
+  const account = (path, body) => { asked.push([path, body]); return path === "/sets" ? { sets: [{ name: "Board questions" }] } : {}; };
+  deleteSet(at, "Board questions", account);
+  assert.ok(!require("node:fs").existsSync(join(at, "questions", "Board questions.json")));
+  assert.deepStrictEqual(asked, [["/sets", {}], ["/sets/drop", { name: "Board questions" }]]);
+  require("node:fs").writeFileSync(join(at, "questions", "Kept.json"), JSON.stringify(set([question("Q1")], { name: "Kept" })));
+  assert.throws(() => deleteSet(at, "Kept", () => { throw new Error("unreachable"); }));
+  assert.ok(require("node:fs").existsSync(join(at, "questions", "Kept.json")));
+  assert.strictEqual(line("ev-questions.deleted", { name: "Kept" }), "Deleted Kept.");
 });
 
 test("the question scripts print what the person reads, and refuse a set not ready for approval with a reason", () => {
@@ -977,8 +1019,10 @@ test("walk five: claim labels are the claim's own first words, and two alike cla
 test("walk five: pages after the first ask which saved set to change", () => {
   const { setsQuestion } = require("../lib/questions.js");
   const sets = Array.from({ length: 6 }, (_, index) => ({ name: `Set ${index + 1}`, pack: "custom", where: "machine" }));
-  assert.strictEqual(JSON.parse(setsQuestion({ account: "reached", sets }, {}, 2)).questions[0].question, "Which saved set would you like to change?");
-  assert.strictEqual(JSON.parse(setsQuestion({ account: "reached", sets })).questions[0].question, "Change a saved set, or write a new one?");
+  assert.strictEqual(JSON.parse(setsQuestion({ account: "reached", sets }, {}, 2)).questions[0].question, "Which set would you like to change?");
+  assert.strictEqual(JSON.parse(setsQuestion({ account: "reached", sets })).questions[0].question, "Which set would you like to change?");
+  assert.strictEqual(setsQuestion({ account: "reached", sets: sets.slice(0, 1) }, {}, 1, "delete"), "only: Set 1");
+  assert.strictEqual(setsQuestion({ account: "reached", sets: [{ name: "Broken", where: "account", refused: "Q1" }] }), "only: Broken (fix)");
 });
 
 test("walk five: a claim that split gets a line naming the claim and the new questions by title", () => {
@@ -1018,9 +1062,10 @@ test("walk five: the pack is taken from the set's own record when the account is
   assert.strictEqual(withTitle(set([question("Q1")]), { custom: "x" }).pack_title, undefined);
   const at = scratch();
   save(at, set([question("Q1")], { name: "Broker", pack: "cyber-insurance", pack_title: "Evalation Cyber Insurance Risk" }));
+  save(at, set([question("Q1")], { name: "Other" }));
   const offline = listed(at, () => { throw new Error("offline"); });
   assert.strictEqual(offline.sets[0].pack_title, "Evalation Cyber Insurance Risk");
-  assert.strictEqual(JSON.parse(setsQuestion(offline, {})).questions[0].options[1].description, line("ev-questions.change-for", { pack: "Evalation Cyber Insurance Risk" }));
+  assert.strictEqual(JSON.parse(setsQuestion(offline, {})).questions[0].options[0].description, line("ev-questions.change-for", { pack: "Evalation Cyber Insurance Risk" }));
 });
 
 test("walk five: the checking line shows only when a question waits, and each question is reported checked once", () => {
