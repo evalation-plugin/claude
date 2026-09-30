@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "0.69.7",
+      "date": "2026-10-01",
+      "notes": [
+        "When a newer version is out, you're told in one line, however many versions behind you are."
+      ]
+    },
+    {
       "version": "0.69.6",
       "date": "2026-09-30",
       "notes": [
