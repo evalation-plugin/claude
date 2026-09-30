@@ -16,7 +16,7 @@ try {
   process.exit(0);
 }
 if (process.argv[2] === "prompt") {
-  waiting(false);
+  waiting(call.session_id, false);
   process.exit(0);
 }
 const questions = (call.tool_input?.questions ?? []).map((one) => String(one.question ?? ""));
@@ -25,6 +25,6 @@ const answers = call.tool_response?.answers;
 const skipped = answers && typeof answers === "object" ? questions.some((one) => unanswered(answers[one]))
   : /=\\?"\[No preference\]\\?"/i.test(JSON.stringify(call.tool_response ?? ""));
 if (!skipped) process.exit(0);
-waiting(true);
+waiting(call.session_id, true);
 process.stdout.write(`${JSON.stringify({ decision: "block", reason:
   `The person left an Evalation question unanswered. Show this line exactly as written, then end the command. Run nothing more and ask nothing more until the person replies: ${stopped()}` })}\n`);
