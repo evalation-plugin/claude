@@ -277,9 +277,9 @@ test("questions are checked in parallel, one checker each, and every checker's v
     { find: "No credentials committed to the repository", proof: "scan", phase: "secret" }] });
   assert.strictEqual(shown(set([scanned, organisational("Q2")])), [
     "Q1 Payments are recorded", "Where does this repository record each payment it takes?",
-    "  1. Code that writes a record for each payment, such as a payments table insert (in code)",
-    "  2. A test that takes a payment and checks the record exists (in code)",
-    "  3. A privacy notice (in a document)", "  4. No credentials committed to the repository (from a security tool)", "",
+    "  1. Code that writes a record for each payment, such as a payments table insert",
+    "  2. A test that takes a payment and checks the record exists",
+    "  3. A privacy notice", "  4. No credentials committed to the repository", "",
     "Q2 Phishing training", "Where are records of phishing awareness training kept?", `  ${organisational("Q2").justification}`,
   ].join("\n"));
   assert.match(command, /evalation-questions show "<file>"/);

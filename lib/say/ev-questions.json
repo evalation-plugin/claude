@@ -55,9 +55,7 @@
   "ev-questions.left-out": { "say": "I left out your question <title>, since it <why>." },
   "ev-questions.kept-organisation": { "say": "<question> is kept as your organisation's, since only your organisation's own records can answer it." },
   "ev-questions.kept-organisation-added": { "say": "<question> is kept as your organisation's, since only your organisation's own records can answer it, and I added <added> to ask what the code does about the same risk." },
-  "ev-questions.item-runs": { "say": "<number>. <find> (in code)" },
-  "ev-questions.item-written": { "say": "<number>. <find> (in a document)" },
-  "ev-questions.item-scan": { "say": "<number>. <find> (from a security tool)" },
+  "ev-questions.item": { "say": "<number>. <find>" },
   "ev-questions.save-as-written": { "ask": "Save this set as written?", "header": "Save", "options": [
     { "label": "Save it", "description": "Keeps the set as shown." },
     { "label": "Change something", "description": "Tell me what to change, and I check it again." }
