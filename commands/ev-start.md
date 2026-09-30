@@ -69,13 +69,7 @@ does.
      - `reason: refused`: `evalation-say ev-account.refused`
      - `reason: ended`: `evalation-say ev-account.ended`
      - `reason: other`: `evalation-say ev-start.other`
-     - `reason: awaiting-approval`: `evalation-say ev-account.awaiting owner=<owner>`
-     - `reason: declined`: `evalation-say ev-account.declined owner=<owner>`
-     - `reason: removed`: `evalation-say ev-account.removed owner=<owner>`
-     - `reason: machine-awaiting-approval`: `evalation-say ev-account.machine-awaiting owner=<owner>`
-     - `reason: machine-declined`: `evalation-say ev-account.machine-declined owner=<owner>`
-
-     For the last five, <owner> is the address on its `owner:` line, passed exactly as printed.
+     - `reason: awaiting-approval`, `declined`, `removed`, `machine-awaiting-approval` or `machine-declined`: show the text after `said: ` exactly as printed.
    - **`state: unreachable`** is our end or their network. Show `evalation-say ev-start.unreachable`
      and stop.
 

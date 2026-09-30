@@ -23,7 +23,7 @@ const { generateKeyPairSync, randomBytes, createHash } = require("node:crypto");
 const { execFileSync } = require("node:child_process");
 const store = require("./evalation-store");
 const { runScript, spawnScript } = require("../lib/script.js");
-const { approvalOf, ADDRESS } = require("../lib/approval.js");
+const { approvalOf, lineFor, nameOf, ACCOUNT, ADDRESS } = require("../lib/approval.js");
 const { entries, say } = require("../lib/say.js");
 const { existsSync, mkdirSync, readFileSync, writeFileSync } = require("node:fs");
 const { join, dirname } = require("node:path");
@@ -310,21 +310,21 @@ async function main() {
       installation: done.installation,
       signed_in_as: done.email || null,
       settings: SETTINGS,
-      ...(ready ? { question: companyQuestion(ready) } : told(done.email, settled(membershipOf(done.membership), provider, null))),
+      question: companyQuestion(ready),
     }) + "\n",
   );
 }
 
 const LONGEST_COMPANY = 120;
 const UNVERIFIED = { google: "ev-activate.unverified-google", microsoft: "ev-activate.unverified-microsoft" };
-const STANDING = { awaiting: "ev-account.awaiting", declined: "ev-account.declined", removed: "ev-account.removed",
-  "machine-awaiting": "ev-account.machine-awaiting", "machine-declined": "ev-account.machine-declined" };
 const ASKED = { "awaiting-approval": "ev-activate.awaiting", "machine-awaiting-approval": "ev-activate.machine-awaiting" };
+const LATER = { "awaiting-approval": "ev-activate.company-later", "machine-awaiting-approval": "ev-activate.company-later-machine" };
 
 const oneLine = (text) => String(text ?? "").replace(/\s+/g, " ").trim();
 
 function companyQuestion(ready) {
   const held = entries();
+  if (!ready) return say(held, "ev-activate.company-open");
   return say(held, "ev-activate.company", { company: ready }, [
     { label: ready, description: say(held, "ev-activate.company-ready", { company: ready }) },
     { label: say(held, "ev-activate.company-leave"), description: say(held, "ev-activate.company-leave-means") },
@@ -334,8 +334,8 @@ function companyQuestion(ready) {
 function membershipOf(said) {
   const state = said?.state;
   if (state === "personal" && said.reason === "unverified-address") return { state, reason: said.reason };
-  const organisation = oneLine(said?.organisation);
-  if (Object.hasOwn(ASKED, state) && organisation && ADDRESS.test(String(said.owner))) return { state, organisation, owner: said.owner };
+  const organisation = nameOf(said?.organisation);
+  if (Object.hasOwn(ASKED, state) && ADDRESS.test(String(said.owner))) return { state, organisation, owner: said.owner };
   return null;
 }
 
@@ -354,14 +354,14 @@ function settled(membership, provider, request) {
     return { kind: "approval-unavailable", said: say(entries(), "ev-activate.not-emailed", { owner: asked.owner }) };
   }
   if (asked && request.emailed === true) {
-    return { kind: asked.state, said: say(entries(), ASKED[asked.state], { organisation: asked.organisation, owner: asked.owner }) };
+    return { kind: asked.state, said: lineFor(ASKED[asked.state], asked) };
   }
   try {
     runScript("evalation-ask", ["/pin", "{}"], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
     return null;
   } catch (thrown) {
     const found = approvalOf(String(thrown.stderr ?? ""));
-    return found ? { kind: found.kind, said: say(entries(), STANDING[found.line], { owner: found.owner }) } : null;
+    return found ? { kind: found.kind, said: lineFor(ACCOUNT[found.kind], found) } : null;
   }
 }
 
@@ -371,7 +371,7 @@ function company(args) {
   const provider = local.sign_in?.provider;
   if (args[0] === "--later") {
     if (membership && Object.hasOwn(ASKED, membership.state)) {
-      process.stdout.write(`${JSON.stringify(told(local.signed_in_as, { kind: "company-later", said: say(entries(), "ev-activate.company-later") }))}\n`);
+      process.stdout.write(`${JSON.stringify(told(local.signed_in_as, { kind: "company-later", said: lineFor(LATER[membership.state], membership) }))}\n`);
     } else {
       process.stdout.write(`${JSON.stringify(told(local.signed_in_as, membership?.state === "personal" ? settled(membership, provider, null) : null))}\n`);
     }

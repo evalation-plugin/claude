@@ -72,12 +72,10 @@ function observedIn(said) {
   }
 }
 
-const APPROVAL = { awaiting: "ev-run.awaiting", declined: "ev-run.declined", removed: "ev-run.removed",
-  "machine-awaiting": "ev-run.machine-awaiting", "machine-declined": "ev-run.machine-declined" };
-
 const approval = (said) => {
-  const found = require("../lib/approval.js").approvalOf(said);
-  return found ? spoken(APPROVAL[found.line], { owner: found.owner }) : null;
+  const { approvalOf, lineFor, RUN } = require("../lib/approval.js");
+  const found = approvalOf(said);
+  return found ? lineFor(RUN[found.kind], found) : null;
 };
 
 function refusal(said) {
@@ -309,8 +307,9 @@ function credits() {
   const state = said.match(/^state: (\S+)$/m)?.[1];
   const reason = said.match(/^reason: (\S+)$/m)?.[1];
   const owner = said.match(/^owner: (\S+)$/m)?.[1];
-  const { LINES } = require("../lib/approval.js");
-  if (Object.hasOwn(LINES, reason ?? "") && owner) fail(spoken(APPROVAL[LINES[reason]], { owner }));
+  const { RUN, lineFor, nameOf } = require("../lib/approval.js");
+  const organisation = nameOf(said.match(/^organisation: (.+)$/m)?.[1]);
+  if (Object.hasOwn(RUN, reason ?? "") && owner) fail(lineFor(RUN[reason], { owner, organisation }));
   if (state === "not-set-up") fail(spoken(/^sign-in: damaged$/m.test(said) ? "ev-run.damaged" : "ev-run.signed-out"));
   if (state === "unreachable") fail(spoken("ev-run.unreachable"));
   if (reason === "ended") fail(spoken("ev-run.ended"));

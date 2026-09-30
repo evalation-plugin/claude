@@ -33,13 +33,7 @@ takes those titles too.
    - `state: not-live`: show the line for its `reason:` line and stop: `evalation-say ev-packs.clock`
      for `clock`, `evalation-say ev-packs.refused` for `refused`, `evalation-say ev-packs.ended` for
      `ended` and `evalation-say ev-packs.other` for `other`.
-     - `reason: awaiting-approval`: `evalation-say ev-account.awaiting owner=<owner>`
-     - `reason: declined`: `evalation-say ev-account.declined owner=<owner>`
-     - `reason: removed`: `evalation-say ev-account.removed owner=<owner>`
-     - `reason: machine-awaiting-approval`: `evalation-say ev-account.machine-awaiting owner=<owner>`
-     - `reason: machine-declined`: `evalation-say ev-account.machine-declined owner=<owner>`
-
-     For these five, <owner> is the address on its `owner:` line, passed exactly as printed.
+     - `reason: awaiting-approval`, `declined`, `removed`, `machine-awaiting-approval` or `machine-declined`: show the text after `said: ` exactly as printed.
    - `state: live`: note the number after `pack credits left` as <credits> and go on.
 
    Once it is `live`, and where the person has not already heard it in this conversation, show
