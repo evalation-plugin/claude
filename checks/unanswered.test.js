@@ -9,7 +9,9 @@ const { join } = require("node:path");
 const { home, repository } = require("./fixture.js");
 
 const BIN = join(__dirname, "..", "bin");
-const script = (name, args, input) => spawnSync(process.execPath, [join(BIN, name), ...args], { encoding: "utf8", input, env: process.env });
+const script = (name, args, input, session = "one") => spawnSync(process.execPath, [join(BIN, name), ...args],
+  { encoding: "utf8", input, env: { ...process.env, CLAUDE_CODE_SESSION_ID: session } });
+const prompt = (session = "one") => script("evalation-unanswered", ["prompt"], JSON.stringify({ session_id: session }), session);
 const held = () => readdirSync(home, { recursive: true }).sort();
 
 function solution() {
@@ -48,7 +50,7 @@ test("every script that records an answer refuses a missing one, says so in a fi
   }
 });
 
-const asked = (question, answer) => JSON.stringify({ tool_name: "AskUserQuestion", tool_input: { questions: [{ question }] },
+const asked = (question, answer, session = "one") => JSON.stringify({ session_id: session, tool_name: "AskUserQuestion", tool_input: { questions: [{ question }] },
   tool_response: { questions: [{ question }], answers: { [question]: answer } } });
 const NAME = "What should the reports call this product?";
 
@@ -61,17 +63,27 @@ test("a dismissed Evalation question stops the command, and no answer is saved u
   const refused = script("evalation-run", ["--solution", at, "--name", "Acme"]);
   assert.strictEqual(refused.status, 3, "a default the session picked in the person's place is refused too");
   assert.deepStrictEqual(held(), before);
-  assert.strictEqual(script("evalation-unanswered", ["prompt"], "{}").status, 0);
+  assert.strictEqual(prompt().status, 0);
   assert.strictEqual(script("evalation-run", ["--solution", at, "--name", "Acme"]).status, 0);
+});
+
+test("a question skipped in one session blocks saves in that session only, and only its own next prompt clears it", () => {
+  const at = solution();
+  script("evalation-unanswered", ["asked"], asked(NAME, "[No preference]", "one"), "one");
+  assert.strictEqual(script("evalation-run", ["--solution", at, "--name", "Acme"], undefined, "two").status, 0, "another session saves as usual");
+  prompt("two");
+  assert.strictEqual(script("evalation-run", ["--solution", at, "--name", "Acme"], undefined, "one").status, 3, "another session's prompt leaves this one stopped");
+  prompt("one");
+  assert.strictEqual(script("evalation-run", ["--solution", at, "--name", "Acme"], undefined, "one").status, 0);
 });
 
 test("an answered Evalation question, or anyone else's question, passes untouched", () => {
   assert.strictEqual(script("evalation-unanswered", ["asked"], asked(NAME, "Use Acme")).stdout, "");
   assert.strictEqual(script("evalation-unanswered", ["asked"], asked("Which database should I use?", "[No preference]")).stdout, "");
-  const told = (text) => JSON.stringify({ tool_input: { questions: [{ question: NAME }] }, tool_response: text });
+  const told = (text) => JSON.stringify({ session_id: "one", tool_input: { questions: [{ question: NAME }] }, tool_response: text });
   assert.strictEqual(script("evalation-unanswered", ["asked"], told(`The user answered: "${NAME}"="Use Acme".`)).stdout, "");
   assert.match(script("evalation-unanswered", ["asked"], told(`The user answered: "${NAME}"="[No preference]".`)).stdout, /"block"/);
-  script("evalation-unanswered", ["prompt"], "{}");
+  prompt();
 });
 
 test("a No preference a past run saved reads as unset", () => {

@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "0.69.1",
+      "date": "2026-09-30",
+      "notes": [
+        "Skipping a question in one Claude Code window no longer stops Evalation from saving your answers in another."
+      ]
+    },
+    {
       "version": "0.69.0",
       "date": "2026-09-30",
       "notes": [
