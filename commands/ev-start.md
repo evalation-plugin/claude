@@ -101,7 +101,7 @@ does.
 
    Run `/ev-packs` straight away. It says what a pack is and what packs cost, fetches the real list
    and records what they choose, so say nothing about packs here. Where it finds 0 pack credits left,
-   show `evalation-say ev-account.buy` straight after it says what packs cost, before it asks which
+   show `evalation-say ev-start.buy` straight after it says what packs cost, before it asks which
    packs they want.
 
 6. **Close in up to four sentences**, counting the one step 4 or `/ev-packs` gave on what they are

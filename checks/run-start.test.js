@@ -78,7 +78,7 @@ test("a run refused for want of credit says both numbers in one plain line, and 
   held.close();
   assert.strictEqual(ran.code, 1);
   assert.strictEqual(ran.stderr, "This run reads 2 packs, which needs 2 pack credits, and you have 1. It did not start, and no pack credits were used. " +
-    "To buy more pack credits, email support@evalation.ai, then run /ev-run again, or choose fewer packs.\n");
+    "To buy more pack credits, run /ev-account, then run /ev-run again, or choose fewer packs.\n");
   assert.ok(catalogued(ran.stderr.trim()), `not a catalogue line: ${ran.stderr}`);
 });
 
@@ -166,7 +166,7 @@ test("the pack questions come from the run command ready to ask, with the balanc
   assert.ok(lists.every((one) => one.multiSelect));
   assert.deepStrictEqual(lists.flatMap((one) => one.options.map((each) => each.label)), ["Broker", "Cover", "Insurer", "Renewal"],
     "the tick list offers the sets alone, with no answer to read the pack alone");
-  assert.strictEqual(await asked("short", "4"), "You have 3 pack credits and chose 4 packs. To buy more pack credits, email support@evalation.ai, " +
+  assert.strictEqual(await asked("short", "4"), "You have 3 pack credits and chose 4 packs. To buy more pack credits, run /ev-account, " +
     "then run /ev-run again, or choose fewer packs.\n");
   held.close();
 });

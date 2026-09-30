@@ -1,0 +1,113 @@
+#!/usr/bin/env node
+"use strict";
+
+const { spawnSync } = require("node:child_process");
+const { runScript } = require("../lib/script.js");
+const { why } = require("./evalation-status");
+const { entries, say } = require("../lib/say.js");
+
+const LINES = entries();
+const line = (name, values) => say(LINES, name, values);
+const KINDS = { "no-price": "ev-account.buy-no-price", "payments-unavailable": "ev-account.buy-unavailable",
+  "transport-failure": "ev-account.buy-unavailable", "checkout-refused": "ev-account.buy-refused" };
+const STANDING = { clock: "ev-account.clock", refused: "ev-account.refused", ended: "ev-account.ended" };
+
+class Said extends Error {
+  constructor(message, again = false) {
+    super(message);
+    this.again = again;
+  }
+}
+
+function refusal(thrown) {
+  const reason = String(thrown.stderr || thrown.message).trim();
+  if (/^unreachable:/.test(reason)) return line("ev-account.buy-unreachable");
+  const found = reason.match(/^refused \d+: (\{[\s\S]*\})\s*$/);
+  let kind;
+  try {
+    kind = found ? JSON.parse(found[1])?.refusals?.[0]?.failure : undefined;
+  } catch {
+    kind = undefined;
+  }
+  if (Object.hasOwn(KINDS, kind)) return line(KINDS[kind]);
+  const standing = STANDING[why(reason)];
+  return line(standing ?? "ev-account.buy-other");
+}
+
+function asked(path, body) {
+  try {
+    return JSON.parse(runScript("evalation-ask", [path, JSON.stringify(body)], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }));
+  } catch (thrown) {
+    throw new Said(refusal(thrown));
+  }
+}
+
+function grouped(number) {
+  return String(number).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+}
+
+function money(currency, cents) {
+  return `${currency} ${grouped(Math.floor(cents / 100))}.${String(cents % 100).padStart(2, "0")}`;
+}
+
+function priced() {
+  const held = asked("/buy/price", {});
+  const fields = [held?.amount_cents, held?.least, held?.most];
+  if (typeof held?.currency !== "string" || !fields.every((one) => Number.isSafeInteger(one) && one > 0)) {
+    throw new Said(line("ev-account.buy-other"));
+  }
+  return { currency: held.currency, cents: held.amount_cents, least: held.least, most: held.most };
+}
+
+function question({ currency, cents, least, most }) {
+  const first = Math.max(10, least);
+  const counts = [first, first * 5].filter((count) => count <= most);
+  const options = [
+    ...counts.map((count) => ({ label: line("ev-account.buy-count", { count, total: money(currency, cents * count) }),
+      description: line("ev-account.buy-count-means", { count }) })),
+    { label: line("ev-account.buy-none"), description: line("ev-account.buy-none-means") },
+    { label: line("ev-account.buy-talk"), description: line("ev-account.buy-talk-means") },
+  ];
+  return say(LINES, "ev-account.buy-ask", { price: money(currency, cents) }, options);
+}
+
+function opened(url) {
+  const [command, args] = process.env.EVALATION_OPENER
+    ? [process.execPath, [process.env.EVALATION_OPENER, url]]
+    : [process.platform === "darwin" ? "open" : "xdg-open", [url]];
+  const ran = spawnSync(command, args, { stdio: "ignore", timeout: 10_000 });
+  return !ran.error && ran.status === 0;
+}
+
+function checkout(typed) {
+  const price = priced();
+  if (!/^\d+$/.test(String(typed ?? "").trim())) throw new Said(line("ev-account.buy-not-a-number"), true);
+  const credits = Number(String(typed).trim());
+  if (credits < price.least) throw new Said(line("ev-account.buy-too-few", { least: grouped(price.least) }), true);
+  if (credits > price.most) throw new Said(line("ev-account.buy-too-many", { most: grouped(price.most) }), true);
+  const url = asked("/buy/checkout", { credits })?.url;
+  if (typeof url !== "string" || !url.startsWith("https://")) throw new Said(line("ev-account.buy-other"));
+  const said = opened(url) ? line("ev-account.buy-opened", { url }) : line("ev-account.buy-open-yourself", { url });
+  return `url: ${url}\nsaid: ${said}\n`;
+}
+
+function main() {
+  const [mode, typed] = process.argv.slice(2);
+  try {
+    if (mode === "price") {
+      const price = priced();
+      process.stdout.write(`price: ${money(price.currency, price.cents)}\nquestion: ${question(price)}\n`);
+    } else if (mode === "checkout") {
+      process.stdout.write(checkout(typed));
+    } else {
+      process.stderr.write("usage: evalation-buy price | evalation-buy checkout <count>\n");
+      process.exit(2);
+    }
+  } catch (thrown) {
+    if (!(thrown instanceof Said)) throw thrown;
+    process.stdout.write(`said: ${thrown.message}\n${thrown.again ? "again: yes\n" : ""}`);
+    process.exit(1);
+  }
+}
+
+main();

@@ -15,7 +15,7 @@
   "ev-packs.kept": { "say": "Your checks still use <titles>, <count> pack credits each time." },
   "ev-packs.kept-one": { "say": "Your checks still use <titles>, one pack credit each time." },
   "ev-packs.credits-left": { "say": "You have <credits> pack credits left." },
-  "ev-packs.not-enough": { "say": "A check will not start until you have more. To buy more pack credits, email support@evalation.ai." },
+  "ev-packs.not-enough": { "say": "A check will not start until you have more. To buy more pack credits, run /ev-account." },
   "ev-packs.none-yet": { "say": "No packs are chosen yet." },
   "ev-packs.cost": { "say": "Each pack you choose uses one pack credit every time your code is checked." },
   "ev-packs.which": { "ask": "Which packs should each check of your code use?", "header": "Packs", "several": true, "options": "given",
@@ -23,7 +23,7 @@
   "ev-packs.chosen-now": { "say": "Chosen now." },
   "ev-packs.nothing-changed": { "say": "Nothing changed. Your checks still use <titles>." },
   "ev-packs.nothing-chosen": { "say": "Nothing changed. No packs are chosen yet." },
-  "ev-packs.short": { "say": "These packs use <count> pack credits every time your code is checked, and you have <credits>, so a check will not start. To buy more pack credits, email support@evalation.ai." },
+  "ev-packs.short": { "say": "These packs use <count> pack credits every time your code is checked, and you have <credits>, so a check will not start. To buy more pack credits, run /ev-account." },
   "ev-packs.save-anyway": { "ask": "Save these packs anyway?", "header": "Save packs", "options": [
     { "label": "Save these packs", "description": "Keeps this choice. A check starts once you have enough pack credits." },
     { "label": "Choose packs again", "description": "Pick from every pack Evalation offers." }
