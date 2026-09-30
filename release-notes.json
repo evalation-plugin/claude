@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "0.69.6",
+      "date": "2026-09-30",
+      "notes": [
+        "Each requirement in a question set now reads as the requirement alone, without a note on how it's checked."
+      ]
+    },
+    {
       "version": "0.69.5",
       "date": "2026-09-30",
       "notes": [
