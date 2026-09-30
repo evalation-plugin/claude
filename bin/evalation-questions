@@ -15,7 +15,7 @@ const { randomBytes } = require("node:crypto");
 const { pluginHome } = require("../lib/home.js");
 const { join } = require("node:path");
 const { CRITERIA, approval, askServer, claimsQuestion, dropFromAccount, extensible, fetched, fromAccount, grid, grouped, keepOnAccount, listed, listSaid, namesQuestion,
-  packNamed, packQuestion, saveChecked, saved, setsQuestion, shown, verdict, withoutMark } = require("../lib/questions.js");
+  packNamed, packQuestion, progress, saveChecked, saved, setsQuestion, shown, verdict, withoutMark } = require("../lib/questions.js");
 const { entries: lines, say } = require("../lib/say.js");
 const { answered } = require("../lib/answer.js");
 
@@ -31,7 +31,9 @@ function draftOf(home, name) {
 
 function fresh(home, name) {
   if (saved(home).includes(name)) throw new Error(`${name} is already a saved set, so a new set needs another name`);
-  return draftOf(home, name);
+  const draft = draftOf(home, name);
+  rmSync(`${draft}.said.json`, { force: true });
+  return draft;
 }
 
 function tell(home, text) {
@@ -93,6 +95,7 @@ function opened(home, name, ask = askServer, { run = false } = {}) {
     const kept = JSON.parse(readFileSync(fetched(home, name, ask), "utf8"));
     const draft = copyOf(home, name);
     writeFileSync(draft, JSON.stringify(withoutMark(kept), null, 2) + "\n", { mode: 0o600 });
+    rmSync(`${draft}.said.json`, { force: true });
     return draft;
   } catch (thrown) {
     if (!NAME.test(String(name))) throw thrown;
@@ -127,7 +130,9 @@ function read(file) {
 function main() {
   const [verb, arg, ...flags] = process.argv.slice(2);
   if (verb === "check") {
-    const { fix, waiting, unconfirmed } = grouped(HOME, read(arg));
+    const set = read(arg);
+    for (const one of progress(HOME, arg, set)) process.stdout.write(`${one}\n`);
+    const { fix, waiting, unconfirmed } = grouped(HOME, set);
     const said = [["To fix:", fix], ["Waiting for the independent checker:", waiting], ["Not confirmed by the independent checker:", unconfirmed]]
       .filter(([, rows]) => rows.length > 0).map(([head, rows]) => `${head}\n  ${rows.join("\n  ")}\n`).join("");
     tell(HOME, said.trimEnd() || "holds");
