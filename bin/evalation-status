@@ -2,6 +2,7 @@
 "use strict";
 
 const { runScript } = require("../lib/script.js");
+const { approvalOf, lineFor, ACCOUNT } = require("../lib/approval.js");
 
 const DAMAGED = /^(settings-unreadable|no-installation|no-key|unreadable-key-reference|key-wrong-size):/;
 
@@ -41,6 +42,11 @@ function main() {
       process.stdout.write(`state: not-set-up\n${named}${detail}`);
     } else if (DAMAGED.test(reason)) {
       process.stdout.write(`state: not-set-up\n${named}sign-in: damaged\n${detail}`);
+    } else if (approvalOf(reason)) {
+      const found = approvalOf(reason);
+      const said = lineFor(ACCOUNT[found.kind], found);
+      process.stdout.write(`state: not-live\n${named}reason: ${found.kind}\nowner: ${found.owner}\n${
+        found.organisation ? `organisation: ${found.organisation}\n` : ""}said: ${said}\n${detail}`);
     } else if (why(reason) === "unreachable") {
       process.stdout.write(`state: unreachable\n${named}${detail}`);
     } else {

@@ -38,6 +38,7 @@ blank such as `<titles>`, pass its value as `titles=<value>`, for example
      - `reason: refused`: `evalation-say ev-account.refused`
      - `reason: ended`: `evalation-say ev-account.ended`
      - `reason: other`: `evalation-say ev-account.other`
+     - `reason: awaiting-approval`, `declined`, `removed`, `machine-awaiting-approval` or `machine-declined`: show the text after `said: ` exactly as printed.
    - `state: live`: follow the steps under the heading for a live account.
 
 ## A live account
