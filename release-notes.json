@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "0.69.4",
+      "date": "2026-09-30",
+      "notes": [
+        "While your questions are checked, you're told so once, and each question's title once as it passes."
+      ]
+    },
+    {
       "version": "0.69.3",
       "date": "2026-09-30",
       "notes": [

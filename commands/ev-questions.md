@@ -205,22 +205,18 @@ drafts folder. A set being changed or fixed stays in the copy `path` wrote. Ever
 takes `<file>` names that draft, in double quotes, and every command that takes `<name>` names the
 set in double quotes.
 
-**Recheck it before anyone sees it.** First run `evalation-questions check "<file>"`. Where its
-answer lists questions under `Waiting for the independent checker`, show
-`evalation-say ev-questions.checking` once, the first time it lists any, and never where it lists
-none. Quote no counts of questions or requirements, since a person cannot tell where a number comes
+**Recheck it before anyone sees it.** First run `evalation-questions check "<file>"`. It prints any
+lines for the person first, then its answer file's path on the last line. Show those lines as
+printed, every time, and say nothing of your own about the check: the script says the checking line
+once for the draft and each checked question's title once. Quote no counts of questions or requirements, since a person cannot tell where a number comes
 from. Start one `question-checker` for each question it lists under `Waiting for the independent
 checker`, all at once, each told the
 file's path and its own question by the number `check` gives it, such as Q3, so the questions are
 checked side by side. For a set being changed, that is only the questions whose words changed, since
 a question keeps its verdict while its words stay the same. Each checker answers every numbered
 criterion for its question and that question's items, and the plugin records its verdicts against
-the words it judged. As each checker finishes, run `check` again, and show
-`evalation-say ev-questions.checked "title=<its title>"` for its question only where that answer
-names the question under neither `To fix` nor `Waiting for the independent checker`, and only the
-first time for each question, so each title is reported once. Name it by title, since the person has
-not seen the question numbers yet. Say nothing else about the check: no numbers, no rounds and no
-checker's findings. The answer of `check` is `holds`, or up to three groups, each naming questions
+the words it judged. As each checker finishes, run `check` again and show the lines it prints. Say
+nothing else about the check: no numbers, no rounds and no checker's findings. The answer of `check` is `holds`, or up to three groups, each naming questions
 by number and title, with every group that has rows:
 
 - `To fix`: each fault, in plain words, with the words that break it. Reword only these, and start
@@ -258,7 +254,8 @@ When you show the set, first show one line for each change the check made:
   `evalation-say ev-questions.kept-organisation-added "question=<its number>" "added=<the added number>"`.
 
 Then show the whole set with `evalation-questions show "<file>"`. Then ask the question
-`evalation-questions approve "<file>"` prints, before anything is saved. It asks whether to save the
+`evalation-questions approve "<file>"` prints, before anything is saved. Run `show` and `approve`
+each in a call of its own, with no other command joined to either. The question asks whether to save the
 set as written where the last `check` answered `holds`, or whether to save unchecked where it named
 questions under `Not confirmed by the independent checker`. A fresh checker in this session meets
 the same cause, so never offer to check them again.

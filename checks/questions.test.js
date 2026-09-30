@@ -269,7 +269,7 @@ test("questions are checked in parallel, one checker each, and every checker's v
   assert.deepStrictEqual(status(at, draft), [], "all three checkers' verdicts are recorded, each with a checker's stamp");
   const command = readFileSync(join(__dirname, "..", "commands", "ev-questions.md"), "utf8");
   assert.match(command, /one `question-checker` for each question/);
-  assert.match(command, /evalation-say ev-questions\.checked "title=<its title>"/);
+  assert.match(command, /run `check` again and show the lines it prints/);
   assert.strictEqual(line("ev-questions.checked", { title: "Password reset protections" }), "Checked: Password reset protections");
   const { setsQuestion, shown } = require("../lib/questions.js");
   assert.strictEqual(setsQuestion({ account: "reached", sets: [] }), "You have no saved question sets yet, so we'll write your first one.");
@@ -290,9 +290,10 @@ const CLI = join(__dirname, "..", "bin", "evalation-questions");
 const ran = (at, ...args) => {
   const { spawnSync } = require("node:child_process");
   const done = spawnSync(process.execPath, [CLI, ...args], { env: { ...process.env, EVALATION_PLUGIN_HOME: at }, encoding: "utf8" });
-  const printed = done.stdout.trim();
-  const answer = printed.startsWith(join(at, "drafts", "answer-")) && printed.endsWith(".txt") ? printed : null;
-  return { ...done, answer, out: answer && require("node:fs").existsSync(answer) ? readFileSync(answer, "utf8") : null };
+  const lines = done.stdout.trim().split("\n");
+  const last = lines.at(-1);
+  const answer = last.startsWith(join(at, "drafts", "answer-")) && last.endsWith(".txt") ? last : null;
+  return { ...done, answer, said: lines.slice(0, -1), out: answer && require("node:fs").existsSync(answer) ? readFileSync(answer, "utf8") : null };
 };
 const checkedBy = (at) => (draft) => {
   const file = join(at, `${draft.name}.json`);
@@ -506,7 +507,7 @@ test("a set is saved only when every row has passed its check, and the plugin te
   const command = readFileSync(join(__dirname, "..", "commands", "ev-questions.md"), "utf8");
   assert.match(command, /three rounds/);
   assert.match(command, /Wrong:/);
-  assert.match(command, /evalation-say ev-questions\.checking/);
+  assert.match(command.replace(/\s+/g, " "), /the script says the checking line once for the draft/);
   assert.match(line("ev-questions.checking"), /^Checking your questions against the rules for a question set/);
 });
 
@@ -724,7 +725,6 @@ test("the person approves the set before any save, and an unchecked save is the 
 test("the person reads titles, two suggested names, a plain change question, a draft in the drafts folder and an end line for the packs they run", () => {
   const command = commandText();
   const { namesQuestion, packQuestion } = require("../lib/questions.js");
-  assert.match(command, /"title=<its title>"/, "the person has not yet seen the numbers, so a check is named by title");
   const named = JSON.parse(namesQuestion(["Broker questions", "Cyber insurance questions"], ["Board check"]));
   assert.deepStrictEqual(named.questions[0].options.map((each) => each.label), ["Broker questions", "Cyber insurance questions"]);
   assert.throws(() => namesQuestion(["Board check", "Other"], ["Board check"]), /already a saved set/);
@@ -777,7 +777,7 @@ test("a suggested name never matches a saved set, and a name already taken is as
   const flat = commandText().replace(/\s+/g, " ");
   assert.match(flat, /never one `list` showed/);
   assert.match(flat, /name taken/);
-  assert.ok(flat.indexOf("name taken") < flat.indexOf("ev-questions.checking"), "a clash on draft is settled before the check starts");
+  assert.ok(flat.indexOf("name taken") < flat.indexOf("Recheck it before anyone sees it"), "a clash on draft is settled before the check starts");
 });
 
 test("claims come in the page's own words, shared evenly over questions headed Claims k/n, four at a time", () => {
@@ -1015,7 +1015,6 @@ test("walk five: the pack is taken from the set's own record when the account is
 
 test("walk five: the checking line shows only when a question waits, and each question is reported checked once", () => {
   const flat = commandText().replace(/\s+/g, " ");
-  assert.match(flat, /Where its answer lists questions under `Waiting for the independent checker`, show `evalation-say ev-questions\.checking` once/);
-  assert.match(flat, /neither `To fix` nor `Waiting for the independent checker`/);
-  assert.match(flat, /only the first time for each question/);
+  assert.match(flat, /Show those lines as printed, every time, and say nothing of your own about the check/);
+  assert.doesNotMatch(flat, /evalation-say ev-questions\.check(ing|ed)\b/);
 });
