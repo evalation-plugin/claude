@@ -69,6 +69,6 @@
   "ev-remove.recent-this": { "say": "This conversation was kept, since Evalation cannot tell whether it is still open. Close it and it stays in Claude Code's history like any other." },
   "ev-remove.recent-more": { "say": "<count> conversations that changed in the last hour were kept, this one among them, since Evalation cannot tell which are still open. Each stays in Claude Code's history like any other." },
   "ev-remove.history-failed": { "say": "The conversations could not be deleted." },
-  "ev-remove.uninstall": { "say": "The plugin cannot uninstall itself. To finish, run this in Claude Code:" },
+  "ev-remove.uninstall": { "say": "To finish, uninstall the plugin by running this in Claude Code:" },
   "ev-remove.other": { "say": "That answer is not one of the choices, so Evalation removed nothing." }
 }

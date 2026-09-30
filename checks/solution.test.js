@@ -197,7 +197,7 @@ test("the folder questions and lines come from the run command ready to ask, in 
   const said = (...args) => execFileSync(process.execPath, [join(__dirname, "..", "bin", "evalation-run"), "--say", ...args], { encoding: "utf8" });
   const asked = (...args) => JSON.parse(said(...args)).questions;
   assert.strictEqual(said("found", at), "We found 2 subfolders under version control and one that is not. The ones you choose are read together as one product, " +
-    "for the same pack credits as one repository. A second copy of a repository is never read.\n");
+    "for the same pack credits as one repository.\n");
   const [folders] = asked("pick", at);
   assert.strictEqual(folders.header, "Folders");
   assert.ok(folders.multiSelect);

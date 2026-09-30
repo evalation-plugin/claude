@@ -69,12 +69,12 @@ questions keep theirs, so a set may skip a number. A new question takes the next
 highest the set has used, which `check` names where a number was used before.
 
 For a new set, first run `evalation-questions packs`. Its answer names the packs the person chose
-with /ev-packs, and every pack that takes extra questions, by title with its handle after it. Where
-its answer holds a `Chosen published standards` line, show
-`evalation-say ev-questions.keeps-clauses "pack=<that line's value>"` once, above the question. Then run
-`evalation-questions choose-pack` and ask the question it prints, with one answer. Only my questions means no Evalation pack is read with them. A pack holding a published
-standard, such as SOC 2 or ISO 27001, keeps that standard's own clauses and takes no extra
-questions, so it is never offered. Where the pack list could not be fetched, it asks whether to try
+with /ev-packs, and every pack that takes extra questions, by title with its handle after it. Then
+run `evalation-questions choose-pack` and ask the question it prints, with one answer. It offers
+only the packs the questions can extend. Only my questions means no Evalation pack is read with
+them. Where the person types a pack under Other, run `evalation-questions pack-named "<typed>"` and
+read its `kind`: on `extends`, write the set for its `pack`. On `keeps-clauses`, show its `said`
+line and ask the question again. On `unknown`, ask the question again. Where the pack list could not be fetched, it asks whether to try
 again or run the questions on their own. On Try again, run `evalation-questions packs` and
 `evalation-questions choose-pack` again. On Run them on their own, write the set for no pack. Where
 no pack takes extra questions, it prints a line in place of a question: show it and write the set

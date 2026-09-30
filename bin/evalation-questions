@@ -15,7 +15,7 @@ const { randomBytes } = require("node:crypto");
 const { pluginHome } = require("../lib/home.js");
 const { join } = require("node:path");
 const { CRITERIA, approval, askServer, claimsQuestion, dropFromAccount, extensible, fetched, fromAccount, grid, grouped, keepOnAccount, listed, listSaid, namesQuestion,
-  packQuestion, saveChecked, saved, setsQuestion, shown, verdict, withoutMark } = require("../lib/questions.js");
+  packNamed, packQuestion, saveChecked, saved, setsQuestion, shown, verdict, withoutMark } = require("../lib/questions.js");
 const { entries: lines, say } = require("../lib/say.js");
 const { answered } = require("../lib/answer.js");
 
@@ -70,10 +70,7 @@ function packsSaid(home, ask = askServer) {
   const titleOf = (one) => one.body?.title ?? one.pack;
   const picked = packs.filter((one) => chosen.includes(one.pack)).map(titleOf);
   const open = packs.filter((one) => extensible(one.body)).map((one) => `${titleOf(one)} (${one.pack})`);
-  const standards = packs.filter((one) => chosen.includes(one.pack) && one.body?.kind === "standard" && !extensible(one.body)).map(titleOf);
-  const named = standards.length > 1 ? `${standards.slice(0, -1).join(", ")} and ${standards.at(-1)}` : standards[0];
-  return [`Chosen packs: ${picked.join(", ") || "none"}`, `Packs that take extra questions: ${open.join(", ") || "none"}`,
-    ...(named ? [`Chosen published standards: ${named}`] : [])].join("\n");
+  return [`Chosen packs: ${picked.join(", ") || "none"}`, `Packs that take extra questions: ${open.join(", ") || "none"}`].join("\n");
 }
 
 function titles(ask = askServer) {
@@ -191,6 +188,15 @@ function main() {
       packs = null;
     }
     process.stdout.write(`${packQuestion(packs, Number(arg ?? 1))}\n`);
+  } else if (verb === "pack-named") {
+    answered([arg]);
+    let packs;
+    try {
+      packs = served(askServer);
+    } catch {
+      fail("unreachable: the pack list could not be fetched");
+    }
+    process.stdout.write(`${JSON.stringify(packNamed(packs, arg))}\n`);
   } else if (verb === "choose-claims" || verb === "choose-name" || verb === "approve" || verb === "show") {
     try {
       const out = verb === "choose-claims" ? claimsQuestion(read(arg))
@@ -210,7 +216,7 @@ function main() {
       .filter(([, rows]) => rows.length > 0).map(([head, rows]) => `${head}\n  ${rows.join("\n  ")}\n`).join("");
     process.stdout.write(said || "Recorded.\n");
   } else {
-    fail("usage: evalation-questions folder | check <file> | criteria | packs | choose-set [page] | choose-pack [page] | choose-claims <file> | choose-name <name> <name> | show <file> | approve <file> |grid <file> [Qn] | verdict <file> [Qn] (answers on stdin) | save <file> [--replace] [--unchecked] | list [--plain] | path <name> [--run] | draft <name> | keep-on-account <name> | drop-from-account <name>");
+    fail("usage: evalation-questions folder | check <file> | criteria | packs | choose-set [page] | choose-pack [page] | pack-named <typed> | choose-claims <file> | choose-name <name> <name> | show <file> | approve <file> |grid <file> [Qn] | verdict <file> [Qn] (answers on stdin) | save <file> [--replace] [--unchecked] | list [--plain] | path <name> [--run] | draft <name> | keep-on-account <name> | drop-from-account <name>");
   }
 }
 

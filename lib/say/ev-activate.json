@@ -9,8 +9,7 @@
   "ev-activate.provider-microsoft-first": { "ask": "Which account will you sign in with? This machine stays signed in with the account you choose.", "header": "Sign in", "options": [
     { "label": "Sign in with Microsoft", "description": "Microsoft, personal or work accounts" },
     { "label": "Sign in with Google", "description": "Google, including Google Workspace work accounts" } ] },
-  "ev-activate.other-ways": { "say": "Other ways to sign in are not offered yet. If you have neither account, contact support@evalation.ai." },
-  "ev-activate.other-way": { "say": "That way to sign in is not offered yet." },
+  "ev-activate.other-way": { "say": "You can sign in with Google or Microsoft. If you have neither account, email support@evalation.ai and we'll help." },
   "ev-activate.failed-before": { "say": "Signing in with <provider> did not work last time." },
   "ev-activate.no-browser": { "say": "No browser opened, so open this address to sign in:" },
   "ev-activate.browser": { "say": "A browser should now show the sign-in page. If it does not, open this address:" },

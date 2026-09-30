@@ -55,9 +55,7 @@ choosing it does.
    only where an attempt with Google in this conversation ended on `sign-in-refused`, `refused`,
    `refused-unrecognised` or `no-code`, or the person said its page declined them or showed an error.
    A failure of this machine or of Evalation's server, such as `unreachable`, `no-listener`,
-   `no-key-store`, `timed-out` or `server-error`, keeps the usual order. Show once per
-   conversation, beside the question, `evalation-say ev-activate.other-ways`, skipping it the same
-   way as step 2.
+   `no-key-store`, `timed-out` or `server-error`, keeps the usual order.
 
    Where they pick Other and name Google or Microsoft, go on with that one. Where they type any
    other way to sign in, show `evalation-say ev-activate.other-way` and ask the same question

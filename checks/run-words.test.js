@@ -158,7 +158,6 @@ test("ev-run's lines keep the words the reports use, held in the catalogue where
     "Include all version controlled folders",
     "Let me choose which ones to include",
     "used only as evidence when judging the version controlled code",
-    "A second copy of a repository is never read.",
     "Running the free security tools over the repositories.",
     "Keep the name <name>",
     "The reports name the product <name>.",
@@ -323,7 +322,7 @@ test("show prints the scanner question ready to ask, or the line to say where no
   const bare = machine(null);
   const absent = bare("show", "--phases", "sca,sast");
   assert.strictEqual(absent.asks, null);
-  assert.strictEqual(absent.said, "Homebrew is not on this machine, so these tools cannot be installed here. The review runs without them and the report lists what was not checked. To add them yourself, see:\nTrivy: https://github.com/aquasecurity/trivy\nSemgrep: https://github.com/semgrep/semgrep");
+  assert.strictEqual(absent.said, "Homebrew is not on this machine, so the review runs without these tools and the report lists what was not checked. To add them yourself, see:\nTrivy: https://github.com/aquasecurity/trivy\nSemgrep: https://github.com/semgrep/semgrep");
   const brewed = machine(FAILS);
   brewed("install", "trivy");
   brewed("decline", "semgrep");

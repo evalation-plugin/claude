@@ -1,6 +1,14 @@
 {
   "releases": [
     {
+      "version": "0.69.0",
+      "date": "2026-09-30",
+      "notes": [
+        "When you write your own questions, you're asked which pack they should extend, and offered only the packs they can extend.",
+        "If you type a published standard such as SOC 2 there, it says what your questions can go with and asks again."
+      ]
+    },
+    {
       "version": "0.68.0",
       "date": "2026-09-30",
       "notes": [
