@@ -22,7 +22,7 @@ test("a pack typed at the pack question is matched by handle or title, and a pub
   assert.strictEqual(typeof packNamed, "function");
   const soc = packNamed(SERVED, "soc2");
   assert.deepStrictEqual([soc.kind, soc.pack], ["keeps-clauses", "soc2"]);
-  assert.match(soc.said, /^SOC 2 Trust Services Criteria keeps the clauses its publisher wrote, so your questions can go with one of your Evalation packs or run on their own\.$/);
+  assert.match(soc.said, /^SOC 2 Trust Services Criteria keeps its publisher's clauses, so your questions can extend one of your Evalation packs or run on their own\.$/);
   assert.deepStrictEqual([packNamed(SERVED, "Cyber insurance").kind, packNamed(SERVED, "Cyber insurance").pack], ["extends", "cyber-insurance"]);
   assert.strictEqual(packNamed(SERVED, "ISO 27001").kind, "keeps-clauses");
   assert.strictEqual(packNamed(SERVED, "something else").kind, "unknown");

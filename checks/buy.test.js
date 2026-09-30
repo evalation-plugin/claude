@@ -81,6 +81,14 @@ function fieldsOf(stdout) {
   return out;
 }
 
+test("the question to buy opens with the balance it is given, so the balance is said once", async () => {
+  for (const [held, opens] of [["88", "You have 88 pack credits. Buy more? They're NZD 0.70 each"], ["1", "You have one pack credit. Buy more? They're NZD 0.70 each"]]) {
+    const ran = await bought(["price", held]);
+    assert.strictEqual(ran.status, 0, ran.stderr);
+    assert.ok(JSON.parse(ran.fields.question).questions[0].question.startsWith(opens), held);
+  }
+});
+
 test("the price comes back as a question naming the price per credit, with each total in its label and a way to talk it through", async () => {
   const ran = await bought(["price"]);
   assert.strictEqual(ran.status, 0, ran.stderr);
@@ -90,7 +98,7 @@ test("the price comes back as a question naming the price per credit, with each 
   assert.strictEqual(asked.length, 1);
   assert.strictEqual(asked[0].question, LINES["ev-account.buy-ask"].ask.replace("<price>", "NZD 0.70"));
   assert.match(asked[0].question, /NZD 0\.70 each/);
-  assert.match(asked[0].question, /nothing is charged until you pay on Stripe's page/);
+  assert.match(asked[0].question, /you pay on Stripe's page/);
   assert.deepStrictEqual(asked[0].options.map((one) => one.label),
     ["Buy 10 for NZD 7.00", "Buy 50 for NZD 35.00", line("ev-account.buy-none"), line("ev-account.buy-talk")]);
   assert.strictEqual(asked[0].options[0].description, line("ev-account.buy-count-means", { count: 10 }));

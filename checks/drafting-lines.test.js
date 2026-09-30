@@ -53,8 +53,8 @@ test("show says each change to the person's own questions once, by title, and no
   const shown = ran(at, "show", file);
   const changes = changesOf(shown);
   assert.deepStrictEqual(changes, [
-    "Phishing training is kept as your organisation's, since only your organisation's own records can answer it, and I added Phished password protections to ask what the code does about the same risk.",
-    "'what happens if someone steals an admin login' became Admin sign-in protections and Admin session limits, since it covers more than one topic and each topic is checked on its own.",
+    "Phishing training is now an organisation question, since only your own records can answer it. I added Phished password protections to cover what the code does about it.",
+    "'what happens if someone steals an admin login' became Admin sign-in protections and Admin session limits, one for each topic.",
     "I left out your question Customer data downloads, since it asks about something a repository would not hold.",
   ]);
   assert.deepStrictEqual(shown.slice(changes.length, changes.length + 2), ["", "Q1 Third party scripts"], "the whole set follows the changes");

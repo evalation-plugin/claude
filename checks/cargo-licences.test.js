@@ -117,14 +117,14 @@ test("where crates are not downloaded, the reason says to fetch them and run aga
     if (was === undefined) delete process.env.CARGO_HOME;
     else process.env.CARGO_HOME = was;
   }
-  assert.deepStrictEqual(read.todo, ["Run cargo fetch in services, then run Evalation again, to read every crate's licence."]);
+  assert.deepStrictEqual(read.todo, ["To read every crate's licence, run cargo fetch in services, then run Evalation again."]);
   const why = settled({ phase: "licence", rule: "licence:restricted" },
     { phases: [{ phase: "licence", ran: true, measures: ["licence:restricted"], unread: read.unread, todo: read.todo }], findings: [] }).why;
-  assert.match(why, /covers only part of the repository\. Run cargo fetch in services, then run Evalation again, to read every crate's licence$/);
+  assert.match(why, /covers only part of the repository\. To read every crate's licence, run cargo fetch in services, then run Evalation again$/);
   const nothing = adapterFor("licence", "trivy");
   process.env.CARGO_HOME = mkdtempSync(join(tmpdir(), "evalation-empty-"));
   try {
-    assert.match(nothing.read("{}", repo).why, /Run cargo fetch in services, then run Evalation again/);
+    assert.match(nothing.read("{}", repo).why, /To read every crate's licence, run cargo fetch in services, then run Evalation again/);
   } finally {
     if (was === undefined) delete process.env.CARGO_HOME;
     else process.env.CARGO_HOME = was;

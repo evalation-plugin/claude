@@ -60,7 +60,7 @@ function priced() {
   return { currency: held.currency, cents: held.amount_cents, least: held.least, most: held.most };
 }
 
-function question({ currency, cents, least, most }) {
+function question({ currency, cents, least, most }, held) {
   const first = Math.max(10, least);
   const counts = [first, first * 5].filter((count) => count <= most);
   const options = [
@@ -69,7 +69,8 @@ function question({ currency, cents, least, most }) {
     { label: line("ev-account.buy-none"), description: line("ev-account.buy-none-means") },
     { label: line("ev-account.buy-talk"), description: line("ev-account.buy-talk-means") },
   ];
-  return say(LINES, "ev-account.buy-ask", { price: money(currency, cents) }, options);
+  const asking = !/^\d+$/.test(String(held ?? "")) ? "ev-account.buy-ask" : Number(held) === 1 ? "ev-account.buy-ask-held-one" : "ev-account.buy-ask-held";
+  return say(LINES, asking, { price: money(currency, cents), credits: held }, options);
 }
 
 function opened(url) {
@@ -97,12 +98,12 @@ function main() {
   try {
     if (mode === "price") {
       const price = priced();
-      process.stdout.write(`price: ${money(price.currency, price.cents)}\nquestion: ${question(price)}\n`);
+      process.stdout.write(`price: ${money(price.currency, price.cents)}\nquestion: ${question(price, typed)}\n`);
     } else if (mode === "checkout") {
       answered([typed]);
       process.stdout.write(checkout(typed));
     } else {
-      process.stderr.write("usage: evalation-buy price | evalation-buy checkout <count>\n");
+      process.stderr.write("usage: evalation-buy price [credits held] | evalation-buy checkout <count>\n");
       process.exit(2);
     }
   } catch (thrown) {

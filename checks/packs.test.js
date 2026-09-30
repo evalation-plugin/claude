@@ -94,7 +94,7 @@ test("every way the pack list can fail starts with one word the command turns in
   }
   assert.match(flat, /any other word: `evalation-say ev-packs\.other`/);
   assert.doesNotMatch(STEP(2), /exactly as printed|words after the colon/);
-  assert.match(line("ev-packs.unreadable"), /^Evalation sent a pack list this plugin cannot read\./);
+  assert.match(line("ev-packs.unreadable"), /^Evalation sent a pack list this plugin can't read\./);
   assert.doesNotMatch(readFileSync(join(__dirname, "..", "bin", "evalation-packs"), "utf8"), /support@|Try again/);
 });
 
@@ -146,7 +146,7 @@ test("set takes the titles a person reads and prints only those titles", async (
 });
 
 test("a damaged sign-in is told to sign in again, ahead of the line for a machine never signed in", () => {
-  assert.strictEqual(line("ev-packs.damaged"), "This machine's Evalation sign-in is damaged. Run /ev-activate and sign in with the same account as before, so your pack credits are there.", "the account holds the pack credits, and the reports never depend on it");
+  assert.strictEqual(line("ev-packs.damaged"), "This machine's Evalation sign-in is damaged. Run /ev-activate and sign in with the same account as before.", "the account holds the pack credits, and the reports never depend on it");
   assert.strictEqual(line("ev-packs.not-signed-in"), line("ev-account.not-set-up"), "a machine never signed in is sent to /ev-start everywhere");
   const damaged = flat.indexOf("`sign-in: damaged` line: show `evalation-say ev-packs.damaged`");
   assert.ok(damaged > 0 && damaged < flat.indexOf("ev-packs.not-signed-in"), "the damaged line comes first");
@@ -219,7 +219,7 @@ test("every pack summary is a catalogue line, one per pack handle, and the choos
 });
 
 test("the next step says the person can pick other packs when they run a check", () => {
-  assert.strictEqual(line("ev-packs.next"), "Next, run /ev-run to check a repository against these packs. It also lets you pick other packs for that check alone.");
+  assert.strictEqual(line("ev-packs.next"), "Next, run /ev-run to check a repository.");
   assert.match(flat, /`evalation-say ev-packs\.next`/);
 });
 

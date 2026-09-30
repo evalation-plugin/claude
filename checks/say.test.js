@@ -14,7 +14,7 @@ const SAMPLE = {
   "sample.line": { say: "You have <credits> pack credits left." },
   "sample.ask": { ask: "Keep your usual packs, <titles>?", header: "Usual packs",
     options: [{ label: "Keep these packs", description: "Your checks still use <titles>." }, { label: "Choose again", description: "Shows every pack." }] },
-  "sample.tick": { ask: "Which packs should this run read? Tick each pack to read.", header: "Packs", several: true, options: "given" },
+  "sample.tick": { ask: "Which packs should this run read?", header: "Packs", several: true, options: "given" },
 };
 
 test("a line is printed with its blanks filled, and never with one left empty", () => {
@@ -42,7 +42,7 @@ test("answers a script supplies are held to the same rules and split into questi
 });
 
 test("a tick list never offers a none answer, since ticking nothing chooses none", () => {
-  const held = { "sample.pick": { ask: "Which packs should this run read? Tick each pack to read.", header: "Packs", several: true, options: "given",
+  const held = { "sample.pick": { ask: "Which packs should this run read?", header: "Packs", several: true, options: "given",
     none: { label: "None of these", description: "Reads none of the packs in this list." } } };
   const options = Array.from({ length: 7 }, (_, at) => ({ label: `Pack ${at}`, description: "A pack." }));
   assert.throws(() => say(held, "sample.pick", {}, options), /ticking nothing already chooses none/);

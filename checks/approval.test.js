@@ -88,16 +88,16 @@ test("a refusal of each approval kind is read from its failure and owner fields,
 });
 
 const ACCOUNT = {
-  "awaiting-approval": ["Your request to use Acme's Evalation credits is waiting for jane@acme.com to approve it. You can run Evalation once they do.",
-    "Your request to use your organisation's Evalation credits is waiting for jane@acme.com to approve it. You can run Evalation once they do."],
-  declined: ["Acme declined your request to use its Evalation credits, so you can't run Evalation. If you think that's a mistake, ask its owner, jane@acme.com.",
-    "Your organisation declined your request to use its Evalation credits, so you can't run Evalation. If you think that's a mistake, ask its owner, jane@acme.com."],
-  removed: ["Acme removed you, so you can't use its Evalation credits any more. If you think that's a mistake, ask its owner, jane@acme.com.",
-    "Your organisation removed you, so you can't use its Evalation credits any more. If you think that's a mistake, ask its owner, jane@acme.com."],
-  "machine-awaiting-approval": ["This machine is waiting for jane@acme.com to approve it. You can run Evalation on it once they do.",
-    "This machine is waiting for jane@acme.com to approve it. You can run Evalation on it once they do."],
-  "machine-declined": ["Acme declined this machine, so you can't run Evalation on it. If you think that's a mistake, ask its owner, jane@acme.com.",
-    "Your organisation declined this machine, so you can't run Evalation on it. If you think that's a mistake, ask its owner, jane@acme.com."],
+  "awaiting-approval": ["Your request to use Acme's Evalation credits is waiting for jane@acme.com to approve it.",
+    "Your request to use your organisation's Evalation credits is waiting for jane@acme.com to approve it."],
+  declined: ["Acme declined your request to use its Evalation credits. If that's a mistake, ask jane@acme.com.",
+    "Your organisation declined your request to use its Evalation credits. If that's a mistake, ask jane@acme.com."],
+  removed: ["Acme removed you, so you can't use its Evalation credits any more. If that's a mistake, ask jane@acme.com.",
+    "Your organisation removed you, so you can't use its Evalation credits any more. If that's a mistake, ask jane@acme.com."],
+  "machine-awaiting-approval": ["This machine is waiting for jane@acme.com to approve it.",
+    "This machine is waiting for jane@acme.com to approve it."],
+  "machine-declined": ["Acme declined this machine. If that's a mistake, ask jane@acme.com.",
+    "Your organisation declined this machine. If that's a mistake, ask jane@acme.com."],
 };
 
 test("the account check prints each approval state, the owner's address and the line naming the organisation", async () => {
@@ -129,16 +129,16 @@ test("every command that checks the account shows the account check's own line f
 test("a run refused for approval says so in one catalogue line naming the owner, at the start and before it", async () => {
   const tree = repository();
   const run = {
-    "awaiting-approval": "The run didn't start, because jane@acme.com hasn't approved your request to use Acme's Evalation credits yet. No pack credits were used. You can run Evalation once they approve you.\n",
-    declined: "The run didn't start, because Acme declined your request to use its Evalation credits. No pack credits were used. If you think that's a mistake, ask its owner, jane@acme.com.\n",
-    removed: "The run didn't start, because Acme removed you and you can't use its Evalation credits any more. No pack credits were used. If you think that's a mistake, ask its owner, jane@acme.com.\n",
-    "machine-awaiting-approval": "The run didn't start, because this machine is waiting for jane@acme.com to approve it. No pack credits were used. You can run Evalation on it once they do.\n",
-    "machine-declined": "The run didn't start, because Acme declined this machine. No pack credits were used. If you think that's a mistake, ask its owner, jane@acme.com.\n",
+    "awaiting-approval": "The run didn't start, because jane@acme.com hasn't approved your request to use Acme's Evalation credits yet. No pack credits were used.\n",
+    declined: "The run didn't start, because Acme declined your request to use its Evalation credits. No pack credits were used. If that's a mistake, ask jane@acme.com.\n",
+    removed: "The run didn't start, because Acme removed you. No pack credits were used. If that's a mistake, ask jane@acme.com.\n",
+    "machine-awaiting-approval": "The run didn't start, because this machine is waiting for jane@acme.com to approve it. No pack credits were used.\n",
+    "machine-declined": "The run didn't start, because Acme declined this machine. No pack credits were used. If that's a mistake, ask jane@acme.com.\n",
   };
   const { held: bare, base: plain } = await standIn(() => [403, refusal("removed", OWNER, null)]);
   const unnamed = await ran("evalation-run", [tree, "soc2"], on(machine(), plain));
   bare.close();
-  assert.strictEqual(unnamed.stderr, "The run didn't start, because your organisation removed you and you can't use its Evalation credits any more. No pack credits were used. If you think that's a mistake, ask its owner, jane@acme.com.\n");
+  assert.strictEqual(unnamed.stderr, "The run didn't start, because your organisation removed you. No pack credits were used. If that's a mistake, ask jane@acme.com.\n");
   for (const kind of Object.keys(REFUSED)) {
     const { held, base } = await standIn(() => [403, refusal(kind)]);
     const home = machine();
@@ -177,9 +177,9 @@ test("every sign-in asks which company it is for, with the name the server gave 
   assert.strictEqual(signing.code, 0, signing.stderr);
   assert.strictEqual(out.said, undefined, "nothing is said about approval before the company is answered, since the request waits for it");
   const asked = JSON.parse(out.question).questions[0];
-  assert.strictEqual(asked.question, "Which company are you activating Evalation for? Pick Acme, or type another name, such as a client you're working for.");
-  assert.deepStrictEqual(asked.options, [{ label: "Acme", description: "Records this sign-in as being for Acme." },
-    { label: "Leave it for now", description: "You'll be asked again the next time you sign in." }]);
+  assert.strictEqual(asked.question, "Which company are you using Evalation for? Pick Acme, or type another name, such as a client's.");
+  assert.deepStrictEqual(asked.options, [{ label: "Acme", description: "Saves this sign-in as being for Acme." },
+    { label: "Leave it for now", description: "You'll be asked next time you sign in." }]);
   assert.ok(!server.asked.some((one) => one.path === "/pin" || one.path === "/activate/company"));
   const named = await signedIn(done(WAITING, "Robust Systems; Ltd"));
   named.server.held.close();
@@ -190,9 +190,9 @@ test("a sign-in the server gives no company for asks the same question with no r
   const { out, server } = await signedIn(done(null, null));
   server.held.close();
   const asked = JSON.parse(out.question).questions[0];
-  assert.strictEqual(asked.question, "Which company are you activating Evalation for? Pick Other and type its name, such as a client you're working for.");
+  assert.strictEqual(asked.question, "Which company are you using Evalation for? Pick Other and type its name, such as a client's.");
   assert.deepStrictEqual(asked.options, [{ label: "I'll type the name", description: "Pick Other and type the company's name." },
-    { label: "Leave it for now", description: "You'll be asked again the next time you sign in." }]);
+    { label: "Leave it for now", description: "You'll be asked next time you sign in." }]);
   const blank = await signedIn(done(null, "   "));
   blank.server.held.close();
   assert.strictEqual(JSON.parse(blank.out.question).questions[0].options[0].label, "I'll type the name");
@@ -209,7 +209,7 @@ test("the company answer is sent signed, and the reply says who the request went
   assert.deepStrictEqual(sent.body, { company: "Company ABC" });
   const out = JSON.parse(answered.stdout);
   assert.strictEqual(out.approval, "awaiting-approval");
-  assert.strictEqual(out.said, "Signed in as bob@acme.com. Your request to use Acme's Evalation credits went to jane@acme.com. You can run Evalation once they approve you.");
+  assert.strictEqual(out.said, "Signed in as bob@acme.com. Your request to use Acme's Evalation credits went to jane@acme.com. You can run Evalation once they approve it.");
 });
 
 test("a new machine for someone approved says it waits for its approver, and an email that failed says so", async () => {
@@ -218,13 +218,13 @@ test("a new machine for someone approved says it waits for its approver, and an 
   const said = JSON.parse((await one.company("Acme")).stdout);
   one.server.held.close();
   assert.strictEqual(said.approval, "machine-awaiting-approval");
-  assert.strictEqual(said.said, "Signed in as bob@acme.com. This machine needs jane@acme.com to approve it, and we've asked them. You can run Evalation on it once they do.");
+  assert.strictEqual(said.said, "Signed in as bob@acme.com. This machine needs jane@acme.com to approve it, and we've asked them.");
   const failed = await signedIn(done(WAITING), () => [200, { company: "Acme", request: { ...WAITING, emailed: false,
     refusal: { at: "approval", observed: "we couldn't email Acme's owner to approve you", required: "tell support@evalation.ai", failure: "approval-unavailable" } } }]);
   const unsent = JSON.parse((await failed.company("Acme")).stdout);
   failed.server.held.close();
   assert.strictEqual(unsent.approval, "approval-unavailable");
-  assert.strictEqual(unsent.said, "Signed in as bob@acme.com. Evalation couldn't email jane@acme.com to ask for their approval. Email support@evalation.ai and we'll send it.");
+  assert.strictEqual(unsent.said, "Signed in as bob@acme.com. Evalation couldn't email jane@acme.com for their approval. Email support@evalation.ai and we'll send it.");
 });
 
 test("a company answer that sent no request learns any refusal from the account check that follows", async () => {
@@ -246,11 +246,11 @@ test("leaving the company unanswered sends nothing, and says the request goes sh
   const later = JSON.parse((await company("--later")).stdout);
   server.held.close();
   assert.ok(!server.asked.some((one) => one.path === "/activate/company"));
-  assert.strictEqual(later.said, "Signed in as bob@acme.com. We'll send your request to use Acme's Evalation credits to jane@acme.com shortly. You can run Evalation once they approve you, and you'll be asked which company this is for when you next sign in.");
+  assert.strictEqual(later.said, "Signed in as bob@acme.com. We'll send your request to use Acme's Evalation credits to jane@acme.com shortly. You'll be asked which company this is for next time you sign in.");
   const machineWaiting = await signedIn(done({ state: "machine-awaiting-approval", organisation: "Acme", owner: OWNER }));
   const machineLater = JSON.parse((await machineWaiting.company("--later")).stdout);
   machineWaiting.server.held.close();
-  assert.strictEqual(machineLater.said, "Signed in as bob@acme.com. We'll ask jane@acme.com to approve this machine shortly. You can run Evalation on it once they do, and you'll be asked which company this is for when you next sign in.");
+  assert.strictEqual(machineLater.said, "Signed in as bob@acme.com. We'll ask jane@acme.com to approve this machine shortly. You'll be asked which company this is for next time you sign in.");
   const personal = await signedIn(done(null));
   const nothing = JSON.parse((await personal.company("--later")).stdout);
   personal.server.held.close();
@@ -276,11 +276,11 @@ test("a sign-in with an address its provider did not confirm says, once the comp
   const fromGoogle = JSON.parse((await google.company("acme.com")).stdout);
   google.server.held.close();
   assert.strictEqual(fromGoogle.approval, "unverified-address");
-  assert.strictEqual(fromGoogle.said, "Signed in as bob@acme.com. Google hasn't confirmed this address is yours, so you're signed in on an account of your own and can't use your organisation's Evalation credits. To use them, confirm the address in your Google account, then run /ev-remove and /ev-activate to sign in again.");
+  assert.strictEqual(fromGoogle.said, "Signed in as bob@acme.com. Google hasn't confirmed this address is yours, so you can't use your organisation's Evalation credits. Confirm the address in your Google account, then run /ev-remove and /ev-activate.");
   const microsoft = await signedIn(done(unverified, "acme.com"), () => [200, { company: "acme.com", request: null }], "microsoft");
   const fromMicrosoft = JSON.parse((await microsoft.company("--later")).stdout);
   microsoft.server.held.close();
-  assert.strictEqual(fromMicrosoft.said, "Signed in as bob@acme.com. Microsoft hasn't confirmed this address is yours, so you're signed in on an account of your own and can't use your organisation's Evalation credits. Email support@evalation.ai and we'll help you use them.");
+  assert.strictEqual(fromMicrosoft.said, "Signed in as bob@acme.com. Microsoft hasn't confirmed this address is yours, so you can't use your organisation's Evalation credits. Email support@evalation.ai and we'll help.");
 });
 
 test("the sign-in command asks the company question, sends the answer, and shows what it says in place of the ready lines", () => {

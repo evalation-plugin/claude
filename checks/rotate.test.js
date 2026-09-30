@@ -178,8 +178,8 @@ test("every outcome is one line, and only a line for a key not replaced says the
   const outcomes = Object.entries(LINES).filter(([name]) => /^ev-rotate\.not-(replaced|finished)-/.test(name));
   assert.ok(outcomes.length >= 7);
   for (const [name, one] of outcomes) {
-    if (name.startsWith("ev-rotate.not-replaced-")) assert.match(one.say, /^The key was not replaced and the old one still works\. /, name);
-    else assert.match(one.say, /^The key change did not finish\. Other Evalation commands on this machine may not work until it finishes\. /, name);
+    if (name.startsWith("ev-rotate.not-replaced-")) assert.match(one.say, /^The key wasn't replaced, and the old one still works\. /, name);
+    else assert.match(one.say, /^The key change didn't finish, and Evalation may not work on this machine until it does\. /, name);
     assert.doesNotMatch(one.say, /\n/);
   }
   assert.ok(!LINES["ev-rotate.not-finished"] && !LINES["ev-rotate.not-finished-twice"], "no second line is added to an outcome");
@@ -215,19 +215,19 @@ test("a machine whose sign-in key is missing stops before anything is sent and i
   assert.strictEqual(ran.status, 1);
   assert.deepStrictEqual(ran.asked, []);
   assert.match(ran.stderr, /^sign-in-damaged:/);
-  assert.strictEqual(line("`sign-in-damaged`"), "This machine's Evalation sign-in is damaged, so the key was not replaced. Run /ev-activate and sign in with the same account as before, so your pack credits are there.");
+  assert.strictEqual(line("`sign-in-damaged`"), "This machine's Evalation sign-in is damaged, so the key wasn't replaced. Run /ev-activate and sign in with the same account as before.");
 });
 
 test("a damaged machine that recorded its account is told which account to sign in with", () => {
   const named = require("../lib/say.js").say(require("../lib/say.js").entries(), "ev-rotate.damaged-named", { email: "a@b.co" });
-  assert.match(named, /sign in with a@b\.co, the same account as before/);
+  assert.match(named, /sign in with a@b\.co/);
   const text = readFileSync(join(__dirname, "..", "commands", "ev-rotate.md"), "utf8");
   assert.match(text, /^allowed-tools:.*Bash\(evalation-status:\*\)/m);
   assert.match(text.replace(/\s+/g, " "), /`signed in as:` line, show `evalation-say ev-rotate\.damaged-named/);
 });
 
 test("a machine never signed in is sent to /ev-start, as every command sends it", () => {
-  assert.strictEqual(line("**`no-settings`**"), "This machine is not set up for Evalation yet. Run /ev-start to set it up.");
+  assert.strictEqual(line("**`no-settings`**"), "This machine isn't set up for Evalation yet. Run /ev-start to set it up.");
 });
 
 test("the command text shows an outcome line as printed and adds nothing to it", () => {

@@ -117,7 +117,7 @@ test("a page that cannot be signed carries the reason in plain words", () => {
     const done = print(html, join(folder, "page.html"), join(folder, "page.pdf"), { run: "run-check" });
     assert.strictEqual(done.printed, true);
     assert.strictEqual(done.signed, false);
-    assert.strictEqual(done.unsigned, "this machine is not signed in to Evalation");
+    assert.strictEqual(done.unsigned, "this machine isn't signed in to Evalation");
   } finally {
     if (previous === undefined) delete process.env.EVALATION_LOCAL;
     else process.env.EVALATION_LOCAL = previous;

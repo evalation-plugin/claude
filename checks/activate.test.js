@@ -99,18 +99,18 @@ function line(marker) {
   return LINES[at[1]];
 }
 
-const PROVIDERS = ["Google, including Google Workspace work accounts", "Microsoft, personal or work accounts"];
+const PROVIDERS = ["Google, including Google Workspace", "Microsoft, personal or work"];
 const answers = (one) => one.options.map((each) => [each.label, each.description]);
 
 test("the sign-in command text says what it can keep true on every machine, and answers every line the script prints", () => {
   assert.doesNotMatch(FLAT, /kept in this machine's password store/);
-  assert.match(line("`sign-in-unclear`").say, /nothing was changed/);
+  assert.match(line("`sign-in-unclear`").say, /sign-in couldn't be read/);
   assert.match(FLAT, /Never mention keys, installations or digital signatures to them\./);
-  const which = "Which account will you sign in with? This machine stays signed in with the account you choose.";
-  const now = "Which account will you sign in with now? This machine stays signed in with the account you choose.";
+  const which = "Which account will you sign in with?";
+  const now = "Which account will you sign in with now?";
   const google = ["Sign in with Google", PROVIDERS[0]];
   const microsoft = ["Sign in with Microsoft", PROVIDERS[1]];
-  const stop = ["Stop for now", "Leave this machine signed out. Nothing was created."];
+  const stop = ["Stop for now", "Leaves this machine signed out."];
   assert.deepStrictEqual([line("Ask which provider").ask, answers(line("Ask which provider"))], [which, [google, microsoft]]);
   assert.deepStrictEqual([line("offer Microsoft first").ask, answers(line("offer Microsoft first"))], [which, [microsoft, google]]);
   assert.deepStrictEqual([line("Google was not the one declined").ask, answers(line("Google was not the one declined"))], [now, [google, microsoft, stop]]);
@@ -121,23 +121,23 @@ test("the sign-in command text says what it can keep true on every machine, and 
 
 test("the sign-in command text shows the address at once, hears the person during the wait, and words every line the same way each run", () => {
   assert.match(FLAT, /`sign-in address:`/);
-  assert.strictEqual(line("`could not open a browser`").say, "No browser opened, so open this address to sign in:");
-  assert.strictEqual(line("where no such line follows").say, "A browser should now show the sign-in page. If it does not, open this address:");
-  assert.strictEqual(line("wait for it to end").say, "It waits up to five minutes. If the page shows an error in place of a sign-in page, tell me what it says.");
+  assert.strictEqual(line("`could not open a browser`").say, "No browser opened. Open this address to sign in:");
+  assert.strictEqual(line("where no such line follows").say, "Your browser should now show the sign-in page. If it doesn't, open this address:");
+  assert.strictEqual(line("wait for it to end").say, "It waits up to five minutes. If the page shows an error, tell me what it says.");
   assert.match(FLAT, /Where they write while it waits/);
   assert.doesNotMatch(FLAT, /press Esc/);
-  assert.strictEqual(line("`state: live` or `state: unreachable`").say, "This machine is already signed in to Evalation. To sign in with a different account, run /ev-remove, then /ev-activate.");
+  assert.strictEqual(line("`state: live` or `state: unreachable`").say, "This machine is already signed in to Evalation. To use a different account, run /ev-remove, then /ev-activate.");
   assert.match(FLAT, /`state: not-live`: run `\/ev-account` and say nothing of your own/);
-  assert.strictEqual(line("`sign-in: damaged`").say, "This machine needs to sign in to Evalation again. Sign in with the same account as before, so your pack credits are there.");
-  assert.strictEqual(line("names the account").say, "This machine needs to sign in to Evalation again. Sign in with <email>, the same account as before, so your pack credits are there.");
-  assert.strictEqual(line("**`unreachable`**").say, "Evalation could not be reached, so nothing was created. Check this machine is online, then run /ev-activate again. If it still fails, contact support@evalation.ai.");
-  assert.strictEqual(line("any other way to sign in").say, "You can sign in with Google or Microsoft. If you have neither account, email support@evalation.ai and we'll help.");
+  assert.strictEqual(line("`sign-in: damaged`").say, "This machine needs to sign in to Evalation again. Sign in with the same account as before.");
+  assert.strictEqual(line("names the account").say, "This machine needs to sign in to Evalation again. Sign in with <email>.");
+  assert.strictEqual(line("**`unreachable`**").say, "Evalation couldn't be reached. Check this machine is online, then run /ev-activate again.");
+  assert.strictEqual(line("any other way to sign in").say, "You can sign in with Google or Microsoft. If you have neither, email support@evalation.ai.");
   assert.deepStrictEqual(answers(line("**`stopped`**")).map((one) => one[0]), ["Sign in again", "Stop for now"]);
   const asked = Object.entries(LINES).filter(([name, one]) => name.startsWith("ev-activate.") && one.ask);
   assert.ok(asked.length >= 5);
   assert.deepStrictEqual(asked.filter(([, one]) => one.header !== "Sign in").map(([name]) => name), []);
-  assert.strictEqual(line("Then show").say, "To use Evalation on another computer, sign in there with the same account. It costs nothing extra.");
-  assert.ok(line("Say what signing in is").say.includes("Your sign-in stays on this machine, and only your login on this computer can use it."));
+  assert.strictEqual(line("Then show").say, "To use Evalation on another computer, sign in there with the same account.");
+  assert.ok(line("Say what signing in is").say.includes("Evalation never sees your password."));
   const words = [FLAT, ...Object.entries(LINES).filter(([name]) => name.startsWith("ev-activate.")).map(([, one]) => JSON.stringify(one))].join(" ");
   assert.doesNotMatch(words, /password store(?! \(Keychain on a Mac\))(?! Evalation can use)/);
 });
@@ -147,7 +147,7 @@ test("a retry reorders the providers only after the provider said no, and never 
   assert.ok(rule, "the command says when Microsoft goes first");
   for (const prefix of ["`sign-in-refused`", "`refused`", "`refused-unrecognised`", "`no-code`"]) assert.ok(rule[0].includes(prefix), prefix);
   for (const prefix of ["`unreachable`", "`no-listener`", "`no-key-store`", "`timed-out`", "`server-error`", "`fault`"]) assert.ok(!rule[0].includes(prefix), prefix);
-  assert.strictEqual(line("Where the provider has already said no").say, "Signing in with <provider> did not work last time.");
+  assert.strictEqual(line("Where the provider has already said no").say, "Signing in with <provider> didn't work last time.");
   assert.doesNotMatch(FLAT, /as `reason`/);
 });
 
@@ -156,17 +156,17 @@ test("words typed about the browser are matched to fixed lines, and nothing send
   assert.ok(!LINES["ev-activate.type-browser"]);
   assert.match(line("they declined").say, /^The sign-in was declined/);
   assert.match(line("an error page").say, /showed an error/);
-  assert.match(line("nothing happened").say, /open this address/);
+  assert.match(line("nothing happened").say, /Open this address/);
   assert.ok(!LINES["ev-activate.something-else"], "no line ends a sign-in over a message that did not describe the page");
   assert.match(line("say they finished").say, /still waiting/);
-  assert.match(line("which account to use").say, /same account/);
+  assert.match(line("which account to use").say, /use it on any other computer too/);
   const waits = FLAT.slice(FLAT.indexOf("Where they write while it waits"), FLAT.indexOf("6. **"));
   assert.match(waits, /Only a decline, an error the page showed or a request to stop ends the sign-in\./);
   assert.doesNotMatch(waits, /ask `evalation-say ev-activate\.stopped`/, "a person who asked to stop is not asked whether to stop");
-  assert.strictEqual(line("they ask to stop").say, "Nothing was created. Run /ev-activate when you are ready to sign in.");
+  assert.strictEqual(line("they ask to stop").say, "Run /ev-activate when you're ready to sign in.");
   assert.doesNotMatch(FLAT, /name a redirect or a reply URL/);
   assert.match(line("**`fault`**").say, /fault on our side/);
-  assert.match(line("**`server-error`**").say, /support@evalation\.ai/);
+  assert.match(line("**`server-error`**").say, /again in a few minutes/);
   assert.doesNotMatch(line("**`refused`**").say, /<reason>/);
   assert.match(line("**`refused-unrecognised`**").say, /support@evalation\.ai/);
   assert.doesNotMatch(line("**`refused-unrecognised`**").say, /<|try again/);
