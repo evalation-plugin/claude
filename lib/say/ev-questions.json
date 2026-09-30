@@ -1,80 +1,80 @@
 {
-  "ev-questions.saved-sets": { "ask": "Would you like to change a saved set, or write a new one?", "header": "Sets", "options": "given" },
+  "ev-questions.saved-sets": { "ask": "Change a saved set, or write a new one?", "header": "Sets", "options": "given" },
   "ev-questions.saved-sets-more": { "ask": "Which saved set would you like to change?", "header": "Sets", "options": "given" },
-  "ev-questions.listed-unreachable": { "say": "Your account could not be reached, so only sets on this machine are shown." },
+  "ev-questions.listed-unreachable": { "say": "Your account couldn't be reached, so only sets on this machine are shown." },
   "ev-questions.listed-none": { "say": "You have no saved question sets yet." },
   "ev-questions.listed-for": { "say": "<name>, for <pack>, <where>." },
   "ev-questions.listed-alone": { "say": "<name>, with no pack, <where>." },
   "ev-questions.listed": { "say": "<name>, <where>." },
-  "ev-questions.where-machine": { "say": "kept on this machine" },
-  "ev-questions.where-account": { "say": "kept on your account" },
-  "ev-questions.where-both": { "say": "kept on this machine and on your account" },
-  "ev-questions.listed-unconfirmed": { "say": "The independent checker has not confirmed <titles>." },
-  "ev-questions.listed-refused": { "say": "<name> on your account no longer meets the question rules. Choose it to fix it." },
+  "ev-questions.where-machine": { "say": "on this machine" },
+  "ev-questions.where-account": { "say": "on your account" },
+  "ev-questions.where-both": { "say": "on this machine and your account" },
+  "ev-questions.listed-unconfirmed": { "say": "The independent checker hasn't confirmed <titles>." },
+  "ev-questions.listed-refused": { "say": "<name> on your account needs fixing. Choose it to fix it." },
   "ev-questions.other-questions": { "say": "<count> other questions" },
-  "ev-questions.off-account": { "say": "The question set <set> is no longer kept on your account." },
-  "ev-questions.set-not-kept": { "say": "The question set <set> is kept on this machine only, since your account could not be reached. To try again later, run /ev-questions and ask to keep it on your account." },
+  "ev-questions.off-account": { "say": "The question set <set> is no longer on your account." },
+  "ev-questions.set-not-kept": { "say": "Your account couldn't be reached, so <set> is only on this machine. Run /ev-questions later to add it to your account." },
   "ev-questions.write-new":{ "say": "Write a new set" },
   "ev-questions.write-new-about": { "say": "Starts a new set of questions." },
   "ev-questions.change": { "say": "Change <name>" },
-  "ev-questions.change-for": { "say": "Shows the whole set, for <pack>, so you can say what to change." },
-  "ev-questions.change-alone": { "say": "Shows the whole set, with no pack, so you can say what to change." },
-  "ev-questions.change-about": { "say": "Shows the whole set so you can say what to change." },
+  "ev-questions.change-for": { "say": "Shows the whole set, for <pack>." },
+  "ev-questions.change-alone": { "say": "Shows the whole set, with no pack." },
+  "ev-questions.change-about": { "say": "Shows the whole set." },
   "ev-questions.fix": { "say": "Fix <name>" },
-  "ev-questions.fix-about": { "say": "Shows what no longer meets the rules so it can be fixed." },
+  "ev-questions.fix-about": { "say": "Shows what needs fixing." },
   "ev-questions.show-more": { "say": "Show more" },
   "ev-questions.show-more-about": { "say": "Shows the rest." },
-  "ev-questions.first-set": { "say": "You have no saved question sets yet, so we'll write your first one." },
-  "ev-questions.fix-said": { "say": "<name> no longer meets the rules for a question set, so it needs fixing before a run can use it. I'll fix it and show you the result." },
+  "ev-questions.first-set": { "say": "You have no saved question sets yet, so let's write your first one." },
+  "ev-questions.fix-said": { "say": "<name> needs fixing before a run can use it. I'll fix it and show you the result." },
   "ev-questions.what-change": { "say": "What would you like changed?" },
   "ev-questions.which-pack": { "ask": "Which pack should these questions extend?", "header": "Pack", "options": "given" },
   "ev-questions.only-mine": { "say": "Only my questions" },
-  "ev-questions.only-mine-about": { "say": "No Evalation pack is read with them and no pack credits are used, so the run answers these questions and nothing else." },
-  "ev-questions.pack-about": { "say": "Your questions cost nothing extra. The pack itself uses one pack credit when the run reads it. Your questions print after the pack's own, under User provided questions." },
-  "ev-questions.keeps-clauses": { "say": "<pack> keeps the clauses its publisher wrote, so your questions can go with one of your Evalation packs or run on their own." },
-  "ev-questions.packs-unreachable": { "ask": "Evalation could not be reached, so the packs that take extra questions cannot be shown. Try again, or write these questions to run on their own?", "header": "Pack", "options": [
-    { "label": "Try again", "description": "Checks again for the packs that take extra questions." },
-    { "label": "Run them on their own", "description": "Writes the set with no pack. No Evalation pack is read with them and no pack credits are used." }
+  "ev-questions.only-mine-about": { "say": "Only these questions are answered, and no pack credits are used." },
+  "ev-questions.pack-about": { "say": "Your questions cost nothing extra, and print after the pack's own." },
+  "ev-questions.keeps-clauses": { "say": "<pack> keeps its publisher's clauses, so your questions can extend one of your Evalation packs or run on their own." },
+  "ev-questions.packs-unreachable": { "ask": "Evalation couldn't be reached, so the packs can't be shown. Try again, or run these questions on their own?", "header": "Pack", "options": [
+    { "label": "Try again", "description": "Checks for the packs again." },
+    { "label": "Run them on their own", "description": "No pack credits are used." }
   ] },
   "ev-questions.no-pack-takes": { "say": "These questions will run on their own, with no pack." },
   "ev-questions.source": { "ask": "Where should the questions come from?", "header": "Source", "several": true, "options": [
     { "label": "Questions I type", "description": "You write your own questions next." },
-    { "label": "Features a website claims", "description": "The features a web page lists are checked against the code." },
-    { "label": "Features a document claims", "description": "The features a pitch deck, product sheet or features list names are checked against the code." }
+    { "label": "Features a website claims", "description": "Checks a web page's feature claims against the code." },
+    { "label": "Features a document claims", "description": "Checks a pitch deck's or product sheet's feature claims against the code." }
   ] },
-  "ev-questions.address": { "say": "What is the website's address?" },
+  "ev-questions.address": { "say": "What's the website's address?" },
   "ev-questions.document": { "say": "Drag the file into this window, or type its full path, such as ~/Downloads/pitch.pdf." },
   "ev-questions.claims": { "ask": "Which of these claims should become questions?", "header": "Claims", "several": true, "options": "given" },
-  "ev-questions.type": { "say": "Type your questions in your next message, in your own words, one sentence for each question." },
+  "ev-questions.type": { "say": "Type your questions in your next message, one sentence for each." },
   "ev-questions.name": { "ask": "What should this question set be called?", "header": "Set name", "options": "given" },
-  "ev-questions.name-about": { "say": "Keeps the set under this name." },
+  "ev-questions.name-about": { "say": "Saves the set under this name." },
   "ev-questions.name-taken": { "say": "A saved set already has that name." },
-  "ev-questions.checking": { "say": "Checking your questions against the rules for a question set. An independent checker that did not write them judges each question on its own. This can take a few minutes." },
+  "ev-questions.checking": { "say": "Checking your questions. This can take a few minutes." },
   "ev-questions.checked": { "say": "Checked: <title>" },
-  "ev-questions.split": { "say": "'<asked>' became <questions>, since it covers more than one topic and each topic is checked on its own." },
+  "ev-questions.split": { "say": "'<asked>' became <questions>, one for each topic." },
   "ev-questions.left-out": { "say": "I left out your question <title>, since it <why>." },
-  "ev-questions.kept-organisation": { "say": "<question> is kept as your organisation's, since only your organisation's own records can answer it." },
-  "ev-questions.kept-organisation-added": { "say": "<question> is kept as your organisation's, since only your organisation's own records can answer it, and I added <added> to ask what the code does about the same risk." },
+  "ev-questions.kept-organisation": { "say": "<question> is now an organisation question, since only your own records can answer it." },
+  "ev-questions.kept-organisation-added": { "say": "<question> is now an organisation question, since only your own records can answer it. I added <added> to cover what the code does about it." },
   "ev-questions.item": { "say": "<number>. <find>" },
-  "ev-questions.save-as-written": { "ask": "Save this set as written?", "header": "Save", "options": [
-    { "label": "Save it", "description": "Keeps the set as shown." },
-    { "label": "Change something", "description": "Tell me what to change, and I check it again." }
+  "ev-questions.save-as-written": { "ask": "Save this set?", "header": "Save", "options": [
+    { "label": "Save it", "description": "Saves the set as shown." },
+    { "label": "Change something", "description": "Tell me what to change." }
   ] },
-  "ev-questions.save-unchecked": { "ask": "The plugin could not confirm that the independent checker passed <titles>, since the part of the plugin that confirms each pass was not running in this session. Save them unchecked, or change something?", "header": "Save", "options": [
-    { "label": "Save them unchecked", "description": "Saves the set as shown. The run still reads them, and they are marked as not confirmed by the independent checker." },
-    { "label": "Change something", "description": "Tell me what to change, and I check it again." }
+  "ev-questions.save-unchecked": { "ask": "The independent checker couldn't confirm <titles>. Save them unchecked, or change something?", "header": "Save", "options": [
+    { "label": "Save them unchecked", "description": "Saves the set as shown, marked as not confirmed." },
+    { "label": "Change something", "description": "Tell me what to change." }
   ] },
-  "ev-questions.save-unchecked-one": { "ask": "The plugin could not confirm that the independent checker passed <titles>, since the part of the plugin that confirms each pass was not running in this session. Save it unchecked, or change something?", "header": "Save", "options": [
-    { "label": "Save it unchecked", "description": "Saves the set as shown. The run still reads it, and the question is marked as not confirmed by the independent checker." },
-    { "label": "Change something", "description": "Tell me what to change, and I check it again." }
+  "ev-questions.save-unchecked-one": { "ask": "The independent checker couldn't confirm <titles>. Save it unchecked, or change something?", "header": "Save", "options": [
+    { "label": "Save it unchecked", "description": "Saves the set as shown, marked as not confirmed." },
+    { "label": "Change something", "description": "Tell me what to change." }
   ] },
   "ev-questions.keep-on-account": { "ask": "Also keep this set on your account?", "header": "Account", "options": [
-    { "label": "Keep it on my account", "description": "It is then there on another computer or after reinstalling, kept as you wrote it and never read by us." },
-    { "label": "Keep it on this machine only", "description": "Nothing leaves this machine." }
+    { "label": "Keep it on my account", "description": "You can use it on your other computers too." },
+    { "label": "Keep it on this machine only", "description": "It stays on this machine." }
   ] },
   "ev-questions.next-run": { "say": "Next time you run /ev-run with <pack>, you can tick <name>." },
   "ev-questions.next-run-other": { "say": "The packs you chose with /ev-packs leave out <pack>. In /ev-run, pick 'Choose which packs to run', tick <pack>, then tick <name>." },
   "ev-questions.change-saved": { "say": "Saved your changes to <name>." },
-  "ev-questions.next-run-alone": { "say": "Run /ev-run and choose Only my questions. This uses no pack credits." },
-  "ev-questions.unconfirmed-note": { "say": "The run and its report treat unconfirmed questions like any others. Only /ev-questions shows that the independent checker did not confirm them." }
+  "ev-questions.next-run-alone": { "say": "Run /ev-run and choose Only my questions. It uses no pack credits." },
+  "ev-questions.unconfirmed-note": { "say": "Runs and reports treat unconfirmed questions like any others." }
 }

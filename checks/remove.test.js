@@ -139,7 +139,7 @@ test("a machine with no installation, or one already revoked, is removed locally
     assert.strictEqual(done.signed_out, "already", said);
     assert.strictEqual(existsSync(home), false, said);
   }
-  assert.strictEqual(line("ev-remove.already-out"), "This machine was already signed out of Evalation, so nothing was signed out.");
+  assert.strictEqual(line("ev-remove.already-out"), "This machine was already signed out of Evalation.");
   assert.match(FLAT, /Where it is `already`, show `evalation-say ev-remove\.already-out`/);
   assert.doesNotMatch(WORDS, /so only what it kept here was deleted/);
 });
@@ -151,10 +151,10 @@ test("a damaged sign-in that never reached the server is never reported as signe
     assert.strictEqual(done.signed_out, "not-revoked", said);
     assert.strictEqual(existsSync(home), false, said);
   }
-  assert.strictEqual(line("ev-remove.not-revoked"), "Evalation could not sign this machine out, so email support@evalation.ai to have its sign-in switched off.");
+  assert.strictEqual(line("ev-remove.not-revoked"), "Evalation couldn't sign this machine out. Email support@evalation.ai to have its sign-in switched off.");
   assert.match(FLAT, /Where it is `not-revoked`, show `evalation-say ev-remove\.not-revoked`\./);
   assert.doesNotMatch(FLAT, /unless step 2 already said the sign-in is damaged/);
-  assert.strictEqual(line("ev-remove.damaged"), "This machine's Evalation sign-in is damaged, so Evalation cannot sign it out from here.", "a person who then keeps Evalation is never sent to support");
+  assert.strictEqual(line("ev-remove.damaged"), "This machine's Evalation sign-in is damaged, so it can't be signed out from here.", "a person who then keeps Evalation is never sent to support");
   assert.match(FLAT, /`sign-in: damaged`[^`]*`evalation-say ev-remove\.damaged`/);
   const local = JSON.parse(line("ev-remove.remove-local")).questions[0].options.find((one) => one.label === "Remove it");
   assert.strictEqual(local.description, "Deletes what Evalation saved on this machine.");
@@ -226,7 +226,7 @@ test("reports kept inside the plugin's folder by an older version are named befo
   assert.doesNotMatch(WORDS, /<count> reports/);
   removal({ home, claude, cwd: read, clearHistory: false, ...quiet });
   assert.strictEqual(existsSync(home), false);
-  assert.match(line("ev-remove.old-reports", { reports: shown.reports_named }), /: the board pack, .+\. Removing deletes them with it\. Reports in your Documents folder stay\.$/);
+  assert.match(line("ev-remove.old-reports", { reports: shown.reports_named }), /: the board pack, .+\. Removing deletes them\. Reports in your Documents folder stay\.$/);
   assert.match(FLAT, /`evalation-say ev-remove\.old-reports reports="<reports_named>"`/);
   assert.strictEqual(JSON.parse(spawnSync(process.execPath, [join(__dirname, "..", "bin", "evalation-remove"), "folders"], { encoding: "utf8", env: { ...process.env, EVALATION_PLUGIN_HOME: home, CLAUDE_CONFIG_DIR: claude } }).stdout).reports_named, null);
 });
@@ -256,7 +256,7 @@ test("where Claude Code shows nothing reliable, a conversation changed in the la
   assert.strictEqual(kept(claude, read, "plugin-run"), false);
   assert.deepStrictEqual([done.history.removed, done.history.kept_live, done.history.kept_by], [1, 2, "last-hour"]);
   assert.match(line("ev-remove.recent-more", { count: 2 }), /^2 conversations that changed in the last hour were kept/);
-  assert.match(line("ev-remove.kept-more", { count: 2 }), /^This conversation and 2 others still open in Claude Code were kept/);
+  assert.match(line("ev-remove.kept-more", { count: 2 }), /^This conversation and 2 others still open were kept/);
 });
 
 test("before asking, the count names the other conversations and how many of them are open", () => {
@@ -267,7 +267,7 @@ test("before asking, the count names the other conversations and how many of the
   assert.strictEqual(ran.status, 0, ran.stderr);
   const shown = JSON.parse(ran.stdout);
   assert.deepStrictEqual([shown.conversations, shown.open, shown.open_by], [2, 1, "claude-code"]);
-  assert.match(line("ev-remove.open-many", { count: 2 }), /^2 of them .+close those windows before you answer\.$/);
+  assert.match(line("ev-remove.open-many", { count: 2 }), /^2 of them .+close those windows first\.$/);
 });
 
 test("before asking, the other conversations are named by the project folder they ran in and their dates", () => {
@@ -293,15 +293,15 @@ test("before asking, the other conversations are named by the project folder the
   ]);
   assert.strictEqual(shown.places_named, "2 in MayCray-main from 23 to 29 September 2026 and one in evalation on 29 September 2026");
   assert.strictEqual(line("ev-remove.place-day", { folder: "main", count: 3, from: "29 September 2026" }), "3 in main on 29 September 2026");
-  assert.match(line("ev-remove.conversations", { count: 2, places: shown.places_named }), /They come from these project folders: 2 in MayCray-main from 23 to 29 September 2026 and one in evalation on 29 September 2026\./);
+  assert.match(line("ev-remove.conversations", { count: 2, places: shown.places_named }), /They're from these project folders: 2 in MayCray-main from 23 to 29 September 2026 and one in evalation on 29 September 2026\./);
   assert.match(FLAT, /`evalation-say ev-remove\.conversations count="<conversations>" places="<places_named>"`/);
 });
 
 test("counts of one read as one, and the promise about folders names the project folders", () => {
-  assert.strictEqual(line("ev-remove.open-one"), "One of them is open in another Claude Code window, so it is kept. To delete it too, close that window before you answer.");
-  assert.match(line("ev-remove.kept-two"), /^This conversation and one other still open in Claude Code were kept\./);
-  assert.match(line("ev-remove.conversation", { folder: "evalation", from: "29 September 2026" }), /It comes from the project folder evalation, on 29 September 2026\. Deleting it removes only that conversation/);
-  for (const name of ["ev-remove.conversations", "ev-remove.conversation"]) assert.match(line(name, { count: 2, places: "x", folder: "x", from: "x" }), /nothing in your project folders is touched/);
+  assert.strictEqual(line("ev-remove.open-one"), "One of them is open in another Claude Code window, so it's kept. To delete it too, close that window first.");
+  assert.match(line("ev-remove.kept-two"), /^This conversation and one other still open were kept\./);
+  assert.match(line("ev-remove.conversation", { folder: "evalation", from: "29 September 2026" }), /It's from the project folder evalation, on 29 September 2026\. Deleting it can't be undone/);
+  for (const name of ["ev-remove.conversations", "ev-remove.conversation"]) assert.match(line(name, { count: 2, places: "x", folder: "x", from: "x" }), /your project files aren't touched/);
   assert.doesNotMatch(WORDS, /nothing in your folders is touched/);
 });
 
@@ -314,16 +314,16 @@ test("removal is agreed before question sets are asked about, and each set is na
   const asked = setsAsked(listing);
   assert.deepStrictEqual(asked.sets, ["Broker", "Client"]);
   assert.strictEqual(asked.questions[0].question, "Keep \"Broker\" and \"Client\" on your account before removing?");
-  assert.deepStrictEqual(asked.questions[0].options.map((one) => one.description), ["Copies them to your account so any machine you sign in on can use them.", "Deletes them with Evalation's folder."]);
+  assert.deepStrictEqual(asked.questions[0].options.map((one) => one.description), ["You can use them on your other computers.", "Deletes them with Evalation's folder."]);
   const one = setsAsked({ account: "reached", sets: [{ name: "Broker", where: "machine" }] });
   assert.strictEqual(one.questions[0].question, "Keep \"Broker\" on your account before removing?");
-  assert.deepStrictEqual(one.questions[0].options.map((each) => each.description), ["Copies it to your account so any machine you sign in on can use it.", "Deletes it with Evalation's folder."]);
+  assert.deepStrictEqual(one.questions[0].options.map((each) => each.description), ["You can use it on your other computers.", "Deletes it with Evalation's folder."]);
   assert.strictEqual(setsAsked({ account: "reached", sets: [{ name: "Board", where: "both" }] }), null);
 });
 
 test("a machine that is not signed in hears the whole of what removal deletes, and can still delete its conversations", () => {
-  assert.strictEqual(line("ev-remove.folder-local"), "Removing deletes Evalation's own folder on this machine, with the saved results of each check, your pack choice and any question sets saved here.");
-  assert.strictEqual(line("ev-remove.sets-stay-local"), "Evalation cannot reach your account from this machine, so the question sets saved here cannot be kept on it.");
+  assert.strictEqual(line("ev-remove.folder-local"), "It deletes Evalation's folder on this machine, with your saved results, your pack choice and any question sets saved here.");
+  assert.strictEqual(line("ev-remove.sets-stay-local"), "Your account can't be reached from this machine, so the question sets saved here can't be moved to it.");
   assert.match(FLAT, /Where `sets_here` is more than zero, add `evalation-say ev-remove\.sets-stay-local`\./);
   assert.doesNotMatch(FLAT, /leave out the first two sentences/);
   assert.doesNotMatch(FLAT, /Where both hold/);
@@ -370,7 +370,7 @@ test("keys that could not be found because the settings would not read are repor
   const done = removal({ home, claude, clearHistory: false, ...quiet });
   assert.ok(done.failed.some((one) => one.startsWith("settings:")));
   assert.strictEqual(done.folder_deleted, true);
-  assert.match(line("ev-remove.keys-unread"), /^Evalation could not read which keys it kept on this machine/);
+  assert.match(line("ev-remove.keys-unread"), /^Evalation couldn't tell which keys it kept on this machine/);
   assert.match(FLAT, /Where `failed` names settings, show `evalation-say ev-remove\.keys-unread`/);
 });
 
@@ -397,7 +397,7 @@ test("a line another window adds to the prompt history while it is rewritten is 
 });
 
 test("a wrong clock stops removal with the clock line before anything is removed", () => {
-  assert.strictEqual(line("ev-remove.clock"), "This machine's clock is wrong, so Evalation cannot sign it out and nothing was removed. Set the clock to the right time, then run /ev-remove again.");
+  assert.strictEqual(line("ev-remove.clock"), "This machine's clock is wrong, so nothing was removed. Set it to the right time, then run /ev-remove again.");
   const clock = FLAT.indexOf("`state: not-live` with `reason: clock`: show `evalation-say ev-remove.clock` and stop.");
   assert.ok(clock > 0 && clock < FLAT.indexOf("``` evalation-remove folders ```"), "the clock is checked in step 1, before removal is offered");
   assert.match(FLAT, /`state: live`, or `state: not-live` for any other reason: go on\./);
@@ -446,7 +446,7 @@ test("every set kept on the account before removal is named in one catalogue lin
   const three = await keepSets(home, ["Broker", "Board", "Client"]);
   assert.strictEqual(three.status, 0, three.stderr);
   assert.strictEqual(three.asked.length, 3);
-  assert.strictEqual(three.stdout, "The question sets \"Broker\", \"Board\" and \"Client\" are kept on your account.\n");
+  assert.strictEqual(three.stdout, "The question sets \"Broker\", \"Board\" and \"Client\" are on your account.\n");
   const one = await keepSets(home, ["Broker"]);
   assert.strictEqual(one.stdout, "The question set \"Broker\" is kept on your account.\n");
   const down = await keepSets(home, ["Broker"], 503);
@@ -469,7 +469,7 @@ test("a set that fails its check is named in one catalogue line sending the pers
   assert.strictEqual(ran.stderr, "fails-check: Broken\n");
   assert.strictEqual(ran.stdout, "");
   const asked = JSON.parse(line("ev-remove.set-fails", { set: "Broken" })).questions[0];
-  assert.strictEqual(asked.question, "The question set \"Broken\" cannot be kept on your account until it is fixed with /ev-questions. What should happen to it?");
+  assert.strictEqual(asked.question, "The question set \"Broken\" needs fixing with /ev-questions before it can go on your account. What should happen to it?");
   assert.strictEqual(line("ev-remove.fix-set"), "Nothing was removed. Run /ev-remove again once the set is fixed.");
   assert.doesNotMatch(FLAT, /Show each listed problem/);
   assert.match(FLAT, /`fails-check`: run `evalation-say ev-remove\.set-fails set="<name>"`/);
@@ -479,6 +479,6 @@ test("keys left in the password store are each named by service and account, in 
   assert.strictEqual(keysNamed(["evalation/box.installation-key", "evalation-plugin/box.receiving-key"]),
     "the service evalation with the account box.installation-key and the service evalation-plugin with the account box.receiving-key");
   assert.strictEqual(line("ev-remove.key-left", { keys: keysNamed(["evalation/box.installation-key"]) }),
-    "One key is still in this machine's password store: the service evalation with the account box.installation-key. Delete it there by hand, such as in Keychain Access on a Mac.");
+    "One key is still in this machine's password store: the service evalation with the account box.installation-key. Delete it by hand, such as in Keychain Access on a Mac.");
   assert.match(FLAT, /`evalation-say ev-remove\.keys-left count="<count>" keys="<keys_named>"`/);
 });

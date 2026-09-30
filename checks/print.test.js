@@ -141,12 +141,12 @@ test("a report that could not be signed gives the reason in plain words", () => 
   const done = print(page(document, document.answers.filter((one) => one.pack === "soc2"), asked), join(folder, "pack.html"),
     join(folder, "pack.pdf"), { run: "run-check" }, readingOf(document));
   assert.strictEqual(done.signed, false);
-  assert.strictEqual(done.unsigned, "this machine is not signed in to Evalation");
-  assert.strictEqual(unsignedWhy("unreachable: https://api.evalation.ai/sign (fetch failed)"), "Evalation's server could not be reached");
+  assert.strictEqual(done.unsigned, "this machine isn't signed in to Evalation");
+  assert.strictEqual(unsignedWhy("unreachable: https://api.evalation.ai/sign (fetch failed)"), "Evalation's server couldn't be reached");
   assert.strictEqual(unsignedWhy("refused 402: the entitlement for this installation has ended, so nothing further can be served"),
     "this machine's access to Evalation has ended");
   assert.strictEqual(unsignedWhy("refused 422: this server holds no document signing key | print the report marked as unsigned"),
-    "Evalation's server could not sign it");
+    "Evalation's server couldn't sign it");
 });
 
 test("a page that fails its check stops the report with one plain line naming the file, never a trace", () => {
@@ -162,14 +162,14 @@ test("a page that fails its check stops the report with one plain line naming th
   assert.strictEqual(report.status, 1);
   const lines = report.stderr.trim().split("\n");
   assert.deepStrictEqual(lines.slice(0, -1), [
-    "Evalation SOC 2 Trust Services Criteria Evidence Pack.pdf was not written, because the check made before printing found faults in its pages.",
-    "Your findings are kept, and the reports can be printed once this is fixed, with no new pack credits.",
-    "To have it fixed, email support@evalation.ai and attach this file, which holds the details:"]);
+    "Evalation SOC 2 Trust Services Criteria Evidence Pack.pdf wasn't written, because its pages failed the check before printing.",
+    "Your findings are kept. Printing the reports again uses no pack credits.",
+    "To get it fixed, email support@evalation.ai with this file attached:"]);
   assert.match(readFileSync(lines.at(-1), "utf8"), /an unfilled slot reached the page: "\{\{ repository \}\}"/);
   assert.doesNotMatch(report.stderr, /unfilled|\n\s+at /);
   const deliver = said("evalation-deliver");
   assert.strictEqual(deliver.status, 1);
-  assert.match(deliver.stderr, /^Evalation Hardening Review (Pack|Detail)\.pdf was not written, because the check made before printing found faults in its pages\.\n/);
+  assert.match(deliver.stderr, /^Evalation Hardening Review (Pack|Detail)\.pdf wasn't written, because its pages failed the check before printing\.\n/);
   assert.doesNotMatch(deliver.stderr, /unfilled|\n\s+at /);
 });
 
@@ -182,12 +182,12 @@ test("any other print failure gives one plain line naming the file, and names th
     thrown = caught;
   }
   const said = unwritten(thrown, [join(tree, "A Pack.pdf")]);
-  assert.match(said, /^B Pack\.pdf was not written, because printing it stopped\.\nA Pack\.pdf was written before it, in the same folder\.\nYour findings are kept/);
+  assert.match(said, /^B Pack\.pdf wasn't written, because printing it stopped\.\nA Pack\.pdf was written before it, in the same folder\.\nYour findings are kept/);
   const built = unwritten(new Error("boom")).split("\n");
-  assert.strictEqual(built[0], "The reports were not written, because building them stopped.");
+  assert.strictEqual(built[0], "The reports weren't written, because building them stopped.");
   assert.strictEqual(readFileSync(built.at(-1), "utf8").trim(), "boom");
   assert.match(unwritten(Object.assign(new Error("spawnSync chrome ETIMEDOUT"), { code: "ETIMEDOUT", file: "/r/C Pack.pdf" })),
-    /^C Pack\.pdf was not written, because the browser took longer than two minutes to print it\.\n/);
+    /^C Pack\.pdf wasn't written, because the browser took longer than two minutes to print it\.\n/);
 });
 
 test("a slot the reading did not write is still refused", () => {

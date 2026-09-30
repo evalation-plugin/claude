@@ -76,12 +76,12 @@ test("a scan's read-out is one plain sentence per result, said to the person who
   const refused = machine(FAILS);
   refused("install", "trivy");
   const failed = refused("run", repository(), "--phases", "history,sca");
-  assert.strictEqual(failed.said, "Checked: the commit history. Not checked: dependencies for known security flaws, since Trivy could not be installed on this machine.");
+  assert.strictEqual(failed.said, "Checked: the commit history. Not checked: dependencies for known security flaws, since Trivy couldn't be installed on this machine.");
 
   const declined = machine(null);
   declined("decline", "semgrep");
   const said = declined("run", repository(), "--phases", "sast").said;
-  assert.match(said, new RegExp(`^Not checked: risky code patterns, since you chose not to install Semgrep on ${DATE.source}\\. To change that, run /ev-run again and tick Semgrep when asked\\.$`));
+  assert.match(said, new RegExp(`^Not checked: risky code patterns, since you chose not to install Semgrep on ${DATE.source}\\. To add it, tick Semgrep next time you run /ev-run\\.$`));
   assert.doesNotMatch(said, /person running|Checked: \./);
 });
 
@@ -93,7 +93,7 @@ test("a scan stopped by the repository changing under it says what to do in one 
   const ran = spawnSync(process.execPath, [join(BIN, "evalation-scan"), "run", tree, "--phases", "secret"], { encoding: "utf8",
     env: { ...process.env, EVALATION_PLUGIN_HOME: home, EVALATION_LOCAL: join(at, "evalation.local"), EVALATION_SECRET_CMD: `${process.execPath} ${mover}` } });
   assert.strictEqual(ran.status, 1);
-  assert.strictEqual(ran.stderr, "Something changed the repository while it was being scanned, so the scan was not kept and no pack credits were used. Stop whatever is changing it, then run /ev-run again.\n");
+  assert.strictEqual(ran.stderr, "The repository changed while it was being scanned, so the run stopped. No pack credits were used. Stop whatever is changing it, then run /ev-run again.\n");
 });
 
 test("delivering with no browser names each page to open and says a PDF printed by hand is not signed", () => {
@@ -101,25 +101,25 @@ test("delivering with no browser names each page to open and says a PDF printed 
   const text = said({ printed: false, into: "/r", pages: ["/r/Evalation Hardening Review Pack.html", "/r/Evalation Hardening Review Detail.html"], unsigned: [] });
   assert.match(text, /Evalation Hardening Review Pack\.html/);
   assert.match(text, /Evalation Hardening Review Detail\.html/);
-  assert.match(text, /printed by hand is not signed/);
+  assert.match(text, /so they aren't signed/);
   assert.doesNotMatch(text, /pages were written/);
 });
 
 test("an unsigned report names its file and reason, and how to get a signed copy", () => {
   const { said } = require("../bin/evalation-deliver");
   const text = said({ printed: true, into: "/r", pack: "/r/A Pack.pdf", findings: "/r/A Detail.pdf",
-    unsigned: [{ file: "/r/A Pack.pdf", why: "Evalation's server could not be reached" }] });
-  assert.match(text, /A Pack\.pdf is not signed because Evalation's server could not be reached/);
-  assert.match(text, /Once this machine is online, run \/ev-run print again for signed copies\. Printing again uses no pack credits\./);
+    unsigned: [{ file: "/r/A Pack.pdf", why: "Evalation's server couldn't be reached" }] });
+  assert.match(text, /A Pack\.pdf isn't signed because Evalation's server couldn't be reached/);
+  assert.match(text, /Once this machine is online, run \/ev-run print for signed copies\. Printing again uses no pack credits\./);
   assert.doesNotMatch(text, /ask Claude/);
   const printless = said({ printed: false, into: "/r", pages: ["/r/A Pack.html"], unsigned: [] });
-  assert.match(printless, /then run \/ev-run print again/);
+  assert.match(printless, /then run \/ev-run print\. Printing again/);
 });
 
 test("each reason a report is unsigned comes with a step the person can take, and the server's own fault goes to support", () => {
   const { unsignedThen, unsignedWhy } = require("../lib/print.js");
   const steps = ["unreachable: x", "no-settings: x", "refused 402: x", "refused 401: x", "refused 500: x"].map((one) => unsignedThen(unsignedWhy(one)));
-  for (const one of steps) assert.match(one, /run \/ev-run print again for signed copies\. Printing again uses no pack credits\.$/);
+  for (const one of steps) assert.match(one, /\/ev-run print for signed copies\. Printing again uses no pack credits\.$/);
   assert.match(steps[1], /^Run \/ev-activate to sign in/);
   assert.match(steps[2], /support@evalation\.ai/);
   assert.match(steps[4], /^Email support@evalation\.ai, then/);
@@ -150,27 +150,27 @@ const sayRun = (...args) => spawnSync(process.execPath, [join(BIN, "evalation-ru
 test("ev-run's lines keep the words the reports use, held in the catalogue where the command runs them", () => {
   const lines = catalogue();
   const held = [
-    "can also take your own questions, written with /ev-questions before a run.",
-    "without it every claim is marked asserted, meaning one reading found it and nothing checked it.",
-    "Each claim is checked against the code before the reports are written. No pack credits are used.",
-    "The reports are written now, with every claim marked asserted.",
-    "Which of your usual packs should this run read? Tick each pack to read.",
+    "can also take your own questions, written with /ev-questions.",
+    "Checked claims are marked verified, and unchecked ones asserted.",
+    "Checks each claim, then writes the reports.",
+    "Every claim is marked asserted.",
+    "Which of your usual packs should this run read?",
     "Include all version controlled folders",
     "Let me choose which ones to include",
-    "used only as evidence when judging the version controlled code",
+    "Its files back up what the code shows.",
     "Running the free security tools over the repositories.",
     "Keep the name <name>",
     "The reports name the product <name>.",
-    "The ones you choose are read together as one product, for the same pack credits as one repository.",
-    "No extra pack credits.",
+    "The ones you choose are read together as one product.",
+    "No pack credits are used.",
     "Reading takes a while and uses a good part of your Claude usage.",
-    "Your own Claude session rereads each claim from scratch on the model you chose.",
+    "It takes a while and uses more of your Claude usage, but no pack credits.",
     "<tools>, the free security tools this review uses, are already installed.",
-    "Nothing is read and no pack credits are used. Switch to main, then run /ev-run again.",
-    "Nothing is read and no pack credits are used. Pull the latest changes, then run /ev-run again.",
+    "Nothing is read. Switch to main, then run /ev-run again.",
+    "Nothing is read. Pull the latest changes, then run /ev-run again.",
     "This run had already started, so no more pack credits were used.",
-    "Which folders without version control should this run use as evidence for the code? Tick each one to use.",
-    "Use your question set \"<set>\" with <pack>? No extra pack credits.",
+    "Which folders without version control should this run use as evidence?",
+    "Use your question set \"<set>\" with <pack>?",
   ];
   assert.deepStrictEqual(held.filter((one) => !lines.includes(one)), []);
   const text = EV_RUN();
@@ -230,34 +230,34 @@ test("a branch, a detached commit and a stale copy are each said in the catalogu
   const tree = repository();
   git(tree, "checkout", "-q", "-b", "feature");
   git(tree, "-c", "user.email=check@example.com", "-c", "user.name=check", "commit", "-q", "--allow-empty", "-m", "old");
-  assert.strictEqual(sayRun("off-main", tree).stdout, "This run is about to read feature in place of main.\n");
+  assert.strictEqual(sayRun("off-main", tree).stdout, "This run is about to read feature, and the main branch is main.\n");
   const asked = JSON.parse(sayRun("branch", tree).stdout);
   assert.strictEqual(asked.questions[0].header, "Branch");
-  assert.strictEqual(asked.questions[0].options[0].description, "The report describes feature in place of main.");
+  assert.strictEqual(asked.questions[0].options[0].description, "The report describes feature.");
   assert.strictEqual(sayRun("stale", tree).stdout, "The newest change in this copy is from 1 January 2026.\n");
   git(tree, "checkout", "-q", "--detach");
-  assert.strictEqual(sayRun("off-main", tree).stdout, "This run is about to read a commit on no branch in place of main.\n");
+  assert.strictEqual(sayRun("off-main", tree).stdout, "This run is about to read a commit on no branch, and the main branch is main.\n");
 });
 
 test("the checking's tally leaves withdrawn claims out, counts what stays asserted, and says a count of one as one", () => {
   assert.strictEqual(sayRun("tally", "120", "101", "12", "3").stdout,
-    "Of 117 claims, 101 were confirmed against the code. 12 were corrected. 16 stay marked asserted in the reports, since no second check confirmed them.\n");
+    "Of 117 claims, 101 were confirmed against the code. 12 were corrected. 16 weren't confirmed, so they stay marked asserted.\n");
   assert.strictEqual(sayRun("tally", "12", "1", "1", "0").stdout,
-    "Of 12 claims, one was confirmed against the code. One was corrected. 11 stay marked asserted in the reports, since no second check confirmed them.\n");
+    "Of 12 claims, one was confirmed against the code. One was corrected. 11 weren't confirmed, so they stay marked asserted.\n");
   assert.strictEqual(sayRun("tally", "5", "5", "0", "0").stdout, "Of 5 claims, 5 were confirmed against the code.\n");
   assert.strictEqual(sayRun("tally", "6", "0", "3", "2").stdout,
-    "Of 4 claims, none was confirmed against the code. 3 were corrected. 4 stay marked asserted in the reports, since no second check confirmed them.\n");
+    "Of 4 claims, none was confirmed against the code. 3 were corrected. 4 weren't confirmed, so they stay marked asserted.\n");
   assert.strictEqual(sayRun("tally", "4", "2", "0", "1").stdout,
-    "Of 3 claims, 2 were confirmed against the code. One stays marked asserted in the reports, since no second check confirmed it.\n");
+    "Of 3 claims, 2 were confirmed against the code. One wasn't confirmed, so it stays marked asserted.\n");
   assert.strictEqual(sayRun("tally", "1", "1", "0", "0").stdout, "The one claim was confirmed against the code.\n");
   assert.strictEqual(sayRun("tally", "2", "0", "0", "1").stdout,
-    "The one claim was not confirmed against the code, so it stays marked asserted in the reports.\n");
+    "The one claim wasn't confirmed, so it stays marked asserted.\n");
   assert.doesNotMatch(sayRun("tally", "3", "1", "0", "2").stdout, /withdrawn|claims/);
   assert.strictEqual(sayRun("tally", "3", "3", "0", "3").stdout,
-    "Every claim was withdrawn, since none held against the code, so the reports carry none of them.\n");
+    "Every claim was withdrawn, since none held against the code.\n");
   assert.strictEqual(sayRun("tally", "2", "1", "1", "1").stdout, "The one claim was corrected, then confirmed against the code.\n");
   assert.strictEqual(sayRun("tally", "1", "0", "1", "0").stdout,
-    "The one claim was corrected, and no second check confirmed it, so it stays marked asserted in the reports.\n");
+    "The one claim was corrected but not confirmed, so it stays marked asserted.\n");
 });
 
 test("the closing lines sum up each pack from the findings, then name the reports folder on its own line, then what to open", () => {
@@ -273,7 +273,7 @@ test("the closing lines sum up each pack from the findings, then name the report
     "SOC 2 Trust Services Criteria, 2 entries: 1 partly covered and 1 for the organisation to answer. " +
     "Evalation Hardening Review, 3 weaknesses: 1 critical and 2 high.\n" +
     `The reports are in this folder:\n${reportsFolder(document)}\n` +
-    "Open Evalation Hardening Review Detail.pdf to work through the fixes. Running /ev-run again after changes uses 2 pack credits.\n");
+    "Open Evalation Hardening Review Detail.pdf to work through the fixes. Running /ev-run again uses 2 pack credits.\n");
   document.findings = [{ pack: "hardening", severity: "low" }];
   document.answers = document.answers.slice(0, 1).map((one) => ({ ...one, status: "total-gap" }));
   document.packs[0].entry_noun = { one: "criterion", many: "criteria" };
@@ -281,7 +281,7 @@ test("the closing lines sum up each pack from the findings, then name the report
   assert.strictEqual(sayRun("done", findings, "/r/Chosen").stdout,
     "SOC 2 Trust Services Criteria, one criterion: 1 not covered. Evalation Hardening Review, one weakness: 1 low.\n" +
     "The reports are in this folder:\n/r/Chosen\n" +
-    "Open Evalation Hardening Review Detail.pdf to work through the fixes. Running /ev-run again after changes uses 2 pack credits.\n");
+    "Open Evalation Hardening Review Detail.pdf to work through the fixes. Running /ev-run again uses 2 pack credits.\n");
   document.findings = [];
   writeFileSync(findings, JSON.stringify(document));
   assert.match(sayRun("done", findings).stdout, /Evalation Hardening Review, no weaknesses found\.\n/);
@@ -299,17 +299,17 @@ test("the reading line names every pack, and the closing line names the file to 
   const findings = join(folder, "findings.json");
   writeFileSync(findings, JSON.stringify(run(repository())));
   assert.strictEqual(sayRun("done", findings).stdout.split("\n").at(-2),
-    "Open Evalation Hardening Review Detail.pdf to work through the fixes. Running /ev-run again after changes uses 2 pack credits.");
+    "Open Evalation Hardening Review Detail.pdf to work through the fixes. Running /ev-run again uses 2 pack credits.");
   const standard = run(repository());
   standard.packs = standard.packs.filter((one) => one.pack === "soc2");
   writeFileSync(findings, JSON.stringify(standard));
   assert.strictEqual(sayRun("done", findings).stdout.split("\n").at(-2),
-    "Open Evalation SOC 2 Trust Services Criteria Evidence Pack.pdf to work through the fixes. Running /ev-run again after changes uses one pack credit.");
+    "Open Evalation SOC 2 Trust Services Criteria Evidence Pack.pdf to work through the fixes. Running /ev-run again uses one pack credit.");
   const runFile = join(folder, "run.json");
   writeFileSync(runFile, JSON.stringify({ target: { kind: "repository" }, packs: [{ pack: "soc2", body: { title: "SOC 2 Trust Services Criteria" } },
     { pack: "iso27001", body: { title: "ISO/IEC 27001" } }, { pack: "hardening", body: { title: "Evalation Hardening Review" } }] }));
   assert.strictEqual(sayRun("reading", runFile).stdout,
-    "Reading the repository against SOC 2 Trust Services Criteria, ISO/IEC 27001 and Evalation Hardening Review, in several parts at once. This takes a while.\n");
+    "Reading the repository against SOC 2 Trust Services Criteria, ISO/IEC 27001 and Evalation Hardening Review. This takes a while.\n");
 });
 
 test("show prints the scanner question ready to ask, or the line to say where none is missing or Homebrew is absent", SHELL_BREW, () => {
@@ -322,7 +322,7 @@ test("show prints the scanner question ready to ask, or the line to say where no
   const bare = machine(null);
   const absent = bare("show", "--phases", "sca,sast");
   assert.strictEqual(absent.asks, null);
-  assert.strictEqual(absent.said, "Homebrew is not on this machine, so the review runs without these tools and the report lists what was not checked. To add them yourself, see:\nTrivy: https://github.com/aquasecurity/trivy\nSemgrep: https://github.com/semgrep/semgrep");
+  assert.strictEqual(absent.said, "Homebrew isn't on this machine, so the review runs without these tools and the report lists what wasn't checked. To add them yourself, see:\nTrivy: https://github.com/aquasecurity/trivy\nSemgrep: https://github.com/semgrep/semgrep");
   const brewed = machine(FAILS);
   brewed("install", "trivy");
   brewed("decline", "semgrep");
@@ -333,9 +333,9 @@ test("show prints the scanner question ready to ask, or the line to say where no
   assert.ok(asked.multiSelect);
   assert.deepStrictEqual(asked.options.map((one) => one.label), ["Trivy, checks dependencies for known security flaws",
     "Semgrep, finds risky code patterns", "Gitleaks, finds passwords and keys committed to the code"]);
-  assert.match(asked.options[0].description, new RegExp(`^This could not be installed on ${DATE.source}: .*no formula.*\\.$`));
+  assert.match(asked.options[0].description, new RegExp(`^This couldn't be installed on ${DATE.source}: .*no formula.*\\.$`));
   assert.match(asked.options[1].description, new RegExp(`^You chose not to install this on ${DATE.source}\\.$`));
-  assert.strictEqual(asked.options[2].description, "Installs it, so this review can use it.");
+  assert.strictEqual(asked.options[2].description, "Installs it.");
   const one = brewed("show", "--phases", "secret");
   assert.strictEqual(one.asks.questions[0].header, "Install");
   assert.match(one.asks.questions[0].question, /^Install Gitleaks with Homebrew\?/);
@@ -346,13 +346,13 @@ test("show prints the scanner question ready to ask, or the line to say where no
 
 test("the evidence pack's command prints what to say about a report left unprinted or unsigned", () => {
   const { said } = require("../bin/evalation-report");
-  const text = said([{ written: "/r/A Evidence Pack.pdf", printed: true, unsigned: "Evalation's server could not be reached",
-    then: "Once this machine is online, run /ev-run print again for signed copies. Printing again uses no pack credits." },
+  const text = said([{ written: "/r/A Evidence Pack.pdf", printed: true, unsigned: "Evalation's server couldn't be reached",
+    then: "Once this machine is online, run /ev-run print for signed copies. Printing again uses no pack credits." },
   { written: "/r/B Evidence Pack.html", printed: false }], "/r");
-  assert.match(text, /A Evidence Pack\.pdf is not signed because Evalation's server could not be reached/);
-  assert.match(text, /Once this machine is online, run \/ev-run print again for signed copies\./);
+  assert.match(text, /A Evidence Pack\.pdf isn't signed because Evalation's server couldn't be reached/);
+  assert.match(text, /Once this machine is online, run \/ev-run print for signed copies\./);
   assert.match(text, /B Evidence Pack\.html/);
-  assert.match(text, /printed by hand is not signed/);
+  assert.match(text, /so they aren't signed/);
   assert.strictEqual(said([{ written: "/r/A Evidence Pack.pdf", printed: true }], "/r"), "");
 });
 
@@ -373,7 +373,7 @@ const faultFile = (said) => {
   const lines = said.trim().split("\n");
   const file = lines.at(-1);
   assert.ok(file.startsWith(join(home, "faults")), `the last line names the file for support: ${said}`);
-  assert.strictEqual(lines.at(-2), "To have it fixed, email support@evalation.ai and attach this file, which holds the details:");
+  assert.strictEqual(lines.at(-2), "To get it fixed, email support@evalation.ai with this file attached:");
   return { lines, detail: require("node:fs").readFileSync(file, "utf8") };
 };
 
@@ -382,7 +382,7 @@ test("a fault another command hit is said in a plain line, and its detail goes t
     { encoding: "utf8", env: { ...process.env, EVALATION_PLUGIN_HOME: home } });
   assert.strictEqual(ran.status, 0, ran.stderr);
   const { lines, detail } = faultFile(ran.stdout);
-  assert.strictEqual(lines[0], "The claims could not be checked, because of a fault in Evalation, so the run stopped. The pack credits for this run were used when it started.");
+  assert.strictEqual(lines[0], "The run stopped on a fault in Evalation while checking the claims. Its pack credits were used when it started.");
   assert.doesNotMatch(ran.stdout, /no-plan|\/r\/f\.json/);
   assert.match(detail, /no-plan: run evalation-verify plan/);
 });
@@ -392,7 +392,7 @@ test("the scan and the evidence pack stop on a fault with plain lines, and the d
     env: { ...process.env, EVALATION_PLUGIN_HOME: home } });
   assert.strictEqual(scanned.status, 1);
   const scan = faultFile(scanned.stderr);
-  assert.strictEqual(scan.lines[0], "The free security tools could not be run, because of a fault in Evalation, so the run stopped. No pack credits were used.");
+  assert.strictEqual(scan.lines[0], "The run stopped on a fault in Evalation while running the security tools. No pack credits were used.");
   assert.doesNotMatch(scanned.stderr, /no-such-target/);
   assert.match(scan.detail, /no-such-target/);
   const { run } = require("./fixture.js");
@@ -403,8 +403,8 @@ test("the scan and the evidence pack stop on a fault with plain lines, and the d
     env: { ...process.env, EVALATION_PLUGIN_HOME: home } });
   assert.strictEqual(reported.status, 1);
   const report = faultFile(reported.stderr);
-  assert.strictEqual(report.lines[0], "The reports could not be written, because of a fault in Evalation, so the run stopped. " +
-    "Your findings are kept, and the pack credits for this run were used when it started.");
+  assert.strictEqual(report.lines[0], "The run stopped on a fault in Evalation while writing the reports. " +
+    "Your findings are kept. Its pack credits were used when it started.");
   assert.doesNotMatch(reported.stderr, /no-answers|findings\.json/);
   assert.match(report.detail, /no-answers/);
 });

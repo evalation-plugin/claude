@@ -1,5 +1,5 @@
 {
   "shared.set-kept": { "say": "The question set <set> is kept on your account." },
-  "shared.unanswered": { "say": "You left that question unanswered, so this command has stopped and saved nothing from it. It's waiting for your instructions." },
-  "shared.new-version": { "say": "Evalation <newest> is out, and you have <installed>. To get it, run /plugin, open the Installed tab, pick evalation-plugin and choose Update now, then run /reload-plugins." }
+  "shared.unanswered": { "say": "You didn't answer that, so nothing was saved. Say what you'd like to do next." },
+  "shared.new-version": { "say": "Evalation <newest> is out, and you have <installed>. To update, run /plugin, open the Installed tab, pick evalation-plugin and choose Update now, then run /reload-plugins." }
 }

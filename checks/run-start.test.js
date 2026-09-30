@@ -77,8 +77,8 @@ test("a run refused for want of credit says both numbers in one plain line, and 
   const ran = await started(machine(), held.address().port, tree, "soc2", "iso27001");
   held.close();
   assert.strictEqual(ran.code, 1);
-  assert.strictEqual(ran.stderr, "This run reads 2 packs, which needs 2 pack credits, and you have 1. It did not start, and no pack credits were used. " +
-    "To buy more pack credits, run /ev-account, then run /ev-run again, or choose fewer packs.\n");
+  assert.strictEqual(ran.stderr, "This run reads 2 packs and you have 1 pack credits, so it didn't start. " +
+    "Run /ev-account to buy more, then run /ev-run again, or choose fewer packs.\n");
   assert.ok(catalogued(ran.stderr.trim()), `not a catalogue line: ${ran.stderr}`);
 });
 
@@ -111,7 +111,7 @@ test("the pack questions come from the run command ready to ask, with the balanc
   assert.strictEqual(await asked("packs", tree), "Each pack uses one pack credit, and you have 3. " +
     "Reading takes a while and uses a good part of your Claude usage.\n");
   const [full] = await asked("all");
-  assert.strictEqual(full.question, "Which packs should this run read? Tick each pack to read.");
+  assert.strictEqual(full.question, "Which packs should this run read?");
   assert.deepStrictEqual(full.options.map((one) => one.label), ["Evalation Cyber Insurance Risk", "Evalation Hardening Review", "ISO/IEC 27001",
     "SOC 2 Trust Services Criteria"]);
   writeFileSync(join(home, "packs.json"), JSON.stringify({ packs: ["soc2", "hardening"] }));
@@ -122,32 +122,32 @@ test("the pack questions come from the run command ready to ask, with the balanc
   writeFileSync(join(home, "questions", "Board two.json"), JSON.stringify({ name: "Board two", pack: "custom", questions: [question, question] }));
   const { target } = require("../bin/evalation-run");
   const [first] = await asked("packs", tree);
-  assert.strictEqual(first.question, `Which packs should this run read for ${target(tree).repository}? Each pack uses one pack credit, and you have 3. ` +
+  assert.strictEqual(first.question, `Which packs should this run read for ${target(tree).repository}? Each uses one pack credit, and you have 3. ` +
     "Reading takes a while and uses a good part of your Claude usage.");
   assert.strictEqual(first.header, "Packs");
   assert.strictEqual(first.multiSelect, false);
   assert.deepStrictEqual(first.options, [
     { label: "Run my usual packs", description: "SOC 2 Trust Services Criteria and Evalation Hardening Review. Uses 2 pack credits." },
-    { label: "Choose which packs to run", description: "Tick any packs from the full list." },
-    { label: "Only my questions", description: "No Evalation pack is read and no pack credits are used, so the run answers your own questions and nothing else." },
+    { label: "Choose which packs to run", description: "Tick packs from the full list." },
+    { label: "Only my questions", description: "Only your own questions are answered, and no pack credits are used." },
   ]);
   const [usual] = await asked("usual");
   assert.strictEqual(usual.header, "Usual");
   assert.ok(usual.multiSelect);
   assert.deepStrictEqual(usual.options.map((one) => one.label), ["SOC 2 Trust Services Criteria", "Evalation Hardening Review"]);
   const [all] = await asked("all");
-  assert.strictEqual(all.question, "Which packs should this run read? Tick each pack to read.");
+  assert.strictEqual(all.question, "Which packs should this run read?");
   const [only] = await asked("only");
   assert.deepStrictEqual(only.options, [{ label: "Board", description: "One question." }, { label: "Board two", description: "2 questions." }]);
   const closed = await started(home, port, "--say", "sets", "soc2");
   assert.strictEqual(closed.code, 1);
-  assert.match(closed.stderr, /^The run stopped on a fault in Evalation\. No pack credits were used\.\nTo have it fixed, email support@evalation\.ai/);
+  assert.match(closed.stderr, /^The run stopped on a fault in Evalation\. No pack credits were used\.\nTo get it fixed, email support@evalation\.ai/);
   assert.doesNotMatch(closed.stderr, /soc2|takes no extra/);
   assert.doesNotMatch(closed.stderr, /can also take your own questions/);
-  assert.strictEqual(await asked("sets", "cyber-insurance"), "Evalation Cyber Insurance Risk can also take your own questions, written with /ev-questions before a run.\n");
+  assert.strictEqual(await asked("sets", "cyber-insurance"), "Evalation Cyber Insurance Risk can also take your own questions, written with /ev-questions.\n");
   writeFileSync(join(home, "questions", "Broker.json"), JSON.stringify({ name: "Broker", pack: "cyber-insurance", questions: [question, question] }));
   const [one] = await asked("sets", "cyber-insurance");
-  assert.strictEqual(one.question, "Use your question set \"Broker\" with Evalation Cyber Insurance Risk? No extra pack credits.");
+  assert.strictEqual(one.question, "Use your question set \"Broker\" with Evalation Cyber Insurance Risk?");
   assert.deepStrictEqual(one.options, [{ label: "Use Broker", description: "2 questions." },
     { label: "Read the pack alone", description: "Only the pack's own questions are read." }]);
   writeFileSync(join(home, "questions", "Insurer.json"), JSON.stringify({ name: "Insurer", pack: "cyber-insurance", questions: [question] }));
@@ -165,7 +165,7 @@ test("the pack questions come from the run command ready to ask, with the balanc
   assert.ok(lists.every((one) => one.multiSelect));
   assert.deepStrictEqual(lists.flatMap((one) => one.options.map((each) => each.label)), ["Broker", "Cover", "Insurer", "Renewal"],
     "the tick list offers the sets alone, with no answer to read the pack alone");
-  assert.strictEqual(await asked("short", "4"), "You have 3 pack credits and chose 4 packs. To buy more pack credits, run /ev-account, " +
+  assert.strictEqual(await asked("short", "4"), "You have 3 pack credits and chose 4 packs. Run /ev-account to buy more, " +
     "then run /ev-run again, or choose fewer packs.\n");
   held.close();
 });
@@ -201,9 +201,9 @@ test("a start that never got an answer says credits may have been used and how t
   const first = await started(home, lost.held.address().port, tree, "soc2", "iso27001");
   lost.held.close();
   assert.strictEqual(first.code, 1);
-  assert.match(first.stderr, /not clear whether/);
-  assert.match(first.stderr, /\/ev-account/);
-  assert.match(first.stderr, /never charged twice/);
+  assert.match(first.stderr, /isn't clear whether/);
+  assert.match(first.stderr, /answer couldn't be read/);
+  assert.match(first.stderr, /won't be charged twice/);
   assert.match(first.stderr, /with the same packs and question sets/);
   assert.doesNotMatch(first.stderr, /unreachable|fetch|http/);
   assert.ok(catalogued(first.stderr.trim()), `not a catalogue line: ${first.stderr}`);
@@ -271,7 +271,7 @@ test("a balance that cannot be read says in a catalogue line what to do, and a f
   const port = held.address().port;
   const fresh = await started(mkdtempSync(join(tmpdir(), "evalation-fresh-")), port, "--say", "packs", tree);
   assert.strictEqual(fresh.code, 1);
-  assert.strictEqual(fresh.stderr, "This machine is not set up for Evalation yet, so the run cannot go on. No pack credits were used. Run /ev-start to set it up.\n");
+  assert.strictEqual(fresh.stderr, "This machine isn't set up for Evalation yet, so the run stopped. No pack credits were used. Run /ev-start to set it up.\n");
   const damaged = machine();
   writeFileSync(join(damaged, "keys", "evalation-plugin.box.installation-key"), "short");
   assert.match((await started(damaged, port, "--say", "packs", tree)).stderr, /sign-in is damaged.+same account as before/);
@@ -280,7 +280,7 @@ test("a balance that cannot be read says in a catalogue line what to do, and a f
   assert.strictEqual(unknown.code, 1);
   const lines = unknown.stderr.trim().split("\n");
   assert.deepStrictEqual(lines.slice(0, 2), ["The run stopped on a fault in Evalation. No pack credits were used.",
-    "To have it fixed, email support@evalation.ai and attach this file, which holds the details:"]);
+    "To get it fixed, email support@evalation.ai with this file attached:"]);
   assert.strictEqual(lines.length, 3);
   assert.match(readFileSync(lines[2], "utf8"), /usage: evalation-run --say/);
   assert.doesNotMatch(unknown.stderr, /usage|\n\s+at /);
@@ -311,13 +311,13 @@ test("the pack titles on a machine not signed in say plainly to sign in, with no
   const ran = await started(home, held.address().port, "--titles");
   held.close();
   assert.strictEqual(ran.code, 1);
-  assert.match(ran.stderr, /^This machine is not set up for Evalation yet, so the run cannot go on\. No pack credits were used\. Run \/ev-start to set it up\.\n$/);
+  assert.match(ran.stderr, /^This machine isn't set up for Evalation yet, so the run stopped\. No pack credits were used\. Run \/ev-start to set it up\.\n$/);
   const damaged = machine();
   writeFileSync(join(damaged, "keys", "evalation-plugin.box.installation-key"), "short");
   const again = await server([{ body: { revision: "1.86", packs: [{ pack: "soc2", body: SOC2 }] } }]);
   const broken = await started(damaged, again.held.address().port, "--titles");
   again.held.close();
-  assert.match(broken.stderr, /sign-in is damaged.+Run \/ev-activate and sign in with the same account as before, so your pack credits are there\.\n$/);
+  assert.match(broken.stderr, /sign-in is damaged.+Run \/ev-activate and sign in with the same account as before\.\n$/);
 });
 
 test("the pack titles on a signed in machine are printed as evalation-packs gives them", async () => {
@@ -345,7 +345,7 @@ test("the last run of a folder is found for printing its reports again, and a fo
   assert.deepStrictEqual(said.packs, [{ pack: "soc2", kind: "standard", title: "SOC 2 Trust Services Criteria" }]);
   const none = await started(machine(), 9, "--last", tree);
   assert.strictEqual(none.code, 1);
-  assert.strictEqual(none.stderr, "This folder has no earlier run on this machine, so there are no reports to print again. No pack credits were used.\n");
+  assert.strictEqual(none.stderr, "This folder has no earlier run on this machine, so there are no reports to print again.\n");
   assert.ok(catalogued(none.stderr.trim()), `not a catalogue line: ${none.stderr}`);
 });
 

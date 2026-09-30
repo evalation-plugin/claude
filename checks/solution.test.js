@@ -196,14 +196,13 @@ test("the folder questions and lines come from the run command ready to ask, in 
   const at = solution();
   const said = (...args) => execFileSync(process.execPath, [join(__dirname, "..", "bin", "evalation-run"), "--say", ...args], { encoding: "utf8" });
   const asked = (...args) => JSON.parse(said(...args)).questions;
-  assert.strictEqual(said("found", at), "We found 2 subfolders under version control and one that is not. The ones you choose are read together as one product, " +
-    "for the same pack credits as one repository.\n");
+  assert.strictEqual(said("found", at), "We found 2 subfolders under version control and one that isn't. The ones you choose are read together as one product.\n");
   const [folders] = asked("pick", at);
   assert.strictEqual(folders.header, "Folders");
   assert.ok(folders.multiSelect);
-  assert.deepStrictEqual(folders.options, [{ label: "acme/api", description: "Reads its code from the folder api." },
-    { label: "acme/infra", description: "Reads its code from the folder infra." }]);
-  assert.strictEqual(asked("evidence", at)[0].question, "Use notes as evidence for the version controlled code? No extra pack credits.");
+  assert.deepStrictEqual(folders.options, [{ label: "acme/api", description: "Reads the code in api." },
+    { label: "acme/infra", description: "Reads the code in infra." }]);
+  assert.strictEqual(asked("evidence", at)[0].question, "Use notes as evidence for the version controlled code?");
   mkdirSync(join(at, "docs"));
   writeFileSync(join(at, "docs", "a.md"), "# A\n");
   writeFileSync(join(at, "docs", "b.md"), "# B\n");
@@ -223,7 +222,7 @@ test("the folder questions and lines come from the run command ready to ask, in 
   assert.deepStrictEqual(name.options[0], { label: "Keep the name Acme platform", description: "The reports name the product Acme platform." });
   assert.strictEqual(said("branches", at), "");
   git(join(at, "infra"), "checkout", "-q", "-b", "feature");
-  assert.strictEqual(said("branches", at), "acme/infra is on feature in place of main.\n");
+  assert.strictEqual(said("branches", at), "acme/infra is on feature, and its main branch is main.\n");
   execFileSync("git", ["-c", "user.email=check@example.com", "-c", "user.name=check", "commit", "-q", "--allow-empty", "-m", "old"],
     { cwd: join(at, "infra"), stdio: "ignore", env: { ...process.env, GIT_COMMITTER_DATE: "2026-02-03T00:00:00Z" } });
   assert.strictEqual(said("copies", at), "The newest change in acme/infra is from 3 February 2026.\n");

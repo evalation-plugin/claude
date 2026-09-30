@@ -98,7 +98,7 @@ test("the price comes back as a question naming the price per credit, with each 
   assert.strictEqual(asked.length, 1);
   assert.strictEqual(asked[0].question, LINES["ev-account.buy-ask"].ask.replace("<price>", "NZD 0.70"));
   assert.match(asked[0].question, /NZD 0\.70 each/);
-  assert.match(asked[0].question, /nothing is charged until you pay on Stripe's page/);
+  assert.match(asked[0].question, /you pay on Stripe's page/);
   assert.deepStrictEqual(asked[0].options.map((one) => one.label),
     ["Buy 10 for NZD 7.00", "Buy 50 for NZD 35.00", line("ev-account.buy-none"), line("ev-account.buy-talk")]);
   assert.strictEqual(asked[0].options[0].description, line("ev-account.buy-count-means", { count: 10 }));

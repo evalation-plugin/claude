@@ -27,7 +27,7 @@ test("check says the checking line once per draft and each checked title once, s
   const draft = { name: "Cyber Test Set", pack: "custom", questions: [question("Q1", "Payments are recorded", "payment"), question("Q2", "Refunds are recorded", "refund")] };
   const file = join(at, "Cyber Test Set.json");
   writeFileSync(file, JSON.stringify(draft));
-  const checking = "Checking your questions against the rules for a question set. An independent checker that did not write them judges each question on its own. This can take a few minutes.";
+  const checking = "Checking your questions. This can take a few minutes.";
   assert.deepStrictEqual(checked(at, file), [checking]);
   assert.deepStrictEqual(checked(at, file), [], "said once, even while questions still wait");
   verdict(at, draft, answered(grid(at, draft, CRITERIA, "Q1").rows), CRITERIA, "Q1");
