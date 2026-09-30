@@ -1,0 +1,30 @@
+#!/usr/bin/env node
+"use strict";
+
+const { readFileSync } = require("node:fs");
+const { stopped, unanswered, waiting } = require("../lib/answer.js");
+const { entries } = require("../lib/say.js");
+
+const escaped = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const OURS = Object.values(entries()).filter((one) => one.ask)
+  .map((one) => new RegExp(`^${escaped(one.ask).replace(/<[a-z][a-z0-9 -]*>/g, "[\\s\\S]+?")}( List \\d+ of \\d+\\.)?$`));
+
+let call;
+try {
+  call = JSON.parse(readFileSync(0, "utf8"));
+} catch {
+  process.exit(0);
+}
+if (process.argv[2] === "prompt") {
+  waiting(false);
+  process.exit(0);
+}
+const questions = (call.tool_input?.questions ?? []).map((one) => String(one.question ?? ""));
+if (!questions.some((one) => OURS.some((ours) => ours.test(one)))) process.exit(0);
+const answers = call.tool_response?.answers;
+const skipped = answers && typeof answers === "object" ? questions.some((one) => unanswered(answers[one]))
+  : /=\\?"\[No preference\]\\?"/i.test(JSON.stringify(call.tool_response ?? ""));
+if (!skipped) process.exit(0);
+waiting(true);
+process.stdout.write(`${JSON.stringify({ decision: "block", reason:
+  `The person left an Evalation question unanswered. Show this line exactly as written, then end the command. Run nothing more and ask nothing more until the person replies: ${stopped()}` })}\n`);

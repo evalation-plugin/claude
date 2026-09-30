@@ -10,7 +10,16 @@
     "UserPromptSubmit": [
       {
         "hooks": [
-          { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/bin/evalation-news prompt" }
+          { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/bin/evalation-news prompt" },
+          { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/bin/evalation-unanswered prompt" }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "AskUserQuestion",
+        "hooks": [
+          { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/bin/evalation-unanswered asked" }
         ]
       }
     ],

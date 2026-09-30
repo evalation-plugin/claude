@@ -17,6 +17,7 @@ const { join } = require("node:path");
 const { CRITERIA, approval, askServer, claimsQuestion, dropFromAccount, extensible, fetched, fromAccount, grid, grouped, keepOnAccount, listed, listSaid, namesQuestion,
   packQuestion, saveChecked, saved, setsQuestion, shown, verdict, withoutMark } = require("../lib/questions.js");
 const { entries: lines, say } = require("../lib/say.js");
+const { answered } = require("../lib/answer.js");
 
 const HOME = pluginHome();
 const NAME = /^[A-Za-z0-9][A-Za-z0-9 _-]{0,59}$/;
@@ -166,6 +167,7 @@ function main() {
       fail(`no-such-set: ${arg} (${thrown.message})`);
     }
   } else if (verb === "keep-on-account") {
+    answered([arg]);
     try {
       const { already } = keepOnAccount(HOME, arg, askServer, { looked: true });
       if (!already) process.stdout.write(`${say(lines(), "shared.set-kept", { set: arg })}\n`);

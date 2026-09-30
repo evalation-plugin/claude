@@ -41,6 +41,7 @@ const { SCANS } = require("../lib/scans.js");
 const { copied, filesOf, inRepository, skipped } = require("../lib/tree.js");
 const { attributesOf, counted, languageOf } = require("../lib/linguist.js");
 const { solutionOf } = require("../lib/solution.js");
+const { answered } = require("../lib/answer.js");
 const { cwesOf } = require("../lib/weaknesses.js");
 
 const HOME = pluginHome();
@@ -1051,6 +1052,7 @@ function asked(rest) {
 function domainsAsked(rest) {
   const at = rest.indexOf("--domains");
   if (at < 0) return { domains: [], rest };
+  answered([String(rest[at + 1] ?? "")].filter((one) => one.trim()));
   const domains = String(rest[at + 1] ?? "").split(",").map((one) => one.trim().toLowerCase().replace(/^@/, "")).filter(Boolean);
   return { domains, rest: rest.filter((_, index) => index !== at && index !== at + 1) };
 }
@@ -1271,10 +1273,12 @@ function main() {
       return;
     case "install":
       if (rest.length === 0) fail("usage: evalation-scan install <tool ...>");
+      answered(rest);
       install(rest);
       return;
     case "decline":
       if (rest.length === 0) fail("usage: evalation-scan decline <tool ...>");
+      answered(rest);
       decline(rest);
       return;
     case "domains": {
