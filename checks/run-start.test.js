@@ -153,8 +153,7 @@ test("the pack questions come from the run command ready to ask, with the balanc
   writeFileSync(join(home, "questions", "Insurer.json"), JSON.stringify({ name: "Insurer", pack: "cyber-insurance", questions: [question] }));
   const [many] = await asked("sets", "cyber-insurance");
   assert.ok(many.multiSelect);
-  assert.deepStrictEqual(many.options, [{ label: "Broker", description: "2 questions." }, { label: "Insurer", description: "One question." },
-    { label: "Read the pack alone", description: "Only the pack's own questions are read." }]);
+  assert.deepStrictEqual(many.options, [{ label: "Broker", description: "2 questions." }, { label: "Insurer", description: "One question." }]);
   for (const name of ["Cover", "Renewal"]) {
     writeFileSync(join(home, "questions", `${name}.json`), JSON.stringify({ name, pack: "cyber-insurance", questions: [question] }));
   }

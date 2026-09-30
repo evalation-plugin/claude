@@ -52,7 +52,7 @@ test("the run asks for the company's domains with a question from the catalogue,
   const asked = spawnSync(process.execPath, [join(__dirname, "..", "bin", "evalation-scan"), "domains", tree], { encoding: "utf8" });
   assert.strictEqual(asked.status, 0, asked.stderr);
   const question = JSON.parse(asked.stdout).asks.questions[0];
-  assert.strictEqual(question.question, "Which email domains belong to the company that owns this code?");
+  assert.strictEqual(question.question, "Which email domains belong to the company that owns this code? Tick each one, or pick Other and type them, separated by commas.");
   assert.ok(question.multiSelect);
   const labels = question.options.map((one) => one.label);
   assert.ok(labels.includes("acme.io") && labels.includes("contractors.dev") && !labels.includes("gmail.com"));

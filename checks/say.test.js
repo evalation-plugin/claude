@@ -41,15 +41,16 @@ test("answers a script supplies are held to the same rules and split into questi
   assert.throws(() => say(SAMPLE, "sample.tick", {}, [{ label: "A", description: "x." }]), /two/);
 });
 
-test("a tick list with a none answer offers it in every question, beside at most three others", () => {
+test("a tick list never offers a none answer, since ticking nothing chooses none", () => {
   const held = { "sample.pick": { ask: "Which packs should this run read? Tick each pack to read.", header: "Packs", several: true, options: "given",
     none: { label: "None of these", description: "Reads none of the packs in this list." } } };
   const options = Array.from({ length: 7 }, (_, at) => ({ label: `Pack ${at}`, description: "A pack." }));
-  const asked = JSON.parse(say(held, "sample.pick", {}, options));
-  assert.deepStrictEqual(asked.questions.map((one) => one.options.length), [4, 3, 3]);
-  assert.ok(asked.questions.every((one) => one.options.at(-1).label === "None of these"));
-  assert.strictEqual(new Set(asked.questions.map((one) => one.question)).size, 3, "the question tool refuses repeated question text in one call");
-  assert.match(asked.questions[1].question, /List 2 of 3\.$/);
+  assert.throws(() => say(held, "sample.pick", {}, options), /ticking nothing already chooses none/);
+  const asked = JSON.parse(say({ "sample.pick": { ...held["sample.pick"], none: undefined } }, "sample.pick", {}, options));
+  assert.deepStrictEqual(asked.questions.map((one) => one.options.length), [4, 3]);
+  assert.strictEqual(new Set(asked.questions.map((one) => one.question)).size, 2, "the question tool refuses repeated question text in one call");
+  assert.match(asked.questions[1].question, /List 2 of 2\.$/);
+  assert.deepStrictEqual(Object.entries(entries()).filter(([, one]) => one.several && one.none).map(([name]) => name), [], "no tick-box question offers a none answer");
 });
 
 test("every line and question the plugin holds passes its own wording rules and the question tool's limits", () => {

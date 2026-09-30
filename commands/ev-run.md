@@ -180,9 +180,8 @@ and each answer's label says what choosing it does.
    for, and never one the list marks `refused`. For each chosen pack that takes extra questions, run
    `evalation-run --say sets <pack>` with the pack's handle. Where it prints a line, no set is written
    for that pack: show the line and go on. Where it prints a question, first say
-   `evalation-say ev-run.another-set`, then ask it. Use each set ticked. Where they tick only the
-   answer to read the pack alone, or nothing, use no set with that pack. Where they tick that answer
-   beside a set, ask again. With more than three sets for the pack, the question is a single choice
+   `evalation-say ev-run.another-set`, then ask it. Use each set ticked. On the answer to read the pack
+   alone, or with nothing ticked, use no set with that pack. With more than three sets for the pack, the question is a single choice
    between using the sets and reading the pack alone. On using the sets, ask
    `evalation-run --say pick-sets <pack>` and use each set ticked, and where they tick none, ask the
    single choice again. Ask nothing about a pack that takes no extra
@@ -264,8 +263,8 @@ and each answer's label says what choosing it does.
    ```
 
    It prints `asks`, a question to ask with AskUserQuestion unchanged, or `said`, a line to show
-   where the history offers no domain. Take the domains ticked and any the person typed, leaving out
-   None of these, joined with commas below as `<domains>`. Where `asks_domains` is false, leave
+   where the history offers no domain. Take the domains ticked and any the person typed, joined with
+   commas below as `<domains>`. Where `asks_domains` is false, leave
    `--domains` off.
 
    ```
