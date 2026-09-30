@@ -81,6 +81,14 @@ function fieldsOf(stdout) {
   return out;
 }
 
+test("the question to buy opens with the balance it is given, so the balance is said once", async () => {
+  for (const [held, opens] of [["88", "You have 88 pack credits. Buy more? They're NZD 0.70 each"], ["1", "You have one pack credit. Buy more? They're NZD 0.70 each"]]) {
+    const ran = await bought(["price", held]);
+    assert.strictEqual(ran.status, 0, ran.stderr);
+    assert.ok(JSON.parse(ran.fields.question).questions[0].question.startsWith(opens), held);
+  }
+});
+
 test("the price comes back as a question naming the price per credit, with each total in its label and a way to talk it through", async () => {
   const ran = await bought(["price"]);
   assert.strictEqual(ran.status, 0, ran.stderr);

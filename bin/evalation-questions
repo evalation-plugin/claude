@@ -32,6 +32,7 @@ function draftOf(home, name) {
 function fresh(home, name) {
   if (saved(home).includes(name)) throw new Error(`${name} is already a saved set, so a new set needs another name`);
   const draft = draftOf(home, name);
+  rmSync(draft, { force: true });
   rmSync(`${draft}.said.json`, { force: true });
   return draft;
 }
@@ -140,6 +141,7 @@ function main() {
   } else if (verb === "folder") {
     process.stdout.write(`${join(HOME, "drafts")}\n`);
     mkdirSync(join(HOME, "drafts"), { recursive: true, mode: 0o700 });
+    rmSync(join(HOME, "drafts", "claims.json"), { force: true });
   } else if (verb === "packs") {
     tell(HOME, packsSaid(HOME));
   } else if (verb === "draft") {

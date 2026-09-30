@@ -343,6 +343,18 @@ test("draft, save and folder hand the session their answers in its own file and 
   assert.deepStrictEqual([taken.status, Boolean(taken.answer), taken.out], [0, true,"name taken: Board check is already a saved set, so a new set needs another name\n"]);
 });
 
+test("a new set's draft path holds no file left by an earlier attempt, so the session's Write never meets a file it has not read", () => {
+  const at = scratch();
+  ran(at, "draft", "Cyber Test Set");
+  require("node:fs").writeFileSync(join(at, "drafts", "Cyber Test Set.json"), JSON.stringify(set([question("Q1")], { name: "Cyber Test Set" })));
+  const again = ran(at, "draft", "Cyber Test Set");
+  assert.strictEqual(again.out, `${join(at, "drafts", "Cyber Test Set.json")}\n`);
+  assert.ok(!require("node:fs").existsSync(join(at, "drafts", "Cyber Test Set.json")));
+  require("node:fs").writeFileSync(join(at, "drafts", "claims.json"), "[]");
+  ran(at, "folder");
+  assert.ok(!require("node:fs").existsSync(join(at, "drafts", "claims.json")), "the claims file the session writes starts absent each time the command opens");
+});
+
 test("questions a set was saved with unconfirmed stay settled, so a later change asks nothing about them", () => {
   const at = scratch();
   const first = set([titled("Q1", "Payments are recorded", "payment"), titled("Q2", "Refunds are recorded", "refund")], { name: "Kept unconfirmed" });

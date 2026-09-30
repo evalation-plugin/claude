@@ -45,8 +45,8 @@ test("a damaged machine that recorded its account names it, in setting up and in
   assert.match(line(START, "names the account"), /^This machine needs to sign in to Evalation again\. Sign in with <email>, the same account as before/);
 });
 
-test("a failed read of the chosen packs ends in a fixed line in both commands, keyed on the exit alone", () => {
-  for (const [name, text, command] of [["ev-start.md", START, "/ev-start"], ["ev-account.md", ACCOUNT, "/ev-account"]]) {
+test("a failed read of the chosen packs ends in a fixed line in setting up, keyed on the exit alone", () => {
+  for (const [name, text, command] of [["ev-start.md", START, "/ev-start"]]) {
     const said = line(text, "Where `evalation-packs chosen` exits with any code but 0");
     assert.match(said, /^Your chosen packs could not be read just now\./, name);
     assert.ok(said.includes(command), name);
@@ -71,7 +71,7 @@ test("the packs script exits non-zero when the pack list cannot be fetched, so t
 });
 
 test("pack titles come joined from a script, so the session never joins them itself", () => {
-  for (const [name, text] of [["ev-start.md", START], ["ev-account.md", ACCOUNT]]) {
+  for (const [name, text] of [["ev-start.md", START]]) {
     assert.match(text, /`evalation-packs chosen`/, name);
     assert.doesNotMatch(text, /evalation-packs (titles|show)/, name);
     assert.match(text, /^allowed-tools:.*Bash\(evalation-packs chosen:\*\)/m, name);
@@ -83,19 +83,13 @@ test("the close of setting up says the packs are what /ev-packs changes", () => 
   assert.strictEqual(line(START, "already chosen before this ran"), "Run /ev-packs to change which packs you use.");
 });
 
-test("the account reply is worded exactly for each case, says the credits once, and says what a pack is in the words /ev-packs uses", () => {
-  const fromPacks = Object.entries(LINES).find(([name, one]) => name.startsWith("ev-packs.") && /^A pack is one thing/.test(one.say ?? ""));
-  const packLine = fromPacks ? fromPacks[1].say : flat(read("ev-packs.md")).match(/what a pack is, in these words: "([^"]+)"/)[1];
-  assert.ok(line(ACCOUNT, "No packs selected").startsWith(packLine), packLine);
+test("the account names no pack and says the balance once, inside the question to buy", () => {
+  assert.doesNotMatch(ACCOUNT, /evalation-packs|\/ev-packs|chosen pack/);
+  assert.doesNotMatch(ACCOUNT, /ev-account\.credits"|`evalation-say ev-account\.credits`/);
+  assert.match(flat(ACCOUNT), /`evalation-buy price <N>`/);
   assert.strictEqual(line(ACCOUNT, "`state: not-set-up` alone"), "This machine is not set up for Evalation yet. Run /ev-start to set it up.");
-  assert.strictEqual(line(ACCOUNT, "exactly as it comes back"), "You have <credits> pack credits.");
-  assert.strictEqual(line(ACCOUNT, "Where <N> is 1"), "You have one pack credit.");
-  assert.strictEqual(line(ACCOUNT, "Packs selected"), "You chose <titles>. A run against them uses <count> pack credits, one for each pack it reads. Run /ev-run in a repository to check it against them.");
-  assert.match(line(ACCOUNT, "With one pack"), /A run against it uses one pack credit\./);
-  assert.doesNotMatch(flat(ACCOUNT), /and how many are left/);
-  assert.match(flat(ACCOUNT), /In place of the line above,/);
   assert.doesNotMatch(flat(ACCOUNT), /Where <N> is 0/, "the buy offer follows at any balance, so no line waits for 0");
-  assert.match(flat(ACCOUNT), /Offer to buy pack credits\*\*, whatever the balance, 0 included\. Run `evalation-buy price`/);
+  assert.ok(!Object.keys(LINES).some((name) => /^ev-account\.(chosen|short|no-packs|packs-unread|credits$|credits-one)/.test(name)));
   assert.strictEqual(line(ACCOUNT, "The answer to talk it through"), "A run uses one pack credit for each pack it reads. What would you like to know before you buy?");
 });
 
