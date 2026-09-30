@@ -192,9 +192,10 @@ test("a served summary that breaks the wording rules gives way to the plugin's o
 
 test("the same packs ticked again, or nothing ticked, change nothing and save nothing", () => {
   assert.strictEqual(line("ev-packs.nothing-changed", { titles: "SOC 2" }), "Nothing changed. Your checks still use SOC 2.");
-  assert.match(flat, /Where they tick only `None of these` in every question, or tick exactly the packs `chosen` named, run nothing, show `evalation-say ev-packs\.nothing-changed titles="<titles>"`[^.]*and go to step 9\./);
+  assert.match(flat, /Where they tick nothing in every question, or tick exactly the packs `chosen` named, run nothing, show `evalation-say ev-packs\.nothing-changed titles="<titles>"`[^.]*and go to step 9\./);
   assert.doesNotMatch(flat, /pick Other and write that they want none/);
-  assert.match(flat, /Pass the labels they ticked, leaving out `None of these`/);
+  assert.match(flat, /Pass the labels they ticked, each in double quotes/);
+  assert.doesNotMatch(flat, /None of these/);
 });
 
 test("what set prints is never shown, since the saved line says it", () => {
@@ -202,8 +203,8 @@ test("what set prints is never shown, since the saved line says it", () => {
   assert.doesNotMatch(STEP(7), /It prints the titles it saved/);
 });
 
-test("a pack ticked in the same list as None of these is taken", () => {
-  assert.match(STEP(5), /Where a question has `None of these` and a pack ticked, take the pack\./);
+test("a pack list with nothing ticked adds no pack and the command carries on", () => {
+  assert.match(STEP(5), /A question with nothing ticked adds no pack, and the command carries on to the next\./);
 });
 
 test("every pack summary is a catalogue line, one per pack handle, and the chooser uses it where the server sends none", async () => {
@@ -240,20 +241,37 @@ test("titles spreads the packs so every chooser question offers two to four, in 
   }
 });
 
-test("the chooser offers None of these in every question beside at most three packs, each question worded apart, every header in 12 characters", async () => {
+test("the chooser offers only packs, at most four to a question, each question worded apart, every header in 12 characters", async () => {
   for (const count of [2, 5, 9, 18]) {
     const catalogue = { revision: "1", packs: Array.from({ length: count }, (_, at) => ({ pack: `p${at}`, kind: "standard", body: { title: `Pack ${String(at).padStart(2, "0")}`, summary: "A pack." } })).reverse() };
     const ran = await packs(machine(), ["chooser"], catalogue);
     assert.strictEqual(ran.status, 0, ran.stderr);
     const { questions } = JSON.parse(ran.stdout);
-    assert.strictEqual(questions.length, Math.ceil(count / 3), `${count} packs`);
-    assert.ok(questions.every((one) => one.options.at(-1).label === "None of these"), `${count} packs: None of these closes every question`);
-    assert.deepStrictEqual(questions.flatMap((one) => one.options.slice(0, -1).map((each) => each.label)), catalogue.packs.map((one) => one.body.title).reverse());
+    assert.strictEqual(questions.length, Math.ceil(count / 4), `${count} packs`);
+    assert.deepStrictEqual(questions.flatMap((one) => one.options.map((each) => each.label)), catalogue.packs.map((one) => one.body.title).reverse());
     assert.strictEqual(new Set(questions.map((one) => one.question)).size, questions.length, `${count} packs: no two questions read the same`);
     questions.forEach((one, at) => {
       assert.strictEqual(one.header, questions.length > 1 ? `Packs ${at + 1}/${questions.length}` : "Packs");
-      assert.ok(one.header.length <= 12 && one.multiSelect && one.options.length >= 3 && one.options.length <= 4);
-      assert.ok(one.options.slice(0, -1).every((each) => each.description === "A pack."));
+      assert.ok(one.header.length <= 12 && one.multiSelect && one.options.length >= 2 && one.options.length <= 4);
+      assert.ok(one.options.every((each) => each.description === "A pack."));
     });
   }
+});
+
+test("several pack lists with one ticked and the rest left empty save the ticked pack and nothing stops", async () => {
+  const session = "packs-lists";
+  const catalogue = { revision: "1", packs: Array.from({ length: 18 }, (_, at) => ({ pack: `p${at}`, kind: "standard", body: { title: `Pack ${String(at).padStart(2, "0")}`, summary: "A pack." } })) };
+  const home = machine();
+  const { questions } = JSON.parse((await packs(home, ["chooser"], catalogue)).stdout);
+  const ticked = questions[0].options[0].label;
+  const answers = Object.fromEntries(questions.slice(0, 4).map((one, at) => [one.question, at === 0 ? ticked : "[No preference]"]));
+  const hook = require("node:child_process").spawnSync(process.execPath, [join(__dirname, "..", "bin", "evalation-unanswered"), "asked"], { encoding: "utf8",
+    env: { ...process.env, EVALATION_PLUGIN_HOME: home, CLAUDE_CODE_SESSION_ID: session },
+    input: JSON.stringify({ session_id: session, tool_input: { questions: questions.slice(0, 4) }, tool_response: { answers } }) });
+  assert.strictEqual(hook.stdout, "", "a tick list left empty chooses none from it, so the command carries on");
+  process.env.CLAUDE_CODE_SESSION_ID = session;
+  const saved = await packs(home, ["set", ticked], catalogue);
+  delete process.env.CLAUDE_CODE_SESSION_ID;
+  assert.strictEqual(saved.status, 0, saved.stderr);
+  assert.deepStrictEqual(JSON.parse(readFileSync(join(home, "packs.json"), "utf8")).packs, ["p0"]);
 });

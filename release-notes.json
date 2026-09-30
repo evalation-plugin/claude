@@ -1,6 +1,14 @@
 {
   "releases": [
     {
+      "version": "0.69.2",
+      "date": "2026-09-30",
+      "notes": [
+        "In a list you tick, ticking nothing now means none from that list, and the command carries on.",
+        "Tick lists no longer offer a None of these answer."
+      ]
+    },
+    {
       "version": "0.69.1",
       "date": "2026-09-30",
       "notes": [

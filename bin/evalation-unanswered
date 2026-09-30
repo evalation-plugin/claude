@@ -19,11 +19,13 @@ if (process.argv[2] === "prompt") {
   waiting(call.session_id, false);
   process.exit(0);
 }
-const questions = (call.tool_input?.questions ?? []).map((one) => String(one.question ?? ""));
-if (!questions.some((one) => OURS.some((ours) => ours.test(one)))) process.exit(0);
+const asked = call.tool_input?.questions ?? [];
+if (!asked.some((one) => OURS.some((ours) => ours.test(String(one.question ?? ""))))) process.exit(0);
+const single = asked.filter((one) => one.multiSelect !== true).map((one) => String(one.question ?? ""));
 const answers = call.tool_response?.answers;
-const skipped = answers && typeof answers === "object" ? questions.some((one) => unanswered(answers[one]))
-  : /=\\?"\[No preference\]\\?"/i.test(JSON.stringify(call.tool_response ?? ""));
+const text = String(typeof call.tool_response === "string" ? call.tool_response : JSON.stringify(call.tool_response ?? ""));
+const skipped = answers && typeof answers === "object" ? single.some((one) => unanswered(answers[one]))
+  : single.some((one) => text.includes(`"${one}"="[No preference]"`) || text.includes(`\\"${one}\\"=\\"[No preference]\\"`));
 if (!skipped) process.exit(0);
 waiting(call.session_id, true);
 process.stdout.write(`${JSON.stringify({ decision: "block", reason:

@@ -84,11 +84,10 @@ takes those titles too.
    ```
 
    It prints one question for each group of packs, every pack Evalation offers in alphabetical
-   order, with the packs chosen now marked and `None of these` as the last answer of each. Ask its
-   questions, at most four at a time. A question answered `None of these` adds no pack. Where a
-   question has `None of these` and a pack ticked, take the pack.
+   order, with the packs chosen now marked. Ask its questions, at most four at a time. A question
+   with nothing ticked adds no pack, and the command carries on to the next.
 
-   Where they tick only `None of these` in every question, or tick exactly the packs `chosen` named, run nothing,
+   Where they tick nothing in every question, or tick exactly the packs `chosen` named, run nothing,
    show `evalation-say ev-packs.nothing-changed titles="<titles>"` with the <titles> `chosen` printed,
    and go to step 9. Where nothing was chosen before either, show
    `evalation-say ev-packs.nothing-chosen` and stop.
@@ -104,7 +103,7 @@ takes those titles too.
    evalation-packs set "<title>" ["<title>"...]
    ```
 
-   Pass the labels they ticked, leaving out `None of these`, each in double quotes, exactly as the
+   Pass the labels they ticked, each in double quotes, exactly as the
    chooser printed them. Show nothing it prints. Where it fails with `unknown-pack`, a title was
    mistyped: run it again with the labels exactly as the chooser printed them.
 
