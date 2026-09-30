@@ -93,7 +93,7 @@ test("the first Evalation command in a session shows the newer releases once, fr
   const first = await ran("prompt", at, base, prompt("s1", "/ev-run"));
   assert.strictEqual(first.code, 0);
   assert.deepStrictEqual(JSON.parse(first.stdout), { systemMessage: [
-    `Evalation 9.2.0 is out, and you have ${INSTALLED}. Run /plugin marketplace update evalation to get it.`,
+    `Evalation 9.2.0 is out, and you have ${INSTALLED}. To get it, run /plugin, open the Installed tab, pick evalation-plugin and choose Update now, then run /reload-plugins.`,
     "- Runs start faster on large repositories.",
     "- The account command shows who approves you.",
     "- Reports print on A4 by default.",

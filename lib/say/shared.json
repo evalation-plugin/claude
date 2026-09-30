@@ -1,4 +1,4 @@
 {
   "shared.set-kept": { "say": "The question set <set> is kept on your account." },
-  "shared.new-version": { "say": "Evalation <newest> is out, and you have <installed>. Run /plugin marketplace update evalation to get it." }
+  "shared.new-version": { "say": "Evalation <newest> is out, and you have <installed>. To get it, run /plugin, open the Installed tab, pick evalation-plugin and choose Update now, then run /reload-plugins." }
 }
