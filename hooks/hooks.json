@@ -1,5 +1,19 @@
 {
   "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/bin/evalation-news start" }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/bin/evalation-news prompt" }
+        ]
+      }
+    ],
     "PreToolUse": [
       {
         "matcher": "*",

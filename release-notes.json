@@ -1,6 +1,21 @@
 {
   "releases": [
     {
+      "version": "0.66.0",
+      "date": "2026-09-30",
+      "notes": [
+        "The first Evalation command in a session tells you when a newer version is out, and what's in it."
+      ]
+    },
+    {
+      "version": "0.65.1",
+      "date": "2026-09-30",
+      "notes": [
+        "When your organisation has to approve you or a new machine, Evalation tells you who approves it and what to do next.",
+        "Signing in asks which company you're using Evalation for, so a consultant can name their client."
+      ]
+    },
+    {
       "version": "0.65.0",
       "date": "2026-09-30",
       "notes": [

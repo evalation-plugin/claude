@@ -40,5 +40,5 @@ test("every release note is dated, newest first, one to four lines, each held to
 test("every version from 0.63.0 on has a note", () => {
   const { releases } = read("release-notes.json");
   const listed = releases.map((one) => one.version);
-  for (const version of ["0.63.0", "0.63.1", "0.64.0", "0.65.0"]) assert.ok(listed.includes(version), version);
+  for (const version of ["0.63.0", "0.63.1", "0.64.0", "0.65.0", "0.65.1"]) assert.ok(listed.includes(version), version);
 });

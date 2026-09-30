@@ -25,3 +25,17 @@ jobs:
           C:\msys64\usr\bin\pacman.exe -S --noconfirm --needed mingw-w64-x86_64-poppler
           "C:\msys64\mingw64\bin" | Out-File -FilePath $env:GITHUB_PATH -Append
       - run: node --test "checks/*.test.js"
+
+  record-release:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - env:
+          EVALATION_RELEASE_SIGNING_KEY: ${{ secrets.EVALATION_RELEASE_SIGNING_KEY }}
+          EVALATION_RELEASE_URL: ${{ vars.EVALATION_RELEASE_URL }}
+        run: node .github/record-release.js

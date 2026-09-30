@@ -1,3 +1,4 @@
 {
-  "shared.set-kept": { "say": "The question set <set> is kept on your account." }
+  "shared.set-kept": { "say": "The question set <set> is kept on your account." },
+  "shared.new-version": { "say": "Evalation <newest> is out, and you have <installed>. Run /plugin marketplace update evalation to get it." }
 }

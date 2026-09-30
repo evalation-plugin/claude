@@ -1,0 +1,86 @@
+#!/usr/bin/env node
+"use strict";
+
+const { mkdirSync, readFileSync, renameSync, writeFileSync } = require("node:fs");
+const { join } = require("node:path");
+const { pluginHome } = require("../lib/home.js");
+const { spawnScript } = require("../lib/script.js");
+const { entries, say } = require("../lib/say.js");
+
+const SERVER = "https://api.evalation.ai";
+const TIMEOUT_MS = 2000;
+const MOST_SESSIONS = 200;
+const VERSION = /^\d{1,6}\.\d{1,6}\.\d{1,6}$/;
+const COMMAND = /^\s*\/(evalation-plugin:)?ev-[a-z]/;
+
+const installed = () => JSON.parse(readFileSync(join(__dirname, "..", ".claude-plugin", "plugin.json"), "utf8")).version;
+const cacheAt = () => join(pluginHome(), "news.json");
+const toldAt = () => join(pluginHome(), "news-told.json");
+
+function readJson(file) {
+  try {
+    return JSON.parse(readFileSync(file, "utf8"));
+  } catch {
+    return null;
+  }
+}
+
+function keep(file, value) {
+  mkdirSync(pluginHome(), { recursive: true, mode: 0o700 });
+  const draft = `${file}.${process.pid}`;
+  writeFileSync(draft, JSON.stringify(value));
+  renameSync(draft, file);
+}
+
+function usable(releases) {
+  return Array.isArray(releases) && releases.every((one) => VERSION.test(String(one?.version))
+    && Array.isArray(one.notes) && one.notes.every((note) => typeof note === "string" && note.trim() && !/[\u0000-\u001f]/.test(note)));
+}
+
+async function fetchNewer() {
+  const version = installed();
+  const base = process.env.EVALATION_SERVER || readJson(join(pluginHome(), "evalation.local"))?.server || SERVER;
+  const answer = await fetch(`${base}/releases?after=${encodeURIComponent(version)}`, { signal: AbortSignal.timeout(TIMEOUT_MS) });
+  if (!answer.ok) return;
+  const releases = (await answer.json())?.releases;
+  if (usable(releases)) keep(cacheAt(), { installed: version, releases });
+}
+
+function stdin() {
+  try {
+    return JSON.parse(readFileSync(0, "utf8"));
+  } catch {
+    return null;
+  }
+}
+
+function notice(said) {
+  const session = said?.session_id;
+  if (typeof session !== "string" || !COMMAND.test(String(said.prompt ?? ""))) return;
+  const known = readJson(cacheAt());
+  if (!known || known.installed !== installed() || !usable(known.releases)) return;
+  const told = readJson(toldAt());
+  const sessions = Array.isArray(told) ? told : [];
+  if (sessions.includes(session)) return;
+  keep(toldAt(), [...sessions, session].slice(-MOST_SESSIONS));
+  if (known.releases.length === 0) return;
+  const newest = known.releases.at(-1).version;
+  const lines = [say(entries(), "shared.new-version", { newest, installed: installed() }),
+    ...known.releases.flatMap((one) => one.notes).map((note) => `- ${note.trim()}`)];
+  process.stdout.write(`${JSON.stringify({ systemMessage: lines.join("\n") })}\n`);
+}
+
+async function main() {
+  const verb = process.argv[2];
+  try {
+    if (verb === "fetch") await fetchNewer();
+    else if (verb === "start") {
+      stdin();
+      spawnScript("evalation-news", ["fetch"], { detached: true, stdio: "ignore", windowsHide: true }).unref();
+    } else if (verb === "prompt") notice(stdin());
+  } catch {
+    return;
+  }
+}
+
+if (require.main === module) main();
