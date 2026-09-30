@@ -65,9 +65,8 @@ function notice(said) {
   keep(toldAt(), [...sessions, session].slice(-MOST_SESSIONS));
   if (known.releases.length === 0) return;
   const newest = known.releases.at(-1).version;
-  const lines = [say(entries(), "shared.new-version", { newest, installed: installed() }),
-    ...known.releases.flatMap((one) => one.notes).map((note) => `- ${note.trim()}`)];
-  process.stdout.write(`${JSON.stringify({ systemMessage: lines.join("\n") })}\n`);
+  const line = say(entries(), "shared.new-version", { newest, installed: installed() });
+  process.stdout.write(`${JSON.stringify({ systemMessage: line })}\n`);
 }
 
 async function main() {

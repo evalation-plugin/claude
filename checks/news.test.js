@@ -86,18 +86,14 @@ test("the session start hook returns at once and leaves the fetch running on its
   assert.strictEqual(asked.length, 1);
 });
 
-test("the first Evalation command in a session shows the newer releases once, from what this machine already holds", async () => {
+test("the first Evalation command in a session says once, in one line and with no release notes, that a newer version is out", async () => {
   const at = home();
   cached(at, RELEASES);
   const { held, asked, base } = await standIn(() => [200, { releases: [] }]);
   const first = await ran("prompt", at, base, prompt("s1", "/ev-run"));
   assert.strictEqual(first.code, 0);
-  assert.deepStrictEqual(JSON.parse(first.stdout), { systemMessage: [
-    `Evalation 9.2.0 is out, and you have ${INSTALLED}. To get it, run /plugin, open the Installed tab, pick evalation-plugin and choose Update now, then run /reload-plugins.`,
-    "- Runs start faster on large repositories.",
-    "- The account command shows who approves you.",
-    "- Reports print on A4 by default.",
-  ].join("\n") });
+  assert.deepStrictEqual(JSON.parse(first.stdout), { systemMessage:
+    `Evalation 9.2.0 is out, and you have ${INSTALLED}. To get it, run /plugin, open the Installed tab, pick evalation-plugin and choose Update now, then run /reload-plugins.` });
   assert.strictEqual((await ran("prompt", at, base, prompt("s1", "/ev-account"))).stdout, "", "once per session");
   assert.notStrictEqual((await ran("prompt", at, base, prompt("s2", "/evalation-plugin:ev-packs"))).stdout, "", "again in a new session");
   held.close();
