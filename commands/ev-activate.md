@@ -119,12 +119,24 @@ choosing it does.
    first stop the waiting command with the tool that stops a background command, TaskStop in Claude
    Code, and treat the `stopped` line it then prints as expected.
 
-6. **Read what it printed.** On success it prints `signed_in_as`. Where that holds an email, show
+6. **Ask which company this sign-in is for.** Where it prints `question`, ask it with AskUserQuestion,
+   passing its questions unchanged. Where they pick the company it offers, or type a name of their
+   own, such as a client's, run `evalation-activate company "<answer>"` with the label they picked or
+   the words they typed, in double quotes. Where they pick the answer to leave it for now, or leave
+   the question unanswered, run `evalation-activate company --later`. Where they pick the answer to type the name and type nothing, ask the question again. Where either fails with
+   `company-unusable`, show `evalation-say ev-activate.company-unusable` and ask the question again.
+   Where it fails with `company-unsent`, show `evalation-say ev-activate.company-unsent` and go on to
+   the next step as though it printed nothing. Use what it prints in place of the sign-in's own output
+   for the `said` line in the next step.
+
+7. **Read what it printed.** Where it prints `said`, show it exactly as printed in place of the lines below, and stop. It says where the person stands with their organisation's approval and what to do, so give no next step, and when `/ev-start` ran this, it stops too.
+
+   On success it prints `signed_in_as`. Where that holds an email, show
    `evalation-say ev-activate.signed-in` with it as `email`. Where it is empty, show
    `evalation-say ev-activate.ready`. Then show `evalation-say ev-activate.other-computer`. Never
    show the `installation` name it also prints.
 
-7. **Give the one next step.** When `/ev-start` ran this, say nothing more and go back to it. Run on
+8. **Give the one next step.** When `/ev-start` ran this, say nothing more and go back to it. Run on
    its own, show `evalation-say ev-activate.next`.
 
 ## When it does not work
