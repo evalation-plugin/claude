@@ -106,6 +106,11 @@ test("the pack settles only what it marks: org-level, or not applicable when not
   lapsed.answers[1].status = "not-applicable";
   assert.deepStrictEqual(about(checked(lapsed, tree), "soc2/CC1.1"), []);
 
+  const exempt = run(tree);
+  Object.assign(exempt.packs[0].entries_asked[1], { applies: false, bears_on: "repository" });
+  exempt.answers[1].status = "not-applicable";
+  assert.deepStrictEqual(about(checked(exempt, tree), "soc2/CC1.1"), [], "a clause the pack marks as not applying is settled as does not apply");
+
   const dodged = run(tree);
   dodged.answers[0] = { pack: "soc2", entry: "CC6.1", status: "not-applicable", from: "authored", because: "x", justification: "y" };
   assert.match(about(checked(dodged, tree), "soc2/CC6.1").join(), /the pack has this entry read from the repository/);
