@@ -91,7 +91,7 @@ test("a version already recorded with the same notes passes, and a refusal, a wr
 });
 
 test("the checks workflow records the release on a push to main, after the checks pass, with the key from the secret", () => {
-  const flow = readFileSync(join(__dirname, "..", ".github", "workflows", "checks.yml"), "utf8");
+  const flow = readFileSync(join(__dirname, "..", ".github", "workflows", "checks.yml"), "utf8").replace(/\r\n/g, "\n");
   assert.match(flow, /record-release:\n\s+if: github\.event_name == 'push' && github\.ref == 'refs\/heads\/main'\n\s+needs: checks/);
   assert.match(flow, /EVALATION_RELEASE_SIGNING_KEY: \$\{\{ secrets\.EVALATION_RELEASE_SIGNING_KEY \}\}/);
   assert.match(flow, /EVALATION_RELEASE_URL: \$\{\{ vars\.EVALATION_RELEASE_URL \}\}/);

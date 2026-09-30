@@ -4,6 +4,7 @@ const test = require("node:test");
 const assert = require("node:assert");
 const { readFileSync } = require("node:fs");
 const { join } = require("node:path");
+require("./fixture.js");
 const { held } = require("../lib/prose.js");
 
 const ROOT = join(__dirname, "..");
