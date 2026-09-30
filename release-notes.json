@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "0.69.8",
+      "date": "2026-10-01",
+      "notes": [
+        "The note that a newer version is out now reads as a plain line from the command, without a label in front of it."
+      ]
+    },
+    {
       "version": "0.69.7",
       "date": "2026-10-01",
       "notes": [
