@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "0.67.0",
+      "date": "2026-09-30",
+      "notes": [
+        "You can buy pack credits from /ev-account. It opens Stripe's payment page, and nothing is charged until you pay there."
+      ]
+    },
+    {
       "version": "0.66.1",
       "date": "2026-09-30",
       "notes": [

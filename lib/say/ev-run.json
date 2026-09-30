@@ -91,9 +91,9 @@
   "ev-run.no-name": { "say": "The product was given no name for the reports, so nothing was saved and no pack credits were used. Run /ev-run again and name it when asked." },
   "ev-run.no-last": { "say": "This folder has no earlier run on this machine, so there are no reports to print again. No pack credits were used." },
 
-  "ev-run.start-short": { "say": "This run reads <count> packs, which needs <count> pack credits, and you have <left>. It did not start, and no pack credits were used. To buy more pack credits, email support@evalation.ai, then run /ev-run again, or choose fewer packs." },
-  "ev-run.start-short-none": { "say": "This run reads <count> packs, which needs <count> pack credits, and you have none. It did not start, and no pack credits were used. To buy more pack credits, email support@evalation.ai, then run /ev-run again, or choose fewer packs." },
-  "ev-run.start-short-one": { "say": "This run reads one pack, which needs one pack credit, and you have none. It did not start, and no pack credits were used. To buy more pack credits, email support@evalation.ai, then run /ev-run again." },
+  "ev-run.start-short": { "say": "This run reads <count> packs, which needs <count> pack credits, and you have <left>. It did not start, and no pack credits were used. To buy more pack credits, run /ev-account, then run /ev-run again, or choose fewer packs." },
+  "ev-run.start-short-none": { "say": "This run reads <count> packs, which needs <count> pack credits, and you have none. It did not start, and no pack credits were used. To buy more pack credits, run /ev-account, then run /ev-run again, or choose fewer packs." },
+  "ev-run.start-short-one": { "say": "This run reads one pack, which needs one pack credit, and you have none. It did not start, and no pack credits were used. To buy more pack credits, run /ev-account, then run /ev-run again." },
   "ev-run.start-ended": { "say": "This machine's access to Evalation has ended, so the run did not start and no pack credits were used. To renew it, email support@evalation.ai." },
   "ev-run.start-not-accepted": { "say": "Evalation's server did not accept this machine's sign-in, so the run did not start and no pack credits were used. Run /ev-account to see why." },
   "ev-run.start-signed-out": { "say": "This machine is not set up for Evalation yet, so the run did not start and no pack credits were used. Run /ev-start to set it up." },
@@ -189,9 +189,9 @@
   "ev-run.sets-pick": { "ask": "Which of your question sets should <pack> use? Tick each set to use.", "header": "Sets", "several": true, "options": "given" },
   "ev-run.only-sets": { "ask": "Which of your question sets should this run answer? Tick each set to use. No pack credits are used.", "header": "Sets", "several": true, "options": "given" },
 
-  "ev-run.short": { "say": "You have <credits> pack credits and chose <count> packs. To buy more pack credits, email support@evalation.ai, then run /ev-run again, or choose fewer packs." },
-  "ev-run.short-one-credit": { "say": "You have one pack credit and chose <count> packs. To buy more pack credits, email support@evalation.ai, then run /ev-run again, or choose fewer packs." },
-  "ev-run.short-one-pack": { "say": "You have <credits> pack credits and chose one pack. To buy more pack credits, email support@evalation.ai, then run /ev-run again, or choose fewer packs." },
+  "ev-run.short": { "say": "You have <credits> pack credits and chose <count> packs. To buy more pack credits, run /ev-account, then run /ev-run again, or choose fewer packs." },
+  "ev-run.short-one-credit": { "say": "You have one pack credit and chose <count> packs. To buy more pack credits, run /ev-account, then run /ev-run again, or choose fewer packs." },
+  "ev-run.short-one-pack": { "say": "You have <credits> pack credits and chose one pack. To buy more pack credits, run /ev-account, then run /ev-run again, or choose fewer packs." },
 
   "ev-run.tools-installed": { "say": "<tools>, the free security tools this review uses, are already installed." },
   "ev-run.tool-installed": { "say": "<tool>, the free security tool this review uses, is already installed." },

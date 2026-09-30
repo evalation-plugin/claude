@@ -94,7 +94,9 @@ test("the account reply is worded exactly for each case, says the credits once, 
   assert.match(line(ACCOUNT, "With one pack"), /A run against it uses one pack credit\./);
   assert.doesNotMatch(flat(ACCOUNT), /and how many are left/);
   assert.match(flat(ACCOUNT), /In place of the line above,/);
-  assert.strictEqual(line(ACCOUNT, "Where <N> is 0"), "To buy pack credits, email support@evalation.ai.");
+  assert.doesNotMatch(flat(ACCOUNT), /Where <N> is 0/, "the buy offer follows at any balance, so no line waits for 0");
+  assert.match(flat(ACCOUNT), /Offer to buy pack credits\*\*, whatever the balance, 0 included\. Run `evalation-buy price`/);
+  assert.strictEqual(line(ACCOUNT, "The answer to talk it through"), "A run uses one pack credit for each pack it reads. What would you like to know before you buy?");
 });
 
 test("setting up opens and closes in fixed words, and names no pack credit before a pack is explained", () => {
@@ -105,7 +107,7 @@ test("setting up opens and closes in fixed words, and names no pack credit befor
   assert.strictEqual(line(step(3), "Take them through signing in"), "Signing in sets up your Evalation account, or links this machine to it if you already have one.");
   assert.doesNotMatch(step(3), /pack credit|in your own words/);
   assert.strictEqual(line(step(4), "Otherwise"), "You are set up to check code against <titles>.");
-  assert.strictEqual(line(step(5), "0 pack credits"), "To buy pack credits, email support@evalation.ai.");
+  assert.strictEqual(line(step(5), "0 pack credits"), "To buy pack credits, run /ev-account.");
   assert.match(words, /Close in up to four sentences/);
 });
 
