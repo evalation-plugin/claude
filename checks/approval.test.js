@@ -259,11 +259,12 @@ test("leaving the company unanswered sends nothing, and says the request goes sh
 
 test("a company name that is empty or too long is refused before it is sent, so the question can be asked again", async () => {
   const { company, server } = await signedIn(done(WAITING));
-  for (const name of ["   ", "x".repeat(121)]) {
-    const refused = await company(name);
-    assert.strictEqual(refused.code, 1);
-    assert.match(refused.stderr, /^company-unusable: /);
-  }
+  const blank = await company("   ");
+  assert.strictEqual(blank.code, 3);
+  assert.strictEqual(JSON.parse(blank.stdout).kind, "unanswered");
+  const long = await company("x".repeat(121));
+  assert.strictEqual(long.code, 1);
+  assert.match(long.stderr, /^company-unusable: /);
   server.held.close();
   assert.ok(!server.asked.some((one) => one.path === "/activate/company"));
   assert.strictEqual(say(LINES, "ev-activate.company-unusable"), "Type a company name of up to 120 characters.");
