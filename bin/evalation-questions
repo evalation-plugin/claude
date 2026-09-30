@@ -14,7 +14,7 @@ const { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writ
 const { randomBytes } = require("node:crypto");
 const { pluginHome } = require("../lib/home.js");
 const { join } = require("node:path");
-const { CRITERIA, approval, askServer, claimsQuestion, dropFromAccount, extensible, fetched, fromAccount, grid, grouped, keepOnAccount, listed, listSaid, namesQuestion,
+const { CRITERIA, approval, askServer, changed, claimsQuestion, dropFromAccount, extensible, fetched, fromAccount, grid, grouped, keepOnAccount, listed, listSaid, namesQuestion,
   packNamed, packQuestion, progress, saveChecked, saved, setsQuestion, shown, verdict, withoutMark } = require("../lib/questions.js");
 const { entries: lines, say } = require("../lib/say.js");
 const { answered } = require("../lib/answer.js");
@@ -96,6 +96,7 @@ function opened(home, name, ask = askServer, { run = false } = {}) {
     const draft = copyOf(home, name);
     writeFileSync(draft, JSON.stringify(withoutMark(kept), null, 2) + "\n", { mode: 0o600 });
     rmSync(`${draft}.said.json`, { force: true });
+    changed(draft, kept);
     return draft;
   } catch (thrown) {
     if (!NAME.test(String(name))) throw thrown;
@@ -206,7 +207,7 @@ function main() {
     try {
       const out = verb === "choose-claims" ? claimsQuestion(read(arg))
         : verb === "choose-name" ? namesQuestion([arg, ...flags], listed(HOME).sets.map((one) => one.name))
-          : verb === "approve" ? approval(HOME, read(arg)) : shown(read(arg));
+          : verb === "approve" ? approval(HOME, read(arg)) : [changed(arg, read(arg)).join("\n"), shown(read(arg))].filter(Boolean).join("\n\n");
       process.stdout.write(`${out}\n`);
     } catch (thrown) {
       fail(thrown.message);

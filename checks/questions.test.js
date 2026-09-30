@@ -59,8 +59,7 @@ test("a question keeps every requirement it needs, with no upper limit, and one 
   assert.deepStrictEqual([topics.about, topics.fault], ["question", "YES"]);
   const command = readFileSync(join(__dirname, "..", "commands", "ev-questions.md"), "utf8");
   assert.doesNotMatch(command, /2 to 8/);
-  assert.match(command, /evalation-say ev-questions\.split/);
-  assert.match(line("ev-questions.split", { asked: "is sign-in safe", questions: "Q2 and Q3" }), /became Q2 and Q3/);
+  assert.match(line("ev-questions.split", { asked: "is sign-in safe", questions: "Sign-in limits and Session limits" }), /became Sign-in limits and Session limits/);
 });
 
 test("a question may ask what git history shows, settled by the history phase", () => {
@@ -970,10 +969,9 @@ test("walk five: pages after the first ask which saved set to change", () => {
   assert.strictEqual(JSON.parse(setsQuestion({ account: "reached", sets })).questions[0].question, "Would you like to change a saved set, or write a new one?");
 });
 
-test("walk five: a claim that split gets a line naming the claim", () => {
-  assert.strictEqual(line("ev-questions.split-claim", { asked: "Nothing ships broken", questions: "Q2 and Q5" }),
-    "The claim 'Nothing ships broken' became Q2 and Q5, since it covers more than one topic and each topic is checked on its own.");
-  assert.match(commandText().replace(/\s+/g, " "), /evalation-say ev-questions\.split-claim "asked=<the claim>"/);
+test("walk five: a claim that split gets a line naming the claim and the new questions by title", () => {
+  assert.strictEqual(line("ev-questions.split", { asked: "Nothing ships broken", questions: "Release checks and Rollback steps" }),
+    "'Nothing ships broken' became Release checks and Rollback steps, since it covers more than one topic and each topic is checked on its own.");
 });
 
 test("walk five: a question keeps its number, and a removed question's number is never used again", () => {

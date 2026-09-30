@@ -1,6 +1,14 @@
 {
   "releases": [
     {
+      "version": "0.69.5",
+      "date": "2026-09-30",
+      "notes": [
+        "When your questions are checked, you're told only about changes to the questions you wrote, each by its title and once.",
+        "A requirement that names what your question asks about, such as a list of the third party scripts for a question about them, is now kept."
+      ]
+    },
+    {
       "version": "0.69.4",
       "date": "2026-09-30",
       "notes": [

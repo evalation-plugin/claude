@@ -458,8 +458,12 @@ and each answer's label says what choosing it does.
    `evalation-say ev-run.citations`.
 
    ```
-   evalation-findings merge run.json --read-by "<model>" part-*.json | evalation-findings - <target>
+   evalation-findings merge run.json --read-by "<model>" part-*.json
+   evalation-findings "<the path merge printed>" <target>
    ```
+
+   Run each in its own call. `merge` keeps the merged answers beside run.json and prints only
+   their path.
 
    `--read-by` names the model that did the reading, as it names itself, for example
    `Claude Opus 5.5`. Nothing else can observe it, and a deliverable that cannot say what produced a

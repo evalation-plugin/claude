@@ -172,6 +172,9 @@ For each question, draft:
   Wrong: Personal data passed into third party scripts. Finding it is bad news.
   Right: No personal data, such as email addresses, passed into third party script calls.
 
+  Wrong: An incident response plan, for a question about third party scripts. Outside its question.
+  Right: A list of the third party scripts the product loads, which names the question's own subject.
+
   Wrong: A short session lifetime. A judgement.
   Right: A session lifetime set in configuration.
 
@@ -240,20 +243,9 @@ that `uses a judgement` is reworded to name what it asks about. The person is ne
 to decide. Never show a set while `check` names anything to fix or a question waiting for the
 independent checker.
 
-When you show the set, first show one line for each change the check made:
-
-- For each thing removed, `evalation-say ev-questions.dropped "words=<its words>" "why=<the reason>"`,
-  with the reason `check` gave for it word for word, such as `holds two or more conditions`.
-- For each question split, `evalation-say ev-questions.split "asked=<the person's words>" "questions=<the new numbers, such as Q2 and Q5>"`
-  where the person typed it, or
-  `evalation-say ev-questions.split-claim "asked=<the claim>" "questions=<the new numbers>"` where it
-  came from a claim on a website or in a document.
-- For each question kept as the organisation's,
-  `evalation-say ev-questions.kept-organisation "question=<its number>"`, or where you added a
-  question about the same risk,
-  `evalation-say ev-questions.kept-organisation-added "question=<its number>" "added=<the added number>"`.
-
-Then show the whole set with `evalation-questions show "<file>"`. Then ask the question
+Say nothing about a change to a requirement you drafted: the person reviews every requirement in
+the set shown. Show the set with `evalation-questions show "<file>"`, as printed. It first says each
+change to the person's own questions once, by title, then the whole set. Then ask the question
 `evalation-questions approve "<file>"` prints, before anything is saved. Run `show` and `approve`
 each in a call of its own, with no other command joined to either. The question asks whether to save the
 set as written where the last `check` answered `holds`, or whether to save unchecked where it named
