@@ -5,42 +5,54 @@ const { readFileSync } = require("node:fs");
 const { join } = require("node:path");
 
 const ROOT = join(__dirname, "..");
-const PATH = "/releases/record";
+const SIGNED_PATH = "/releases/record";
+const ASSET = "release-record.json";
 
 function fail(reason) {
   process.stderr.write(`${reason}\n`);
   process.exit(1);
 }
 
-async function record(base, key, { version, date, notes }) {
+function signed(key, { version, date, notes }) {
   const body = JSON.stringify({ version, date, notes });
   const at = Math.floor(Date.now() / 1000);
   const digest = createHash("sha256").update(body, "utf8").digest("hex");
-  const signature = sign(null, Buffer.from(`evalation.ask.v1 ${PATH} ${at} ${digest}`, "utf8"), key).toString("base64");
+  const signature = sign(null, Buffer.from(`evalation.ask.v1 ${SIGNED_PATH} ${at} ${digest}`, "utf8"), key).toString("base64");
+  return JSON.stringify({ at, signature, body });
+}
+
+async function gitHub(token, what, url, { method = "GET", body, type = "application/json", missing = false } = {}) {
   let answer;
   try {
-    answer = await fetch(`${base}${PATH}`, {
-      method: "POST",
-      headers: { "content-type": "application/json", "x-evalation-release-at": String(at), "x-evalation-release-signature": signature },
+    answer = await fetch(url, {
+      method,
+      headers: { authorization: `Bearer ${token}`, accept: "application/vnd.github+json", "content-type": type, "user-agent": "evalation-release" },
       body,
       signal: AbortSignal.timeout(30_000),
     });
   } catch (thrown) {
-    fail(`${base}${PATH} couldn't be reached while recording ${version}: ${thrown.message}`);
+    fail(`GitHub couldn't be reached while ${what}: ${thrown.message}`);
   }
+  if (missing && answer.status === 404) return null;
   const text = await answer.text();
-  if (answer.headers.get("cf-mitigated") === "challenge" || (/text\/html/.test(answer.headers.get("content-type") ?? "") && /Just a moment/.test(text))) {
-    fail("Cloudflare challenged this runner before it reached our server. Allow POST /releases/record in the Cloudflare WAF, or run this job on our own runner.");
+  if (!answer.ok) {
+    let message = text;
+    try {
+      message = JSON.parse(text).message ?? text;
+    } catch {}
+    fail(`GitHub refused ${what} with ${answer.status}: ${message}`);
   }
-  if (!answer.ok) fail(`recording ${version} was refused with ${answer.status}: ${text}`);
-  process.stdout.write(JSON.parse(text).already ? `${version} was already recorded with these notes\n` : `recorded ${version}\n`);
+  return JSON.parse(text);
 }
 
 async function main() {
   const pem = process.env.EVALATION_RELEASE_SIGNING_KEY ?? "";
-  const base = (process.env.EVALATION_RELEASE_URL ?? "").replace(/\/+$/, "");
+  const token = process.env.GITHUB_TOKEN ?? "";
+  const api = (process.env.GITHUB_API_URL || "https://api.github.com").replace(/\/+$/, "");
+  const repository = process.env.GITHUB_REPOSITORY || "evalation-plugin/claude";
+  const target = process.env.GITHUB_SHA || "main";
   if (!pem.trim()) fail("EVALATION_RELEASE_SIGNING_KEY is not set, so the release can't be signed. Set the secret on the repository.");
-  if (!base) fail("EVALATION_RELEASE_URL is not set, so there's nowhere to record the release. Set the variable on the repository.");
+  if (!token.trim()) fail("GITHUB_TOKEN is not set, so the record can't be attached to the release. Set it to a token that can write releases.");
   let key;
   try {
     key = createPrivateKey(pem);
@@ -49,9 +61,22 @@ async function main() {
   }
 
   const { version } = JSON.parse(readFileSync(join(ROOT, ".claude-plugin", "plugin.json"), "utf8"));
-  const releases = JSON.parse(readFileSync(join(ROOT, "release-notes.json"), "utf8")).releases;
-  if (!releases.some((one) => one.version === version)) fail(`release-notes.json has no entry for ${version}`);
-  for (const one of [...releases].reverse()) await record(base, key, one);
+  const entry = JSON.parse(readFileSync(join(ROOT, "release-notes.json"), "utf8")).releases.find((one) => one.version === version);
+  if (!entry) fail(`release-notes.json has no entry for ${version}`);
+  const tag = `v${version}`;
+
+  let release = await gitHub(token, `reading release ${tag}`, `${api}/repos/${repository}/releases/tags/${tag}`, { missing: true });
+  if (release?.assets?.some((one) => one.name === ASSET)) {
+    process.stdout.write(`${tag} already carries its signed record\n`);
+    return;
+  }
+  if (!release) {
+    const body = JSON.stringify({ tag_name: tag, target_commitish: target, name: version, body: entry.notes.map((note) => `- ${note}`).join("\n") });
+    release = await gitHub(token, `creating release ${tag}`, `${api}/repos/${repository}/releases`, { method: "POST", body });
+  }
+  const upload = `${release.upload_url.replace(/\{.*\}$/, "")}?name=${ASSET}`;
+  await gitHub(token, `attaching the record to ${tag}`, upload, { method: "POST", body: signed(key, entry) });
+  process.stdout.write(`attached the signed record to ${tag}\n`);
 }
 
 main();

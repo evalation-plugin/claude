@@ -3,39 +3,55 @@
 const test = require("node:test");
 const assert = require("node:assert");
 const { spawn } = require("node:child_process");
-const { createHash, createPublicKey, generateKeyPairSync, verify } = require("node:crypto");
+const { createHash, generateKeyPairSync, verify } = require("node:crypto");
 const { createServer } = require("node:http");
 const { readFileSync } = require("node:fs");
 const { join } = require("node:path");
 
 const RECORD = join(__dirname, "..", ".github", "record-release.js");
 const PLUGIN = JSON.parse(readFileSync(join(__dirname, "..", ".claude-plugin", "plugin.json"), "utf8"));
-const ALL = JSON.parse(readFileSync(join(__dirname, "..", "release-notes.json"), "utf8")).releases;
-const OLDEST_FIRST = [...ALL].reverse().map(({ version, date, notes }) => ({ version, date, notes }));
+const ENTRY = JSON.parse(readFileSync(join(__dirname, "..", "release-notes.json"), "utf8")).releases.find((one) => one.version === PLUGIN.version);
+const TAG = `v${PLUGIN.version}`;
+const REPO = "evalation-plugin/claude";
 
-function releaseServer(publicKey, answer = () => [200, { version: PLUGIN.version, already: false }]) {
-  const asked = [];
+function gitHub({ release = null, answer = null } = {}) {
+  const state = { release, asked: [], uploaded: [] };
   const held = createServer((req, res) => {
-    let body = "";
-    req.on("data", (chunk) => { body += chunk; });
+    const chunks = [];
+    req.on("data", (chunk) => chunks.push(chunk));
     req.on("end", () => {
-      const at = req.headers["x-evalation-release-at"];
-      const digest = createHash("sha256").update(body).digest("hex");
-      const signed = verify(null, Buffer.from(`evalation.ask.v1 ${req.url} ${at} ${digest}`), publicKey,
-        Buffer.from(String(req.headers["x-evalation-release-signature"] ?? ""), "base64"));
-      asked.push({ path: req.url, body: JSON.parse(body), signed, at: Number(at) });
-      const [code, reply] = signed ? answer() : [403, { refusals: [{ observed: "not signed", failure: "not-release-key" }] }];
-      res.writeHead(code, { "content-type": "application/json", connection: "close" });
-      res.end(JSON.stringify(reply));
+      const body = Buffer.concat(chunks);
+      const url = new URL(req.url, "http://stand-in");
+      state.asked.push({ method: req.method, path: url.pathname, auth: req.headers.authorization });
+      const reply = (code, value) => {
+        res.writeHead(code, { "content-type": "application/json", connection: "close" });
+        res.end(JSON.stringify(value));
+      };
+      if (answer) return reply(...answer);
+      if (req.method === "GET" && url.pathname === `/repos/${REPO}/releases/tags/${TAG}`) {
+        return state.release ? reply(200, state.release) : reply(404, { message: "Not Found" });
+      }
+      if (req.method === "POST" && url.pathname === `/repos/${REPO}/releases`) {
+        const asked = JSON.parse(body.toString("utf8"));
+        state.created = asked;
+        state.release = { id: 7, tag_name: asked.tag_name, assets: [], upload_url: `${base()}/uploads/repos/${REPO}/releases/7/assets{?name,label}` };
+        return reply(201, state.release);
+      }
+      if (req.method === "POST" && url.pathname === `/uploads/repos/${REPO}/releases/7/assets`) {
+        state.uploaded.push({ name: url.searchParams.get("name"), type: req.headers["content-type"], body });
+        return reply(201, { name: url.searchParams.get("name") });
+      }
+      return reply(500, { message: `unexpected ${req.method} ${url.pathname}` });
     });
   });
   held.unref();
-  return new Promise((resolve) => held.listen(0, "127.0.0.1", () => resolve({ held, asked, base: `http://127.0.0.1:${held.address().port}` })));
+  const base = () => `http://127.0.0.1:${held.address().port}`;
+  return new Promise((resolve) => held.listen(0, "127.0.0.1", () => resolve({ held, state, base: base() })));
 }
 
 function ran(env) {
   return new Promise((resolve) => {
-    const child = spawn(process.execPath, [RECORD], { env: { ...process.env, ...env } });
+    const child = spawn(process.execPath, [RECORD], { env: { ...process.env, GITHUB_REPOSITORY: REPO, GITHUB_SHA: "abc123", ...env } });
     let stdout = "";
     let stderr = "";
     child.stdout.on("data", (chunk) => { stdout += chunk; });
@@ -49,79 +65,68 @@ const pair = () => {
   return { pem: privateKey.export({ type: "pkcs8", format: "pem" }), publicKey };
 };
 
-test("the release step records every version's notes, oldest first, signed with the release key the way the server checks it", async () => {
+test("the release step creates the version's release and attaches its record, signed the way the server checks it", async () => {
   const key = pair();
-  const { held, asked, base } = await releaseServer(key.publicKey);
-  const done = await ran({ EVALATION_RELEASE_SIGNING_KEY: key.pem, EVALATION_RELEASE_URL: base });
+  const { held, state, base } = await gitHub();
+  const done = await ran({ EVALATION_RELEASE_SIGNING_KEY: key.pem, GITHUB_TOKEN: "t0ken", GITHUB_API_URL: base });
   held.close();
   assert.strictEqual(done.code, 0, done.stderr);
-  assert.ok(OLDEST_FIRST.length >= 6);
-  assert.strictEqual(OLDEST_FIRST.at(-1).version, PLUGIN.version);
-  assert.deepStrictEqual(asked.map((one) => one.body), OLDEST_FIRST);
-  assert.ok(asked.every((one) => one.path === "/releases/record" && one.signed && Math.abs(one.at - Date.now() / 1000) < 60));
-  for (const one of OLDEST_FIRST) assert.match(done.stdout, new RegExp(`recorded ${one.version.replace(/\./g, "\\.")}\\n`));
+  assert.deepStrictEqual(state.created, { tag_name: TAG, target_commitish: "abc123", name: PLUGIN.version, body: ENTRY.notes.map((note) => `- ${note}`).join("\n") });
+  assert.ok(state.asked.every((one) => one.auth === "Bearer t0ken"));
+  assert.strictEqual(state.uploaded.length, 1);
+  const [asset] = state.uploaded;
+  assert.strictEqual(asset.name, "release-record.json");
+  assert.strictEqual(asset.type, "application/json");
+  const record = JSON.parse(asset.body.toString("utf8"));
+  assert.deepStrictEqual(JSON.parse(record.body), { version: ENTRY.version, date: ENTRY.date, notes: ENTRY.notes });
+  const digest = createHash("sha256").update(record.body, "utf8").digest("hex");
+  assert.ok(verify(null, Buffer.from(`evalation.ask.v1 /releases/record ${record.at} ${digest}`), key.publicKey, Buffer.from(record.signature, "base64")));
+  assert.ok(Math.abs(record.at - Date.now() / 1000) < 60);
+  assert.strictEqual(done.stdout, `attached the signed record to ${TAG}\n`);
 });
 
-test("a version already recorded with the same notes passes, and a refusal, a wrong key or a missing setting fails naming why", async () => {
+test("a release that already carries its record is left alone, and an existing release without one gets it", async () => {
   const key = pair();
-  const again = await releaseServer(key.publicKey, () => [200, { version: PLUGIN.version, already: true }]);
-  const already = await ran({ EVALATION_RELEASE_SIGNING_KEY: key.pem, EVALATION_RELEASE_URL: again.base });
-  again.held.close();
+  const carried = await gitHub({ release: { id: 7, tag_name: TAG, assets: [{ name: "release-record.json" }], upload_url: "unused" } });
+  const already = await ran({ EVALATION_RELEASE_SIGNING_KEY: key.pem, GITHUB_TOKEN: "t0ken", GITHUB_API_URL: carried.base });
+  carried.held.close();
   assert.strictEqual(already.code, 0, already.stderr);
-  assert.strictEqual(already.stdout.split("\n").filter((line) => /was already recorded with these notes$/.test(line)).length, OLDEST_FIRST.length);
+  assert.strictEqual(already.stdout, `${TAG} already carries its signed record\n`);
+  assert.ok(carried.state.asked.every((one) => one.method === "GET"));
 
-  let count = 0;
-  const partway = await releaseServer(key.publicKey, () => {
-    count += 1;
-    return count === 2 ? [422, { refusals: [{ observed: "the date is wrong" }] }] : [200, { already: false }];
-  });
-  const stopped = await ran({ EVALATION_RELEASE_SIGNING_KEY: key.pem, EVALATION_RELEASE_URL: partway.base });
-  partway.held.close();
-  assert.strictEqual(stopped.code, 1);
-  assert.match(stopped.stderr, new RegExp(`recording ${OLDEST_FIRST[1].version.replace(/\./g, "\\.")} was refused with 422`));
+  const bare = await gitHub();
+  bare.state.release = { id: 7, tag_name: TAG, assets: [], upload_url: `${bare.base}/uploads/repos/${REPO}/releases/7/assets{?name,label}` };
+  const attached = await ran({ EVALATION_RELEASE_SIGNING_KEY: key.pem, GITHUB_TOKEN: "t0ken", GITHUB_API_URL: bare.base });
+  bare.held.close();
+  assert.strictEqual(attached.code, 0, attached.stderr);
+  assert.strictEqual(bare.state.created, undefined);
+  assert.strictEqual(bare.state.uploaded.length, 1);
+});
 
-  const other = await releaseServer(key.publicKey);
-  const wrong = await ran({ EVALATION_RELEASE_SIGNING_KEY: pair().pem, EVALATION_RELEASE_URL: other.base });
-  other.held.close();
-  assert.strictEqual(wrong.code, 1);
-  assert.match(wrong.stderr, /403.*not-release-key/);
-
-  const differ = await releaseServer(key.publicKey, () => [422, { refusals: [{ observed: `version ${PLUGIN.version} is already recorded with different notes` }] }]);
-  const refused = await ran({ EVALATION_RELEASE_SIGNING_KEY: key.pem, EVALATION_RELEASE_URL: differ.base });
-  differ.held.close();
-  assert.strictEqual(refused.code, 1);
-  assert.match(refused.stderr, /already recorded with different notes/);
-
-  for (const [env, named] of [[{ EVALATION_RELEASE_URL: "http://127.0.0.1:9", EVALATION_RELEASE_SIGNING_KEY: "" }, /EVALATION_RELEASE_SIGNING_KEY/],
-    [{ EVALATION_RELEASE_SIGNING_KEY: key.pem, EVALATION_RELEASE_URL: "" }, /EVALATION_RELEASE_URL/]]) {
-    const missing = await ran(env);
+test("a missing setting, a bad key or a refusal from GitHub fails naming why", async () => {
+  const key = pair();
+  for (const [env, named] of [
+    [{ EVALATION_RELEASE_SIGNING_KEY: "", GITHUB_TOKEN: "t0ken" }, /EVALATION_RELEASE_SIGNING_KEY is not set/],
+    [{ EVALATION_RELEASE_SIGNING_KEY: "not a key", GITHUB_TOKEN: "t0ken" }, /EVALATION_RELEASE_SIGNING_KEY isn't an ed25519 private key/],
+    [{ EVALATION_RELEASE_SIGNING_KEY: key.pem, GITHUB_TOKEN: "" }, /GITHUB_TOKEN is not set/],
+  ]) {
+    const missing = await ran({ GITHUB_API_URL: "http://127.0.0.1:9", ...env });
     assert.strictEqual(missing.code, 1);
     assert.match(missing.stderr, named);
   }
+  const refusing = await gitHub({ answer: [403, { message: "Resource not accessible by integration" }] });
+  const refused = await ran({ EVALATION_RELEASE_SIGNING_KEY: key.pem, GITHUB_TOKEN: "t0ken", GITHUB_API_URL: refusing.base });
+  refusing.held.close();
+  assert.strictEqual(refused.code, 1);
+  assert.match(refused.stderr, /GitHub refused .* with 403: Resource not accessible by integration/);
+  assert.doesNotMatch(refused.stderr + refused.stdout, /t0ken/);
 });
 
-test("a Cloudflare challenge in place of our server fails with one plain line naming the cause and the fix, never the page", async () => {
-  const page = "<!DOCTYPE html><html lang=\"en-US\"><head><title>Just a moment...</title></head><body>Enable JavaScript and cookies to continue</body></html>";
-  const held = createServer((req, res) => {
-    req.resume();
-    req.on("end", () => {
-      res.writeHead(403, { "content-type": "text/html; charset=UTF-8", connection: "close" });
-      res.end(page);
-    });
-  });
-  held.unref();
-  const base = await new Promise((resolve) => held.listen(0, "127.0.0.1", () => resolve(`http://127.0.0.1:${held.address().port}`)));
-  const done = await ran({ EVALATION_RELEASE_SIGNING_KEY: pair().pem, EVALATION_RELEASE_URL: base });
-  held.close();
-  assert.strictEqual(done.code, 1);
-  assert.strictEqual(done.stderr, "Cloudflare challenged this runner before it reached our server. Allow POST /releases/record in the Cloudflare WAF, or run this job on our own runner.\n");
-});
-
-test("the checks workflow records the release on a push to main, after the checks pass, with the key from the secret", () => {
+test("the checks workflow attaches the record on a push to main, after the checks pass, with the key from the secret and write access to releases", () => {
   const flow = readFileSync(join(__dirname, "..", ".github", "workflows", "checks.yml"), "utf8").replace(/\r\n/g, "\n");
-  assert.match(flow, /record-release:\n\s+if: github\.event_name == 'push' && github\.ref == 'refs\/heads\/main'\n\s+needs: checks/);
+  assert.match(flow, /record-release:\n\s+if: github\.event_name == 'push' && github\.ref == 'refs\/heads\/main'\n\s+needs: checks\n\s+permissions:\n\s+contents: write/);
   assert.match(flow, /EVALATION_RELEASE_SIGNING_KEY: \$\{\{ secrets\.EVALATION_RELEASE_SIGNING_KEY \}\}/);
-  assert.match(flow, /EVALATION_RELEASE_URL: \$\{\{ vars\.EVALATION_RELEASE_URL \}\}/);
+  assert.match(flow, /GITHUB_TOKEN: \$\{\{ secrets\.GITHUB_TOKEN \}\}/);
+  assert.doesNotMatch(flow, /EVALATION_RELEASE_URL/);
   assert.match(flow, /run: node \.github\/record-release\.js/);
-  assert.ok(createPublicKey, "node crypto holds ed25519");
 });

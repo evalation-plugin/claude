@@ -29,6 +29,8 @@ jobs:
   record-release:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: checks
+    permissions:
+      contents: write
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -37,5 +39,5 @@ jobs:
           node-version: 22
       - env:
           EVALATION_RELEASE_SIGNING_KEY: ${{ secrets.EVALATION_RELEASE_SIGNING_KEY }}
-          EVALATION_RELEASE_URL: ${{ vars.EVALATION_RELEASE_URL }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: node .github/record-release.js
