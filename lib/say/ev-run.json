@@ -106,7 +106,6 @@
   "ev-run.found-one-one-plain": { "say": "We found one subfolder under version control and one that is not." },
   "ev-run.found-one-no-plain": { "say": "We found one subfolder under version control." },
   "ev-run.found-together": { "say": "The ones you choose are read together as one product, for the same pack credits as one repository." },
-  "ev-run.found-copy": { "say": "A second copy of a repository is never read." },
 
   "ev-run.folders": { "ask": "Which version controlled folders should this run read? Reading more of them uses no extra pack credits.", "header": "Folders",
     "options": [
@@ -205,7 +204,7 @@
       { "label": "Install it", "description": "Installs it, so this review can use it." },
       { "label": "Leave it out", "description": "Its area is checked by this reading alone, and the report says so." }
     ] },
-  "ev-run.no-brew": { "say": "Homebrew is not on this machine, so these tools cannot be installed here. The review runs without them and the report lists what was not checked. To add them yourself, see:" },
+  "ev-run.no-brew": { "say": "Homebrew is not on this machine, so the review runs without these tools and the report lists what was not checked. To add them yourself, see:" },
   "ev-run.tool-page": { "say": "<tool>: <page>" },
 
   "ev-run.scanning": { "say": "Running the free security tools over the repository. This takes a while." },

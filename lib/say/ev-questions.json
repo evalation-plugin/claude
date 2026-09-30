@@ -27,16 +27,16 @@
   "ev-questions.first-set": { "say": "You have no saved question sets yet, so we'll write your first one." },
   "ev-questions.fix-said": { "say": "<name> no longer meets the rules for a question set, so it needs fixing before a run can use it. I'll fix it and show you the result." },
   "ev-questions.what-change": { "say": "What would you like changed?" },
-  "ev-questions.which-pack": { "ask": "Which pack are these questions for?", "header": "Pack", "options": "given" },
+  "ev-questions.which-pack": { "ask": "Which pack should these questions extend?", "header": "Pack", "options": "given" },
   "ev-questions.only-mine": { "say": "Only my questions" },
   "ev-questions.only-mine-about": { "say": "No Evalation pack is read with them and no pack credits are used, so the run answers these questions and nothing else." },
   "ev-questions.pack-about": { "say": "Your questions cost nothing extra. The pack itself uses one pack credit when the run reads it. Your questions print after the pack's own, under User provided questions." },
-  "ev-questions.keeps-clauses": { "say": "Published standards such as <pack> keep their own clauses, so your questions go with an Evalation pack or run on their own." },
+  "ev-questions.keeps-clauses": { "say": "<pack> keeps the clauses its publisher wrote, so your questions can go with one of your Evalation packs or run on their own." },
   "ev-questions.packs-unreachable": { "ask": "Evalation could not be reached, so the packs that take extra questions cannot be shown. Try again, or write these questions to run on their own?", "header": "Pack", "options": [
     { "label": "Try again", "description": "Checks again for the packs that take extra questions." },
     { "label": "Run them on their own", "description": "Writes the set with no pack. No Evalation pack is read with them and no pack credits are used." }
   ] },
-  "ev-questions.no-pack-takes": { "say": "No pack you can run takes extra questions, so these questions will run on their own, with no pack." },
+  "ev-questions.no-pack-takes": { "say": "These questions will run on their own, with no pack." },
   "ev-questions.source": { "ask": "Where should the questions come from?", "header": "Source", "several": true, "options": [
     { "label": "Questions I type", "description": "You write your own questions next." },
     { "label": "Features a website claims", "description": "The features a web page lists are checked against the code." },

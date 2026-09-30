@@ -131,8 +131,7 @@ test("the sign-in command text shows the address at once, hears the person durin
   assert.strictEqual(line("`sign-in: damaged`").say, "This machine needs to sign in to Evalation again. Sign in with the same account as before, so your pack credits are there.");
   assert.strictEqual(line("names the account").say, "This machine needs to sign in to Evalation again. Sign in with <email>, the same account as before, so your pack credits are there.");
   assert.strictEqual(line("**`unreachable`**").say, "Evalation could not be reached, so nothing was created. Check this machine is online, then run /ev-activate again. If it still fails, contact support@evalation.ai.");
-  assert.strictEqual(line("any other way to sign in").say, "That way to sign in is not offered yet.");
-  assert.deepStrictEqual(line("beside the question").say, "Other ways to sign in are not offered yet. If you have neither account, contact support@evalation.ai.");
+  assert.strictEqual(line("any other way to sign in").say, "You can sign in with Google or Microsoft. If you have neither account, email support@evalation.ai and we'll help.");
   assert.deepStrictEqual(answers(line("**`stopped`**")).map((one) => one[0]), ["Sign in again", "Stop for now"]);
   const asked = Object.entries(LINES).filter(([name, one]) => name.startsWith("ev-activate.") && one.ask);
   assert.ok(asked.length >= 5);
@@ -175,7 +174,6 @@ test("words typed about the browser are matched to fixed lines, and nothing send
 
 test("the lines said once are said once per conversation, known from what this conversation already shows", () => {
   assert.match(FLAT, /Say what signing in is\*\*, once per conversation/);
-  assert.match(FLAT, /once per conversation, beside the question, `evalation-say ev-activate\.other-ways`/);
   assert.match(FLAT, /already appears earlier in this conversation/);
 });
 

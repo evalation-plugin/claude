@@ -769,7 +769,6 @@ test("packs hands the session the chosen packs and the packs that take questions
   assert.strictEqual(packsSaid(at, () => served), [
     "Chosen packs: Evalation Cyber Insurance Risk, SOC 2 Trust Services Criteria",
     "Packs that take extra questions: Evalation Cyber Insurance Risk (cyber-insurance)",
-    "Chosen published standards: SOC 2 Trust Services Criteria",
   ].join("\n"));
   assert.strictEqual(packsSaid(at, () => { throw new Error("offline"); }), "The pack list could not be fetched.");
 });
@@ -850,8 +849,7 @@ test("the walk's faults stay fixed: named unconfirmed questions, one standards l
     { pack: "soc2", body: { kind: "standard", title: "SOC 2" } },
     { pack: "iso", body: { kind: "standard", title: "ISO 27001" } },
   ] };
-  assert.match(packsSaid(at, () => served), /\nChosen published standards: SOC 2 and ISO 27001$/);
-  assert.match(line("ev-questions.keeps-clauses", { pack: "SOC 2 and ISO 27001" }), /^Published standards such as SOC 2 and ISO 27001 keep their own clauses/);
+  assert.doesNotMatch(packsSaid(at, () => served), /published standards/i);
 
   save(at, set([question("Q1")], { name: "Opened" }));
   const opened = ran(at, "path", "Opened");
