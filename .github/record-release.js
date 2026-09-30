@@ -29,6 +29,9 @@ async function record(base, key, { version, date, notes }) {
     fail(`${base}${PATH} couldn't be reached while recording ${version}: ${thrown.message}`);
   }
   const text = await answer.text();
+  if (answer.headers.get("cf-mitigated") === "challenge" || (/text\/html/.test(answer.headers.get("content-type") ?? "") && /Just a moment/.test(text))) {
+    fail("Cloudflare challenged this runner before it reached our server. Allow POST /releases/record in the Cloudflare WAF, or run this job on our own runner.");
+  }
   if (!answer.ok) fail(`recording ${version} was refused with ${answer.status}: ${text}`);
   process.stdout.write(JSON.parse(text).already ? `${version} was already recorded with these notes\n` : `recorded ${version}\n`);
 }

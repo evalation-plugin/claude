@@ -100,6 +100,23 @@ test("a version already recorded with the same notes passes, and a refusal, a wr
   }
 });
 
+test("a Cloudflare challenge in place of our server fails with one plain line naming the cause and the fix, never the page", async () => {
+  const page = "<!DOCTYPE html><html lang=\"en-US\"><head><title>Just a moment...</title></head><body>Enable JavaScript and cookies to continue</body></html>";
+  const held = createServer((req, res) => {
+    req.resume();
+    req.on("end", () => {
+      res.writeHead(403, { "content-type": "text/html; charset=UTF-8", connection: "close" });
+      res.end(page);
+    });
+  });
+  held.unref();
+  const base = await new Promise((resolve) => held.listen(0, "127.0.0.1", () => resolve(`http://127.0.0.1:${held.address().port}`)));
+  const done = await ran({ EVALATION_RELEASE_SIGNING_KEY: pair().pem, EVALATION_RELEASE_URL: base });
+  held.close();
+  assert.strictEqual(done.code, 1);
+  assert.strictEqual(done.stderr, "Cloudflare challenged this runner before it reached our server. Allow POST /releases/record in the Cloudflare WAF, or run this job on our own runner.\n");
+});
+
 test("the checks workflow records the release on a push to main, after the checks pass, with the key from the secret", () => {
   const flow = readFileSync(join(__dirname, "..", ".github", "workflows", "checks.yml"), "utf8").replace(/\r\n/g, "\n");
   assert.match(flow, /record-release:\n\s+if: github\.event_name == 'push' && github\.ref == 'refs\/heads\/main'\n\s+needs: checks/);
