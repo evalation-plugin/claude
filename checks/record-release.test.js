@@ -10,7 +10,8 @@ const { join } = require("node:path");
 
 const RECORD = join(__dirname, "..", ".github", "record-release.js");
 const PLUGIN = JSON.parse(readFileSync(join(__dirname, "..", ".claude-plugin", "plugin.json"), "utf8"));
-const NOTES = JSON.parse(readFileSync(join(__dirname, "..", "release-notes.json"), "utf8")).releases.find((one) => one.version === PLUGIN.version);
+const ALL = JSON.parse(readFileSync(join(__dirname, "..", "release-notes.json"), "utf8")).releases;
+const OLDEST_FIRST = [...ALL].reverse().map(({ version, date, notes }) => ({ version, date, notes }));
 
 function releaseServer(publicKey, answer = () => [200, { version: PLUGIN.version, already: false }]) {
   const asked = [];
@@ -48,18 +49,17 @@ const pair = () => {
   return { pem: privateKey.export({ type: "pkcs8", format: "pem" }), publicKey };
 };
 
-test("the release step records this version's notes, signed with the release key the way the server checks it", async () => {
+test("the release step records every version's notes, oldest first, signed with the release key the way the server checks it", async () => {
   const key = pair();
   const { held, asked, base } = await releaseServer(key.publicKey);
   const done = await ran({ EVALATION_RELEASE_SIGNING_KEY: key.pem, EVALATION_RELEASE_URL: base });
   held.close();
   assert.strictEqual(done.code, 0, done.stderr);
-  assert.strictEqual(asked.length, 1);
-  assert.strictEqual(asked[0].path, "/releases/record");
-  assert.ok(asked[0].signed);
-  assert.ok(Math.abs(asked[0].at - Date.now() / 1000) < 60);
-  assert.deepStrictEqual(asked[0].body, { version: PLUGIN.version, date: NOTES.date, notes: NOTES.notes });
-  assert.match(done.stdout, new RegExp(`recorded ${PLUGIN.version.replace(/\./g, "\\.")}`));
+  assert.ok(OLDEST_FIRST.length >= 6);
+  assert.strictEqual(OLDEST_FIRST.at(-1).version, PLUGIN.version);
+  assert.deepStrictEqual(asked.map((one) => one.body), OLDEST_FIRST);
+  assert.ok(asked.every((one) => one.path === "/releases/record" && one.signed && Math.abs(one.at - Date.now() / 1000) < 60));
+  for (const one of OLDEST_FIRST) assert.match(done.stdout, new RegExp(`recorded ${one.version.replace(/\./g, "\\.")}\\n`));
 });
 
 test("a version already recorded with the same notes passes, and a refusal, a wrong key or a missing setting fails naming why", async () => {
@@ -68,7 +68,17 @@ test("a version already recorded with the same notes passes, and a refusal, a wr
   const already = await ran({ EVALATION_RELEASE_SIGNING_KEY: key.pem, EVALATION_RELEASE_URL: again.base });
   again.held.close();
   assert.strictEqual(already.code, 0, already.stderr);
-  assert.match(already.stdout, /already recorded/);
+  assert.strictEqual(already.stdout.split("\n").filter((line) => /was already recorded with these notes$/.test(line)).length, OLDEST_FIRST.length);
+
+  let count = 0;
+  const partway = await releaseServer(key.publicKey, () => {
+    count += 1;
+    return count === 2 ? [422, { refusals: [{ observed: "the date is wrong" }] }] : [200, { already: false }];
+  });
+  const stopped = await ran({ EVALATION_RELEASE_SIGNING_KEY: key.pem, EVALATION_RELEASE_URL: partway.base });
+  partway.held.close();
+  assert.strictEqual(stopped.code, 1);
+  assert.match(stopped.stderr, new RegExp(`recording ${OLDEST_FIRST[1].version.replace(/\./g, "\\.")} was refused with 422`));
 
   const other = await releaseServer(key.publicKey);
   const wrong = await ran({ EVALATION_RELEASE_SIGNING_KEY: pair().pem, EVALATION_RELEASE_URL: other.base });
