@@ -89,8 +89,9 @@ function read(tree, second) {
     sh("evalation-findings", ["part", runFile, String(one.group), "-", tree], JSON.stringify(partFor(group, second)));
     return join(work, `part-${one.group}.json`);
   });
-  const merged = sh("evalation-findings", ["merge", runFile, "--read-by", "Opus 5.5", ...parts]);
-  return JSON.parse(sh("evalation-findings", ["-", tree], merged)).written;
+  const merged = sh("evalation-findings", ["merge", runFile, "--read-by", "Opus 5.5", ...parts]).trim();
+  assert.strictEqual(merged, join(work, "merged.json"), "merge keeps the whole beside the run and prints only its path");
+  return JSON.parse(sh("evalation-findings", [merged, tree])).written;
 }
 
 /** Verifying and one correction round, as step 8 takes it, doubting a concern row and another concern's finding. */

@@ -918,7 +918,9 @@ function verbs(argv) {
       }
       for (const list of ["answers", "findings", "accounted"]) document[list].push(...(part[list] ?? []));
     }
-    process.stdout.write(`${JSON.stringify(document, null, 2)}\n`);
+    const merged = join(dirname(resolve(run)), "merged.json");
+    writeFileSync(merged, `${JSON.stringify(document, null, 2)}\n`);
+    process.stdout.write(`${merged}\n`);
     return true;
   }
   return false;
