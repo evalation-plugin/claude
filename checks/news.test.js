@@ -92,8 +92,8 @@ test("the first Evalation command in a session says once, in one line and with n
   const { held, asked, base } = await standIn(() => [200, { releases: [] }]);
   const first = await ran("prompt", at, base, prompt("s1", "/ev-run"));
   assert.strictEqual(first.code, 0);
-  assert.deepStrictEqual(JSON.parse(first.stdout), { systemMessage:
-    `Evalation 9.2.0 is out, and you have ${INSTALLED}. To get it, run /plugin, open the Installed tab, pick evalation-plugin and choose Update now, then run /reload-plugins.` });
+  assert.deepStrictEqual(JSON.parse(first.stdout), { hookSpecificOutput: { hookEventName: "UserPromptSubmit", additionalContext:
+    `Before anything else in this command, run \`evalation-say shared.new-version newest=9.2.0 installed=${INSTALLED}\` and show its output exactly as printed, then carry on with the command.` } });
   assert.strictEqual((await ran("prompt", at, base, prompt("s1", "/ev-account"))).stdout, "", "once per session");
   assert.notStrictEqual((await ran("prompt", at, base, prompt("s2", "/evalation-plugin:ev-packs"))).stdout, "", "again in a new session");
   held.close();
@@ -120,6 +120,16 @@ test("nothing is shown for a prompt that isn't an Evalation command, when nothin
   const damaged = await ran("prompt", broken, "http://127.0.0.1:9", "not json");
   assert.strictEqual(damaged.code, 0);
   assert.strictEqual(damaged.stdout + damaged.stderr, "");
+});
+
+test("no plugin hook shows the person a message, since Claude Code labels it with the hook's event name", () => {
+  const hooks = JSON.parse(readFileSync(join(__dirname, "..", "hooks", "hooks.json"), "utf8")).hooks;
+  const scripts = new Set(Object.values(hooks).flatMap((groups) => groups.flatMap((one) => one.hooks
+    .map((each) => each.command.replace("${CLAUDE_PLUGIN_ROOT}/", "").split(" ")[0]))));
+  assert.ok(scripts.size > 0);
+  for (const script of scripts) {
+    assert.ok(!/\bsystemMessage\b/.test(readFileSync(join(__dirname, "..", script), "utf8")), `${script} writes a systemMessage`);
+  }
 });
 
 test("the plugin registers the fetch at session start and the notice on each prompt", () => {

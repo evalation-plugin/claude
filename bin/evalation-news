@@ -5,7 +5,6 @@ const { mkdirSync, readFileSync, renameSync, writeFileSync } = require("node:fs"
 const { join } = require("node:path");
 const { pluginHome } = require("../lib/home.js");
 const { spawnScript } = require("../lib/script.js");
-const { entries, say } = require("../lib/say.js");
 
 const SERVER = "https://api.evalation.ai";
 const TIMEOUT_MS = 2000;
@@ -65,8 +64,9 @@ function notice(said) {
   keep(toldAt(), [...sessions, session].slice(-MOST_SESSIONS));
   if (known.releases.length === 0) return;
   const newest = known.releases.at(-1).version;
-  const line = say(entries(), "shared.new-version", { newest, installed: installed() });
-  process.stdout.write(`${JSON.stringify({ systemMessage: line })}\n`);
+  const run = `evalation-say shared.new-version newest=${newest} installed=${installed()}`;
+  process.stdout.write(`${JSON.stringify({ hookSpecificOutput: { hookEventName: "UserPromptSubmit", additionalContext:
+    `Before anything else in this command, run \`${run}\` and show its output exactly as printed, then carry on with the command.` } })}\n`);
 }
 
 async function main() {
