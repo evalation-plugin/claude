@@ -1,6 +1,22 @@
 {
-  "ev-questions.saved-sets": { "ask": "Change a saved set, or write a new one?", "header": "Sets", "options": "given" },
-  "ev-questions.saved-sets-more": { "ask": "Which saved set would you like to change?", "header": "Sets", "options": "given" },
+  "ev-questions.action": { "ask": "What would you like to do?", "header": "Sets", "options": [
+    { "label": "Write a new set", "description": "Starts a new set of questions." },
+    { "label": "Change a set", "description": "Pick a saved set to change." },
+    { "label": "Delete a set", "description": "Pick a saved set to delete." }
+  ] },
+  "ev-questions.which-change": { "ask": "Which set would you like to change?", "header": "Change", "options": "given" },
+  "ev-questions.which-delete": { "ask": "Which set should be deleted?", "header": "Delete", "options": "given" },
+  "ev-questions.delete": { "say": "Delete <name>" },
+  "ev-questions.delete-machine": { "say": "Deletes it from this machine." },
+  "ev-questions.delete-account": { "say": "Deletes it from your account." },
+  "ev-questions.delete-both": { "say": "Deletes it from this machine and your account." },
+  "ev-questions.confirm-delete": { "ask": "Delete <name>? You can't undo this.", "header": "Delete", "options": [
+    { "label": "Delete it", "description": "Deletes the set for good." },
+    { "label": "Keep it", "description": "Changes nothing." }
+  ] },
+  "ev-questions.deleted": { "say": "Deleted <name>." },
+  "ev-questions.kept-set": { "say": "Nothing was deleted." },
+  "ev-questions.not-deleted": { "say": "Your account couldn't be reached, so <name> wasn't deleted. Run /ev-questions again later." },
   "ev-questions.listed-unreachable": { "say": "Your account couldn't be reached, so only sets on this machine are shown." },
   "ev-questions.listed-none": { "say": "You have no saved question sets yet." },
   "ev-questions.listed-for": { "say": "<name>, for <pack>, <where>." },
@@ -14,8 +30,6 @@
   "ev-questions.other-questions": { "say": "<count> other questions" },
   "ev-questions.off-account": { "say": "The question set <set> is no longer on your account." },
   "ev-questions.set-not-kept": { "say": "Your account couldn't be reached, so <set> is only on this machine. Run /ev-questions later to add it to your account." },
-  "ev-questions.write-new":{ "say": "Write a new set" },
-  "ev-questions.write-new-about": { "say": "Starts a new set of questions." },
   "ev-questions.change": { "say": "Change <name>" },
   "ev-questions.change-for": { "say": "Shows the whole set, for <pack>." },
   "ev-questions.change-alone": { "say": "Shows the whole set, with no pack." },

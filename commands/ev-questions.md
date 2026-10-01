@@ -33,9 +33,9 @@ which you act on and never show. The commands here fall into these groups:
 1. Shown as printed: `evalation-say` lines, `evalation-questions list --plain`, `show`, and
    `keep-on-account` and `drop-from-account`, each printing at most one line saying where the set
    is kept.
-2. A question to ask: `choose-set`, `choose-pack`, `choose-claims`, `choose-name` and `approve`.
-   `choose-set` where no set is kept, and `choose-pack` where no pack takes extra questions, print
-   a line in its place to show.
+2. A question to ask: `choose-action`, `choose-set`, `choose-pack`, `choose-claims`, `choose-name`
+   and `approve`. `choose-action` and `choose-set` where no set is kept, and `choose-pack` where no
+   pack takes extra questions, print a line in its place to show. `delete` prints one line to show.
 3. Never shown, with the answer in its answer file: `check`, `packs`, `draft`, `path` and `save`.
 
 Never read out a file path, a folder, or anything from an answer file or the criteria. The criteria
@@ -51,8 +51,19 @@ First show the sets already kept, with `evalation-questions list --plain`. It pr
 set on this machine or on the account, naming the pack it is for, where it is kept and any
 questions the person saved without the independent checker's confirmation, and a line where the
 account was not reached or a set on the account no longer meets the question rules. Then run
-`evalation-questions choose-set` and ask the question it prints. Where no set is kept it prints a
-line in place of a question: show it and write a new set. Never say the person has only one choice.
+`evalation-questions choose-action` and ask the question it prints. Where no set is kept it prints
+a line in place of a question: show it and write a new set. Never say the person has only one
+choice.
+
+- Write a new set: go on to step 2.
+- Change a set: run `evalation-questions choose-set` and ask the question it prints. On Show more,
+  run it again with the next page number, such as `evalation-questions choose-set 2`. Where it
+  prints `only: <name>` in place of a question, that one set is the one chosen, and it is a Fix
+  where the name ends in ` (fix)`: ask nothing and go on with it.
+- Delete a set: run `evalation-questions choose-set --delete` and ask the question it prints, with
+  Show more paged the same way, and `only: <name>` taken as the chosen set. Then ask `evalation-say ev-questions.confirm-delete "name=<name>"`.
+  On Delete it, run `evalation-questions delete "<name>"` and show the line it prints, then end. On
+  Keep it, show `evalation-say ev-questions.kept-set` and end.
 
 On Change or Fix, run `evalation-questions path "<name>"`, with the name in double quotes. It writes
 a copy of the set to the drafts folder as `<name>.json`, and that copy's path to its answer file. Read that copy and make every change in it,

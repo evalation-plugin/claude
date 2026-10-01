@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "0.70.0",
+      "date": "2026-10-01",
+      "notes": [
+        "Question sets now start by asking what you'd like to do, and you can delete a set you no longer need."
+      ]
+    },
+    {
       "version": "0.69.9",
       "date": "2026-10-01",
       "notes": [
