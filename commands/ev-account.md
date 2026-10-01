@@ -5,6 +5,8 @@ allowed-tools: Bash(evalation-status:*), Bash(evalation-say:*), Bash(evalation-b
 
 # Your account
 
+Open by showing `evalation-say ev-account.intro` exactly as printed, before anything else.
+
 **Every line you say comes from the plugin.** Where this file names a line as `evalation-say <name>`,
 run exactly that and show its output exactly as printed, with nothing added. Where the line has a
 blank such as `<titles>`, pass its value as `titles=<value>`, for example

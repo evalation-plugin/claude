@@ -1,4 +1,5 @@
 {
+  "ev-account.intro": { "say": "This shows your pack credits and lets you buy more." },
   "ev-account.damaged": { "say": "This machine's Evalation sign-in is damaged. Run /ev-activate and sign in with the same account as before." },
   "ev-account.damaged-named": { "say": "This machine's Evalation sign-in is damaged. Run /ev-activate and sign in with <email>." },
   "ev-account.not-set-up": { "say": "This machine isn't set up for Evalation yet. Run /ev-start to set it up." },

@@ -1,4 +1,5 @@
 {
+  "ev-rotate.intro": { "say": "This replaces the key this machine uses to open what Evalation sends it." },
   "ev-rotate.lost": { "say": "Email support@evalation.ai and we'll switch that machine off." },
   "ev-rotate.replaced": { "say": "Replaced this machine's key. The old key no longer works." },
   "ev-rotate.not-replaced-clock": { "say": "The key wasn't replaced, and the old one still works. Set this machine's clock to the right time, then run /ev-rotate again." },

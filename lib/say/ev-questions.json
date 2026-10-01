@@ -1,8 +1,9 @@
 {
+  "ev-questions.intro": { "say": "This lets you write your own questions to add to a pack, so a run answers them from your code too." },
   "ev-questions.action": { "ask": "What would you like to do?", "header": "Sets", "options": [
-    { "label": "Write a new set", "description": "Starts a new set of questions." },
-    { "label": "Change a set", "description": "Pick a saved set to change." },
-    { "label": "Delete a set", "description": "Pick a saved set to delete." }
+    { "label": "Write a new question set", "description": "Starts a new set of your own questions." },
+    { "label": "Change a question set", "description": "Pick a saved question set to change." },
+    { "label": "Delete a question set", "description": "Pick a saved question set to delete." }
   ] },
   "ev-questions.which-change": { "ask": "Which set would you like to change?", "header": "Change", "options": "given" },
   "ev-questions.which-delete": { "ask": "Which set should be deleted?", "header": "Delete", "options": "given" },

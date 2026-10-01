@@ -804,7 +804,7 @@ test("the first question asks what to do, offering change and delete only where 
   assert.strictEqual(actionQuestion({ account: "reached", sets: [] }), "You have no saved question sets yet, so let's write your first one.");
   const asked = JSON.parse(actionQuestion(THREE)).questions[0];
   assert.strictEqual(asked.question, "What would you like to do?");
-  assert.deepStrictEqual(asked.options.map((one) => one.label), ["Write a new set", "Change a set", "Delete a set"]);
+  assert.deepStrictEqual(asked.options.map((one) => one.label), ["Write a new question set", "Change a question set", "Delete a question set"]);
   assert.match(commandText(), /evalation-questions choose-action/);
 });
 

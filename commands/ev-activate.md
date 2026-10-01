@@ -5,6 +5,8 @@ allowed-tools: Bash(evalation-status:*), Bash(evalation-activate:*), Bash(evalat
 
 # Sign in
 
+Open by showing `evalation-say ev-activate.intro` exactly as printed, before anything else.
+
 Nothing else here works until this runs. Every other command proves itself with a key this
 installation holds, and it holds none until it has one, which is what signing in is for.
 

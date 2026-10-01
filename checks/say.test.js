@@ -141,6 +141,18 @@ test("a line that waits for the person to type says the run carries on once they
   assert.deepStrictEqual(outsiders(authors, ["steve@gmail.com", "acme.io"]).people.map((one) => one.name), ["Bea"]);
 });
 
+test("every command opens by saying what it does, and the question set choices name a question set", () => {
+  const all = entries();
+  const missing = commandFiles().flatMap((file) => {
+    const command = file.replace(/\.md$/, "");
+    const text = readFileSync(join(COMMANDS_AT, file), "utf8");
+    const first = /evalation-say ([a-z0-9.-]+)/.exec(text)?.[1];
+    return [...(all[`${command}.intro`] ? [] : [`${command}.intro is missing`]), ...(first === `${command}.intro` ? [] : [`${file} says ${first} first`])];
+  });
+  assert.deepStrictEqual(missing, []);
+  assert.deepStrictEqual(all["ev-questions.action"].options.map((one) => one.label), ["Write a new question set", "Change a question set", "Delete a question set"]);
+});
+
 test("the command line prints what say gives, and refuses an unknown name with a reason", () => {
   const bin = join(__dirname, "..", "bin", "evalation-say");
   const name = Object.keys(entries())[0];

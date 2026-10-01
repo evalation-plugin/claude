@@ -3,6 +3,8 @@ description: Check this repository against your packs. Uses one pack credit per 
 allowed-tools: Bash(evalation-say:*), Bash(evalation-read:*), Bash(evalation-run:*), Bash(evalation-packs show:*), Bash(evalation-status:*), Bash(evalation-questions list:*), Bash(evalation-questions path:*), Bash(evalation-scan show:*), Bash(evalation-scan install:*), Bash(evalation-scan decline:*), Bash(evalation-scan run:*), Bash(evalation-findings:*), Bash(evalation-verify:*), Bash(evalation-score:*), Bash(evalation-deliver:*), Bash(evalation-report:*), Bash(evalation-check-pdf:*)
 ---
 
+Open by showing `evalation-say ev-run.intro` exactly as printed, before anything else.
+
 <!--
 The grant is the bound. The reading holds these commands and nothing else: no file reading, no
 searching, no general shell, no network. Repository content reaches it only through

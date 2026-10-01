@@ -1,4 +1,5 @@
 {
+  "ev-remove.intro": { "say": "This removes Evalation from this machine." },
   "ev-remove.unreachable": { "say": "Evalation couldn't be reached, so nothing was changed. Check this machine is online, then run /ev-remove again." },
   "ev-remove.clock": { "say": "This machine's clock is wrong, so nothing was removed. Set it to the right time, then run /ev-remove again." },
   "ev-remove.damaged": { "say": "This machine's Evalation sign-in is damaged, so it can't be signed out from here." },

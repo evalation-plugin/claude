@@ -5,6 +5,8 @@ allowed-tools: Bash(evalation-status:*), Bash(evalation-packs chosen:*), Bash(ev
 
 # Choose the packs
 
+Open by showing `evalation-say ev-packs.intro` exactly as printed, before anything else.
+
 Every line the person reads comes from `evalation-say` or from a script, and you show it exactly as
 printed, never in words of your own. Where a step names several lines, run each and show them
 together as one paragraph, in the order given.
