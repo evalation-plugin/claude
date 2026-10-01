@@ -173,7 +173,7 @@ function chosen() {
   if (named === "file") return file;
   if (named === "os") {
     const store = stores[platform()];
-    if (!store) throw raised(`no operating system store is known for ${platform()}`, "add a key store for this operating system to bin/evalation-store");
+    if (!store) throw raised(`no operating system store is known for ${platform()}`, "The plugin found no key store it knows for this operating system. Add one for it to bin/evalation-store.");
     return store;
   }
   const store = stores[platform()];

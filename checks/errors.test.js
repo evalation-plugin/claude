@@ -170,8 +170,10 @@ test("every error the plugin raises goes through raised, with its fix as fixed w
     const bare = calls(text, "new Error").map(({ line }) => `${file}:${line} raises an Error with no fix, where raised(observed, required) states it`);
     const loose = calls(text, "raised").filter(({ args }) => args.length !== 2 || !(args[1] === "null" || /^"(?:[^"\\]|\\.)*"$/.test(args[1])))
       .map(({ line }) => `${file}:${line} gives raised a fix that is not one fixed string or null`);
+    const fragment = calls(text, "raised").filter(({ args }) => /^"(?:[^"\\]|\\.)*"$/.test(args[1] ?? "") && !/^"[A-Z][^"]*\. [A-Z][^"]*\."$/.test(args[1]))
+      .map(({ line }) => `${file}:${line} gives raised a fix that does not read on its own: one sentence saying what went wrong in which part of Evalation, then one saying the change`);
     const shown = text.split("\n").flatMap((line, at) => (/\bremedyForReport\b/.test(line) ? [`${file}:${at + 1} reads an error's remedy, which goes only to Evalation in the report`] : []));
-    return [...bare, ...loose, ...shown];
+    return [...bare, ...loose, ...fragment, ...shown];
   });
   assert.deepStrictEqual(wrong, []);
 });

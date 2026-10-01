@@ -59,7 +59,7 @@ function receiving(named) {
  */
 function open(sealed, said, seed) {
   if (sealed?.v !== VERSION) {
-    throw raised(`sealed under ${sealed?.v ?? "nothing"}, and this reads ${VERSION}`, "release a plugin that opens the sealing version the server now sends");
+    throw raised(`sealed under ${sealed?.v ?? "nothing"}, and this reads ${VERSION}`, "The plugin could not open an answer sealed with the server's current sealing version. Release a plugin whose bin/evalation-open reads that version.");
   }
   if (seed.length !== 32) {
     throw raised(`the receiving key is ${seed.length} bytes where one is 32`, null);
