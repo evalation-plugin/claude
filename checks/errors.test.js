@@ -85,7 +85,10 @@ function listening(answer) {
 
 function silent() {
   const sockets = [];
-  const server = net.createServer((socket) => sockets.push(socket));
+  const server = net.createServer((socket) => {
+    socket.on("error", () => socket.destroy());
+    sockets.push(socket);
+  });
   server.unref();
   return new Promise((resolve) => server.listen(0, "127.0.0.1", () => resolve({
     at: `http://127.0.0.1:${server.address().port}`,
@@ -152,7 +155,8 @@ test("a report with a field outside its form is dropped, and an undeclared field
   assert.strictEqual(built("not-a-listed-failure", new Error("it broke")), null);
   for (const bad of [{ failure: "Uncaught" }, { engine: "0.71" }, { revision: "1.05" }, { revision: 1.6 }, { source: "engine" },
     { subject: `read ${join(ELSEWHERE, "secret")}` }, { subject: "x".repeat(201) }, { place: `${join(ELSEWHERE, "bin", "evalation-run")}:4` },
-    { place: "../outside.js:3" }, { place: "bin/evalation-run" }, { extra: "anything" }]) {
+    { place: "../outside.js:3" }, { place: "bin/evalation-run" }, { place: "checks/errors.test.js:3" }, { place: "lib/say/ev-run.json:1" },
+    { extra: "anything" }]) {
     assert.ok(!admitted({ ...good, ...bad }), JSON.stringify(bad));
   }
 });
@@ -180,6 +184,7 @@ test("place is the first frame inside the plugin, relative to its folder", async
     "    at JSON.parse (<anonymous>)",
     "    at read (node:internal/fs/utils:10:2)",
     `    at Object.<anonymous> (${join(ELSEWHERE, "node_modules", "thing", "index.js")}:4:9)`,
+    `    at check (${join(ROOT, "checks", "errors.test.js")}:9:1)`,
     `    at load (${join(ROOT, "lib", "say.js")}:120:7)`,
     `    at main (${join(ROOT, "bin", "evalation-run")}:412:3)`,
   ].join("\n")), "lib/say.js:120");

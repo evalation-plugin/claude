@@ -278,8 +278,10 @@ async function main() {
 
   const refused = decodeURIComponent(back[3]);
   if (refused) {
-    if (OUR_SETUP.test(refused)) errors.report("sign-in-setup-refused", undefined, refused);
-    if (OUR_SETUP.test(refused)) fail(`fault: ${provider} refused the sign-in because of how it is set up on our side, so nothing was activated${detailed(refused)}`);
+    if (OUR_SETUP.test(refused)) {
+      errors.report("sign-in-setup-refused", undefined, refused);
+      fail(`fault: ${provider} refused the sign-in because of how it is set up on our side, so nothing was activated${detailed(refused)}`);
+    }
     fail(`sign-in-refused: ${provider} declined the sign-in, so nothing was activated${detailed(refused)}`);
   }
 

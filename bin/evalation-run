@@ -354,7 +354,7 @@ function saying(part, args) {
     said = parts[part]();
   } catch (thrown) {
     errors.report("unexpected-error", thrown);
-    faulted(`--say ${part}:${thrown?.message ?? thrown}`, ["reading", "tally", "done", "folder"].includes(part));
+    faulted(`--say ${part}: ${thrown?.message ?? thrown}`, ["reading", "tally", "done", "folder"].includes(part));
   }
   if (said) process.stdout.write(`${said}\n`);
 }
