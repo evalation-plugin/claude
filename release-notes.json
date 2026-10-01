@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "0.70.2",
+      "date": "2026-10-01",
+      "notes": [
+        "A question you can leave empty now says to press Skip to choose none."
+      ]
+    },
+    {
       "version": "0.70.1",
       "date": "2026-10-01",
       "notes": [
