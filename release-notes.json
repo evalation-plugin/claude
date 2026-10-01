@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "0.72.2",
+      "date": "2026-10-02",
+      "notes": [
+        "A review no longer stops when your repository's history shows no company email address. It asks you to type your company's domains."
+      ]
+    },
+    {
       "version": "0.72.1",
       "date": "2026-10-01",
       "notes": [
