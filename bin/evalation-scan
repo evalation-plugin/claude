@@ -1292,10 +1292,14 @@ function main() {
       const root = resolve(rest[0]);
       const solution = existsSync(join(root, ".git")) ? null : solutionOf(root);
       const choices = domainChoices(authorsOver(root, solution), settings().signed_in_as);
+      if (choices.length === 0) {
+        process.stdout.write(`${JSON.stringify({ said: line("ev-run.domains-type"), asks: null }, null, 2)}\n`);
+        return;
+      }
       const { entries, say } = require("../lib/say.js");
       const asks = choices.length === 1 ? { only: choices[0].domain, ...JSON.parse(say(entries(), "ev-run.domains-one", { domain: choices[0].domain })) }
         : JSON.parse(say(entries(), "ev-run.domains", {}, choices.map((one) => ({ label: one.domain, description: one.description }))));
-      process.stdout.write(`${JSON.stringify(choices.length === 0 ? { said: line("ev-run.domains-type"), asks: null } : { said: null, asks }, null, 2)}\n`);
+      process.stdout.write(`${JSON.stringify({ said: null, asks }, null, 2)}\n`);
       return;
     }
     case "run": {
