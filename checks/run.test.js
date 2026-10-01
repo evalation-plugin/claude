@@ -38,8 +38,10 @@ const packs = [
     { identifier: "SEC01", title: "Untrusted input", intent: "Where can input reach an interpreter?", looks_for: [{ ...RUNS, severity: "critical" }, { find: "A test that sends hostile input", proof: "runs", severity: "medium" }] },
     { identifier: "SEC02", title: "Secrets", intent: "Where are secrets kept?", looks_for: [{ find: "Secrets read from the environment", proof: "runs", severity: "high" }, { find: "A written rule on secrets", proof: "written", severity: "low" }] },
   ] } },
+  { pack: "cyber-insurance", kind: "standard", body: { pack: "cyber-insurance", kind: "standard", title: "Evalation Cyber Insurance Risk",
+    licence: { attribution: "Evalation" }, entries: [] } },
 ];
-const questions = { name: "Board check", pack: "custom", questions: [{ identifier: "Q1", title: "Sign in", asked: "do we check who is logged in", intent: "Where does this repository check who is signed in?",
+const questions = { name: "Board check", pack: "cyber-insurance", questions: [{ identifier: "Q1", title: "Sign in", asked: "do we check who is logged in", intent: "Where does this repository check who is signed in?",
   looks_for: [{ find: "A check of the signed-in session", proof: "runs" }, { find: "A test of signing out", proof: "runs" }] }] };
 const rubric = { id: "evalation.rubric.v1", pack: "hardening", defect_load: { critical: 25, high: 10, medium: 4, low: 1.5, info: 0 },
   base: { decay: 95 }, credit: { alpha: 0.25, softener: 8 }, weights: { SEC: 1 }, grades: { A: 90, B: 75, C: 60, D: 40, F: 0 } };
@@ -54,8 +56,8 @@ function partFor(group, second) {
     return { answers: [{ pack: "soc2", entry: "CC6.1", status: "partial-gap", because: "A shared guard exists, and the scan holds a high advisory.",
       remedy: "Upgrade the flagged dependency.", looked_for: [found(), { result: "missing" }] }] };
   }
-  if (group.pack === "custom") {
-    return { answers: [{ pack: "custom", entry: "Q1", status: second ? "covered" : "partial-gap", because: "The guard checks the session.",
+  if (group.pack === "cyber-insurance") {
+    return { answers: [{ pack: "cyber-insurance", entry: "Board-check.Q1", status: second ? "covered" : "partial-gap", because: "The guard checks the session.",
       ...(second ? {} : { remedy: "Add a test of signing out." }), looked_for: [found(), second ? found() : missing()] }] };
   }
   return {
@@ -84,7 +86,7 @@ function read(tree, second) {
   const groups = JSON.parse(sh("evalation-findings", ["groups", runFile]));
   const parts = groups.map((one) => {
     const group = JSON.parse(sh("evalation-findings", ["group", runFile, String(one.group)]));
-    if (group.pack === "custom") assert.match(group.customer, /<<<CUSTOMER-QUESTIONS [0-9a-f]+/);
+    if (group.pack === "cyber-insurance") assert.match(group.customer, /<<<CUSTOMER-QUESTIONS [0-9a-f]+/);
     // Handed on standard input, as an Evalation reader hands it, and kept by the command once it holds.
     sh("evalation-findings", ["part", runFile, String(one.group), "-", tree], JSON.stringify(partFor(group, second)));
     return join(work, `part-${one.group}.json`);
@@ -145,9 +147,9 @@ test("a whole run goes from the run file to both deliverables, and a second run 
   const now = JSON.parse(readFileSync(second, "utf8"));
   const asked = new Map(now.packs.flatMap((pack) => pack.entries_asked.map((one) => [`${pack.pack}/${one.identifier}`, one])));
   const { page } = require("../bin/evalation-report");
-  const custom = now.answers.filter((one) => one.pack === "custom");
-  assert.match(page({ ...now, packs: now.packs.filter((one) => one.pack === "custom") }, custom, asked),
-    /What changed since[\s\S]*Q1 Sign in: partial to covered/);
+  const custom = now.answers.filter((one) => one.pack === "cyber-insurance");
+  assert.match(page({ ...now, packs: now.packs.filter((one) => one.pack === "cyber-insurance") }, custom, asked),
+    /What changed since[\s\S]*Board-check\.Q1 Sign in: partial to covered/);
   sh("evalation-score", [second, rubricFile]);
   sh("evalation-deliver", [second, join(work, "out-2"), tree]);
   sh("evalation-report", [second, join(work, "out-2")]);

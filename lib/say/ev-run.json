@@ -90,6 +90,7 @@
   "ev-run.set-unread-pack": { "say": "Your question set <set> extends <pack>, which this run doesn't read, so the run didn't start. No pack credits were used. Run /ev-run again and choose that pack, or leave the set out." },
   "ev-run.set-unknown-pack": { "say": "Your question set <set> extends a pack this run can't read, so the run didn't start. No pack credits were used. Run /ev-run again and leave the set out." },
   "ev-run.set-closed-pack": { "say": "Your question set <set> extends <pack>, which takes no extra questions, so the run didn't start. No pack credits were used. Run /ev-run again and leave the set out." },
+  "ev-run.set-no-pack": { "say": "Your question set <set> extends no pack, so the run didn't start. No pack credits were used. Run /ev-questions to pick a pack for it." },
   "ev-run.no-solution": { "say": "This folder holds no repositories to read together. No pack credits were used. Run /ev-run from the folder that holds them." },
   "ev-run.no-last": { "say": "This folder has no earlier run on this machine, so there are no reports to print again." },
 
@@ -170,8 +171,6 @@
   "ev-run.packs-usual-cost-one": { "say": "<titles>. Uses one pack credit." },
   "ev-run.packs-choose": { "say": "Choose which packs to run" },
   "ev-run.packs-choose-means": { "say": "Tick packs from the full list." },
-  "ev-run.packs-only": { "say": "Only my questions" },
-  "ev-run.packs-only-means": { "say": "Only your own questions are answered, and no pack credits are used." },
   "ev-run.usual": { "ask": "Which of your usual packs should this run read?", "header": "Usual", "several": true, "options": "given" },
   "ev-run.all": { "ask": "Which packs should this run read?", "header": "Packs", "several": true, "options": "given" },
   "ev-run.all-cost": { "say": "Each pack uses one pack credit, and you have <credits>. Reading takes a while and uses a good part of your Claude usage." },
@@ -189,7 +188,6 @@
     "options": [{ "label": "Use my question sets", "description": "Tick the ones to use." },
       { "label": "Read the pack alone", "description": "Only the pack's own questions are read." }] },
   "ev-run.sets-pick": { "ask": "Which of your question sets should <pack> use?", "header": "Sets", "several": true, "options": "given" },
-  "ev-run.only-sets": { "ask": "Which of your question sets should this run answer? No pack credits are used.", "header": "Sets", "several": true, "options": "given" },
 
   "ev-run.short": { "say": "You have <credits> pack credits and chose <count> packs. Run /ev-account to buy more, then run /ev-run again, or choose fewer packs." },
   "ev-run.short-one-credit": { "say": "You have one pack credit and chose <count> packs. Run /ev-account to buy more, then run /ev-run again, or choose fewer packs." },
@@ -246,7 +244,6 @@
   "ev-run.writing": { "say": "Writing the reports. This takes a while." },
   "ev-run.next": { "say": "Open <files> to work through the fixes. Running /ev-run again uses <count> pack credits." },
   "ev-run.next-one": { "say": "Open <files> to work through the fixes. Running /ev-run again uses one pack credit." },
-  "ev-run.next-free": { "say": "Open <files> to work through the fixes. Running /ev-run again uses no pack credits." },
 
   "ev-run.done-standard": { "say": "<pack>, <total> <noun>: <counts>." },
   "ev-run.done-standard-one": { "say": "<pack>, one <noun>: <counts>." },

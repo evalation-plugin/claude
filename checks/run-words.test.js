@@ -162,7 +162,6 @@ test("ev-run's lines keep the words the reports use, held in the catalogue where
     "Keep the name <name>",
     "The reports name the product <name>.",
     "The ones you choose are read together as one product.",
-    "No pack credits are used.",
     "Reading takes a while and uses a good part of your Claude usage.",
     "It takes a while and uses more of your Claude usage, but no pack credits.",
     "<tools>, the free security tools this review uses, are already installed.",
@@ -182,14 +181,15 @@ test("ev-run's lines keep the words the reports use, held in the catalogue where
     "`evalation-questions path \"<name>\" --run`",
     "Where `show`, `status`, `evalation-questions list` or `path` fails",
     "with the same packs and question sets",
-    "Where there are no usual packs and no set written for no pack",
+    "Where there are no usual packs, it prints a line",
     "## Printing a run's reports again",
     "evalation-run --last <target>",
-    "`\"pack\":\"custom\"`",
   ];
   assert.deepStrictEqual(said.filter((one) => !text.includes(one)), []);
   const unsaid = [
     "can also take your own questions. To add some, stop here",
+    "No pack credits are used.",
+    "\"pack\":\"custom\"",
     "mark every claim as not checked",
     "<date> <run>",
     "four packs to a question",
@@ -220,8 +220,9 @@ test("ev-run writes no question itself, and runs each one the catalogue or a scr
   assert.doesNotMatch(text, /\bask "|\bheaded "|described as "/i);
   assert.doesNotMatch(text, /CLAUDE_PLUGIN_ROOT\}\/bin\/evalation/);
   const verbs = ["found", "pick", "evidence", "name", "branches", "copies", "off-main", "branch", "stale", "packs", "usual", "all",
-    "sets", "pick-sets", "only", "short", "reading", "tally", "done", "folder"];
+    "sets", "pick-sets", "short", "reading", "tally", "done", "folder"];
   assert.deepStrictEqual(verbs.filter((one) => !text.includes(`evalation-run --say ${one}`)), []);
+  assert.doesNotMatch(text, /evalation-run --say only\b/, "the --say only verb is gone, since every question set extends a pack");
 });
 
 test("a branch, a detached commit and a stale copy are each said in the catalogue's words", () => {

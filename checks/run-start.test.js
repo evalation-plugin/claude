@@ -118,8 +118,6 @@ test("the pack questions come from the run command ready to ask, with the balanc
   mkdirSync(join(home, "questions"), { recursive: true });
   const question = { identifier: "Q1", title: "Sign in", asked: "do we check who is signed in", intent: "Where does this repository check who is signed in?",
     looks_for: [{ find: "A check of the signed-in session", proof: "runs" }] };
-  writeFileSync(join(home, "questions", "Board.json"), JSON.stringify({ name: "Board", pack: "custom", questions: [question] }));
-  writeFileSync(join(home, "questions", "Board two.json"), JSON.stringify({ name: "Board two", pack: "custom", questions: [question, question] }));
   const { target } = require("../bin/evalation-run");
   const [first] = await asked("packs", tree);
   assert.strictEqual(first.question, `Which packs should this run read for ${target(tree).repository}? Each uses one pack credit, and you have 3. ` +
@@ -129,7 +127,6 @@ test("the pack questions come from the run command ready to ask, with the balanc
   assert.deepStrictEqual(first.options, [
     { label: "Run my usual packs", description: "SOC 2 Trust Services Criteria and Evalation Hardening Review. Uses 2 pack credits." },
     { label: "Choose which packs to run", description: "Tick packs from the full list." },
-    { label: "Only my questions", description: "Only your own questions are answered, and no pack credits are used." },
   ]);
   const [usual] = await asked("usual");
   assert.strictEqual(usual.header, "Usual");
@@ -137,8 +134,9 @@ test("the pack questions come from the run command ready to ask, with the balanc
   assert.deepStrictEqual(usual.options.map((one) => one.label), ["SOC 2 Trust Services Criteria", "Evalation Hardening Review"]);
   const [all] = await asked("all");
   assert.strictEqual(all.question, "Which packs should this run read?");
-  const [only] = await asked("only");
-  assert.deepStrictEqual(only.options, [{ label: "Board", description: "One question." }, { label: "Board two", description: "2 questions." }]);
+  const onlyGone = await started(home, port, "--say", "only");
+  assert.strictEqual(onlyGone.code, 1, "the --say only verb is gone, since every question set extends a pack");
+  assert.match(onlyGone.stderr, /^The run stopped on a fault in Evalation\. No pack credits were used\.\nTo get it fixed, email support@evalation\.ai/);
   const closed = await started(home, port, "--say", "sets", "soc2");
   assert.strictEqual(closed.code, 1);
   assert.match(closed.stderr, /^The run stopped on a fault in Evalation\. No pack credits were used\.\nTo get it fixed, email support@evalation\.ai/);
@@ -244,7 +242,7 @@ test("every start refused on this machine says in one plain line that no pack cr
   const file = join(home, "a-file.txt");
   writeFileSync(file, "x");
   const bad = join(home, "bad-set.json");
-  writeFileSync(bad, JSON.stringify({ name: "Board check", pack: "custom", questions: [] }));
+  writeFileSync(bad, JSON.stringify({ name: "Board check", pack: "cyber-insurance", questions: [] }));
   const unselected = join(home, "broker.json");
   writeFileSync(unselected, JSON.stringify({ name: "Broker", pack: "cyber-insurance", questions: [{ identifier: "Q1", title: "Sign in", asked: "do we check who is logged in",
     intent: "Where does this repository check who is signed in?", looks_for: [{ find: "A check of the signed-in session", proof: "runs" }, { find: "A test of signing out", proof: "runs" }] }] }));

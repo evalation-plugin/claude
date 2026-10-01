@@ -20,7 +20,7 @@
   "ev-questions.listed-unreachable": { "say": "Your account couldn't be reached, so only sets on this machine are shown." },
   "ev-questions.listed-none": { "say": "You have no saved question sets yet." },
   "ev-questions.listed-for": { "say": "<name>, for <pack>, <where>." },
-  "ev-questions.listed-alone": { "say": "<name>, with no pack, <where>." },
+  "ev-questions.listed-no-pack": { "say": "<name>, <where>, needs a pack before a run can use it." },
   "ev-questions.listed": { "say": "<name>, <where>." },
   "ev-questions.where-machine": { "say": "on this machine" },
   "ev-questions.where-account": { "say": "on your account" },
@@ -32,25 +32,22 @@
   "ev-questions.set-not-kept": { "say": "Your account couldn't be reached, so <set> is only on this machine. Run /ev-questions later to add it to your account." },
   "ev-questions.change": { "say": "Change <name>" },
   "ev-questions.change-for": { "say": "Shows the whole set, for <pack>." },
-  "ev-questions.change-alone": { "say": "Shows the whole set, with no pack." },
   "ev-questions.change-about": { "say": "Shows the whole set." },
   "ev-questions.fix": { "say": "Fix <name>" },
   "ev-questions.fix-about": { "say": "Shows what needs fixing." },
+  "ev-questions.fix-pack": { "say": "Pick the pack it extends." },
   "ev-questions.show-more": { "say": "Show more" },
   "ev-questions.show-more-about": { "say": "Shows the rest." },
   "ev-questions.first-set": { "say": "You have no saved question sets yet, so let's write your first one." },
   "ev-questions.fix-said": { "say": "<name> needs fixing before a run can use it. I'll fix it and show you the result." },
   "ev-questions.what-change": { "say": "What would you like changed?" },
   "ev-questions.which-pack": { "ask": "Which pack should these questions extend?", "header": "Pack", "options": "given" },
-  "ev-questions.only-mine": { "say": "Only my questions" },
-  "ev-questions.only-mine-about": { "say": "Only these questions are answered, and no pack credits are used." },
   "ev-questions.pack-about": { "say": "Your questions cost nothing extra, and print after the pack's own." },
-  "ev-questions.keeps-clauses": { "say": "<pack> keeps its publisher's clauses, so your questions can extend one of your Evalation packs or run on their own." },
-  "ev-questions.packs-unreachable": { "ask": "Evalation couldn't be reached, so the packs can't be shown. Try again, or run these questions on their own?", "header": "Pack", "options": [
+  "ev-questions.keeps-clauses": { "say": "<pack> keeps its publisher's clauses, so your questions can extend one of your Evalation packs instead." },
+  "ev-questions.packs-unreachable": { "ask": "Evalation couldn't be reached, so the packs can't be shown. Try again?", "header": "Pack", "options": [
     { "label": "Try again", "description": "Checks for the packs again." },
-    { "label": "Run them on their own", "description": "No pack credits are used." }
+    { "label": "Stop for now", "description": "Saves nothing. Run /ev-questions again later." }
   ] },
-  "ev-questions.no-pack-takes": { "say": "These questions will run on their own, with no pack." },
   "ev-questions.source": { "ask": "Where should the questions come from?", "header": "Source", "several": true, "options": [
     { "label": "Questions I type", "description": "You write your own questions next." },
     { "label": "Features a website claims", "description": "Checks a web page's feature claims against the code." },
@@ -88,6 +85,5 @@
   ] },
   "ev-questions.next-run": { "say": "Next time you run /ev-run with <pack>, you can tick <name>." },
   "ev-questions.change-saved": { "say": "Saved your changes to <name>." },
-  "ev-questions.next-run-alone": { "say": "Run /ev-run and choose Only my questions. It uses no pack credits." },
   "ev-questions.unconfirmed-note": { "say": "Runs and reports treat unconfirmed questions like any others." }
 }

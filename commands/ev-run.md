@@ -155,9 +155,8 @@ and each answer's label says what choosing it does.
 
    Ask the first question with `evalation-run --say packs <target>`. It names the repository, or the
    product's name where several repositories are read, and the balance, and offers the usual packs
-   recorded in `evalation-packs show`, choosing from the full list, and, only where
-   `evalation-questions list` shows a set written for no pack, which it marks `"pack":"custom"`,
-   answering only the person's own questions. Where there are no usual packs and no set written for no pack, it prints a line
+   recorded in `evalation-packs show`, and choosing from the full list. Where there are no usual
+   packs, it prints a line
    saying what each pack costs and the balance in place of a question: show it, then ask the full
    list, as on choosing from the full list.
 
@@ -194,10 +193,6 @@ and each answer's label says what choosing it does.
    draft the person is editing. Each set prints in a sub-section of its own under `User provided
    questions`, so two sets may each hold a Q1.
 
-   On only the person's own questions, use the sets marked `"pack":"custom"`. With one, use it and
-   ask nothing. With two or more, ask `evalation-run --say only`. That run names no packs at all and
-   costs no credits.
-
    **Each question says what this run will spend.** It spends one pack credit for each pack it
    reads, and `evalation-status` prints how many credits are left. Where the packs chosen are more
    than the balance, say so with `evalation-run --say short <P>`, with <P> the count of packs chosen, and ask
@@ -217,7 +212,7 @@ and each answer's label says what choosing it does.
    evalation-run --scan [pack ...]
    ```
 
-   Name the packs chosen in step 1, or none on only the person's own questions. It asks the server
+   Name the packs chosen in step 1. It asks the server
    for the packs and spends nothing. Where `--scan` fails, show the line it prints as printed and stop. That line
    says no pack credits were used and what to do next. **Where `wanted` is false, skip the rest of this step and step 3, and say
    nothing about scanners.** None of the selected packs reads a scan result, so a scan would be

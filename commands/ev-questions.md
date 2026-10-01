@@ -79,24 +79,29 @@ question keeps its number. A removed question's number is never used again, and 
 questions keep theirs, so a set may skip a number. A new question takes the next number after the
 highest the set has used, which `check` names where a number was used before.
 
-For a new set, first run `evalation-questions packs`. Its answer names the packs the person chose
-with /ev-packs, and every pack that takes extra questions, by title with its handle after it. Then
-run `evalation-questions choose-pack` and ask the question it prints, with one answer. It offers
-only the packs the questions can extend. Only my questions means no Evalation pack is read with
-them. Where the person types a pack under Other, run `evalation-questions pack-named "<typed>"` and
-read its `kind`: on `extends`, write the set for its `pack`. On `keeps-clauses`, show its `said`
-line and ask the question again. On `unknown`, ask the question again. Where the pack list could not be fetched, it asks whether to try
-again or run the questions on their own. On Try again, run `evalation-questions packs` and
-`evalation-questions choose-pack` again. On Run them on their own, write the set for no pack. Where
-no pack takes extra questions, it prints a line in place of a question: show it and write the set
-for no pack.
+Every set extends a pack. For a new set, first ask the question `evalation-say ev-questions.source`
+prints, and step 2 then asks it no more. Where Features a website claims or Features a document
+claims is ticked, the set extends the Investment pack, handle `investment-diligence`, and no pack
+question is asked. Otherwise run `evalation-questions packs`. Its answer names the packs the person
+chose with /ev-packs, and every pack that takes extra questions, by title with its handle after it.
+Then run `evalation-questions choose-pack` and ask the question it prints, with one answer. It
+offers only the packs the questions can extend, and where it prints `only: <title>` in place of a
+question, that pack is the one and nothing is asked. Where the person types a pack under Other, run
+`evalation-questions pack-named "<typed>"` and read its `kind`: on `extends`, write the set for its
+`pack`. On `keeps-clauses`, show its `said` line and ask the question again. On `unknown`, ask the
+question again. Where the pack list could not be fetched, it asks whether to try again. On Try
+again, run `evalation-questions packs` and `evalation-questions choose-pack` again. On Stop for now,
+end, saving nothing.
+
+A set the list says needs a pack is fixed by asking `evalation-questions choose-pack` as above, then
+writing that pack's handle as the copy's `pack`, and going on to step 4 with the whole set.
 
 A person may keep several sets for one pack and a set for each pack, and a set is used only with the
 pack it was written for.
 
 ## 2. Gather the questions
 
-First ask the question `evalation-say ev-questions.source` prints. A tick means yes to that source.
+The source question was asked in step 1. A tick means yes to that source.
 
 On Features a website claims, show `evalation-say ev-questions.address` and take the answer from
 the person's next message. Fetch that page with WebFetch, then up to four pages it links to on the
@@ -213,7 +218,7 @@ names. Where it is one `list` showed, or `draft` answers `name taken`, show
 `evalation-say ev-questions.name-taken` and ask the name question again. A set being changed or
 fixed keeps its name, with no question.
 
-Write a new set as one JSON file, `{"name": "<its name>", "pack": "custom" or the pack's handle,
+Write a new set as one JSON file, `{"name": "<its name>", "pack": "<the pack's handle>",
 "questions": [...]}`, at the path `evalation-questions draft "<name>"` gives in its answer file, in the
 drafts folder. A set being changed or fixed stays in the copy `path` wrote. Every command below that
 takes `<file>` names that draft, in double quotes, and every command that takes `<name>` names the
@@ -300,6 +305,5 @@ account, run
 
 End with one line. For a set being changed or fixed, show
 `evalation-say ev-questions.change-saved "name=<name>"`. For a new set written for a pack, show
-`evalation-say ev-questions.next-run "pack=<pack title>" "name=<name>"`. For a new set written for
-no pack, show `evalation-say ev-questions.next-run-alone`. Where the set was saved
+`evalation-say ev-questions.next-run "pack=<pack title>" "name=<name>"`. Where the set was saved
 unchecked, first show `evalation-say ev-questions.unconfirmed-note`.
