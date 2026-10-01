@@ -177,6 +177,30 @@ test("no path, repository name or folder name of this machine reaches a report",
   assert.strictEqual(held[0].subject, "Cannot open <id> <path> <path> <path> <id> and <id> failed at line <n>");
 });
 
+test("a subfolder's plain name, a repository name, a hash and a file name never reach a report", () => {
+  const solution = mkdtempSync(join(tmpdir(), "evalation-errors-"));
+  for (const one of ["payments", "ledger"]) mkdirSync(join(solution, one));
+  const project = mkdtempSync(join(tmpdir(), "evalation-errors-"));
+  mkdirSync(join(project, "billing"));
+  const home = mkdtempSync(join(tmpdir(), "evalation-errors-"));
+  const message = "Exit code 9 9b9fafe: 9b9fafe is no file in the evalation-engine tree, and this workspace holds evalation-engine, evalation-govern. Require payments, ledger and billing before redactor.ts";
+  const script = `require(${JSON.stringify(ERRORS)}); throw new Error(${JSON.stringify(message)});`;
+  spawnSync(process.execPath, ["-e", script], { cwd: solution, encoding: "utf8", env: envFor(home, null, { CLAUDE_PROJECT_DIR: project }) });
+  const held = heldIn(home);
+  assert.strictEqual(held.length, 1);
+  assert.strictEqual(held[0].subject,
+    "Exit code <n> <id> <id> is no file in the <id> tree, and this workspace holds <id> <id> Require <id> <id> and <id> before <id>");
+});
+
+test("a crowded working folder gives at most 200 of its names", () => {
+  const crowded = mkdtempSync(join(tmpdir(), "evalation-errors-"));
+  for (let at = 0; at < 1000; at += 1) mkdirSync(join(crowded, `crowd${at}`));
+  const script = `console.log([...require(${JSON.stringify(ERRORS)}).machineWords()].filter((one) => one.startsWith("crowd")).length);`;
+  const ran = spawnSync(process.execPath, ["-e", script], { cwd: crowded, encoding: "utf8", env: envFor(mkdtempSync(join(tmpdir(), "evalation-errors-"))) });
+  const listed = Number(ran.stdout.trim());
+  assert.ok(listed > 0 && listed <= 200, `${listed} names from a folder of 1000: ${ran.stderr}`);
+});
+
 test("place is the first frame inside the plugin, relative to its folder", async () => {
   const { placeOf } = require("../lib/errors.js");
   assert.strictEqual(placeOf([

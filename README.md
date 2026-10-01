@@ -105,8 +105,8 @@ these fields and nothing else:
 - `failure`: the kind of fault, from the plugin's own fixed list, such as `uncaught-error`
 - `engine`: the plugin's version, such as `0.72.0`
 - `revision`: the version of the questions in use when it happened, or none
-- `subject`: the error's first line, with every path, number and name swapped for a placeholder and
-  cut at the first word that looks like code, or none
+- `subject`: the error's first line, with every path, number, name and word that looks like code
+  swapped for a placeholder, or none
 - `place`: the plugin file and line it happened at, such as `bin/evalation-run:412`, or none
 
 A report never holds your code, a file's contents, a path on your machine, a repository's name, a
