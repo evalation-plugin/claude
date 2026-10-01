@@ -1,6 +1,14 @@
 {
   "releases": [
     {
+      "version": "0.71.0",
+      "date": "2026-10-01",
+      "notes": [
+        "Every question set now extends a pack. A set saved without one asks you to pick its pack before a run can use it.",
+        "Questions taken from a website or a document extend the Investment pack."
+      ]
+    },
+    {
       "version": "0.70.3",
       "date": "2026-10-01",
       "notes": [

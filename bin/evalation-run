@@ -21,7 +21,7 @@ const { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSyn
 const { basename, dirname, join, relative, resolve, sep } = require("node:path");
 const { filesOf } = require("../lib/tree.js");
 const { pluginHome } = require("../lib/home.js");
-const { extended, packOf, problems } = require("../lib/questions.js");
+const { extended, problems } = require("../lib/questions.js");
 const { newestFor, phasesRead } = require("../lib/scans.js");
 const { runScript } = require("../lib/script.js");
 const { choose, solutionOf } = require("../lib/solution.js");
@@ -338,12 +338,11 @@ function saying(part, args) {
     "off-main": () => words.offMain(facts()),
     branch: () => words.branchAsk(facts()),
     stale: () => words.staleSaid(facts()),
-    packs: () => words.packs({ repository: target(at()).repository, credits: credits(), usual: usual(), titles: titles(), sets: sets() }),
+    packs: () => words.packs({ repository: target(at()).repository, credits: credits(), usual: usual(), titles: titles() }),
     usual: () => words.usualAsk({ usual: usual(), titles: titles() }),
     all: () => words.all({ titles: titles() }),
     sets: () => words.setsFor({ pack: args[0], titles: titles(), sets: sets() }),
     "pick-sets": () => words.pickSets({ pack: args[0], titles: titles(), sets: sets() }),
-    only: () => words.onlySets(sets()),
     short: () => words.short(credits(), args[0]),
     reading: () => words.reading(read()),
     tally: () => words.tally(...args.slice(0, 4)),
@@ -450,8 +449,10 @@ function main() {
   // What to assess against: named on the command line where somebody named some, and the recorded
   // selection otherwise. Per run rather than per installation, because a consultant assesses one
   // client's repository against one set of obligations and the next client's against another.
+  const alone = sets.find((one) => one.pack === "custom");
+  if (alone) fail(spoken("ev-run.set-no-pack", { set: alone.name }));
   let packs = wanted;
-  if (packs.length === 0 && sets.length === 0) {
+  if (packs.length === 0) {
     try {
       const shown = JSON.parse(
         runScript("evalation-packs", ["show"], {
@@ -464,15 +465,15 @@ function main() {
       packs = [];
     }
   }
-  if (packs.length === 0 && sets.length === 0) fail(spoken("ev-run.no-packs"));
-  if (sets.some((one) => one.pack !== "custom")) {
+  if (packs.length === 0) fail(spoken("ev-run.no-packs"));
+  if (sets.length > 0) {
     let catalogue;
     try {
       catalogue = JSON.parse(runScript("evalation-packs", ["titles"], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }));
     } catch (thrown) {
       fail(unlisted(thrown));
     }
-    for (const one of sets.filter((each) => each.pack !== "custom")) {
+    for (const one of sets) {
       const held = catalogue.find((each) => each.pack === one.pack);
       if (!held?.title) fail(spoken("ev-run.set-unknown-pack", { set: one.name }));
       if (!packs.includes(one.pack)) fail(spoken("ev-run.set-unread-pack", { set: one.name, pack: held.title }));
@@ -510,19 +511,10 @@ function setFrom(file) {
   return set;
 }
 
-/**
- * What the reading is given, from what the server served and the customer's own sets. The custom
- * pack is built here and was never asked of the server, so it costs nothing, and extra questions join
- * the pack they name after its own entries.
- */
 function served(answer, sets = [], where = null) {
   let packs = answer.packs ?? [];
-  for (const one of sets.filter((set) => set.pack !== "custom")) {
+  for (const one of sets) {
     packs = packs.map((pack) => (pack.pack === one.pack ? extended(pack, one) : pack));
-  }
-  const custom = sets.filter((set) => set.pack === "custom");
-  if (custom.length > 0) {
-    packs = [...packs, packOf({ name: custom.map((set) => set.name).join(", "), questions: custom.flatMap((set) => set.questions) })];
   }
   return {
     run: answer.run,
