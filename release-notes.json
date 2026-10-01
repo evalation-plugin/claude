@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "0.72.1",
+      "date": "2026-10-01",
+      "notes": [
+        "Error reports now also leave out the names of the folders you work in."
+      ]
+    },
+    {
       "version": "0.72.0",
       "date": "2026-10-01",
       "notes": [
