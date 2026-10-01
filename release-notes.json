@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "0.72.4",
+      "date": "2026-10-02",
+      "notes": [
+        "Error reports sent to us now say more clearly what we need to change. Nothing you see changes."
+      ]
+    },
+    {
       "version": "0.72.3",
       "date": "2026-10-02",
       "notes": [
