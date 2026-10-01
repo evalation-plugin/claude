@@ -21,6 +21,7 @@
 // this command and no other, so the question of what else the machine could reach does not arise.
 "use strict";
 const errors = require("../lib/errors.js");
+const { raised } = errors;
 
 const { readFileSync, realpathSync, statSync } = require("node:fs");
 const { extname, join, relative, resolve, sep } = require("node:path");
@@ -93,7 +94,7 @@ function languageOf(path) {
 // A refusal, raised rather than exited, so a caller holding this as a module sees it as a refusal it
 // can act on instead of losing the process. Running as a command turns it back into an exit.
 function fail(reason, required) {
-  const thrown = new Error(reason);
+  const thrown = raised(reason, null);
   thrown.required = required;
   thrown.refused = true;
   throw thrown;

@@ -16,7 +16,7 @@
 // absent is dropped. And the footer ordinals are renumbered afterwards, since dropping and repeating
 // slides makes every number the template baked in wrong.
 "use strict";
-require("../lib/errors.js");
+const { raised } = require("../lib/errors.js");
 
 const { readFileSync, writeFileSync } = require("node:fs");
 const { join, resolve } = require("node:path");
@@ -460,9 +460,10 @@ function align(slide, marker) {
     const middle = box.top + boxHeight(box) / 2;
 
     if (Math.abs(says - middle) > 40_000) {
-      throw new Error(
+      throw raised(
         `${JSON.stringify(box.text.trim())} and the text beside it are ` +
         `${Math.round(Math.abs(says - middle) / 914.4) / 100}in apart, so they are not aligned`,
+        null,
       );
     }
   }

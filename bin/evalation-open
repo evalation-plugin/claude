@@ -16,7 +16,7 @@
 // Fails closed. Anything that does not open prints one reason and exits non-zero with empty stdout,
 // because a payload that will not open must never be reported as one that did.
 "use strict";
-require("../lib/errors.js");
+const { raised } = require("../lib/errors.js");
 
 const { createHash, createPrivateKey, createPublicKey, diffieHellman, hkdfSync, createDecipheriv } =
   require("node:crypto");
@@ -59,14 +59,14 @@ function receiving(named) {
  */
 function open(sealed, said, seed) {
   if (sealed?.v !== VERSION) {
-    throw new Error(`sealed under ${sealed?.v ?? "nothing"}, and this reads ${VERSION}`);
+    throw raised(`sealed under ${sealed?.v ?? "nothing"}, and this reads ${VERSION}`, "release a plugin that opens the sealing version the server now sends");
   }
   if (seed.length !== 32) {
-    throw new Error(`the receiving key is ${seed.length} bytes where one is 32`);
+    throw raised(`the receiving key is ${seed.length} bytes where one is 32`, null);
   }
 
   const epk = Buffer.from(sealed.epk, "base64");
-  if (epk.length !== 32) throw new Error("the throwaway key is not the size one is");
+  if (epk.length !== 32) throw raised("the throwaway key is not the size one is", null);
 
   const ours = createPrivateKey({
     key: Buffer.concat([PKCS8_X25519, seed]),
@@ -85,7 +85,7 @@ function open(sealed, said, seed) {
   const derived = Buffer.from(hkdfSync("sha256", shared, epk, Buffer.from(VERSION, "utf8"), 32));
 
   const body = Buffer.from(sealed.c, "base64");
-  if (body.length < 17) throw new Error("the sealed payload is too short to hold a tag");
+  if (body.length < 17) throw raised("the sealed payload is too short to hold a tag", null);
   const tag = body.subarray(body.length - 16);
   const cipher = body.subarray(0, body.length - 16);
 
