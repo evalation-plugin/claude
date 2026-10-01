@@ -793,14 +793,13 @@ test("a suggested name never matches a saved set, and a name already taken is as
   assert.ok(flat.indexOf("name taken") < flat.indexOf("Recheck it before anyone sees it"), "a clash on draft is settled before the check starts");
 });
 
-test("claims come in the page's own words, shared evenly over questions headed Claims k/n, four at a time", () => {
+test("claims come in the page's own words, four to a question headed Claims k/n, with only the last short", () => {
   const { claimsQuestion } = require("../lib/questions.js");
   const flat = commandText().replace(/\s+/g, " ");
-  assert.doesNotMatch(flat, /split four claims to each/);
-  assert.match(flat, /no two questions differ in size by more than one/);
+  assert.doesNotMatch(flat, /no two questions differ in size by more than one/);
   const claims = Array.from({ length: 9 }, (_, at) => ({ claim: `The product does thing ${at + 1}.` }));
   const asked = JSON.parse(claimsQuestion(claims)).questions;
-  assert.deepStrictEqual(asked.map((one) => [one.header, one.options.length, one.multiSelect]), [["Claims 1/3", 3, true], ["Claims 2/3", 3, true], ["Claims 3/3", 3, true]]);
+  assert.deepStrictEqual(asked.map((one) => [one.header, one.options.length, one.multiSelect]), [["Claims 1/3", 4, true], ["Claims 2/3", 3, true], ["Claims 3/3", 2, true]]);
   assert.deepStrictEqual(asked[0].options[0], { label: "The product does thing 1", description: "The product does thing 1." });
   assert.match(flat, /at most four at once/);
   assert.match(flat, /word for word/);

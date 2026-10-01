@@ -264,7 +264,9 @@ and each answer's label says what choosing it does.
 
    It prints `asks`, a question to ask with AskUserQuestion unchanged, or `said`, a line to show
    where the history offers no domain. Take the domains ticked and any the person typed, joined with
-   commas below as `<domains>`. Where `asks_domains` is false, leave
+   commas below as `<domains>`. Where `asks` carries `only`, it asks whether that one is all: on Just
+   that one, `<domains>` is `only`. On Add others, show `evalation-say ev-run.domains-type` and
+   join `only` with what the person types. Where `asks_domains` is false, leave
    `--domains` off.
 
    ```

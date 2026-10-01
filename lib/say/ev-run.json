@@ -20,9 +20,13 @@
   "ev-run.area-history": { "say": "the commit history" },
   "ev-run.area-licence": { "say": "the licences dependencies are under" },
   "ev-run.does-licence": { "say": "reads the licences your dependencies are under" },
-  "ev-run.domains": { "ask": "Which email domains belong to the company that owns this code? Tick each one, or pick Other and type them, separated by commas.", "header": "Domains", "several": true, "options": "given" },
-  "ev-run.domains-type": { "say": "Type the email domains that belong to the company that owns this code, such as example.com, separated by commas." },
-  "ev-run.domain-organisation": { "say": "Your Evalation organisation's domain" },
+  "ev-run.domains": { "ask": "Which email domains or addresses does the company that owns this code use? Tick each one, or pick Other and type more, with commas between several.", "header": "Domains", "several": true, "options": "given" },
+  "ev-run.domains-type": { "say": "Before the review starts: which email domains or addresses does the company that owns this code use? Type domains such as example.com, or whole addresses such as anna@gmail.com, with commas between several." },
+  "ev-run.domain-sign-in": { "say": "Your Evalation sign-in" },
+  "ev-run.domains-one": { "ask": "Does the company that owns this code use only <domain>?", "header": "Domains", "options": [
+    { "label": "Just that one", "description": "Counts only <domain> as the company's." },
+    { "label": "Add others", "description": "Type the other domains or addresses next." }
+  ] },
   "ev-run.domain-person": { "say": "1 person commits from this domain" },
   "ev-run.domain-people": { "say": "<count> people commit from this domain" },
   "ev-run.names-people-page": { "say": "This report names the people who committed to the repository." },

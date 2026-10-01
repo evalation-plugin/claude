@@ -35,9 +35,9 @@ test("every person with no commit address at a company domain is named, with add
 
 test("the domains offered are the history's own, with how many people use each, and never a public or private one", () => {
   const { domainChoices } = require("../bin/evalation-scan");
-  const offered = domainChoices(HISTORY, ["acme.io", "gmail.com"]);
+  const offered = domainChoices(HISTORY, "anna@acme.io");
   assert.deepStrictEqual(offered.map((one) => one.domain), ["acme.io", "eng.acme.io", "contractors.dev"]);
-  assert.match(offered[0].description, /organisation/i);
+  assert.match(offered[0].description, /sign-in/i);
   assert.match(offered[1].description, /1 person/);
   assert.ok(!offered.some((one) => /gmail|noreply/.test(one.domain)));
 });
@@ -52,7 +52,7 @@ test("the run asks for the company's domains with a question from the catalogue,
   const asked = spawnSync(process.execPath, [join(__dirname, "..", "bin", "evalation-scan"), "domains", tree], { encoding: "utf8" });
   assert.strictEqual(asked.status, 0, asked.stderr);
   const question = JSON.parse(asked.stdout).asks.questions[0];
-  assert.strictEqual(question.question, "Which email domains belong to the company that owns this code? Tick each one, or pick Other and type them, separated by commas.");
+  assert.strictEqual(question.question, "Which email domains or addresses does the company that owns this code use? Tick each one, or pick Other and type more, with commas between several.");
   assert.ok(question.multiSelect);
   const labels = question.options.map((one) => one.label);
   assert.ok(labels.includes("acme.io") && labels.includes("contractors.dev") && !labels.includes("gmail.com"));

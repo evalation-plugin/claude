@@ -1,6 +1,14 @@
 {
   "releases": [
     {
+      "version": "0.70.3",
+      "date": "2026-10-01",
+      "notes": [
+        "Long lists fill each screen before moving to the next.",
+        "When a review asks which email addresses belong to your company, your own sign-in comes first, and you can name whole addresses as well as domains."
+      ]
+    },
+    {
       "version": "0.70.2",
       "date": "2026-10-01",
       "notes": [

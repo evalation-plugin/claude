@@ -111,8 +111,8 @@ something to do.
 
 Then write the claims with Write to `claims.json` in the drafts folder, in the order the source
 gives them, as `[{"claim": "<the claim word for word>"}]`, run
-`evalation-questions choose-claims "<file>"` on it and ask the questions it prints. It shares the
-claims out so no two questions differ in size by more than one, each headed Claims k/n, and each
+`evalation-questions choose-claims "<file>"` on it and ask the questions it prints. It puts four
+claims in each question, with only the last shorter, each headed Claims k/n, and each
 tick means that claim becomes a question. It labels each answer with the claim's own first words
 and shows each claim word for word as the source wrote it,
 so pass every quoted claim, slogans too, and never reword one or leave one out: the person's tick

@@ -93,3 +93,11 @@ test("a No preference a past run saved reads as unset", () => {
   assert.strictEqual(solutionOf(at).name, null);
   assert.ok(solutionOf(at).left_out.some((one) => one.folder === "notes"));
 });
+
+test("a long tick list fills each list to four, so only the last list on the last screen is short", () => {
+  const { entries, say } = require("../lib/say.js");
+  const packs = Array.from({ length: 18 }, (_, at) => ({ label: `Pack ${at + 1}`, description: `About pack ${at + 1}` }));
+  assert.deepStrictEqual(JSON.parse(say(entries(), "ev-run.all", {}, packs)).questions.map((one) => one.options.length), [4, 4, 4, 4, 2]);
+  assert.deepStrictEqual(JSON.parse(say(entries(), "ev-run.all", {}, packs.slice(0, 17))).questions.map((one) => one.options.length), [4, 4, 4, 3, 2]);
+  assert.deepStrictEqual(JSON.parse(say(entries(), "ev-run.all", {}, packs.slice(0, 6))).questions.map((one) => one.options.length), [4, 2]);
+});
