@@ -114,7 +114,7 @@
   "ev-run.pick": { "ask": "Which of these version controlled folders should this run read?", "header": "Folders", "several": true, "options": "given" },
   "ev-run.pick-folder": { "say": "Reads the code in <folder>." },
 
-  "ev-run.evidence": { "ask": "Which folders without version control should this run use as evidence?", "header": "Evidence", "several": true, "options": "given" },
+  "ev-run.evidence": { "ask": "Which folders without version control should this run use as evidence? Press Skip to leave them out.", "header": "Evidence", "several": true, "options": "given" },
   "ev-run.evidence-files": { "say": "Holds <files> files, such as <first>." },
   "ev-run.evidence-file": { "say": "Holds one file, <first>." },
   "ev-run.evidence-empty": { "say": "Holds no files this run can read." },
@@ -180,7 +180,7 @@
   "ev-run.set-holds-one": { "say": "One question." },
   "ev-run.set-alone": { "say": "Read the pack alone" },
   "ev-run.set-alone-means": { "say": "Only the pack's own questions are read." },
-  "ev-run.sets-many": { "ask": "Which of your question sets should <pack> use? Tick none to read the pack alone.", "header": "Sets", "several": true, "options": "given" },
+  "ev-run.sets-many": { "ask": "Which of your question sets should <pack> use? Press Skip to read the pack alone.", "header": "Sets", "several": true, "options": "given" },
   "ev-run.sets-choice": { "ask": "Use your own question sets with <pack>? You have <count> for it.", "header": "Your sets",
     "options": [{ "label": "Use my question sets", "description": "Tick the ones to use." },
       { "label": "Read the pack alone", "description": "Only the pack's own questions are read." }] },
@@ -193,7 +193,7 @@
 
   "ev-run.tools-installed": { "say": "<tools>, the free security tools this review uses, are already installed." },
   "ev-run.tool-installed": { "say": "<tool>, the free security tool this review uses, is already installed." },
-  "ev-run.tools": { "ask": "Which free security tools should be installed with Homebrew? Each checks one area and takes a while to install. Without a tool, the reading alone covers its area.", "header": "Tools", "several": true, "options": "given" },
+  "ev-run.tools": { "ask": "Which free security tools should be installed with Homebrew? Each checks one area and takes a while to install. Without a tool, the reading alone covers its area. Press Skip to install none.", "header": "Tools", "several": true, "options": "given" },
   "ev-run.tool-declined": { "say": "You chose not to install this on <date>." },
   "ev-run.tool-failed": { "say": "This couldn't be installed on <date>: <why>." },
   "ev-run.tool-installs": { "say": "Installs it." },
