@@ -119,6 +119,16 @@ test("no script a session shows builds a sentence for the person outside the cat
   assert.deepStrictEqual(built, []);
 });
 
+test("a tick-box question that takes none says to press Skip, since Submit stays off until something is ticked", () => {
+  const all = entries();
+  for (const name of ["ev-run.evidence", "ev-run.tools", "ev-run.sets-many"]) {
+    assert.strictEqual(all[name].several, true, name);
+    assert.match(all[name].ask, /Press Skip to [^.]+\.$/, name);
+    assert.doesNotMatch(all[name].ask, /Press Skip to [^.]*\ball\b/, `${name} says all, which reads wrong on a later page`);
+  }
+  assert.deepStrictEqual(Object.entries(all).filter(([, one]) => /tick(ing)? none|tick nothing/i.test(one.ask ?? "")).map(([name]) => name), []);
+});
+
 test("the command line prints what say gives, and refuses an unknown name with a reason", () => {
   const bin = join(__dirname, "..", "bin", "evalation-say");
   const name = Object.keys(entries())[0];
