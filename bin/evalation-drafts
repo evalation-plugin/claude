@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 "use strict";
+require("../lib/errors.js").hook();
 
 const { lstatSync, readFileSync, realpathSync } = require("node:fs");
 const { basename, dirname, isAbsolute, join, sep } = require("node:path");

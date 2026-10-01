@@ -15,6 +15,7 @@
 // Fails closed. No settings, no key, a refused ask or an unreadable answer each print one reason to
 // stderr and exit non-zero with empty stdout, never an invented body.
 "use strict";
+const errors = require("../lib/errors.js");
 
 const { createHash, createPrivateKey, sign } = require("node:crypto");
 const { readFileSync, existsSync } = require("node:fs");
@@ -131,6 +132,7 @@ const body = process.argv[3] ?? "{}";
 try {
   JSON.parse(body);
 } catch (thrown) {
+  errors.report("ask-not-json", thrown);
   fail(`body-not-json: ${thrown.message}`);
 }
 
@@ -162,6 +164,7 @@ fetch(`${base}${path}`, {
     clearTimeout(bell);
     const text = await answer.text();
     if (!answer.ok) {
+      errors.askRefused(path, answer.status, text);
       // The server says what it refused and what to do, so that is what a person is shown rather
       // than a status code they then have to look up.
       let said = text.trim();
@@ -188,6 +191,7 @@ fetch(`${base}${path}`, {
     try {
       process.stdout.write(JSON.stringify(opened(said, context(path, at, digest), receiving(local.secrets && local.secrets.receiving_key))));
     } catch (thrown) {
+      errors.report("answer-unopened", thrown);
       fail(`will-not-open: ${thrown.message}`);
     }
   })

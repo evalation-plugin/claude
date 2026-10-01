@@ -24,6 +24,7 @@
 // evidence has its own status and its own colour. A pack full of false gaps is the fastest way to
 // lose the auditor it was produced for.
 "use strict";
+const errors = require("../lib/errors.js");
 
 const { mkdirSync, readFileSync } = require("node:fs");
 const { join, resolve } = require("node:path");
@@ -569,6 +570,7 @@ function main() {
   } catch (thrown) {
     faulted(`unreadable-findings: ${thrown.message}`);
   }
+  errors.pinned(document.revision);
   if (document.schema !== "evalation.findings.v1") {
     faulted(`not-a-findings-file: ${source} says it is ${document.schema ?? "nothing"}`);
   }
@@ -625,6 +627,7 @@ function main() {
       };
     });
   } catch (thrown) {
+    if (!thrown?.unfit) errors.report("unexpected-error", thrown);
     fail(unwritten(thrown, printedSoFar));
   }
 
@@ -648,6 +651,7 @@ if (require.main === module) {
   try {
     main();
   } catch (thrown) {
+    errors.report("unexpected-error", thrown);
     faulted(thrown?.stack ?? thrown);
   }
 }

@@ -24,6 +24,7 @@
 // **Resumable.** Each answer is kept beside the file by claim as it is recorded, so stopping part way
 // loses nothing already answered, and planning again skips every claim answered, applied or not.
 "use strict";
+require("../lib/errors.js");
 
 const { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } = require("node:fs");
 const { join, resolve } = require("node:path");

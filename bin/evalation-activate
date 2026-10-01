@@ -18,6 +18,7 @@
 // worth taking, and the name that comes back is not a secret. Interrupted before the last step,
 // nothing was created and signing in again costs nothing.
 "use strict";
+const errors = require("../lib/errors.js");
 
 const { generateKeyPairSync, randomBytes, createHash } = require("node:crypto");
 const { execFileSync } = require("node:child_process");
@@ -69,6 +70,7 @@ async function ask(path, body) {
   try {
     return JSON.parse(text);
   } catch (thrown) {
+    errors.report("answer-unreadable", thrown);
     fail(`unreadable answer from ${path}: ${thrown.message}`);
   }
 }
@@ -90,8 +92,12 @@ function refusal(status, text) {
   const refusals = Array.isArray(parsed(text)?.refusals) ? parsed(text).refusals : [];
   if (status >= 500) fail(`server-error: Evalation answered ${status}, so nothing was activated`);
   const said = (refusals.length > 0 ? refusals.map((one) => `${one.observed ?? ""} ${one.failure ?? ""}`).join(" ") : text).trim();
-  if (OUR_SETUP.test(said)) fail(`fault: the sign-in is set up wrongly on our side, so nothing was activated${detailed(said)}`);
+  if (OUR_SETUP.test(said)) {
+    errors.report("sign-in-setup-refused", undefined, said);
+    fail(`fault: the sign-in is set up wrongly on our side, so nothing was activated${detailed(said)}`);
+  }
   if (TRY_AGAIN.test(said)) fail(`refused: the sign-in did not go through, so nothing was activated${detailed(said)}`);
+  errors.report("sign-in-refused-unrecognised", undefined, said);
   fail(`refused-unrecognised: the sign-in was refused for a reason this does not recognise, so nothing was activated${detailed(said)}`);
 }
 
@@ -272,6 +278,7 @@ async function main() {
 
   const refused = decodeURIComponent(back[3]);
   if (refused) {
+    if (OUR_SETUP.test(refused)) errors.report("sign-in-setup-refused", undefined, refused);
     if (OUR_SETUP.test(refused)) fail(`fault: ${provider} refused the sign-in because of how it is set up on our side, so nothing was activated${detailed(refused)}`);
     fail(`sign-in-refused: ${provider} declined the sign-in, so nothing was activated${detailed(refused)}`);
   }

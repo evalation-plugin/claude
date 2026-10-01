@@ -13,6 +13,7 @@
 // It reads sizes, counts lines and asks git for its history. It opens no file for its content and
 // writes nothing.
 "use strict";
+require("../lib/errors.js");
 
 const { execFileSync } = require("node:child_process");
 const { closeSync, openSync, readFileSync, readSync, statSync } = require("node:fs");

@@ -16,6 +16,7 @@
 // absent is dropped. And the footer ordinals are renumbered afterwards, since dropping and repeating
 // slides makes every number the template baked in wrong.
 "use strict";
+require("../lib/errors.js");
 
 const { readFileSync, writeFileSync } = require("node:fs");
 const { join, resolve } = require("node:path");

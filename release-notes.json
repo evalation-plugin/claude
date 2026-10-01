@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "0.72.0",
+      "date": "2026-10-01",
+      "notes": [
+        "When something in Evalation goes wrong, it now tells us, so we can fix it without you having to. It never sends your code, paths or repository names."
+      ]
+    },
+    {
       "version": "0.71.3",
       "date": "2026-10-01",
       "notes": [

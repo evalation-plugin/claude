@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 "use strict";
+require("../lib/errors.js");
 
 const { runScript } = require("../lib/script.js");
 const { approvalOf, lineFor, ACCOUNT } = require("../lib/approval.js");

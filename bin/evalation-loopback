@@ -17,6 +17,7 @@
 // closed on a bind error or a timeout: no port, no sign-in, rather than a sign-in that quietly
 // redirects somewhere else.
 'use strict';
+require('../lib/errors.js');
 const http = require('http');
 
 const TIMEOUT_MS = Number(process.env.EVALATION_LOOPBACK_TIMEOUT_MS || 300000);

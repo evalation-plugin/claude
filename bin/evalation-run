@@ -14,6 +14,7 @@
 // It writes nothing. The findings file is written by evalation-findings once there are findings to
 // put in it, and the tree being read is never touched at all.
 "use strict";
+const errors = require("../lib/errors.js");
 
 const { randomBytes } = require("node:crypto");
 const { execFileSync } = require("node:child_process");
@@ -352,7 +353,8 @@ function saying(part, args) {
   try {
     said = parts[part]();
   } catch (thrown) {
-    faulted(`--say ${part}: ${thrown?.message ?? thrown}`, ["reading", "tally", "done", "folder"].includes(part));
+    errors.report("unexpected-error", thrown);
+    faulted(`--say ${part}:${thrown?.message ?? thrown}`, ["reading", "tally", "done", "folder"].includes(part));
   }
   if (said) process.stdout.write(`${said}\n`);
 }
@@ -510,6 +512,7 @@ function setFrom(file) {
 }
 
 function served(answer, sets = [], where = null) {
+  errors.pinned(answer.revision);
   let packs = answer.packs ?? [];
   for (const one of sets) {
     packs = packs.map((pack) => (pack.pack === one.pack ? extended(pack, one) : pack));
@@ -545,6 +548,7 @@ if (require.main === module) {
   try {
     main();
   } catch (thrown) {
+    errors.report("unexpected-error", thrown);
     faulted(thrown?.stack ?? thrown, counted);
   }
 }

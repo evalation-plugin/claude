@@ -92,7 +92,28 @@ never breaks an installation and no customer configuration carries our hosting a
 
 Your code does not. The findings do not. A run reads your tree locally and writes its findings
 locally, and what crosses the wire is the request for the methodology and the record that a run
-happened. The packs are served to your installation for each run.
+happened. The packs are served to your installation for each run. The plugin's own error reports
+leave too, holding only the fields listed under Error reports.
+
+## Error reports
+
+When something in the plugin goes wrong, it tells Evalation, so we can fix it without waiting for
+you to tell us. Each report is signed by this machine, so we see which account met it. A report holds
+these fields and nothing else:
+
+- `source`: always `plugin`
+- `failure`: the kind of fault, from the plugin's own fixed list, such as `uncaught-error`
+- `engine`: the plugin's version, such as `0.72.0`
+- `revision`: the version of the questions in use when it happened, or none
+- `subject`: the error's first line, with every path, number and name swapped for a placeholder and
+  cut at the first word that looks like code, or none
+- `place`: the plugin file and line it happened at, such as `bin/evalation-run:412`, or none
+
+A report never holds your code, a file's contents, a path on your machine, a repository's name, a
+question you wrote or a finding. Being signed out, out of pack credits, offline or saying no to a
+question isn't reported. A report that can't be sent waits on your machine and goes with your next
+Evalation command. Reporting never changes what a command does or says, and there's no setting to
+turn it off.
 
 ## What this plugin holds
 

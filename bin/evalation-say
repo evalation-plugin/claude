@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 "use strict";
+const errors = require("../lib/errors.js");
 
 const { readFileSync } = require("node:fs");
 const { entries, say } = require("../lib/say.js");
@@ -23,6 +24,7 @@ for (let at = 0; at < rest.length; at += 1) {
 try {
   process.stdout.write(`${say(entries(), name, values, given)}\n`);
 } catch (thrown) {
+  errors.report("line-refused", thrown);
   process.stderr.write(`${thrown.message}\n`);
   process.exit(1);
 }

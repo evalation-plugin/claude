@@ -16,6 +16,7 @@
 // Fails closed. Anything that does not open prints one reason and exits non-zero with empty stdout,
 // because a payload that will not open must never be reported as one that did.
 "use strict";
+require("../lib/errors.js");
 
 const { createHash, createPrivateKey, createPublicKey, diffieHellman, hkdfSync, createDecipheriv } =
   require("node:crypto");

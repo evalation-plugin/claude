@@ -22,6 +22,7 @@
 // findings run past the foot says its name again at the top of the next page, because a section with
 // no discipline over it reads as belonging to the one before.
 "use strict";
+require("../lib/errors.js");
 
 const { readFileSync } = require("node:fs");
 const { resolve } = require("node:path");

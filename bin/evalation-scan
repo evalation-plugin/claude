@@ -29,6 +29,7 @@
 // **Nothing is cached.** The same lockfile carries a different answer the day an advisory lands, so
 // a cache keyed on the dependencies would serve yesterday's all-clear as today's.
 "use strict";
+const errors = require("../lib/errors.js");
 
 const { execFileSync } = require("node:child_process");
 const { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, renameSync, rmSync,
@@ -1358,6 +1359,7 @@ if (require.main === module) {
   try {
     main();
   } catch (thrown) {
+    errors.report("unexpected-error", thrown);
     fail(thrown?.stack ?? thrown);
   }
 }

@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 "use strict";
+require("../lib/errors.js");
 
 const { createPrivateKey, createPublicKey, generateKeyPairSync } = require("node:crypto");
 const { readFileSync } = require("node:fs");
