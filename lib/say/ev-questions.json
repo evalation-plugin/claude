@@ -87,7 +87,6 @@
     { "label": "Keep it on this machine only", "description": "It stays on this machine." }
   ] },
   "ev-questions.next-run": { "say": "Next time you run /ev-run with <pack>, you can tick <name>." },
-  "ev-questions.next-run-other": { "say": "The packs you chose with /ev-packs leave out <pack>. In /ev-run, pick 'Choose which packs to run', tick <pack>, then tick <name>." },
   "ev-questions.change-saved": { "say": "Saved your changes to <name>." },
   "ev-questions.next-run-alone": { "say": "Run /ev-run and choose Only my questions. It uses no pack credits." },
   "ev-questions.unconfirmed-note": { "say": "Runs and reports treat unconfirmed questions like any others." }
