@@ -3,6 +3,8 @@ description: Ask your own questions of a repository, or check the features a web
 allowed-tools: Bash(evalation-questions:*), Bash(evalation-say:*), WebFetch, Read, Write
 ---
 
+Open by showing `evalation-say ev-questions.intro` exactly as printed, before anything else.
+
 <!--
 This runs in the person's own session, before a run, and prepares everything the run reads: the
 customer's questions, and the claims a website makes turned into questions. The readers of a run
@@ -55,12 +57,12 @@ account was not reached or a set on the account no longer meets the question rul
 a line in place of a question: show it and write a new set. Never say the person has only one
 choice.
 
-- Write a new set: go on to step 2.
-- Change a set: run `evalation-questions choose-set` and ask the question it prints. On Show more,
+- Write a new question set: go on to step 2.
+- Change a question set: run `evalation-questions choose-set` and ask the question it prints. On Show more,
   run it again with the next page number, such as `evalation-questions choose-set 2`. Where it
   prints `only: <name>` in place of a question, that one set is the one chosen, and it is a Fix
   where the name ends in ` (fix)`: ask nothing and go on with it.
-- Delete a set: run `evalation-questions choose-set --delete` and ask the question it prints, with
+- Delete a question set: run `evalation-questions choose-set --delete` and ask the question it prints, with
   Show more paged the same way, and `only: <name>` taken as the chosen set. Then ask `evalation-say ev-questions.confirm-delete "name=<name>"`.
   On Delete it, run `evalation-questions delete "<name>"` and show the line it prints, then end. On
   Keep it, show `evalation-say ev-questions.kept-set` and end.

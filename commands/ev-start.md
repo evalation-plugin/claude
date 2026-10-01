@@ -5,6 +5,8 @@ allowed-tools: Bash(evalation-status:*), Bash(evalation-packs chosen:*), Bash(ev
 
 # Set Evalation up
 
+Open by showing `evalation-say ev-start.intro` exactly as printed, before anything else.
+
 The person running this has just installed the plugin and may know nothing about it. Assume that.
 They have not read the readme, they do not know what a pack is, and they do not know which command
 comes next. Your job is to find out where they are, tell them, and take them one step further.

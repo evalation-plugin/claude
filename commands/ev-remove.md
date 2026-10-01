@@ -5,6 +5,8 @@ allowed-tools: Bash(evalation-status:*), Bash(evalation-remove folders:*), Bash(
 
 # Removing Evalation from this machine
 
+Open by showing `evalation-say ev-remove.intro` exactly as printed, before anything else.
+
 For a consultant leaving a customer's machine, or anyone who no longer wants Evalation here. The
 account stays, with its pack credits and any question sets kept on it, and so do the reports in
 Documents. Only this machine's sign in and what Evalation kept on it go. Other machines signed in to

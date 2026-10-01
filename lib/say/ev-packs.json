@@ -1,4 +1,5 @@
 {
+  "ev-packs.intro": { "say": "This chooses the packs your code is checked against when you run /ev-run." },
   "ev-packs.damaged": { "say": "This machine's Evalation sign-in is damaged. Run /ev-activate and sign in with the same account as before." },
   "ev-packs.not-signed-in": { "say": "This machine isn't set up for Evalation yet. Run /ev-start to set it up." },
   "ev-packs.unreachable": { "say": "Evalation couldn't be reached. Check this machine is online, then run /ev-packs again." },

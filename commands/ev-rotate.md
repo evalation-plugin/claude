@@ -5,6 +5,8 @@ allowed-tools: Bash(evalation-rotate:*), Bash(evalation-say:*), Bash(evalation-s
 
 # Replace this machine's key
 
+Open by showing `evalation-say ev-rotate.intro` exactly as printed, before anything else.
+
 What Evalation sends is locked to this machine, and this machine holds a key that opens it. This
 replaces that key, for use when this machine's copy may have been exposed, or on whatever schedule
 the customer's own policy sets. It takes one command, needs no reason given, costs nothing and causes

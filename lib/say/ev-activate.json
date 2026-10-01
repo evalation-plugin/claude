@@ -1,4 +1,5 @@
 {
+  "ev-activate.intro": { "say": "This signs this machine in to Evalation." },
   "ev-activate.damaged": { "say": "This machine needs to sign in to Evalation again. Sign in with the same account as before." },
   "ev-activate.damaged-named": { "say": "This machine needs to sign in to Evalation again. Sign in with <email>." },
   "ev-activate.already": { "say": "This machine is already signed in to Evalation. To use a different account, run /ev-remove, then /ev-activate." },

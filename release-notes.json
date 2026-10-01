@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "0.71.1",
+      "date": "2026-10-01",
+      "notes": [
+        "Every command now starts by saying what it does."
+      ]
+    },
+    {
       "version": "0.71.0",
       "date": "2026-10-01",
       "notes": [

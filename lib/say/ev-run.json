@@ -1,4 +1,5 @@
 {
+  "ev-run.intro": { "say": "This checks the code here against your packs and writes reports on what it finds." },
   "ev-run.fault-before": { "say": "The run stopped on a fault in Evalation. No pack credits were used." },
   "ev-run.fault-after": { "say": "The run stopped on a fault in Evalation. Its pack credits were used when it started." },
   "ev-run.fault-sets": { "say": "The run stopped on a fault in Evalation while listing your question sets. No pack credits were used." },
