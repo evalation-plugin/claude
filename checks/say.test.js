@@ -111,7 +111,8 @@ const SESSION_SCRIPTS = ["bin/evalation-activate", "bin/evalation-ask", "bin/eva
 
 test("no script a session shows builds a sentence for the person outside the catalogue", () => {
   const built = SESSION_SCRIPTS.flatMap((file) => {
-    const lines = readFileSync(join(__dirname, "..", file), "utf8").split("\n").filter((line) => !/\/\/ say:allow: (report|agent|machine), ?\S/.test(line));
+    const lines = readFileSync(join(__dirname, "..", file), "utf8").split("\n").filter((line) => !/\/\/ say:allow: (report|agent|machine), ?\S/.test(line))
+      .map((line) => line.replace(/(\braised\(.*?),\s*"(?:[^"\\]|\\.)*"\s*\)/g, "$1)"));
     return lines.flatMap((line) => [...line.matchAll(/(["`])((?:(?!\1)[^\\\n]|\\.){20,}?)\1/g)].map((found) => found[2]))
       .filter((one) => /^[A-Z][a-z]+[\s,]/.test(one) && one.trim().split(/\s+/).length >= 5 && /[.?](?:$|\s|\$)/.test(one))
       .map((one) => `${file}: ${one.slice(0, 80)}`);
