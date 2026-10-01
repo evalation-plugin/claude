@@ -9,7 +9,7 @@
 //   evalation-questions keep-on-account <name>  keeps a set on the account as well
 //   evalation-questions drop-from-account <name> stops keeping a set on the account
 "use strict";
-require("../lib/errors.js");
+const { raised } = require("../lib/errors.js");
 
 const { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } = require("node:fs");
 const { randomBytes } = require("node:crypto");
@@ -25,13 +25,13 @@ const NAME = /^[A-Za-z0-9][A-Za-z0-9 _-]{0,59}$/;
 const DAY = 24 * 60 * 60 * 1000;
 
 function draftOf(home, name) {
-  if (!NAME.test(String(name))) throw new Error(`${name}: not a name a set is kept under`);
+  if (!NAME.test(String(name))) throw raised(`${name}: not a name a set is kept under`, null);
   mkdirSync(join(home, "drafts"), { recursive: true, mode: 0o700 });
   return join(home, "drafts", `${name}.json`);
 }
 
 function fresh(home, name) {
-  if (saved(home).includes(name)) throw new Error(`${name} is already a saved set, so a new set needs another name`);
+  if (saved(home).includes(name)) throw raised(`${name} is already a saved set, so a new set needs another name`, null);
   const draft = draftOf(home, name);
   rmSync(draft, { force: true });
   rmSync(`${draft}.said.json`, { force: true });
@@ -86,7 +86,7 @@ function titles(ask = askServer) {
 }
 
 function runCopyOf(home, name) {
-  if (!NAME.test(String(name))) throw new Error(`${name}: not a name a set is kept under`);
+  if (!NAME.test(String(name))) throw raised(`${name}: not a name a set is kept under`, null);
   mkdirSync(join(home, "runs", "questions"), { recursive: true, mode: 0o700 });
   return join(home, "runs", "questions", `${name}.json`);
 }

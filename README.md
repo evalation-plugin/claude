@@ -108,7 +108,7 @@ these fields and nothing else:
 - `subject`: the error's first line, with every path, number, name and word that looks like code
   swapped for a placeholder, or none
 - `place`: the plugin file and line it happened at, such as `bin/evalation-run:412`, or none
-- `remedy`: what Evalation's server told the plugin to do when it refused something, or none
+- `remedy`: the change to Evalation that fixes the fault, written by us, where the plugin knows it, or none
 
 A report never holds your code, a file's contents, a path on your machine, a repository's name, a
 question you wrote or a finding. Being signed out, out of pack credits, offline or saying no to a

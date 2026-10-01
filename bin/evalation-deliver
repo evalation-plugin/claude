@@ -21,6 +21,7 @@
 // report reads as one that found nothing wrong, and those are opposite claims.
 "use strict";
 const errors = require("../lib/errors.js");
+const { raised } = errors;
 
 const { existsSync, mkdirSync, readFileSync, writeFileSync } = require("node:fs");
 const { join, resolve } = require("node:path");
@@ -333,7 +334,7 @@ function deliver(source, named, target) {
   try {
     two = detail(shaped, findings, seal, theirs);
   } catch (thrown) {
-    throw Object.assign(thrown instanceof Error ? thrown : new Error(String(thrown)), { written: [one.printed ? pack : one.page] });
+    throw Object.assign(thrown instanceof Error ? thrown : raised(String(thrown), null), { written: [one.printed ? pack : one.page] });
   }
 
   return {

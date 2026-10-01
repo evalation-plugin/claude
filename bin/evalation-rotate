@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 "use strict";
-require("../lib/errors.js");
+const { raised } = require("../lib/errors.js");
 
 const { createPrivateKey, createPublicKey, generateKeyPairSync } = require("node:crypto");
 const { readFileSync } = require("node:fs");
@@ -115,7 +115,7 @@ function restored(standing) {
 function finished(sent) {
   try {
     const packs = ask("/packs", {});
-    if (!Array.isArray(packs.packs)) throw new Error("what came back is not a catalogue");
+    if (!Array.isArray(packs.packs)) throw raised("what came back is not a catalogue", null);
     ask("/rotate", { receiving_key: sent, confirmed: true });
   } catch (thrown) {
     stopped(NOT_FINISHED, thrown);
@@ -128,7 +128,7 @@ function finished(sent) {
 let current;
 try {
   current = store.held(SERVICE, CURRENT);
-  if (!current) throw new Error("it is empty");
+  if (!current) throw raised("it is empty", null);
 } catch {
   fail("no-key: this machine's current key could not be read, so nothing was changed");
 }

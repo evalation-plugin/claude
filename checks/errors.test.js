@@ -130,6 +130,66 @@ test("every script in bin/ loads lib/errors.js before any other module, and each
   assert.deepStrictEqual(wrong, []);
 });
 
+const scripts = () => ["bin", "lib", "hooks"].flatMap((folder) => (existsSync(join(ROOT, folder)) ? readdirSync(join(ROOT, folder), { withFileTypes: true }) : [])
+  .filter((one) => one.isFile() && (folder === "bin" || one.name.endsWith(".js")))
+  .map((one) => join(folder, one.name))
+  .filter((one) => one !== join("lib", "errors.js")));
+
+function calls(text, name) {
+  const found = [];
+  for (let at = text.indexOf(`${name}(`); at >= 0; at = text.indexOf(`${name}(`, at + 1)) {
+    if (/[A-Za-z0-9_$.]/.test(text[at - 1] ?? "")) continue;
+    let depth = 0;
+    let quote = null;
+    const args = [""];
+    for (let one = at + name.length; one < text.length; one += 1) {
+      const said = text[one];
+      if (quote) {
+        args[args.length - 1] += said;
+        if (said === "\\") args[args.length - 1] += text[(one += 1)];
+        else if (said === quote) quote = null;
+        continue;
+      }
+      if (said === "\"" || said === "'" || said === "`") quote = said;
+      if ("([{".includes(said)) depth += 1;
+      if (")]}".includes(said)) depth -= 1;
+      if (depth === 0) break;
+      if (said === "," && depth === 1) args.push("");
+      else if (!(depth === 1 && said === "(" && args.length === 1 && args[0] === "")) args[args.length - 1] += said;
+    }
+    const trimmed = args.map((one) => one.trim());
+    if (trimmed.length > 1 && trimmed.at(-1) === "") trimmed.pop();
+    found.push({ line: text.slice(0, at).split("\n").length, args: trimmed });
+  }
+  return found;
+}
+
+test("every error the plugin raises goes through raised, with its fix as fixed wording or null", () => {
+  const wrong = scripts().flatMap((file) => {
+    const text = readFileSync(join(ROOT, file), "utf8");
+    const bare = calls(text, "new Error").map(({ line }) => `${file}:${line} raises an Error with no fix, where raised(observed, required) states it`);
+    const loose = calls(text, "raised").filter(({ args }) => args.length !== 2 || !(args[1] === "null" || /^"(?:[^"\\]|\\.)*"$/.test(args[1])))
+      .map(({ line }) => `${file}:${line} gives raised a fix that is not one fixed string or null`);
+    const shown = text.split("\n").flatMap((line, at) => (/\bremedyForReport\b/.test(line) ? [`${file}:${at + 1} reads an error's remedy, which goes only to Evalation in the report`] : []));
+    return [...bare, ...loose, ...shown];
+  });
+  assert.deepStrictEqual(wrong, []);
+});
+
+test("a raised error's fix is the remedy its report carries, caught or uncaught", () => {
+  const { raised, built } = require("../lib/errors.js");
+  const one = raised("it broke", "ask the question only with two or more answers");
+  assert.strictEqual(one.message, "it broke");
+  assert.strictEqual(built("unexpected-error", one).remedy, "ask the question only with two or more answers");
+  assert.strictEqual(built("unexpected-error", raised("it broke", null)).remedy, null);
+  assert.strictEqual(built("unexpected-error", raised("it broke", "look in /srv/payments")).remedy, null, "a fix holding a path is left out and the report kept");
+
+  const home = mkdtempSync(join(tmpdir(), "evalation-errors-"));
+  const script = `const { raised } = require(${JSON.stringify(ERRORS)}); throw raised('it broke', 'ask the question only with two or more answers');`;
+  spawnSync(process.execPath, ["-e", script], { encoding: "utf8", env: envFor(home) });
+  assert.deepStrictEqual(heldIn(home).map((held) => [held.failure, held.remedy]), [["uncaught-error", "ask the question only with two or more answers"]]);
+});
+
 test("an uncaught error and an unhandled rejection are held, with output and exit code as they were", () => {
   for (const [code, failure] of [["throw new Error('it broke at 42')", "uncaught-error"], ["Promise.reject(new Error('it broke'))", "unhandled-rejection"]]) {
     const home = mkdtempSync(join(tmpdir(), "evalation-errors-"));
