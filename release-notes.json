@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "0.71.2",
+      "date": "2026-10-01",
+      "notes": [
+        "A review of several repositories now opens cleanly, with no stray counts or failed steps."
+      ]
+    },
+    {
       "version": "0.71.1",
       "date": "2026-10-01",
       "notes": [

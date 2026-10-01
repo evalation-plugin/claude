@@ -3,7 +3,7 @@
 const test = require("node:test");
 const assert = require("node:assert");
 const { execFileSync } = require("node:child_process");
-const { cpSync, mkdirSync, mkdtempSync, writeFileSync } = require("node:fs");
+const { cpSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } = require("node:fs");
 const { tmpdir } = require("node:os");
 const { join } = require("node:path");
 const { repository, run } = require("./fixture.js");
@@ -196,7 +196,13 @@ test("the folder questions and lines come from the run command ready to ask, in 
   const at = solution();
   const said = (...args) => execFileSync(process.execPath, [join(__dirname, "..", "bin", "evalation-run"), "--say", ...args], { encoding: "utf8" });
   const asked = (...args) => JSON.parse(said(...args)).questions;
-  assert.strictEqual(said("found", at), "We found 2 subfolders under version control and one that isn't. The ones you choose are read together as one product.\n");
+  const found = JSON.parse(said("found", at));
+  assert.strictEqual(found.said, "We found 2 subfolders under version control and one that isn't. The ones you choose are read together as one product.");
+  assert.deepStrictEqual(found.folders.questions[0].options.map((one) => one.label), ["Include all version controlled folders", "Let me choose which ones to include"]);
+  assert.strictEqual(found.evidence, true);
+  const command = readFileSync(join(__dirname, "..", "commands", "ev-run.md"), "utf8");
+  assert.doesNotMatch(command, /<N>|<M>/, "the command names no counts a session could read aloud");
+  assert.doesNotMatch(command, /evalation-say ev-run\.folders/, "the folders question comes with the found line, in one call");
   const [folders] = asked("pick", at);
   assert.strictEqual(folders.header, "Folders");
   assert.ok(folders.multiSelect);

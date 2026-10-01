@@ -109,15 +109,14 @@ and each answer's label says what choosing it does.
    It asks the server nothing and counts nothing. Where `solution` is not null, the target is a
    folder holding several repositories, and the run reads them together as one solution: every
    answer draws on whichever repository holds the evidence, and each repository is read once.
-   Below, <N> is the entries of `solution.repositories` whose `vcs` is `git` and <M> the rest.
    Before anything else:
 
-   - Say the counts with `evalation-run --say found <target>`.
-   - Where <N> is two or more, ask `evalation-say ev-run.folders`.
-   - Only on its second answer, the one to choose folders, ask `evalation-run --say pick <target>`.
-     Where they tick none, ask it again.
-   - Where <M> is one or more, ask `evalation-run --say evidence <target>`. A folder left unticked is
-     not read, and ticking none reads none of them.
+   - Run `evalation-run --say found <target>` on its own. Show its `said` exactly as printed, and
+     where its `folders` holds a question, ask it. Say nothing else about what it found.
+   - Only on the folders question's second answer, the one to choose folders, ask
+     `evalation-run --say pick <target>`. Where they tick none, ask it again.
+   - Where its `evidence` is true, ask `evalation-run --say evidence <target>`. A folder left
+     unticked is not read, and ticking none reads none of them.
    - Ask `evalation-run --say name <target>`. The name the person chose is the one its label names,
      or the one they typed.
    - Save both, naming each folder not chosen, version controlled or not:
