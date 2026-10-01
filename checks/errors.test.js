@@ -15,7 +15,7 @@ require("./fixture.js");
 const ROOT = join(__dirname, "..");
 const BIN = join(ROOT, "bin");
 const ERRORS = join(ROOT, "lib", "errors.js");
-const FIELDS = ["engine", "failure", "place", "revision", "source", "subject"];
+const FIELDS = ["engine", "failure", "place", "remedy", "revision", "source", "subject"];
 const ELSEWHERE = join(tmpdir(), "anna", "acme");
 
 function firstLoads(file) {
@@ -156,7 +156,8 @@ test("a report with a field outside its form is dropped, and an undeclared field
   for (const bad of [{ failure: "Uncaught" }, { engine: "0.71" }, { revision: "1.05" }, { revision: 1.6 }, { source: "engine" },
     { subject: `read ${join(ELSEWHERE, "secret")}` }, { subject: "x".repeat(201) }, { place: `${join(ELSEWHERE, "bin", "evalation-run")}:4` },
     { place: "../outside.js:3" }, { place: "bin/evalation-run" }, { place: "checks/errors.test.js:3" }, { place: "lib/say/ev-run.json:1" },
-    { extra: "anything" }]) {
+    { remedy: "open /srv/payments and retry" }, { remedy: "look in ~/payments" }, { remedy: "retry\nthen stop" }, { remedy: "" },
+    { remedy: "x".repeat(301) }, { extra: "anything" }]) {
     assert.ok(!admitted({ ...good, ...bad }), JSON.stringify(bad));
   }
 });
@@ -237,17 +238,20 @@ test("a refusal of an ask the plugin built wrongly is reported, and the person's
     [503, "transport-failure"], [500, undefined], [422, "rate-limited"], [422, "no-price"], [422, "checkout-refused"]]) {
     assert.strictEqual(refusal("/run", status, body(failure)), null, `${status} ${failure}`);
   }
-  assert.deepStrictEqual(refusal("/buy/checkout", 422, body("unservable")), { failure: "ask-refused", subject: "buy checkout refused at body" });
-  assert.deepStrictEqual(refusal("/sets/keep", 400, "not json at all"), { failure: "ask-refused", subject: "sets keep refused" });
+  assert.deepStrictEqual(refusal("/buy/checkout", 422, body("unservable")), { failure: "ask-refused", subject: "buy checkout refused at body", remedy: null });
+  assert.deepStrictEqual(refusal("/sets/keep", 400, "not json at all"), { failure: "ask-refused", subject: "sets keep refused", remedy: null });
+  const told = (required) => JSON.stringify({ refusals: [{ at: "body", observed: "it was refused", required, failure: "unservable" }] });
+  assert.strictEqual(refusal("/sets/keep", 400, told("send the set's name, such as bin/evalation-run:412")).remedy, "send the set's name, such as bin/evalation-run:412");
+  assert.strictEqual(refusal("/sets/keep", 400, told("look in /srv/payments")).remedy, null, "a remedy holding a path is left out and the report kept");
 
   const home = machine();
-  const { server, at } = await listening(() => [422, { refusals: [{ at: "body", observed: "the ask could not be read", failure: "unservable" }] }]);
+  const { server, at } = await listening(() => [422, { refusals: [{ at: "body", observed: "the ask could not be read", required: "send the body as JSON", failure: "unservable" }] }]);
   const got = await ran(join(BIN, "evalation-ask"), ["/buy/checkout", "{}"], { env: envFor(home, at) });
   await until(() => !sending(home));
   server.close();
   assert.strictEqual(got.status, 1);
   assert.match(got.stderr, /^refused 422: /);
-  assert.deepStrictEqual(heldIn(home).map((one) => [one.failure, one.subject]), [["ask-refused", "buy checkout refused at body"]]);
+  assert.deepStrictEqual(heldIn(home).map((one) => [one.failure, one.subject, one.remedy]), [["ask-refused", "buy checkout refused at body", "send the body as JSON"]]);
 
   const person = machine();
   const own = await listening(() => [402, { refusals: [{ at: "entitlement", observed: "no pack credits left", failure: "entitlement-ended" }] }]);
