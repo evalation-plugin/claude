@@ -226,12 +226,16 @@ test("the folder questions and lines come from the run command ready to ask, in 
   const [name] = asked("name", at);
   assert.strictEqual(name.header, "Name");
   assert.deepStrictEqual(name.options[0], { label: "Keep the name Acme platform", description: "The reports name the product Acme platform." });
-  assert.strictEqual(said("branches", at), "");
+  assert.strictEqual(said("branches", at), "none\n");
   git(join(at, "infra"), "checkout", "-q", "-b", "feature");
-  assert.strictEqual(said("branches", at), "acme/infra is on feature, and its main branch is main.\n");
+  const branches = JSON.parse(said("branches", at));
+  assert.strictEqual(branches.said, "acme/infra is on feature, and its main branch is main.");
+  assert.strictEqual(branches.asks.questions[0].header, "Branches");
   execFileSync("git", ["-c", "user.email=check@example.com", "-c", "user.name=check", "commit", "-q", "--allow-empty", "-m", "old"],
     { cwd: join(at, "infra"), stdio: "ignore", env: { ...process.env, GIT_COMMITTER_DATE: "2026-02-03T00:00:00Z" } });
-  assert.strictEqual(said("copies", at), "The newest change in acme/infra is from 3 February 2026.\n");
+  const copies = JSON.parse(said("copies", at));
+  assert.strictEqual(copies.said, "The newest change in acme/infra is from 3 February 2026.");
+  assert.strictEqual(copies.asks.questions[0].header, "Copies");
 });
 
 test("the solution at a glance counts every repository's commits and contributors, and how many repositories it holds", () => {

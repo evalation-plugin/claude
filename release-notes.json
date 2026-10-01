@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "0.71.3",
+      "date": "2026-10-01",
+      "notes": [
+        "Warnings about an old copy or a branch other than main now show cleanly, with no failed steps."
+      ]
+    },
+    {
       "version": "0.71.2",
       "date": "2026-10-01",
       "notes": [

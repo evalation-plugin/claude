@@ -127,29 +127,24 @@ and each answer's label says what choosing it does.
 
    - A folder without version control that is read is used as evidence, and the reports list it
      apart from the repositories.
-   - Where any repository read has `on_main` false, say which with `evalation-run --say branches
-     <target>` and ask `evalation-say ev-run.branches`. Where any has `newest` more than 14 days ago,
-     say which with `evalation-run --say copies <target>` and ask `evalation-say ev-run.copies`. On
-     either stop, end the run there. Never switch a branch or pull yourself. On the answer to talk
-     it through, answer what they ask, then ask the same question again.
+   - Run `evalation-run --say branches <target>` on its own, then `evalation-run --say copies
+     <target>` on its own. Each prints `none`, and then say nothing about it, or a `said` to show
+     exactly as printed and an `asks` question to ask. On either stop, end the run there. Never
+     switch a branch or pull yourself. On the answer to talk it through, answer what they ask, then
+     ask the same question again.
 
    The folder stays the target from here on, and the branch paragraphs below are for a single
    repository.
 
    Where `solution` is null, the target is one repository.
 
-   A run assesses the repository's main branch, and
-   the tree on disk is whatever is checked out. Where `on_main` is false, say so with
-   `evalation-run --say off-main <target>` and ask `evalation-run --say branch <target>`. On stop,
-   end the run there. Never switch the branch yourself, since that changes the repository. When the
-   person comes back to the run, in this conversation or a new one, run this check again before
-   anything else and warn again if the tree is still off main. Where `on_main` is true or null, say
-   nothing about branches: null means the target is no git checkout, or names no main to compare with.
-
-   Where `newest`, the date of the newest commit on disk, is more than 14 days ago, say so with
-   `evalation-run --say stale <target>` and ask `evalation-say ev-run.copy`. On stop, end the run
-   there. Never pull yourself. On the answer to talk it through, answer what they ask, then ask the
-   same question again.
+   A run assesses the repository's main branch, and the tree on disk is whatever is checked out.
+   Run `evalation-run --say branch <target>` on its own, then `evalation-run --say stale <target>`
+   on its own. Each prints `none`, and then say nothing about it, or a `said` to show exactly as
+   printed and an `asks` question to ask. On stop, end the run there. Never switch the branch or pull
+   yourself, since that changes the repository. On the answer to talk it through, answer what they
+   ask, then ask the same question again. When the person comes back to the run, in this
+   conversation or a new one, run both again before anything else.
 
    Then ask which packs to read. The questions name each pack by its title, and the answers come
    back as titles: map each to its handle through what `--titles` printed.
