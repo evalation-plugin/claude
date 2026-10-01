@@ -32,7 +32,7 @@ test("a question comes out ready for the question tool, blanks filled in its ans
 test("answers a script supplies are held to the same rules and split into questions of two to four", () => {
   const options = Array.from({ length: 9 }, (_, at) => ({ label: `Pack ${at}`, description: "A pack." }));
   const asked = JSON.parse(say(SAMPLE, "sample.tick", {}, options));
-  assert.deepStrictEqual(asked.questions.map((one) => one.options.length), [3, 3, 3]);
+  assert.deepStrictEqual(asked.questions.map((one) => one.options.length), [4, 3, 2]);
   assert.deepStrictEqual(asked.questions.map((one) => one.header), ["Packs 1/3", "Packs 2/3", "Packs 3/3"]);
   assert.ok(asked.questions.every((one) => one.multiSelect));
   const quoted = JSON.parse(say(SAMPLE, "sample.tick", {}, [{ label: "Results measured instead of guessed", description: "Leverages GitHub; fast." }, { label: "C", description: "y." }]));
@@ -127,6 +127,18 @@ test("a tick-box question that takes none says to press Skip, since Submit stays
     assert.doesNotMatch(all[name].ask, /Press Skip to [^.]*\ball\b/, `${name} says all, which reads wrong on a later page`);
   }
   assert.deepStrictEqual(Object.entries(all).filter(([, one]) => /tick(ing)? none|tick nothing/i.test(one.ask ?? "")).map(([name]) => name), []);
+});
+
+test("a line that waits for the person to type says the run carries on once they answer, and how to type it", () => {
+  assert.strictEqual(entries()["ev-run.domains-type"].say,
+    "Before the review starts: which email domains or addresses does the company that owns this code use? Type domains such as example.com, or whole addresses such as anna@gmail.com, with commas between several.");
+  const { typedDomains, domainChoices, outsiders } = require("../bin/evalation-scan");
+  assert.deepStrictEqual(typedDomains("acme.com, Acme.io\nanna@GMAIL.com  @example.com;old.acme.com"), ["acme.com", "acme.io", "anna@gmail.com", "example.com", "old.acme.com"]);
+  const authors = [{ name: "Steve", address: "steve@gmail.com" }, { name: "Bea", address: "bea@gmail.com" }, { name: "Cal", address: "cal@acme.io" }];
+  assert.deepStrictEqual(domainChoices(authors, "Steve@Gmail.com").map((one) => one.domain), ["steve@gmail.com", "acme.io"]);
+  assert.strictEqual(domainChoices(authors, "steve@gmail.com")[0].description, "Your Evalation sign-in");
+  assert.deepStrictEqual(domainChoices(authors, "cal@acme.io").map((one) => one.domain), ["acme.io"]);
+  assert.deepStrictEqual(outsiders(authors, ["steve@gmail.com", "acme.io"]).people.map((one) => one.name), ["Bea"]);
 });
 
 test("the command line prints what say gives, and refuses an unknown name with a reason", () => {
