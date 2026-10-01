@@ -192,6 +192,11 @@ test("a subfolder's plain name, a repository name, a hash and a file name never 
     "Exit code <n> <id> <id> is no file in the <id> tree, and this workspace holds <id> <id> Require <id> <id> and <id> before <id>");
 });
 
+test("a placeholder and the count suffix pass the word rule unchanged", () => {
+  const { scrubbed } = require("../lib/errors.js");
+  assert.strictEqual(scrubbed("it broke at <path> on <id> [x3]", new Set()), "it broke at <path> on <id> [x3]");
+});
+
 test("a crowded working folder gives at most 200 of its names", () => {
   const crowded = mkdtempSync(join(tmpdir(), "evalation-errors-"));
   for (let at = 0; at < 1000; at += 1) mkdirSync(join(crowded, `crowd${at}`));
