@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "0.70.1",
+      "date": "2026-10-01",
+      "notes": [
+        "Saving a question set ends on one plain line telling you how to use it."
+      ]
+    },
+    {
       "version": "0.70.0",
       "date": "2026-10-01",
       "notes": [

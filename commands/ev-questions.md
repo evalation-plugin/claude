@@ -299,10 +299,7 @@ account, run
 `evalation-questions drop-from-account "<name>"`.
 
 End with one line. For a set being changed or fixed, show
-`evalation-say ev-questions.change-saved "name=<name>"`. For a new set written for a pack, run
-`evalation-questions packs` where this session has not yet. For a pack its answer names among the
-chosen packs, show `evalation-say ev-questions.next-run "pack=<pack title>" "name=<name>"`. For a
-pack it does not name there, show
-`evalation-say ev-questions.next-run-other "pack=<pack title>" "name=<name>"`. For a new set
-written for no pack, show `evalation-say ev-questions.next-run-alone`. Where the set was saved
+`evalation-say ev-questions.change-saved "name=<name>"`. For a new set written for a pack, show
+`evalation-say ev-questions.next-run "pack=<pack title>" "name=<name>"`. For a new set written for
+no pack, show `evalation-say ev-questions.next-run-alone`. Where the set was saved
 unchecked, first show `evalation-say ev-questions.unconfirmed-note`.

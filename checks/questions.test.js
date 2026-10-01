@@ -489,7 +489,8 @@ test("the command asks for a website's address in plain text, confirms claims th
   assert.match(JSON.parse(approval(at, many)).questions[0].question, /couldn't confirm Title a, Title b and 3 other questions\./);
   const texts = Object.entries(lines()).filter(([name]) => name.startsWith("ev-questions.")).map(([, each]) => each).flatMap((each) => [each.say, each.ask, ...(Array.isArray(each.options) ? each.options.flatMap((o) => [o.label, o.description]) : [])]).join("\n");
   assert.doesNotMatch(texts, /Check them again|still could not confirm|with it marked/, "a recheck in the same session cannot change the result, so it is never offered");
-  assert.match(line("ev-questions.next-run-other", { pack: "Evalation Cyber Insurance Risk", name: "Broker questions" }), /^The packs you chose with \/ev-packs leave out Evalation Cyber Insurance Risk\./);
+  assert.strictEqual(lines()["ev-questions.next-run-other"], undefined, "a run can pick any pack, so no line sends the person through the packs they chose");
+  assert.strictEqual(line("ev-questions.next-run", { pack: "Evalation Cyber Insurance Risk", name: "Broker questions" }), "Next time you run /ev-run with Evalation Cyber Insurance Risk, you can tick Broker questions.");
   assert.doesNotMatch(texts, /usual packs/);
   assert.match(line("ev-questions.unconfirmed-note"), /^Runs and reports treat unconfirmed questions like any others/);
   const sets = Array.from({ length: 6 }, (_, index) => ({ name: `Set ${index + 1}`, pack: "custom", where: "machine" }));
@@ -745,7 +746,8 @@ test("the person reads titles, two suggested names, a plain change question, a d
   assert.strictEqual(line("ev-questions.what-change"), "What would you like changed?");
   assert.match(command, /evalation-questions draft "<name>"/);
   assert.match(command, /drafts folder/);
-  assert.match(lines()["ev-questions.next-run-other"].say, /Choose which packs to run/);
+  const closing = command.slice(command.indexOf("End with one line"));
+  assert.doesNotMatch(closing, /evalation-questions packs/, "the closing line needs no lookup the session could narrate");
   const pack = JSON.parse(packQuestion([{ pack: "cyber-insurance", body: { kind: "standard", title: "Evalation Cyber Insurance Risk", licence: OURS } },
     { pack: "soc2", body: { kind: "standard", title: "SOC 2" } }]));
   assert.deepStrictEqual(pack.questions[0].options.map((each) => each.label), ["Only my questions", "Evalation Cyber Insurance Risk"]);
