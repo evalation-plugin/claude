@@ -6,6 +6,7 @@
 // asks our server whether that digest was signed and when, and says whether anything was added to the
 // file after signing, which is how an editor saves a change.
 "use strict";
+require("../lib/errors.js");
 
 const { runScript } = require("../lib/script.js");
 const { signedRanges } = require("../lib/sign.js");

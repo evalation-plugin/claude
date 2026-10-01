@@ -20,6 +20,7 @@
 // A discipline that was read and found nothing still gets a section. A discipline missing from a
 // report reads as one that found nothing wrong, and those are opposite claims.
 "use strict";
+const errors = require("../lib/errors.js");
 
 const { existsSync, mkdirSync, readFileSync, writeFileSync } = require("node:fs");
 const { join, resolve } = require("node:path");
@@ -363,6 +364,7 @@ if (require.main === module) {
   try {
     done = deliver(source, into || null, target);
   } catch (thrown) {
+    if (!thrown?.unfit) errors.report("unexpected-error", thrown);
     process.stderr.write(`${unwritten(thrown, thrown?.written ?? [])}\n`);
     process.exit(1);
   }

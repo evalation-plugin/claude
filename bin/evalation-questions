@@ -9,6 +9,7 @@
 //   evalation-questions keep-on-account <name>  keeps a set on the account as well
 //   evalation-questions drop-from-account <name> stops keeping a set on the account
 "use strict";
+require("../lib/errors.js");
 
 const { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } = require("node:fs");
 const { randomBytes } = require("node:crypto");

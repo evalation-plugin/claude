@@ -20,6 +20,7 @@
 // **It writes nothing and reaches nothing.** No network, no credentials, no shell. The reading holds
 // this command and no other, so the question of what else the machine could reach does not arise.
 "use strict";
+const errors = require("../lib/errors.js");
 
 const { readFileSync, realpathSync, statSync } = require("node:fs");
 const { extname, join, relative, resolve, sep } = require("node:path");
@@ -94,6 +95,7 @@ function languageOf(path) {
 function fail(reason, required) {
   const thrown = new Error(reason);
   thrown.required = required;
+  thrown.refused = true;
   throw thrown;
 }
 
@@ -428,6 +430,7 @@ if (require.main === module) {
   try {
     main();
   } catch (thrown) {
+    if (!thrown?.refused) errors.report("unexpected-error", thrown);
     process.stderr.write(`${thrown.message}\n`);
     if (thrown.required) process.stderr.write(`required: ${thrown.required}\n`);
     process.exit(1);

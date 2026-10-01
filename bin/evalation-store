@@ -21,6 +21,7 @@
 // portable and a person moving between machines changes nothing. `keychain:` is still read, because
 // installations created before this existed hold it and there is no reason to break them.
 "use strict";
+require("../lib/errors.js");
 
 const { execFileSync } = require("node:child_process");
 const { chmodSync, existsSync, mkdirSync, readFileSync, statSync, writeFileSync, unlinkSync } =

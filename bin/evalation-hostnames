@@ -19,6 +19,7 @@
 // a customer whose first run cannot reach us. It is separate from the default because a build check
 // that must always run cannot depend on the network.
 "use strict";
+require("../lib/errors.js");
 
 const { readFileSync, readdirSync, statSync } = require("node:fs");
 const { join, dirname } = require("node:path");

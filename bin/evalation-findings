@@ -18,6 +18,7 @@
 //
 // It writes one file and never touches the tree it read.
 "use strict";
+const errors = require("../lib/errors.js");
 
 const { createHash } = require("node:crypto");
 const { existsSync, mkdirSync, readFileSync, writeFileSync } = require("node:fs");
@@ -670,6 +671,7 @@ function raise(document, scan) {
 }
 
 function skeleton(served, readBy) {
+  errors.pinned(served.revision);
   return {
     run: served.run,
     at: served.at,

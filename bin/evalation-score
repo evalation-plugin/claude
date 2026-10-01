@@ -13,6 +13,7 @@
 // What a deliverable then shows is the score, the grade and the per-category bars. Never the load, the
 // decay, the weights or the bands, because those are what was served.
 "use strict";
+require("../lib/errors.js");
 
 const { readFileSync, writeFileSync } = require("node:fs");
 const { resolve } = require("node:path");

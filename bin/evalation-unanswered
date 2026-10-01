@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 "use strict";
+require("../lib/errors.js").hook();
 
 const { readFileSync } = require("node:fs");
 const { stopped, unanswered, waiting } = require("../lib/answer.js");

@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 "use strict";
+const errors = require("../lib/errors.js");
 
 const { existsSync, mkdirSync, readFileSync, writeFileSync } = require("node:fs");
 const { pluginHome } = require("../lib/home.js");
@@ -68,6 +69,7 @@ function list() {
   try {
     served = JSON.parse(said);
   } catch (thrown) {
+    errors.report("answer-unreadable", thrown);
     failed("unreadable", thrown.message);
   }
   served.packs = [...(served.packs ?? [])].sort((a, b) => byTitle(a.body?.title ?? a.pack, b.body?.title ?? b.pack));

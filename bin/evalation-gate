@@ -8,6 +8,7 @@
 // reaches them only through evalation-read's fence. The person's own session, and any other agent,
 // pass untouched, since this binds only the agents the plugin defines.
 "use strict";
+require("../lib/errors.js").hook();
 
 const { readFileSync, realpathSync } = require("node:fs");
 const { resolve, sep } = require("node:path");
