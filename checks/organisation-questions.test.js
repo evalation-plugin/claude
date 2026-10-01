@@ -3,7 +3,8 @@
 const test = require("node:test");
 const assert = require("node:assert");
 const { execFileSync, spawnSync } = require("node:child_process");
-const { writeFileSync } = require("node:fs");
+const { mkdtempSync, writeFileSync } = require("node:fs");
+const { tmpdir } = require("node:os");
 const { join } = require("node:path");
 const { repository } = require("./fixture.js");
 
@@ -71,6 +72,23 @@ test("the run asks for the company's domains with a question from the catalogue,
   assert.ok(held.phases.find((one) => one.phase === "history").measures.includes("history:outside-contributors"));
   const without = scan(tree, ["history"]).document.phases.find((one) => one.phase === "history");
   assert.ok(!without.measures.includes("history:outside-contributors"), "without the company's domains the rule is not measured");
+});
+
+test("a history with no company domain to offer asks the person to type theirs", () => {
+  const tree = mkdtempSync(join(tmpdir(), "no-domains-"));
+  execFileSync("git", ["-C", tree, "init", "-q"]);
+  for (const [name, email] of [["Sam", "sam@gmail.com"], ["Jo", "1234+jo@users.noreply.github.com"]]) {
+    writeFileSync(join(tree, `${name}.txt`), name);
+    execFileSync("git", ["-C", tree, "add", "-A"]);
+    execFileSync("git", ["-C", tree, "-c", `user.name=${name}`, "-c", `user.email=${email}`, "commit", "-qm", name]);
+  }
+  const home = mkdtempSync(join(tmpdir(), "no-domains-home-"));
+  const asked = spawnSync(process.execPath, [join(__dirname, "..", "bin", "evalation-scan"), "domains", tree],
+    { encoding: "utf8", env: { ...process.env, HOME: home } });
+  assert.strictEqual(asked.status, 0, asked.stderr);
+  const answer = JSON.parse(asked.stdout);
+  assert.strictEqual(answer.asks, null);
+  assert.match(answer.said, /^Before the review starts: which email domains/);
 });
 
 const raisedPack = (rules) => ({ pack: "investment", kind: "standard", selected: ["INV40", "INV41"], entries_asked: [
