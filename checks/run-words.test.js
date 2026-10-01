@@ -3,7 +3,7 @@
 const test = require("node:test");
 const assert = require("node:assert");
 const { execFileSync, spawnSync } = require("node:child_process");
-const { chmodSync, mkdirSync, mkdtempSync, writeFileSync } = require("node:fs");
+const { chmodSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } = require("node:fs");
 const { tmpdir } = require("node:os");
 const { join, resolve } = require("node:path");
 const { home, repository } = require("./fixture.js");
@@ -219,7 +219,7 @@ test("ev-run writes no question itself, and runs each one the catalogue or a scr
   const text = EV_RUN();
   assert.doesNotMatch(text, /\bask "|\bheaded "|described as "/i);
   assert.doesNotMatch(text, /CLAUDE_PLUGIN_ROOT\}\/bin\/evalation/);
-  const verbs = ["found", "pick", "evidence", "name", "branches", "copies", "off-main", "branch", "stale", "packs", "usual", "all",
+  const verbs = ["found", "pick", "evidence", "name", "branches", "copies", "branch", "stale", "packs", "usual", "all",
     "sets", "pick-sets", "short", "reading", "tally", "done", "folder"];
   assert.deepStrictEqual(verbs.filter((one) => !text.includes(`evalation-run --say ${one}`)), []);
   assert.doesNotMatch(text, /evalation-run --say only\b/, "the --say only verb is gone, since every question set extends a pack");
@@ -231,13 +231,20 @@ test("a branch, a detached commit and a stale copy are each said in the catalogu
   const tree = repository();
   git(tree, "checkout", "-q", "-b", "feature");
   git(tree, "-c", "user.email=check@example.com", "-c", "user.name=check", "commit", "-q", "--allow-empty", "-m", "old");
-  assert.strictEqual(sayRun("off-main", tree).stdout, "This run is about to read feature, and the main branch is main.\n");
-  const asked = JSON.parse(sayRun("branch", tree).stdout);
-  assert.strictEqual(asked.questions[0].header, "Branch");
-  assert.strictEqual(asked.questions[0].options[0].description, "The report describes feature.");
-  assert.strictEqual(sayRun("stale", tree).stdout, "The newest change in this copy is from 1 January 2026.\n");
+  const branch = JSON.parse(sayRun("branch", tree).stdout);
+  assert.strictEqual(branch.said, "This run is about to read feature, and the main branch is main.");
+  assert.strictEqual(branch.asks.questions[0].header, "Branch");
+  assert.strictEqual(branch.asks.questions[0].options[0].description, "The report describes feature.");
+  const stale = JSON.parse(sayRun("stale", tree).stdout);
+  assert.strictEqual(stale.said, "The newest change in this copy is from 1 January 2026.");
+  assert.strictEqual(stale.asks.questions[0].header, "Copy");
   git(tree, "checkout", "-q", "--detach");
-  assert.strictEqual(sayRun("off-main", tree).stdout, "This run is about to read a commit on no branch, and the main branch is main.\n");
+  assert.strictEqual(JSON.parse(sayRun("branch", tree).stdout).said, "This run is about to read a commit on no branch, and the main branch is main.");
+  const fresh = repository();
+  assert.strictEqual(sayRun("branch", fresh).stdout, "none\n");
+  assert.strictEqual(sayRun("stale", fresh).stdout, "none\n");
+  const command = readFileSync(join(__dirname, "..", "commands", "ev-run.md"), "utf8");
+  assert.doesNotMatch(command, /evalation-say ev-run\.(branches|copies|copy)\b|--say off-main|14 days ago/, "each warning is one call that decides for itself");
 });
 
 test("the checking's tally leaves withdrawn claims out, counts what stays asserted, and says a count of one as one", () => {

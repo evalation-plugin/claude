@@ -323,7 +323,6 @@ function saying(part, args) {
   const at = () => args[0] || process.cwd();
   const solution = () => described(solutionOf(at(), { asChosen: false }));
   const chosen = () => solutionOf(at());
-  const facts = () => branchOf(at()) ?? faulted(`${at()} is no git checkout with a main branch`);
   const titles = () => jsonOf("evalation-packs", ["titles"]);
   const sets = () => jsonOf("evalation-questions", ["list"]).sets ?? [];
   const usual = () => jsonOf("evalation-packs", ["show"]).packs ?? [];
@@ -333,11 +332,10 @@ function saying(part, args) {
     pick: () => words.pick(solution()),
     evidence: () => words.evidence(solution()),
     name: () => words.named(chosen()),
-    branches: () => words.branches(chosen()),
-    copies: () => words.copies(chosen()),
-    "off-main": () => words.offMain(facts()),
-    branch: () => words.branchAsk(facts()),
-    stale: () => words.staleSaid(facts()),
+    branches: () => words.branchesWarned(chosen()),
+    copies: () => words.copiesWarned(chosen()),
+    branch: () => words.branchWarned(branchOf(at())),
+    stale: () => words.staleWarned(branchOf(at())),
     packs: () => words.packs({ repository: target(at()).repository, credits: credits(), usual: usual(), titles: titles() }),
     usual: () => words.usualAsk({ usual: usual(), titles: titles() }),
     all: () => words.all({ titles: titles() }),
