@@ -114,7 +114,7 @@ function itemShown(tree, one, at, budget = Infinity) {
   const head = `  item ${at + 1}, ${String(one.result ?? "unanswered").toUpperCase()} (proof: ${one.proof}): ${one.find}`;
   if (one.proof === "scan") return [head, `    settled from the scan of this run (${one.phase}${one.at_least ? `, ${one.at_least} or above` : ""}), which the findings check compared it with`];
   if (one.result === "found") return [head, ...(one.evidence ?? []).map((c) => cited(tree, c, budget))];
-  if (one.result === "missing") return [head, `    searched: ${one.searched ?? ""}`];
+  if (one.result === "missing") return [head, `    searched: ${one.searched ?? ""}`, ...(one.evidence ?? []).map((c) => cited(tree, c, budget))];
   if (one.result === "no-evidence") return [head, "    settled by the run: no infrastructure code was found in what it read, which the findings check compared it with"];
   return [head, `    why it does not apply: ${one.why ?? ""}`];
 }
@@ -221,7 +221,7 @@ function rowShown(tree, one, row, room = SHOWN - guide(tree).length) {
   const head = [`ROW ${row}`, `  claimed: ${one.claimed}`, `  because: ${one.because}`, ...looked];
   const bare = one.items.flatMap((each, at) => itemShown(tree, { ...each, evidence: [] }, at));
   const count = one.items.length > 0
-    ? one.items.reduce((sum, each) => sum + (each.proof !== "scan" && each.result === "found" ? (each.evidence ?? []).length : 0), 0)
+    ? one.items.reduce((sum, each) => sum + (each.proof !== "scan" && (each.result === "found" || each.result === "missing") ? (each.evidence ?? []).length : 0), 0)
     : one.cites.length;
   const budget = Math.max(500, Math.floor((room - [...head, ...bare].join("\n").length) / Math.max(count, 1)) - 600);
   const lines = one.items.length > 0
@@ -571,6 +571,6 @@ function main() {
   process.stdout.write(JSON.stringify(out, null, 2) + "\n");
 }
 
-module.exports = { focusOf };
+module.exports = { focusOf, itemShown };
 
 if (require.main === module) main();
