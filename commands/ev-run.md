@@ -1,6 +1,6 @@
 ---
 description: Check this repository against your packs. Uses one pack credit per pack you choose.
-allowed-tools: Bash(evalation-say:*), Bash(evalation-read:*), Bash(evalation-run:*), Bash(evalation-packs show:*), Bash(evalation-status:*), Bash(evalation-questions list:*), Bash(evalation-questions path:*), Bash(evalation-scan show:*), Bash(evalation-scan install:*), Bash(evalation-scan decline:*), Bash(evalation-scan run:*), Bash(evalation-findings:*), Bash(evalation-verify:*), Bash(evalation-score:*), Bash(evalation-deliver:*), Bash(evalation-report:*), Bash(evalation-check-pdf:*)
+allowed-tools: Bash(evalation-say:*), Bash(evalation-read:*), Bash(evalation-run:*), Bash(evalation-packs show:*), Bash(evalation-status:*), Bash(evalation-questions list:*), Bash(evalation-questions path:*), Bash(evalation-scan show:*), Bash(evalation-scan install:*), Bash(evalation-scan decline:*), Bash(evalation-scan lookup:*), Bash(evalation-scan open:*), Bash(evalation-scan run:*), Bash(evalation-findings:*), Bash(evalation-verify:*), Bash(evalation-score:*), Bash(evalation-deliver:*), Bash(evalation-report:*), Bash(evalation-check-pdf:*)
 ---
 
 Open by showing `evalation-say ev-run.intro` exactly as printed, before anything else.
@@ -15,9 +15,9 @@ perimeter even if something in the tree persuades it to try.
 both read the selection and the balance and nothing of the repository, and a person being asked what
 a run will spend should not have to approve the reading of their own balance to be told.
 
-`evalation-scan` is granted at four verbs and not at `set`. Show, install, decline and run each take
-a tool name the command's own table has to hold, or a directory, so nothing here chooses what
-executes. `set` is what names the command behind a phase, and a grant over it would be a grant over
+`evalation-scan` is granted at the verbs listed and not at `set`. Show, install, decline, lookup and
+run each take a tool name the command's own table has to hold, or a directory, and open takes only a
+list lookup wrote, so nothing here chooses what executes. `set` is what names the command behind a phase, and a grant over it would be a grant over
 any command on the machine.
 
 Writing is deliberately absent. The commands write everything the run keeps, the run file and its
@@ -260,8 +260,22 @@ and each answer's label says what choosing it does.
    join `only` with what the person types. Where `asks_domains` is false, leave
    `--domains` off.
 
+   Where `<phases>` holds `licence` and the person chose the investment-diligence pack, ask before
+   anything is sent whether to look up the licences of dependencies not installed here:
+
    ```
-   evalation-scan run <target> --phases <phases> --domains <domains>
+   evalation-scan lookup <target>
+   ```
+
+   Where it prints `asks` null, there is nothing to look up, so say nothing and leave `--lookup`
+   off. Otherwise show `said` exactly as printed, then ask `asks` with AskUserQuestion unchanged. On
+   Send the list, add `--lookup <list>` below, with `list` as printed. On Open the list first, run
+   `evalation-scan open <shown>` with `shown` as printed, then ask `asks` again. On Don't send it, say
+   `evalation-say ev-run.lookup-declined` and leave `--lookup` off. Ask every run, since the list
+   changes with the repository. Never run `lookup` for any other pack.
+
+   ```
+   evalation-scan run <target> --phases <phases> --domains <domains> --lookup <list>
    ```
 
    It runs before the reading so that what it found is in front of you while you answer the

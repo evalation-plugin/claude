@@ -21,6 +21,21 @@
   "ev-run.area-history": { "say": "the commit history" },
   "ev-run.area-licence": { "say": "the licences your dependencies and the code in the repository are under" },
   "ev-run.does-licence": { "say": "reads the licences your dependencies and the code in the repository are under" },
+  "ev-run.lookup-intro": { "say": "Investment Due Diligence asks which licences the product's dependencies are under. The licences of <packages> can't be read here, because they aren't installed on this machine. Evalation can look them up at deps.dev, Google's public package registry. Only each package's name and version would be sent. No code, file names or repository details are sent, and a package from a private registry is never sent." },
+  "ev-run.lookup-file": { "say": "The list is too long to show here. It's in [<file>](<link>)." },
+  "ev-run.lookup-without": { "say": "Without the lookup, the report says the licences of those <packages> weren't checked." },
+  "ev-run.lookup-ask": { "ask": "Send the names and versions of these <packages> to deps.dev to look up their licences? This uses no pack credits.", "header": "Licences", "options": [
+    { "label": "Send the list", "description": "Looks up each licence at deps.dev." },
+    { "label": "Don't send it", "description": "Sends nothing. The report says these licences weren't checked." }
+  ] },
+  "ev-run.lookup-ask-file": { "ask": "Send the names and versions of these <packages> to deps.dev to look up their licences? This uses no pack credits.", "header": "Licences", "options": [
+    { "label": "Send the list", "description": "Looks up each licence at deps.dev." },
+    { "label": "Open the list first", "description": "Opens the list, then asks again." },
+    { "label": "Don't send it", "description": "Sends nothing. The report says these licences weren't checked." }
+  ] },
+  "ev-run.lookup-declined": { "say": "Nothing was sent to deps.dev. The report will say which licences weren't checked." },
+  "ev-run.lookup-done": { "say": "deps.dev gave a licence for <found> of the <sent> sent to it." },
+  "ev-run.lookup-failed": { "say": "deps.dev couldn't be reached, so the licences of the <sent> weren't looked up." },
   "ev-run.domains": { "ask": "Investment Due Diligence asks whether the company owns all of its code, so the review lists everyone in the git history who committed from outside the company. Which of these email domains does the company use? Tick each one. Pick Other to add more, such as example.com, and the whole address of a staff member's personal account or a consultant whose work the company owns, such as anna@gmail.com. Your answer stays on this machine.", "header": "Domains", "several": true, "options": "given" },
   "ev-run.domains-type": { "say": "Before the review starts: Investment Due Diligence asks whether the company owns all of its code, so the review lists everyone in the git history who committed from outside the company. Type the email domains the company uses, such as example.com. Add the whole address of a staff member's personal account or a consultant whose work the company owns, such as anna@gmail.com. Put commas between several. Your answer stays on this machine." },
   "ev-run.domain-sign-in": { "say": "Your Evalation sign-in" },
