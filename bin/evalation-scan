@@ -74,7 +74,7 @@ const FLOOR = "low";
 
 const MEASURES = {
   history: ["concentration", "quiet", "releases", "dormant", "area", "slowing", "departed", "tickets", "tests", "reverts", "markers"].map((one) => `history:${one}`),
-  licence: ["licence:restricted", "licence:unknown"],
+  licence: ["licence:restricted", "licence:unknown", "licence:in-code"],
 };
 
 // How a tool gets onto a machine that has none of them, which is every customer's machine on the
@@ -579,6 +579,17 @@ function licences(out, files, crates = []) {
       title: "Dependencies under a restrictive licence", packages: restricted.map((one) => one.package),
       body: `${restricted.length} of the ${total} production dependencies ${restricted.length === 1 ? "is" : "are"} under a licence that can oblige the product to share its own code: ${listedUpTo(restricted.map((one) => one.named))}.` }); // say:allow: report,a scanner result printed in the reports
   }
+  const inCode = (JSON.parse(out || "{}").Results ?? []).filter((one) => one.Class === "license-file")
+    .flatMap((one) => one.Licenses ?? [])
+    .filter((one) => repository.has(one.FilePath) && !/^(licen[cs]e|copying)/i.test(one.FilePath))
+    .map((one) => ({ path: one.FilePath, name: one.Name, grade: licenceGrade(one.Name) }))
+    .filter((one) => one.grade !== null);
+  if (inCode.length > 0) {
+    findings.push({ key: "licence:in-code", phase: "licence", at: { path: [...new Set(inCode.map((one) => one.path))].join(", ") },
+      severity: inCode.map((one) => one.grade).reduce((worst, one) => (ranked(one) > ranked(worst) ? one : worst)),
+      title: "Code in the repository under a restrictive licence",
+      body: `${inCode.length === 1 ? "A file in the repository carries" : `${inCode.length} files in the repository carry`} a licence that can oblige the product to share its own code: ${listedUpTo(inCode.map((one) => `${one.path} (${one.name})`))}.` }); // say:allow: report,a scanner result printed in the reports
+  }
   if (bare.length > 0) {
     findings.push({ key: "licence:unknown", phase: "licence", severity: "medium", at: at(bare),
       title: "Dependencies declaring no licence", packages: bare.map((one) => one.package),
@@ -595,14 +606,15 @@ const BY_PHASE = {
   licence: {
     trivy: {
       phase: "licence",
-      argv: (target) => ["fs", "--scanners", "license", "--list-all-pkgs", "--format", "json", "--quiet", target],
+      argv: (target) => ["fs", "--scanners", "license", "--license-full", "--list-all-pkgs", "--format", "json", "--quiet", target],
       read: (out, root) => {
         const files = filesOf(root).map((one) => inRepository(root, one));
         const said = licences(out, files, files.filter((one) => basename(one) === "Cargo.lock").map((one) => cratesIn(root, one)));
-        if (said.lockfiles === 0) return { skipped: "no-lockfile", why: "the repository holds no dependency lockfile to read licences from" };
+        if (said.lockfiles === 0 && said.findings.length === 0) return { skipped: "no-lockfile", why: "the repository holds no dependency lockfile to read licences from" };
+        if (said.lockfiles === 0) return { findings: said.findings, unread: [], measures: ["licence:in-code"], why: "the repository holds no dependency lockfile to read dependency licences from" };
         const todo = fetchSaid(said.fetch);
-        if (said.read === 0) return { skipped: "not-installed", why: [`no dependency licences could be read from ${said.unread.join(", ")}, since the dependencies are not installed here.`, ...todo].join(" ").replace(/\.$/, "") };
-        return { findings: said.findings, unread: said.unread, ...(todo.length > 0 ? { todo } : {}),
+        if (said.read === 0 && said.findings.length === 0) return { skipped: "not-installed", why: [`no dependency licences could be read from ${said.unread.join(", ")}, since the dependencies are not installed here.`, ...todo].join(" ").replace(/\.$/, "") };
+        return { findings: said.findings, unread: said.unread, ...(todo.length > 0 ? { todo } : {}), ...(said.read === 0 ? { measures: ["licence:in-code"] } : {}),
           ...(said.unread.length > 0 ? { why: `licences not read for ${said.unread.length > 5 ? `${said.unread.slice(0, 5).join(", ")} and ${said.unread.length - 5} more` : said.unread.join(", ")}, since those dependencies are not installed here` } : {}) };
       },
     },
@@ -1019,7 +1031,7 @@ function runPhase(phase, named, target, isRepository, held) {
     const found = (Array.isArray(answered) ? answered : answered.findings ?? [])
       .map((one) => ({ ...one, phase, tool: named.tool }));
     const inventory = Array.isArray(answered) ? null : answered.inventory ?? null;
-    return { phase, tool: named.tool, ran: true, ...(answered.why ? { why: answered.why } : {}),
+    return { phase, tool: named.tool, ran: true, ...(answered.why ? { why: answered.why } : {}), ...(answered.measures ? { measures: answered.measures } : {}),
       ...(answered.unread?.length ? { unread: answered.unread } : {}), ...(answered.todo?.length ? { todo: answered.todo } : {}), findings: found, inventory };
   } catch (thrown) {
     // Said rather than swallowed, and with no findings, since a tool that fell over knows nothing
