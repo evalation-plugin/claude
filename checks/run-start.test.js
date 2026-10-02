@@ -12,8 +12,9 @@ const { repository } = require("./fixture.js");
 
 const tree = repository();
 
-const catalogued = (text) => Object.values(require("../lib/say.js").entries()).filter((one) => one.say).some((one) =>
-  new RegExp(`^${one.say.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/<[a-z][a-z0-9 -]*>/g, ".+")}$`).test(text));
+const catalogued = (text) => Object.values(require("../lib/say.js").entries()).filter((one) => one.say)
+  .flatMap((one) => (typeof one.say === "object" ? Object.values(one.say) : [one.say])).some((one) =>
+    new RegExp(`^${one.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/<[a-z][a-z0-9 -]*>/g, ".+")}$`).test(text));
 
 function machine() {
   const home = mkdtempSync(join(tmpdir(), "evalation-start-"));
@@ -258,7 +259,7 @@ test("every start refused on this machine says in one plain line that no pack cr
   held.close();
   for (const ran of refused) {
     assert.strictEqual(ran.code, 1);
-    assert.match(ran.stderr, /^[A-Z][^\n]*[Nn]o pack credits were used\. [^\n]+\.\n$/);
+    assert.match(ran.stderr, /^[A-Z][^\n]*(used no pack credits|before using any pack credits|[Nn]o pack credits were used)[^\n]*\. [^\n]+\.\n$/);
     assert.doesNotMatch(ran.stderr, /^[a-z-]+:|cyber-insurance|\.json/);
     assert.ok(catalogued(ran.stderr.trim()), `not a catalogue line: ${ran.stderr}`);
   }
@@ -269,7 +270,7 @@ test("a balance that cannot be read says in a catalogue line what to do, and a f
   const port = held.address().port;
   const fresh = await started(mkdtempSync(join(tmpdir(), "evalation-fresh-")), port, "--say", "packs", tree);
   assert.strictEqual(fresh.code, 1);
-  assert.strictEqual(fresh.stderr, "This machine isn't set up for Evalation yet, so the run stopped. No pack credits were used. Run /ev-start to set it up.\n");
+  assert.strictEqual(fresh.stderr, "This machine isn't set up for Evalation yet, so the run stopped before using any pack credits. Run /ev-start to set it up.\n");
   const damaged = machine();
   writeFileSync(join(damaged, "keys", "evalation-plugin.box.installation-key"), "short");
   assert.match((await started(damaged, port, "--say", "packs", tree)).stderr, /sign-in is damaged.+same account as before/);
@@ -298,7 +299,7 @@ test("packs that cannot be read for the scan question say so plainly, with no pa
   const ran = await started(machine(), held.address().port, "--scan", "soc2");
   held.close();
   assert.strictEqual(ran.code, 1);
-  assert.match(ran.stderr, /^[A-Z][^\n]*[Nn]o pack credits were used\. [^\n]+\.\n$/);
+  assert.match(ran.stderr, /^[A-Z][^\n]*(used no pack credits|before using any pack credits|[Nn]o pack credits were used)[^\n]*\. [^\n]+\.\n$/);
   assert.doesNotMatch(ran.stderr, /refused|500|database|\(/);
   assert.ok(catalogued(ran.stderr.trim()), `not a catalogue line: ${ran.stderr}`);
 });
@@ -309,7 +310,7 @@ test("the pack titles on a machine not signed in say plainly to sign in, with no
   const ran = await started(home, held.address().port, "--titles");
   held.close();
   assert.strictEqual(ran.code, 1);
-  assert.match(ran.stderr, /^This machine isn't set up for Evalation yet, so the run stopped\. No pack credits were used\. Run \/ev-start to set it up\.\n$/);
+  assert.match(ran.stderr, /^This machine isn't set up for Evalation yet, so the run stopped before using any pack credits\. Run \/ev-start to set it up\.\n$/);
   const damaged = machine();
   writeFileSync(join(damaged, "keys", "evalation-plugin.box.installation-key"), "short");
   const again = await server([{ body: { revision: "1.86", packs: [{ pack: "soc2", body: SOC2 }] } }]);

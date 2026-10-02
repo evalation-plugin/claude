@@ -53,7 +53,7 @@ const STATUSES = [
   ["total-gap", "Gap", "G", "#FB3B4E"],
   ["partial-gap", "Partial", "P", "#FFB020"],
   ["covered", "Covered", "C", "#35C46A"],
-  ["no-evidence", "No evidence found", "E", "#A7B4CC"],
+  ["no-evidence", "Environment", "E", "#A7B4CC"],
   ["org-level", "Org-level", "O", "#8FA2C6"],
   ["not-applicable", "Not applicable", "N", "#6F82AB"],
 ];
@@ -128,7 +128,7 @@ const RESULT = {
   missing: ["missing", colourOf("total-gap")],
   "does-not-apply": ["does not apply", CHROME.faint],
   "not-checked": ["not checked", colourOf("partial-gap")],
-  "no-evidence": ["no evidence found", colourOf("no-evidence")],
+  "no-evidence": ["environment", colourOf("no-evidence")],
 };
 
 // Severities worst first, the order a scanner's findings are listed in under an item.
@@ -141,23 +141,23 @@ const SEVERITY = ["critical", "high", "medium", "low", "info"];
  */
 function scanned(want, row, scan) {
   const phase = phaseNamed(want.phase);
-  const level = want.at_least ? ` at ${want.at_least} or above` : "";
+  const level = want.at_least ? `at ${want.at_least} or above` : "at any severity";
   if (row.result === "not-checked") {
     const ran = (scan?.phases ?? []).find((one) => one.phase === want.phase);
     const says = settled(want, scan);
-    if (ran?.ran && says.result === "not-checked") return `<p class="looked">${escaped(`Not checked, since ${says.why}.`)}</p>`;
-    return `<p class="looked">${escaped(ran && !ran.ran ? `The ${phase} did not run: ${ran.why}.` : `The ${phase} was not run over ${here()} in this run.`)}</p>`; // say:allow: report,printed on the evidence pack PDF
+    if (ran?.ran && says.result === "not-checked") return `<p class="looked">${escaped(line("report.scan-not-checked", { why: says.why }))}</p>`;
+    return `<p class="looked">${escaped(ran && !ran.ran ? line("report.scan-off", { phase, why: ran.why || "no reason recorded" }) : line("report.scan-not-run", { phase, here: here() }))}</p>`;
   }
   // Counted once per result, as the table lists them. The same advisory in two lockfiles is one.
   const seen = new Set();
   const all = (scan?.relevant ?? []).filter((one) => one.phase === want.phase && !seen.has(one.key) && seen.add(one.key));
   const floor = want.at_least ? SEVERITY.indexOf(want.at_least) : SEVERITY.length - 1;
   const over = all.filter((one) => SEVERITY.indexOf(one.severity) >= 0 && SEVERITY.indexOf(one.severity) <= floor);
-  const listed = all.length > 0 ? " Each is listed under Scanner results at the end of this pack." : "";
+  const listed = all.length > 0 ? ` ${line("report.scan-listed")}` : "";
   const said = row.result === "found"
-    ? `The ${phase} ran over ${here()} and found nothing${level}` +
-      (all.length > 0 ? `, and ${all.length} below that.` : ".")
-    : `The ${phase} found ${over.length}${level}` + (all.length > over.length ? `, of ${all.length} in all.` : ".");
+    ? (all.length > 0 ? line("report.scan-clean-below", { phase, here: here(), level, below: String(all.length) }) : line("report.scan-clean", { phase, here: here(), level }))
+    : (all.length > over.length ? line("report.scan-found-of", { phase, count: String(over.length), level, total: String(all.length) })
+      : line("report.scan-found", { phase, count: String(over.length), level }));
   return `<p class="looked">${escaped(said + listed)}</p>`;
 }
 
@@ -186,8 +186,13 @@ function items(answer, list, scan) {
           quoted(one);
       }).join("")
       : row.result === "no-evidence"
-      ? `<p class="looked">${escaped("No infrastructure code was found in what this run read, so this may be held where the run could not see it.")}</p>`
-      : `<p class="looked">${escaped(row.result === "missing" ? row.searched : row.why)}</p>`;
+      ? `<p class="looked">${escaped(line("report.no-evidence-item"))}</p>`
+      : `<p class="looked">${escaped(row.result === "missing" ? row.searched : row.why)}</p>` +
+        (row.result === "missing" ? (row.evidence ?? []).map((one) => {
+          const range = one.to && one.to !== one.from ? `${one.from}-${one.to}` : one.from;
+          return `<div class="at"><span>${escaped(shownPath(target, one.path))}:${escaped(range)}</span>` +
+            `<span class="grade">${escaped(one.grade ?? "")}</span></div>` + quoted(one);
+        }).join("") : "");
     return `<div class="cite item"><div class="where"><span>${at + 1}. ${escaped(want.find)}</span>` +
       `<span>${tag}<span class="grade" style="color:${colour}">${word}</span></span></div>${under}</div>`;
   }).join("");
@@ -201,7 +206,7 @@ function closing(answer) {
     return `<div class="did"><b>What to do</b>${escaped(answer.remedy)}</div>`;
   }
   if (answer.justification) {
-    const label = answer.status === "not-applicable" ? "Why this does not apply" : "Why this is not the code's to answer";
+    const label = line(answer.status === "not-applicable" ? "report.label-not-applicable" : "report.label-organisation");
     return `<div class="did"><b>${label}</b>${escaped(answer.justification)}</div>`;
   }
   return "";
@@ -352,7 +357,7 @@ function sectionsOf(pack, answers, asked) {
 
   // An answer naming no declared section is still reported. Dropped, it would be an entry the
   // standard asked about and the report never mentioned.
-  if (loose.length > 0) held.push([{ identifier: "", title: "Not in any declared section" }, loose]);
+  if (loose.length > 0) held.push([{ identifier: "", title: line("report.no-section") }, loose]);
   return held;
 }
 
@@ -420,45 +425,40 @@ function opening(document, answers, packs, asked) {
   const read = answers.filter((one) => one.from !== "authored").length;
   const noun = nounAcross(packs);
   const marks = grades(asked);
+  const several = document.target?.kind === "solution";
+  const source = several ? "repositories" : "repository";
   const parts = [
-    ["Identifier", `The standard's number and short name for the ${noun.one}.`], // say:allow: report,the evidence pack's key
-    ["Asked", `The question put to ${document.target?.kind === "solution" ? "the product" : "the repository"}, in italics.`],
-    ["Answer", `What ${document.target?.kind === "solution" ? "the repositories show" : "the repository shows"}, and why that earns this status.`],
-    ["Where it rests", (document.target?.kind === "solution" ? "The repository, file and lines" : "The file and lines") + " on the grey bar, the quoted line under them, and how strong the evidence is on the right. For something missing, the search we made, so anyone can repeat it."],
-    ["Looked for", "The things the standard looks for, numbered, each marked found, missing, no evidence found or does not apply. The status follows from how many were found. An item marked scanned was settled by a scanner run during the review, and the scanner's results are listed at the end."], // say:allow: report,the evidence pack's key
-    ["Status", "Gap, Partial, Covered, No evidence found, Org-level or Not applicable, on the coloured tag. No evidence found marks something a team may hold outside the code, such as network rules in a cloud console, where the run read no infrastructure code. It is left out of the count."], // say:allow: report,the evidence pack's key
-    ["Checked", `Next to the model that read it: verified if a second check confirmed the answer against the ${document.target?.kind === "solution" ? "repositories" : "repository"}, asserted if nothing did.`],
-    ["What to do", `The fix, on the orange bar. For ${called(noun.one)} the organisation owns, the reason the code cannot answer it.`], // say:allow: report,the evidence pack's key
+    ["Identifier", line("report.key-identifier", { noun: noun.one })],
+    ["Asked", line("report.key-asked", { subject: several ? "product" : "repository" })],
+    ["Answer", line("report.key-answer", { source })],
+    ["Where it rests", line("report.key-rests", { where: several ? "repository, file and lines" : "file and lines" })],
+    ["Looked for", line("report.key-looked")],
+    ["Status", line("report.key-status")],
+    ["Checked", line("report.key-checked", { source })],
+    ["What to do", line("report.key-todo", { noun: called(noun.one) })],
   ];
-  if (marks.length > 0) {
-    parts.push(["In scope",
-      `The small tag after the name says whether the standard assesses this ${noun.one} in every audit or only where the customer chose it. The words are explained below.`]); // say:allow: report,the evidence pack's key
-  }
+  if (marks.length > 0) parts.push(["In scope", line("report.key-scope", { noun: noun.one })]);
 
-  const whole = document.target?.kind === "solution"
-    ? `the ${(document.target.repositories ?? []).filter((one) => one.vcs === "git").length} repositories of this product together`
-    : "the repository";
+  const held = (document.target?.repositories ?? []).filter((one) => one.vcs === "git").length;
+  const whole = several ? `the ${held} repositories of this product together` : "the repository";
+  const others = answers.length - read;
+  const published = (packs ?? []).some((one) => answers.some((each) => each.pack === one.pack) && !one.version_is_ours);
   return `<div class="block">
 ${facts(document, answers, packs)}
 ${tally(answers)}
 </div>
 ${readBlock(document.target)}
 <div class="block">
-<h2>The work done</h2>
-<p class="intro">We read ${escaped(whole)} and answered ${read} of the ${answers.length}
-${escaped(noun.many)} from ${document.target?.kind === "solution" ? "their" : "its"} code and files. Each answer cites the lines it rests on, or for
-something missing, the search that did not find it. ${answers.length - read === 0 ? "" : `The other
-${answers.length - read} are about how the organisation runs, which a repository does not record, so
-the pack answers them and says so on each one. `}We read the code without running it and changed
-nothing.</p>
+<h2>${escaped(line("report.work-title"))}</h2>
+<p class="intro">${escaped([line("report.work-read", { whole, read: String(read), total: String(answers.length), nouns: noun.many, its: several ? "their" : "its" }),
+    ...(others === 0 ? [] : [line("report.work-organisation", { count: String(others), noun: noun.one, nouns: noun.many })]),
+    line("report.work-untouched")].join(" "))}</p>
 ${namesPeople(answers) ? `<p class="intro">${escaped(line("ev-run.names-people-page"))}</p>` : ""}
-<p class="intro">A review like this shows how each control is designed and whether the code puts it in
-place. Some standards also ask whether a control worked over a period of months. That takes records
-from those months, which a repository does not keep, so this report cannot answer it.</p>
+${published ? `<p class="intro">${escaped(line("report.work-over-time"))}</p>` : ""}
 </div>
 <div class="block last">
-<h2>Reading ${escaped(called(noun.one))}</h2>
-<p class="lede">Each ${escaped(noun.one)} below follows this layout.</p>
+<h2>${escaped(line("report.key-title", { noun: called(noun.one) }))}</h2>
+<p class="lede">${escaped(line("report.key-lede", { noun: noun.one }))}</p>
 <dl class="key wide">${parts
   .map(([name, meaning]) => `<dt>${escaped(name)}</dt><dd>${escaped(meaning)
     .replace(/\b(verified|asserted)\b/g, (word) => `<span style="color:${STANDING[word]}">${word}</span>`)}</dd>`).join("")}</dl>
@@ -484,8 +484,7 @@ function scanFindings(document, packs, asked) {
   }
   return scanResults({
     findings: (document.scan?.relevant ?? []).filter((one) => bears.has(one.phase)),
-    intro: "Each card is a package or rule the scanners flagged, most severe first. An item counts only " + // say:allow: report,the evidence pack's scanner section
-      "the severities it names, so a card can bear on an item and leave its result unchanged.",
+    intro: line("report.scanner-intro"),
     tagWord: "Bears on",
     tagOf: (one) => bears.get(one.phase) ?? [],
     phaseOf: phaseNamed,
@@ -527,27 +526,24 @@ function page(document, answers, asked) {
   }).join("") + scanFindings(document, [...byPack.keys()], asked);
 
   const title = "Evalation Evidence Pack";
-  const subtitle = document.target?.kind === "solution"
-    ? `What this product evidences · Product: ${repository}`
-    : `What this repository evidences · Repository: ${repository}`;
-  const foot = `${title}. Assessed ${dated(document.at)} against question revision ` +
-    `${document.revision ?? ""}.`;
+  const several = document.target?.kind === "solution";
+  const subtitle = line("report.subtitle", { kind: several ? "product" : "repository", label: several ? "Product" : "Repository",
+    name: repository || document.target?.name || "unnamed" });
+  const date = dated(document.at);
+  const revision = String(document.revision ?? "");
+  const foot = !revision ? line("report.foot-bare", { title })
+    : date ? line("report.foot", { title, date, revision }) : line("report.foot-undated", { title, revision });
 
   return `<!doctype html><meta charset="utf-8"><title>${escaped(title)}</title>
 <style>
 ${css()}
 
-/* Whether a section is in every audit against this standard or only where the customer elected it.
-   Beside the heading and not under it, since it qualifies the heading and a reader who scrolls past
-   it has taken the whole section as compulsory. */
 h2 .obligation{font-family:'JetBrains Mono',monospace;font-size:7pt;letter-spacing:0.08em;
   text-transform:uppercase;font-weight:400;padding:2px 7px;margin-left:0.10in;
   vertical-align:middle;color:${CHROME.page}}
 h2 .obligation.mandatory{background:${CHROME.muted}}
 h2 .obligation.optional{background:${CHROME.rule};color:${CHROME.muted}}
 
-/* The same distinction on an entry, where a standard grades each of its parts. Quieter than the
-   status tag beside it, since it qualifies the name and the status is what the reader came for. */
 .entry .grade{font-family:'JetBrains Mono',monospace;font-size:6.5pt;letter-spacing:0.08em;
   text-transform:uppercase;padding:1px 6px;flex:none;color:${CHROME.faint};
   border:1px solid ${CHROME.rule}}

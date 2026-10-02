@@ -89,7 +89,7 @@ test("an evidence pack and a hardening detail open with the section where an ear
   const now = later();
   const { page } = require("../bin/evalation-report");
   const asked = new Map(now.packs[0].entries_asked.map((one) => [`soc2/${one.identifier}`, one]));
-  assert.match(page(now, now.answers, asked), /What changed since 23 September 2026/);
+  assert.match(page(now, now.answers, asked), /Changes since 23 September 2026/);
 
   const { reviewFindings } = require("../bin/evalation-deliver");
   const hardening = { ...later(), packs: [{ pack: "hardening", kind: "concern-set", entries_asked: [] }], answers: [], findings: [], accounted: [] };
@@ -99,7 +99,7 @@ test("an evidence pack and a hardening detail open with the section where an ear
 
 test("the section says what changed in plain words, and that nothing did when nothing did", () => {
   const html = changesSection(changes(later(), run("2026-09-23T00:00:00.000Z")), "soc2");
-  assert.match(html, /What changed since 23 September 2026/);
+  assert.match(html, /Changes since 23 September 2026/);
   assert.match(html, /CC6\.1 Logical access.*partial.*to.*covered/s);
   assert.match(html, /1 improved and 1 worsened/);
   const still = changesSection(changes(run("2026-09-25T00:00:00.000Z"), run("2026-09-23T00:00:00.000Z")), "soc2");

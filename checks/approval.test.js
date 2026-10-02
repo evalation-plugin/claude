@@ -130,15 +130,15 @@ test("a run refused for approval says so in one catalogue line naming the owner,
   const tree = repository();
   const run = {
     "awaiting-approval": "The run didn't start, because jane@acme.com hasn't approved your request to use Acme's Evalation credits yet. No pack credits were used.\n",
-    declined: "The run didn't start, because Acme declined your request to use its Evalation credits. No pack credits were used. If that's a mistake, ask jane@acme.com.\n",
-    removed: "The run didn't start, because Acme removed you. No pack credits were used. If that's a mistake, ask jane@acme.com.\n",
+    declined: "The run didn't start and used no pack credits, because Acme declined your request to use its Evalation credits. If that's a mistake, ask jane@acme.com.\n",
+    removed: "The run didn't start and used no pack credits, because Acme removed you. If that's a mistake, ask jane@acme.com.\n",
     "machine-awaiting-approval": "The run didn't start, because this machine is waiting for jane@acme.com to approve it. No pack credits were used.\n",
-    "machine-declined": "The run didn't start, because Acme declined this machine. No pack credits were used. If that's a mistake, ask jane@acme.com.\n",
+    "machine-declined": "The run didn't start and used no pack credits, because Acme declined this machine. If that's a mistake, ask jane@acme.com.\n",
   };
   const { held: bare, base: plain } = await standIn(() => [403, refusal("removed", OWNER, null)]);
   const unnamed = await ran("evalation-run", [tree, "soc2"], on(machine(), plain));
   bare.close();
-  assert.strictEqual(unnamed.stderr, "The run didn't start, because your organisation removed you. No pack credits were used. If that's a mistake, ask jane@acme.com.\n");
+  assert.strictEqual(unnamed.stderr, "The run didn't start and used no pack credits, because your organisation removed you. If that's a mistake, ask jane@acme.com.\n");
   for (const kind of Object.keys(REFUSED)) {
     const { held, base } = await standIn(() => [403, refusal(kind)]);
     const home = machine();

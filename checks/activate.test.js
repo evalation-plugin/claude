@@ -191,7 +191,7 @@ test("the sign-in address is printed before the wait, even where a browser opens
 });
 
 test("while it waits, the script says so once and leaves the Esc line to the session", () => {
-  assert.strictEqual(WAITING, "Waiting for you to finish signing in, for up to five minutes.\n");
+  assert.strictEqual(WAITING, "Waiting up to five minutes for you to finish signing in.\n");
   assert.deepStrictEqual(held(WAITING), []);
 });
 

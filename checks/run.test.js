@@ -167,7 +167,7 @@ test("a whole run goes from the run file to both deliverables, and a second run 
   const { page } = require("../bin/evalation-report");
   const custom = now.answers.filter((one) => one.pack === "cyber-insurance");
   assert.match(page({ ...now, packs: now.packs.filter((one) => one.pack === "cyber-insurance") }, custom, asked),
-    /What changed since[\s\S]*Board-check\.Q1 Sign in: partial to covered/);
+    /Changes since[\s\S]*Board-check\.Q1 Sign in: partial to covered/);
   sh("evalation-score", [second, rubricFile]);
   sh("evalation-deliver", [second, join(work, "out-2"), tree]);
   sh("evalation-report", [second, join(work, "out-2")]);

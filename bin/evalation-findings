@@ -528,8 +528,16 @@ function itemsOf(named, rows, list, where, scan, since, said) {
     counted[row.result === "not-checked" ? "missing" : row.result] += 1;
     if (list[at].needs === "infrastructure") {
       const held = infrastructureOf(where);
-      if (held.length === 0 && (row.result === "missing" || row.result === "not-checked")) {
-        said.push(`${item}: ${row.result}, and no infrastructure code was found in what this run read, so it is found in the code or no-evidence`);
+      if (held.length === 0 && row.result === "missing") {
+        if ((row.evidence ?? []).length === 0) {
+          said.push(`${item}: missing with no lines cited, and this run read no infrastructure code, so cite the lines of the mechanism in the repository that lacks it, or answer found or no-evidence`);
+          return;
+        }
+        for (const one of row.evidence) cited(where, one, said);
+        return;
+      }
+      if (held.length === 0 && row.result === "not-checked") {
+        said.push(`${item}: not-checked, and no infrastructure code was found in what this run read, so it is found in the code or no-evidence`);
         return;
       }
       if (held.length > 0 && row.result === "no-evidence") {
@@ -573,7 +581,7 @@ function itemsOf(named, rows, list, where, scan, since, said) {
     }
   });
   const applies = rows.length - counted["does-not-apply"] - counted["no-evidence"];
-  const elsewhere = counted["no-evidence"] > 0 ? `, with ${counted["no-evidence"]} held to no evidence found` : "";
+  const elsewhere = counted["no-evidence"] > 0 ? `, with ${counted["no-evidence"]} held to environment` : "";
   return {
     status: applies === 0 ? (counted["no-evidence"] > 0 ? "no-evidence" : "not-applicable")
       : counted.found === applies ? "covered"
@@ -843,7 +851,9 @@ function shape() {
     "  from `evalation-read <target> scan`. A not-checked item counts as missing.",
     '  An item carrying "needs":"infrastructure" could be held outside the code. Where',
     "  `evalation-read <target> map` says infrastructure code: none found, the item is found where the",
-    '  code itself shows it and {"result":"no-evidence"} where it does not, never missing. Where it',
+    "  code itself shows it, missing where the repository holds the mechanism the item names and it lacks",
+    "  the control, such as a sign-in flow with no second factor, citing that mechanism's lines in evidence,",
+    '  and {"result":"no-evidence"} where the control could be set entirely outside the repository. Where it',
     "  lists infrastructure files, answer the item like any other. No other item is ever no-evidence:",
     "  what the code should hold is found or missing.",
     "  The status is a count of the items that apply, leaving out does-not-apply and no-evidence: all",

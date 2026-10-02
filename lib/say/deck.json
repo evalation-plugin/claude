@@ -1,0 +1,14 @@
+{
+  "deck.tier-p0": { "say": "do first: a control is missing" },
+  "deck.tier-p1": { "say": "near-term: a control is in place and fails" },
+  "deck.tier-p2": { "say": "should-fix: weaknesses that make the system easier to break" },
+  "deck.tier-p3": { "say": "cleanup: small fixes with little risk attached" },
+  "deck.tier-empty": { "say": "Nothing in this tier." },
+  "deck.glance-product": { "say": "Product at a glance" },
+  "deck.heading-build": { "say": "Build quality" },
+  "deck.heading-method": { "say": "Audit method" },
+  "deck.heading-path": { "say": "The main risk path" },
+  "deck.heading-score": { "say": "Hardness score" },
+  "deck.heading-themes": { "say": "Themes across disciplines" },
+  "deck.heading-strengths": { "say": "Strengths to keep and the roadmap" }
+}

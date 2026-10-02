@@ -41,5 +41,5 @@ test("a run given a set with no pack stops before asking the server, and says ho
   const ran = spawnSync(process.execPath, [join(__dirname, "..", "bin", "evalation-run"), repository(), "soc2", "--questions", set],
     { encoding: "utf8", env: { ...process.env, EVALATION_PLUGIN_HOME: home, EVALATION_SERVER: "http://127.0.0.1:9" } });
   assert.strictEqual(ran.status, 1);
-  assert.strictEqual(ran.stderr, "Your question set Mine extends no pack, so the run didn't start. No pack credits were used. Run /ev-questions to pick a pack for it.\n");
+  assert.strictEqual(ran.stderr, "Your question set Mine extends no pack, so the run didn't start and used no pack credits. Run /ev-questions to pick a pack for it.\n");
 });

@@ -39,6 +39,7 @@ const { inventory } = require("./evalation-inventory");
 const { deck } = require("./evalation-deck");
 const { detail } = require("./evalation-detail");
 const { shownPath } = require("../lib/solution.js");
+const { line } = require("../lib/run-say.js");
 
 let target = null;
 
@@ -133,7 +134,7 @@ function belowScan(one, results) {
   const result = results.find((each) => each.key === one.scanned);
   const worst = result ? cardWorst(result, results, RANK.map((sev) => sev.toLowerCase())) : null;
   const reason = String(one.below_scan).trim();
-  return worst ? `Rated below the scanner's ${worst}: ${reason}` : reason;
+  return worst ? line("detail.below-scan", { worst, reason }) : reason;
 }
 
 // Where the finding rests, to the line. A run cites a range, and a reader handed the file alone has
@@ -228,7 +229,7 @@ function reviewFindings(document) {
       name: DISCIPLINES[prefix] ?? prefix,
       count: rows.length,
       blurb: looked.length
-        ? `Read for ${looked.slice(0, 4).join(", ")}${looked.length > 4 ? ", among others" : ""}.` // say:allow: report,printed in the review detail PDF
+        ? line(looked.length > 4 ? "detail.blurb-more" : "detail.blurb", { looked: looked.slice(0, 4).join(", ") })
         : "",
       unchecked,
       findings: rows,
@@ -247,36 +248,20 @@ function reviewFindings(document) {
   const whole = solution ? `the ${(solution.repositories ?? []).filter((one) => one.vcs === "git").length} repositories of this product together` : "the repository";
   const built = {
     title: "Evalation Hardening Review",
-    subtitle: solution
-      ? `Detailed findings by discipline · Product: ${repository}`
-      : `Detailed findings by discipline · Repository: ${repository}`,
+    subtitle: line("detail.subtitle", { label: solution ? "Product" : "Repository", name: repository || "unnamed" }),
     tenant: repository,
     solution,
     generated_at: String(document.at ?? "").slice(0, 10).replace(/-/g, ""),
     meta: {
-      // What was done, in enough detail that a reader can weigh the report before reading a row of
-      // it: how much was read, how it was read, what a row carries, how the rows are ordered, and
-      // what the assessment did not do.
-      intro: [
-        `We read ${whole} against ${categories.length} disciplines and found ${weaknesses} ` +
-        `findings, along with ${(document.findings ?? []).length - weaknesses} controls working as intended.`,
-
-        "Each discipline has its own section, and one that found nothing still gets a section so a " +
-        "reader can see it was read.",
-
-        "Within a section, findings run in priority order. Each names the model that found it, the " + // say:allow: report,the review detail PDF's opening
-        "file and lines it rests on, whether a second check confirmed it, and the fix.",
-
-        "We read the code without running it and changed nothing.", // say:allow: report,the review detail PDF's opening
-      ].join(" "),
+      intro: line("detail.intro", { whole, count: String(categories.length), weaknesses: String(weaknesses),
+        findings: weaknesses === 1 ? "finding" : "findings", good: String((document.findings ?? []).length - weaknesses),
+        controls: (document.findings ?? []).length - weaknesses === 1 ? "control" : "controls" }),
       finding_count: weaknesses,
       models,
     },
     legend: {
-      priority: "P0 do first · P1 near-term · P2 should-fix · P3 cleanup.",
-      result:
-        "Scanned if a scanner found it · verified if a second check confirmed it against the " +
-        `${solution ? "repositories" : "repository"} · asserted if nothing did.`,
+      priority: line("detail.legend-priority"),
+      result: line("detail.legend-result", { source: solution ? "repositories" : "repository" }),
     },
     categories,
   };

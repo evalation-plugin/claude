@@ -98,8 +98,8 @@ test("the evidence pack names the solution, lists every repository on its openin
   ];
   const asked = new Map(document.packs[0].entries_asked.map((one) => [`soc2/${one.identifier}`, one]));
   const html = page(document, document.answers.filter((one) => one.pack === "soc2"), asked);
-  assert.match(html, /What this product evidences · Product: Acme platform/);
-  assert.match(html, /together as one product, Acme platform\./);
+  assert.match(html, /Evidence from this product · Product: Acme platform/);
+  assert.match(html, /as one product, Acme platform\./);
   assert.match(html, /We read the 2 repositories of this product together/);
   assert.doesNotMatch(html, /solution|Solution/);
   assert.match(html, /Repositories read/);
@@ -120,7 +120,7 @@ test("a folder with no version control is read for evidence and listed apart, ne
   assert.match(repositories, /these 2 repositories/);
   assert.ok(!repositories.includes("<b>notes</b>"));
   assert.match(others, /<b>notes<\/b>/);
-  assert.match(others, /read for evidence too, and hold no code history, so they are not repositories/);
+  assert.match(others, /read these for evidence too, and they have no commit history, so they aren't repositories/);
   const pages = readSlides(named);
   const repositoriesRead = pages.filter((one) => one.title === "Repositories read").flatMap((one) => one.blocks);
   assert.deepStrictEqual(repositoriesRead.map((one) => one.headline), ["acme/api", "acme/infra"]);

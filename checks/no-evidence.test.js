@@ -52,8 +52,13 @@ test("infrastructure code is found by what the files are, and a compose file for
 test("with no infrastructure code, an item that could be held elsewhere is no evidence found, and the status leaves it out", () => {
   assert.deepStrictEqual(about(checked(asking(bare, [found(), { result: "no-evidence" }], "covered"), bare)), []);
   assert.deepStrictEqual(about(checked(asking(bare, [found(), missing()], "partial-gap"), bare)), [
-    "soc2/CC6.1 item 2: missing, and no infrastructure code was found in what this run read, so it is found in the code or no-evidence",
+    "soc2/CC6.1 item 2: missing with no lines cited, and this run read no infrastructure code, so cite the lines of the mechanism in the repository that lacks it, or answer found or no-evidence",
   ]);
+});
+
+test("with no infrastructure code, an item is missing where the repository holds the mechanism and it lacks the control", () => {
+  const lacking = { ...missing(), evidence: found().evidence };
+  assert.deepStrictEqual(about(checked(asking(bare, [found(), lacking], "partial-gap"), bare)), []);
 });
 
 test("with no infrastructure code, an item the code itself shows is still found", () => {
@@ -79,18 +84,21 @@ test("an entry whose every item is no evidence found carries that status, never 
   const document = asking(bare, [{ result: "does-not-apply", why: "No routes." }, { result: "no-evidence" }], "not-applicable");
   document.answers[0].justification = "No routes are served.";
   assert.deepStrictEqual(about(checked(document, bare)), [
-    "soc2/CC6.1: not-applicable, and it found 0 of the 0 items that apply, with 1 held to no evidence found, which makes it no-evidence",
+    "soc2/CC6.1: not-applicable, and it found 0 of the 0 items that apply, with 1 held to environment, which makes it no-evidence",
   ]);
   document.answers[0].status = "no-evidence";
   assert.deepStrictEqual(about(checked(document, bare)), []);
 });
 
-test("the report prints no evidence found beside the item and in the key", () => {
+test("the report calls the status Environment beside the item and in the key, and defines the three statuses apart", () => {
   const document = asking(bare, [found(), { result: "no-evidence" }], "covered");
   const asked = new Map(document.packs[0].entries_asked.map((one) => [`soc2/${one.identifier}`, one]));
   const html = page(document, document.answers.filter((one) => one.pack === "soc2"), asked);
-  assert.match(html, /no evidence found/);
-  assert.match(html, /No evidence found/);
+  assert.match(html, />environment</);
+  assert.match(html, /Environment means a technical control that can be set outside the repository/);
+  assert.match(html, /Not applicable means the system has none of/);
+  assert.match(html, /Org-level means the answer lies in what people or the organisation do/);
+  assert.doesNotMatch(html, /[Nn]o evidence found/);
 });
 
 test("the reader's map says whether infrastructure code was found", () => {

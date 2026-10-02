@@ -1,0 +1,106 @@
+{
+  "summary.score": { "say": "<whole> scores <score> of 100, across <count> <disciplines>." },
+  "summary.score-graded": { "say": "<whole> scores <score> of 100, grade <grade>, across <count> <disciplines>." },
+  "summary.covered": { "say": "The review covered <count> <disciplines>." },
+  "summary.good": { "say": "We found <count> <controls> working as intended, and the score counts them, so a change that breaks one lowers it." },
+  "summary.good-none": { "say": "We found no controls working as intended, so the score gives credit for none." },
+  "summary.least": { "count": "count", "say": {
+    "one": "<names> has the least risk, counting each finding by its severity.",
+    "many": "<names> have the least risk, counting each finding by its severity."
+  } },
+  "summary.most": { "count": "count", "say": {
+    "one": "<names> carries the most risk, counting each finding by its severity.",
+    "many": "<names> carry the most risk, counting each finding by its severity."
+  } },
+  "summary.most-none": { "say": "No area stands out when each finding counts by its severity." },
+  "summary.alone": { "say": "<name> alone has <count> of the <total> findings." },
+  "summary.alone-including": { "say": "<name> alone has <count> of the <total> findings, including <severe>." },
+  "summary.critical": { "count": "count", "say": {
+    "one": "<count> finding is critical, meaning a control is missing altogether, so start there.",
+    "many": "<count> findings are critical, meaning a control is missing altogether, so start there."
+  } },
+  "summary.critical-none": { "say": "No finding is critical." },
+  "summary.high": { "count": "count", "say": {
+    "one": "<count> is high, where a control is in place and fails.",
+    "many": "<count> are high, where a control is in place and fails."
+  } },
+  "summary.rest": { "count": "count", "say": {
+    "one": "The other <count> is medium, low or info.",
+    "many": "The other <count> are medium, low or info."
+  } },
+  "summary.serious-fix": { "count": "count", "say": {
+    "one": "Fixing the <severe> <findings> removes the serious risk, and the other <count> is lower-priority hardening.",
+    "many": "Fixing the <severe> <findings> removes the serious risk, and the other <count> are lower-priority hardening."
+  } },
+  "summary.serious-fix-only": { "say": "Fixing the <severe> <findings> removes the serious risk." },
+  "summary.no-serious": { "count": "count", "say": {
+    "one": "No critical or high findings are open, and the <count> open finding is lower-priority hardening.",
+    "many": "No critical or high findings are open, and the <count> open findings are lower-priority hardening."
+  } },
+  "summary.each-names-fix": { "say": "Each finding names the change that fixes it." },
+  "summary.between": { "say": "<names> hold <count> of the <total> findings between them." },
+  "summary.untouched": { "say": "We read the code without running it and changed nothing in <whole>. Every finding cites the file and lines it rests on." },
+  "summary.lead-count": { "say": "<count> <findings> across <areas> <disciplines>." },
+  "summary.lead-none-critical": { "say": "None is critical." },
+  "summary.lead-serious": { "count": "count", "say": {
+    "one": "The <severe> finding is the one that changes the risk.",
+    "many": "The <severe> findings are the ones that change the risk."
+  } },
+  "summary.lead-calm": { "say": "None is critical or high." },
+  "summary.verdict-critical": { "count": "count", "say": {
+    "one": "The review found <count> critical finding, and it comes first.",
+    "many": "The review found <count> critical findings, and they come first."
+  } },
+  "summary.verdict-none": { "say": "The review found no critical findings." },
+  "summary.verdict-high": { "count": "count", "say": {
+    "one": "The <count> high finding matters most.",
+    "many": "The <count> high findings matter most."
+  } },
+  "summary.verdict-hardening": { "say": "The rest is lower-priority hardening." },
+  "summary.verdict-good": { "count": "count", "say": {
+    "one": "We found <count> control working, worth keeping as it is.",
+    "many": "We found <count> controls working, worth keeping as they are."
+  } },
+  "summary.c-heaviest-title": { "say": "<name> carries the most risk" },
+  "summary.c-heaviest-holds": { "say": "<name> holds <count> of the <total> findings, so with time for one area, start here." },
+  "summary.c-heaviest-holds-including": { "say": "<name> holds <count> of the <total> findings, including <severe>, so with time for one area, start here." },
+  "summary.c-next": { "count": "count", "say": {
+    "one": "<names> comes next.",
+    "many": "<names> come next."
+  } },
+  "summary.c-next-none": { "say": "No other area comes close when each finding counts by its severity." },
+  "summary.c-missing-title": { "say": "Some controls are missing altogether" },
+  "summary.c-none-missing-title": { "say": "No control is missing altogether" },
+  "summary.c-mix": { "say": "The mix is <critical> critical, <high> high, <medium> medium, <low> low and <info> info." },
+  "summary.c-critical-means": { "say": "A critical finding means a control is missing, so it changes what the system can promise." },
+  "summary.c-weakness": { "say": "Each finding is a weakness in a control that is already there." },
+  "summary.c-change": { "count": "count", "say": {
+    "one": "The <severe> finding changes the risk, and fixing the other <depth> makes the system harder to break.",
+    "many": "The <severe> findings change the risk, and fixing the other <depth> makes the system harder to break."
+  } },
+  "summary.c-holding-title": { "say": "Controls already holding" },
+  "summary.c-nothing-holding-title": { "say": "No control found holding" },
+  "summary.c-good": { "count": "count", "say": {
+    "one": "We found <count> control working, a place where we looked for a weakness and found the control doing its job.",
+    "many": "We found <count> controls working, places where we looked for a weakness and found the control doing its job."
+  } },
+  "summary.c-good-none": { "say": "We found no controls working as intended." },
+  "summary.c-clean": { "count": "count", "say": {
+    "one": "<count> discipline found nothing to fix: <names>.",
+    "many": "<count> disciplines found nothing to fix: <names>."
+  } },
+  "summary.c-clean-among": { "say": "<count> disciplines found nothing to fix, among them <names>." },
+  "summary.c-one-found": { "say": "The one discipline read found something to fix." },
+  "summary.c-all-found": { "say": "All <count> disciplines found at least one thing to fix." },
+  "summary.c-unreached": { "say": "A control the review didn't reach may still exist." },
+  "summary.c-checks-title": { "say": "Second checks on the reading" },
+  "summary.c-read": { "say": "We read <whole> against <count> <disciplines>." },
+  "summary.c-read-using": { "say": "We read <whole> against <count> <disciplines>, using <models>." },
+  "summary.c-confirmed": { "say": "A second check confirmed or a scanner found <count> of the <total> findings, and the other <rest> rest on one reading, marked asserted." },
+  "summary.c-unconfirmed": { "say": "Every finding rests on one reading, marked asserted, so check each against the code before acting on it." },
+  "summary.c-fixes-title": { "say": "The work the fixes take" },
+  "summary.c-tiers": { "say": "The work splits into <p0> to do first, <p1> near-term, <p2> should-fix and <p3> cleanup." },
+  "summary.c-share-high": { "say": "<name> alone has <share>% of it." },
+  "summary.c-share-spread": { "say": "The heaviest area, <name>, has <share>% of the findings, so the work spreads across the system." },
+  "summary.path-title": { "say": "The risk path through <name>" }
+}

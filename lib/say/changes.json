@@ -1,0 +1,34 @@
+{
+  "changes.title": { "say": "Changes since <date>" },
+  "changes.read-added": { "say": "This run also read <added>." },
+  "changes.read-removed": { "say": "This run no longer read <removed>." },
+  "changes.read-both": { "say": "This run also read <added>, and no longer read <removed>." },
+  "changes.hardness": { "say": "The hardness score moved from <from> to <to>." },
+  "changes.hardness-grade": { "say": "The hardness score moved from <from> to <to>, and the grade from <gradefrom> to <gradeto>." },
+  "changes.answers": { "count": "count", "say": {
+    "one": "<count> answer moved: <improved> improved and <worsened> worsened.",
+    "many": "<count> answers moved: <improved> improved and <worsened> worsened."
+  } },
+  "changes.scanners": { "count": "gone", "say": {
+    "one": "The scanners found <arrived> new <results>, and <gone> earlier result no longer appears.",
+    "many": "The scanners found <arrived> new <results>, and <gone> earlier results no longer appear."
+  } },
+  "changes.answer": { "say": "<entry> <title>: <from> to <to>." },
+  "changes.answer-why": { "say": "<entry> <title>: <from> to <to>, since <why>." },
+  "changes.item": { "say": "item <at> is now <to>" },
+  "changes.concern": { "say": "<concern> <title>: <items>." },
+  "changes.concern-item": { "say": "item <at>, <find>, is now <to>" },
+  "changes.nothing": { "say": "Nothing changed in the answers or the scanner results." },
+  "changes.revision": { "say": "The questions moved from revision <from> to <to> between the two runs." },
+  "changes.note-hardness-title": { "say": "The hardness score" },
+  "changes.note-improved": { "say": "Improved, from <from> to <to>." },
+  "changes.note-worsened": { "say": "Worsened, from <from> to <to>." },
+  "changes.note-moved": { "say": "Moved, from <from> to <to>." },
+  "changes.note-find": { "say": "<find> is now <to>" },
+  "changes.note-items": { "say": "<items>." },
+  "changes.note-scanner-title": { "say": "Scanner results" },
+  "changes.note-nothing-title": { "say": "Nothing moved" },
+  "changes.note-nothing": { "say": "Nothing changed in the answers, the items or the scanner results." },
+  "changes.note-more-title": { "say": "And more" },
+  "changes.note-more": { "say": "<count> more moved, each listed in the detail." }
+}

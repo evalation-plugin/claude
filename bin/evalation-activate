@@ -38,7 +38,7 @@ const SERVER = "https://api.evalation.ai";
 const base = process.env.EVALATION_SERVER || SERVER;
 const SETTINGS = process.env.EVALATION_LOCAL || join(pluginHome(), "evalation.local");
 
-const WAITING = "Waiting for you to finish signing in, for up to five minutes.\n";
+const WAITING = `${(() => { const { entries, say } = require("../lib/say.js"); return say(entries(), "ev-activate.waiting-script"); })()}\n`;
 
 let listener = null;
 
