@@ -1,6 +1,16 @@
 {
   "releases": [
     {
+      "version": "0.73.0",
+      "date": "2026-10-02",
+      "notes": [
+        "Every report, question and message now follows one writing standard, with spelling and dates that match your locale.",
+        "The status \"No evidence\" is now called Environment, meaning a control that can be set outside the code, such as in your hosting platform, where this run saw nothing.",
+        "The licence scan can look up the licences of dependencies it couldn't read locally, after you agree to send only the list of package names.",
+        "Reviews check each answer again before keeping it, and long reviews no longer stall on a large batch of claims."
+      ]
+    },
+    {
       "version": "0.72.6",
       "date": "2026-10-02",
       "notes": [
