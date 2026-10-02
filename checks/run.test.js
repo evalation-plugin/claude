@@ -8,7 +8,7 @@
 const test = require("node:test");
 const assert = require("node:assert");
 const { execFileSync, spawnSync } = require("node:child_process");
-const { mkdtempSync, readFileSync, writeFileSync } = require("node:fs");
+const { existsSync, mkdtempSync, readFileSync, writeFileSync } = require("node:fs");
 const { tmpdir } = require("node:os");
 const { join } = require("node:path");
 const { home, repository } = require("./fixture.js");
@@ -98,7 +98,14 @@ function read(tree, second) {
       assert.match(refused.stderr, /hardening\/SEC01: accounted for with no because/);
       assert.match(refused.stderr, /evalation-findings shape/, "a refused part says where the format is printed");
     }
-    // Handed on standard input, as an Evalation reader hands it, and kept by the command once it holds.
+    const first = spawnSync(process.execPath, [join(BIN, "evalation-findings"), "part", runFile, String(one.group), "-", tree],
+      { env, input: JSON.stringify(partFor(group, second)), encoding: "utf8" });
+    assert.notStrictEqual(first.status, 0, "a part that holds is checked again by its reader before it is kept");
+    if (!second) assert.ok(!existsSync(join(work, `part-${one.group}.json`)), "nothing is kept before the reader checks again");
+    if (group.pack === "hardening") {
+      assert.match(first.stderr, /hardening\/SEC01: search again/);
+      assert.match(first.stderr, /hardening\/SEC01: item 1 found/);
+    }
     sh("evalation-findings", ["part", runFile, String(one.group), "-", tree], JSON.stringify(partFor(group, second)));
     return join(work, `part-${one.group}.json`);
   });
