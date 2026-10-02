@@ -41,6 +41,22 @@ test("every batch's grid is shown to its verifier whole", () => {
   }
 });
 
+test("one claim citing long lines is still shown whole, and says where the rest of its lines are", () => {
+  const tree = mkdtempSync(join(tmpdir(), "evalation-batches-"));
+  writeFileSync(join(tree, "CHANGELOG.md"), Array.from({ length: 260 }, (_, at) => `- entry ${at} ${"y".repeat(1800)}`).join("\n"));
+  const findings = ["a", "b"].map((id) => ({ id, pack: "hardening", concern: "SEC01", severity: "low", title: `Finding ${id}`,
+    observed: "A changelog.", at: { path: "CHANGELOG.md", from: 105, to: 251, quote: "entry", grade: "assertion" } }));
+  const file = join(tree, "findings.json");
+  writeFileSync(file, JSON.stringify({ packs: [], answers: [], accounted: [], findings }));
+  const planned = JSON.parse(verify(["plan", file, tree]).stdout);
+  for (let n = 1; n <= planned.batches; n += 1) {
+    const grid = verify(["grid", file, String(n)]).stdout;
+    assert.ok(grid.length <= SHOWN, `batch ${n} prints ${grid.length} characters`);
+    assert.match(grid, /entry 104 /, "the citation's first line is shown");
+    assert.match(grid, /evalation-read \S+ read CHANGELOG\.md \d+ 251/, "the verifier is told how to read the lines not shown");
+  }
+});
+
 test("the reader and the verifier are both told an item is found only where the lines are what it means within its question", () => {
   const { tree, file } = written();
   verify(["plan", file, tree]);
