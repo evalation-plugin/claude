@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "0.72.5",
+      "date": "2026-10-02",
+      "notes": [
+        "A review with long packs, such as Investment Due Diligence, no longer stops partway through reading."
+      ]
+    },
+    {
       "version": "0.72.4",
       "date": "2026-10-02",
       "notes": [
