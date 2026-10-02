@@ -322,7 +322,8 @@ and each answer's label says what choosing it does.
 
    **Read in groups, one reader each.** `evalation-findings groups run.json` splits `to_read` into
    groups of about twenty entries, each within one pack. Start one `evalation-plugin:reader` agent per
-   group, several at once, with the line `evalation-say ev-run.reader-task` prints as its
+   group, several at once and never more than 20 running, since Claude Code refuses a 21st agent, and
+   start the next as one hands back. The same limit holds for verifiers and correctors. Start each with the line `evalation-say ev-run.reader-task` prints as its
    description, and give each the run file's path, its group number, the target and
    `${CLAUDE_PLUGIN_ROOT}/bin` as where the commands are. Use that agent and never a general one: it
    holds only the shell, and the plugin's gate lets it run Evalation's reading commands one at a
@@ -485,8 +486,8 @@ and each answer's label says what choosing it does.
    ```
 
    Then for each batch it names, 1 to the count, start a fresh `evalation-plugin:verifier` agent,
-   with the line `evalation-say ev-run.verifier-task` prints as its description, which holds nothing of this run, so a claim is never checked by the reading that made it. Several
-   at once is fine, since each batch keeps its answers apart. Give each one the findings file's
+   with the line `evalation-say ev-run.verifier-task` prints as its description, which holds nothing of this run, so a claim is never checked by the reading that made it. Up to 20
+   at once is fine, since each batch keeps its answers apart, and the next starts as one hands back. Give each one the findings file's
    path, its batch number, the target and `${CLAUDE_PLUGIN_ROOT}/bin` as where the commands are, and
    nothing more. It prints its grid, checks every row through `evalation-read`, and records its
    verdicts on standard input with `evalation-verify record <written> <n>`. Use that agent and never

@@ -110,10 +110,10 @@ function listsOf(document) {
 }
 
 /** One item of a claim, as the verifier and a correcting reader are shown it. */
-function itemShown(tree, one, at) {
+function itemShown(tree, one, at, budget = Infinity) {
   const head = `  item ${at + 1}, ${String(one.result ?? "unanswered").toUpperCase()} (proof: ${one.proof}): ${one.find}`;
   if (one.proof === "scan") return [head, `    settled from the scan of this run (${one.phase}${one.at_least ? `, ${one.at_least} or above` : ""}), which the findings check compared it with`];
-  if (one.result === "found") return [head, ...(one.evidence ?? []).map((c) => cited(tree, c))];
+  if (one.result === "found") return [head, ...(one.evidence ?? []).map((c) => cited(tree, c, budget))];
   if (one.result === "missing") return [head, `    searched: ${one.searched ?? ""}`];
   if (one.result === "no-evidence") return [head, "    settled by the run: no infrastructure code was found in what it read, which the findings check compared it with"];
   return [head, `    why it does not apply: ${one.why ?? ""}`];
@@ -171,14 +171,29 @@ function batchOf(held, n) {
   return ids;
 }
 
-function cited(where, one) {
+function cited(where, one, budget = Infinity) {
   let lines;
   try {
     lines = readFileSync(resolve(where, one.path), "utf8").split("\n").slice(one.from - 1, Math.min(one.to, one.from - 1 + LINES));
   } catch {
-    lines = ["(this file could not be read)"];
+    return fenced(`${one.path} lines ${one.from} to ${one.to}`, "(this file could not be read)");
   }
-  return fenced(`${one.path} lines ${one.from} to ${one.to}`, lines.join("\n"));
+  const kept = [];
+  let size = 0;
+  for (const line of lines) {
+    if (size + line.length + 1 > budget) {
+      if (kept.length === 0) kept.push(line.slice(0, Math.max(0, budget)));
+      break;
+    }
+    kept.push(line);
+    size += line.length + 1;
+  }
+  const whole = kept.length > 0 && kept[kept.length - 1] === lines[kept.length - 1];
+  const next = one.from + kept.length - (whole ? 0 : 1);
+  const rest = next <= one.to
+    ? [`    lines ${next} to ${one.to} are not shown here. Read them with: ${join(__dirname, "evalation-read")} ${where} read ${one.path} ${next} ${one.to}`]
+    : [];
+  return [fenced(`${one.path} lines ${one.from} to ${one.to}`, kept.join("\n")), ...rest].join("\n");
 }
 
 function grid(source, n) {
@@ -201,14 +216,20 @@ function grid(source, n) {
 }
 
 /** One claim as its verifier sees it, with the lines it cites. */
-function rowShown(tree, one, row) {
-  const lines = one.items.length > 0
-    ? one.items.flatMap((each, at) => itemShown(tree, each, at))
-    : one.cites.length > 0
-      ? ["  cited lines:", ...one.cites.map((c) => cited(tree, c))]
-      : ["  cited lines: none"];
+function rowShown(tree, one, row, room = SHOWN - guide(tree).length) {
   const looked = one.searched ? [`  searched, and found nothing: ${one.searched}`] : [];
-  return [`ROW ${row}`, `  claimed: ${one.claimed}`, `  because: ${one.because}`, ...looked, ...lines].join("\n");
+  const head = [`ROW ${row}`, `  claimed: ${one.claimed}`, `  because: ${one.because}`, ...looked];
+  const bare = one.items.flatMap((each, at) => itemShown(tree, { ...each, evidence: [] }, at));
+  const count = one.items.length > 0
+    ? one.items.reduce((sum, each) => sum + (each.proof !== "scan" && each.result === "found" ? (each.evidence ?? []).length : 0), 0)
+    : one.cites.length;
+  const budget = Math.max(500, Math.floor((room - [...head, ...bare].join("\n").length) / Math.max(count, 1)) - 600);
+  const lines = one.items.length > 0
+    ? one.items.flatMap((each, at) => itemShown(tree, each, at, budget))
+    : one.cites.length > 0
+      ? ["  cited lines:", ...one.cites.map((c) => cited(tree, c, budget))]
+      : ["  cited lines: none"];
+  return [...head, ...lines].join("\n");
 }
 
 /** What a verifier is told after its rows. */
