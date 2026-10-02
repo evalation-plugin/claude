@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "0.72.6",
+      "date": "2026-10-02",
+      "notes": [
+        "The question about your company's email domains now says why it asks, and to add the addresses of staff using personal accounts and of consultants whose work you own."
+      ]
+    },
+    {
       "version": "0.72.5",
       "date": "2026-10-02",
       "notes": [
