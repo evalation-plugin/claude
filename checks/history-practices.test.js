@@ -113,7 +113,7 @@ test("each new history card says what closes it", () => {
   assert.deepStrictEqual(findings.map((one) => one.key).sort(), ["history:departed", "history:markers", "history:reverts", "history:tests", "history:tickets"]);
   const html = scanResults({ findings, intro: "x", tagWord: "", tagOf: () => [], phaseOf: scans.named, consequences, remedies,
     upgradeTo: scans.upgradeTo, compared: scans.compared, compatible: scans.compatible, cardOf: scans.cardOf });
-  const todos = [...html.matchAll(/<b>What to do<\/b>([^<]*)/g)].map((one) => one[1]);
+  const todos = [...html.matchAll(/<b>The fix<\/b>([^<]*)/g)].map((one) => one[1]);
   assert.strictEqual(todos.length, 5);
   assert.strictEqual(new Set(todos).size, 5, "each measure has advice of its own");
   assert.ok(!todos.some((one) => /second person/.test(one)), "none falls back to the ownership advice");

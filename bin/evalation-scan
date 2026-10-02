@@ -116,18 +116,19 @@ function today() {
 
 function spoken(day) {
   return day
-    ? new Date(`${day}T00:00:00Z`).toLocaleDateString("en-NZ", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" })
+    ? new Date(`${day}T00:00:00Z`).toLocaleDateString(require("../lib/spelling.js").spelling() === "us" ? "en-US" : "en-GB",
+      { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" })
     : null;
 }
 
 function missingWhy(tool, held) {
   const failed = held.could_not_install[tool];
-  if (failed) return `${nameOf(tool)} could not be installed (${failed.why})`;
+  if (failed) return line("scan.tool-failed", { tool: nameOf(tool), why: failed.why || "no reason recorded" });
   if (held.declined.includes(tool)) {
     const on = spoken(held.declined_on[tool]);
-    return `the person running the review chose not to install ${nameOf(tool)}${on ? ` on ${on}` : ""}`;
+    return on ? line("scan.tool-declined-on", { tool: nameOf(tool), on }) : line("scan.tool-declined", { tool: nameOf(tool) });
   }
-  return `${nameOf(tool)} is not installed on this machine`;
+  return line("scan.tool-missing", { tool: nameOf(tool) });
 }
 
 function missingReason(tool, held) {
@@ -331,7 +332,8 @@ const ADAPTERS = {
             at: { path: within(root, result.Target) },
             // What the weakness is and what it lets somebody do: the advisory's title, then the opening
             // of its description, which is where an advisory says what an attacker gains.
-            body: [one.Title, opening(one.Description)].filter(Boolean).join(". "),
+            body: [String(one.Title ?? "").replace(/^([^:]{1,60}):\s+\1:\s+/i, "$1: ").replace(/\.+\s*$/, ""), opening(one.Description)]
+              .filter(Boolean).join(". "),
             link: one.PrimaryURL ?? null,
             // The class of weakness, which is what says what an attacker could do with it.
             cwe: cwesOf(one.CweIDs ?? []),
@@ -598,8 +600,8 @@ function licences(out, files, crates = [], answers = []) {
   if (restricted.length > 0) {
     findings.push({ key: "licence:restricted", phase: "licence", at: at(restricted),
       severity: restricted.map((one) => one.grade).reduce((worst, one) => (ranked(one) > ranked(worst) ? one : worst)),
-      title: "Dependencies under a restrictive licence", packages: restricted.map((one) => one.package),
-      body: `${restricted.length} of the ${total} production dependencies ${restricted.length === 1 ? "is" : "are"} under a licence that can oblige the product to share its own code: ${listedUpTo(restricted.map((one) => one.named))}.` }); // say:allow: report,a scanner result printed in the reports
+      title: line("scan.licence-restricted-title"), packages: restricted.map((one) => one.package),
+      body: line("scan.licence-restricted", { count: String(restricted.length), total: String(total), names: listedUpTo(restricted.map((one) => one.named)) }) });
   }
   const inCode = (JSON.parse(out || "{}").Results ?? []).filter((one) => one.Class === "license-file")
     .flatMap((one) => one.Licenses ?? [])
@@ -609,13 +611,13 @@ function licences(out, files, crates = [], answers = []) {
   if (inCode.length > 0) {
     findings.push({ key: "licence:in-code", phase: "licence", at: { path: [...new Set(inCode.map((one) => one.path))].join(", ") },
       severity: inCode.map((one) => one.grade).reduce((worst, one) => (ranked(one) > ranked(worst) ? one : worst)),
-      title: "Code in the repository under a restrictive licence",
-      body: `${inCode.length === 1 ? "A file in the repository carries" : `${inCode.length} files in the repository carry`} a licence that can oblige the product to share its own code: ${listedUpTo(inCode.map((one) => `${one.path} (${one.name})`))}.` }); // say:allow: report,a scanner result printed in the reports
+      title: line("scan.licence-in-code-title"),
+      body: line("scan.licence-in-code", { count: String(inCode.length), names: listedUpTo(inCode.map((one) => `${one.path} (${one.name})`)) }) });
   }
   if (bare.length > 0) {
     findings.push({ key: "licence:unknown", phase: "licence", severity: "medium", at: at(bare),
-      title: "Dependencies declaring no licence", packages: bare.map((one) => one.package),
-      body: `${bare.length} of the production dependencies the repository names itself ${bare.length === 1 ? "declares" : "declare"} no licence: ${listedUpTo(bare.map((one) => one.named))}.` }); // say:allow: report,a scanner result printed in the reports
+      title: line("scan.licence-unknown-title"), packages: bare.map((one) => one.package),
+      body: line("scan.licence-unknown", { count: String(bare.length), names: listedUpTo(bare.map((one) => one.named)) }) });
   }
   const fetch = lockfiles.filter((one) => basename(one.Target) === "Cargo.lock" && (!read.includes(one) || (one.Unread ?? []).length > 0))
     .map((one) => dirname(one.Target));
@@ -718,12 +720,12 @@ function outsiders(authors, domains) {
   const all = everyone(authors);
   const outside = all.filter((one) => !one.addresses.some((address) => atCompany(address, domains)))
     .map((one) => ({ name: one.name || one.addresses[0], addresses: one.addresses, commits: one.commits,
-      ...(one.addresses.every(privateAddress) ? { why: "commits only through a code host's private address, so cannot be shown to be staff" } : {}) }))
+      ...(one.addresses.every(privateAddress) ? { why: line("scan.private-why") } : {}) }))
     .sort((a, b) => b.commits - a.commits || a.name.localeCompare(b.name));
   if (outside.length === 0) return null;
   return { key: "history:outside-contributors", phase: "history", severity: "low", at: { path: "git history" }, names_people: true,
-    title: "People outside the company who committed",
-    body: `${outside.length} of the ${all.length} people who ever committed have no commit address at ${domains.join(" or ")}.`, // say:allow: report,a scanner result printed in the reports
+    title: line("scan.outside-title"),
+    body: line("scan.outside", { count: String(outside.length), total: String(all.length), domains: domains.join(" or ") }),
     people: outside };
 }
 
@@ -778,16 +780,16 @@ function authorship(out) {
   const total = [...counts.values()].reduce((sum, one) => sum + one, 0);
   const at = { path: "git history" };
   if (total === 0) {
-    return [{ key: "history:quiet", phase: "history", severity: "medium", title: "No commits in a year", at,
-      body: "No commits in the last twelve months, so nobody has changed this code for a year." }]; // say:allow: report,a scanner result printed in the reports
+    return [{ key: "history:quiet", phase: "history", severity: "medium", title: line("scan.quiet-title"), at,
+      body: line("scan.quiet") }];
   }
   const share = Math.round((Math.max(...counts.values()) / total) * 100);
   const severity = counts.size === 1 || share >= 80 ? "high" : share >= 50 ? "medium" : null;
   if (!severity) return [];
   return [{
     key: "history:concentration", phase: "history", severity, at,
-    title: counts.size === 1 ? "Every commit made by one person" : "Most commits made by one person",
-    body: `Of ${total} commits in the last twelve months, the most active person made ${share}% of them, across ${counts.size} ${counts.size === 1 ? "person" : "people"}.`, // say:allow: report,a scanner result printed in the reports
+    title: line(counts.size === 1 ? "scan.one-author-title" : "scan.most-author-title"),
+    body: line("scan.concentration", { total: String(total), share: String(share), people: String(counts.size) }),
   }];
 }
 
@@ -881,8 +883,8 @@ function measured({ commits, tags, tracked, now }) {
   const releases = tags.filter((at) => within(at, 365)).length;
   if (releases < 4) {
     found.push({ key: "history:releases", phase: "history", severity: releases === 0 ? "medium" : "low", at: { path: "git tags" },
-      title: releases === 0 ? "No releases tagged in a year" : "Few releases tagged in a year",
-      body: `${releases} ${releases === 1 ? "release was" : "releases were"} tagged in the last twelve months.` });
+      title: line(releases === 0 ? "scan.no-releases-title" : "scan.few-releases-title"),
+      body: line("scan.releases", { count: String(releases) }) });
   }
   const areaOf = (path) => (path.includes("/") ? path.split("/")[0] : null);
   const areas = [...new Set(tracked.map(areaOf).filter(Boolean))].sort();
@@ -893,8 +895,9 @@ function measured({ commits, tags, tracked, now }) {
   const dormant = areas.filter((one) => touched.get(one).length === 0);
   if (dormant.length > 0) {
     found.push({ key: "history:dormant", phase: "history", severity: "low", at: { path: "git history" },
-      title: "Areas nobody changed in a year",
-      body: `Nobody changed ${dormant.slice(0, 6).join(", ")}${dormant.length > 6 ? ` or ${dormant.length - 6} more` : ""} in the last twelve months.` }); // say:allow: report,a scanner result printed in the reports
+      title: line("scan.dormant-title"),
+      body: dormant.length > 6 ? line("scan.dormant-more", { areas: dormant.slice(0, 6).join(", "), more: String(dormant.length - 6) })
+        : line("scan.dormant", { areas: dormant.join(", ") }) });
   }
   for (const [area, who] of touched) {
     if (who.length < 10) continue;
@@ -903,16 +906,16 @@ function measured({ commits, tags, tracked, now }) {
     const share = Math.round((Math.max(...counts.values()) / who.length) * 100);
     if (share >= 80) {
       found.push({ key: `history:area:${area}`, phase: "history", severity: "medium", at: { path: area },
-        title: `An area resting on one person in ${area}`,
-        body: `Of ${who.length} commits to ${area} in the last twelve months, one person made ${share}% of them.` }); // say:allow: report,a scanner result printed in the reports
+        title: line("scan.area-title", { area }),
+        body: line("scan.area", { count: String(who.length), area, share: String(share) }) });
     }
   }
   const recent = commits.filter((one) => within(one.at, 90)).length / 3;
   const before = commits.filter((one) => !within(one.at, 90) && within(one.at, 365)).length / 9;
   if (before >= 4 && recent < before / 2) {
     found.push({ key: "history:slowing", phase: "history", severity: "medium", at: { path: "git history" },
-      title: "Changes slowed in the last three months",
-      body: `The last three months ran at ${Math.round(recent)} commits a month, down from ${Math.round(before)} a month in the nine before.` }); // say:allow: report,a scanner result printed in the reports
+      title: line("scan.slowing-title"),
+      body: line("scan.slowing", { recent: String(Math.round(recent)), before: String(Math.round(before)) }) });
   }
   return found;
 }
@@ -969,34 +972,34 @@ function practices({ commits, source }) {
     const theirs = commits.filter((one) => gone.has(one.who)).length;
     if (theirs / total >= 0.25) {
       found.push({ key: "history:departed", phase: "history", severity: theirs / total >= 0.5 ? "high" : "medium", at,
-        title: "Much of the work made by people no longer committing",
-        body: `Of ${total} commits in the last twelve months, ${share(theirs, total)}% were made by ${gone.size} of ${last.size} people with no commit in the three months before the newest commit.` }); // say:allow: report,a scanner result printed in the reports
+        title: line("scan.departed-title"),
+        body: line("scan.departed", { total: String(total), share: String(share(theirs, total)), gone: String(gone.size), people: String(last.size) }) });
     }
     const ticketed = commits.filter((one) => TICKET.test(unsquashed(one.message))).length;
     if (ticketed / total < 0.5) {
       found.push({ key: "history:tickets", phase: "history", severity: "low", at,
-        title: "Few changes name the ticket they answer",
-        body: `Of ${total} commits in the last twelve months, ${share(ticketed, total)}% name a ticket in their message, such as #123 or ABC-123.` }); // say:allow: report,a scanner result printed in the reports
+        title: line("scan.tickets-title"),
+        body: line("scan.tickets", { total: String(total), share: String(share(ticketed, total)) }) });
     }
     const reverted = commits.filter((one) => REVERT.test(one.message ?? "")).length;
     if (reverted / total >= 0.05) {
       found.push({ key: "history:reverts", phase: "history", severity: reverted / total >= 0.1 ? "medium" : "low", at,
-        title: "Changes often undone",
-        body: `Of ${total} commits in the last twelve months, ${reverted} undid an earlier one, ${share(reverted, total)}% of them.` }); // say:allow: report,a scanner result printed in the reports
+        title: line("scan.reverts-title"),
+        body: line("scan.reverts", { total: String(total), reverted: String(reverted), share: String(share(reverted, total)) }) });
     }
   }
   const changing = commits.filter((one) => one.files.some((path) => isSource(path) && !isTest(path)));
   const tested = changing.filter((one) => one.files.some(isTest)).length;
   if (changing.length > 0 && tested / changing.length < 0.2) {
     found.push({ key: "history:tests", phase: "history", severity: "medium", at,
-      title: "Code changed without its tests",
-      body: `Of ${changing.length} commits changing source code in the last twelve months, ${share(tested, changing.length)}% also changed a test file.` }); // say:allow: report,a scanner result printed in the reports
+      title: line("scan.tests-title"),
+      body: line("scan.tests", { count: String(changing.length), share: String(share(tested, changing.length)) }) });
   }
   const rate = source.lines > 0 ? (source.markers / source.lines) * 1000 : 0;
   if (rate > 2) {
     found.push({ key: "history:markers", phase: "history", severity: rate > 5 ? "medium" : "low", at: { path: "tracked source" },
-      title: "Unfinished work marked in the code",
-      body: `The tracked source holds ${source.markers} lines marked TODO, FIXME, HACK or XXX in ${source.lines} lines, ${rate.toFixed(1)} per thousand lines.` }); // say:allow: report,a scanner result printed in the reports
+      title: line("scan.markers-title"),
+      body: line("scan.markers", { markers: String(source.markers), lines: String(source.lines), rate: rate.toFixed(1) }) });
   }
   return found;
 }
@@ -1274,7 +1277,7 @@ function install(tools) {
       execFileSync(how.command, how.args, { stdio: ["ignore", "ignore", "pipe"], timeout: 900_000 });
       done.push(onThisMachine(tool)
         ? { tool, installed: true }
-        : { tool, installed: false, why: `${BREW} finished but ${tool} is still not on the path` });
+        : { tool, installed: false, why: line("scan.tool-not-on-path", { brew: BREW, tool }) });
     } catch (thrown) {
       const said = String(thrown.stderr ?? "").split("\n").map((line) => line.trim()).filter(Boolean);
       done.push({ tool, installed: false, why: said.at(-1) ?? String(thrown.message ?? thrown).split("\n")[0] });

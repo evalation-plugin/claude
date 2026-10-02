@@ -10,7 +10,8 @@ test("an item naming a rule no measure produces is not checked, never found", ()
   const held = scan(repository(), ["history"]).document;
   const nonesuch = settled({ proof: "scan", phase: "history", rule: "history:nonesuch", at_least: "low" }, held);
   assert.strictEqual(nonesuch.result, "not-checked");
-  assert.match(nonesuch.why, /history:nonesuch/);
+  assert.match(nonesuch.why, /update the plugin and run it again/);
+  assert.doesNotMatch(nonesuch.why, /history:nonesuch/, "a customer never reads a rule's internal key");
   const releases = settled({ proof: "scan", phase: "history", rule: "history:releases", at_least: "low" }, held);
   assert.strictEqual(releases.result, "missing", "a rule the phase does measure is still settled by its results");
   const area = settled({ proof: "scan", phase: "history", rule: "history:area:src", at_least: "low" }, held);

@@ -73,7 +73,7 @@ test("each history card says what fits its measure", () => {
   const findings = measured({ commits: [commit(10, "a", "src/a.js")], tags: [], tracked: ["src/a.js", "legacy/x.js"], now: NOW });
   const html = scanResults({ findings, intro: "x", tagWord: "", tagOf: () => [], phaseOf: scans.named, consequences, remedies,
     upgradeTo: scans.upgradeTo, compared: scans.compared, compatible: scans.compatible, cardOf: scans.cardOf });
-  const todos = [...html.matchAll(/<b>What to do<\/b>([^<]*)/g)].map((one) => one[1]);
+  const todos = [...html.matchAll(/<b>The fix<\/b>([^<]*)/g)].map((one) => one[1]);
   assert.ok(todos.some((one) => /Tag each release/.test(one)), "releases");
   assert.ok(todos.some((one) => /still used/.test(one)), "dormant areas");
   assert.ok(!todos.some((one) => /second person/.test(one)), "no ownership advice on these");

@@ -3,7 +3,7 @@
 const test = require("node:test");
 const assert = require("node:assert");
 const { execFileSync, spawnSync } = require("node:child_process");
-const { readFileSync } = require("node:fs");
+const { readFileSync, readdirSync, statSync } = require("node:fs");
 const { join } = require("node:path");
 require("./fixture.js");
 
@@ -97,7 +97,8 @@ test("every line in the catalogue is used by a command or a script, and a comman
     ...readdirSync(join(__dirname, "..", "bin")).map((one) => readFileSync(join(__dirname, "..", "bin", one), "utf8")),
     ...readdirSync(join(__dirname, "..", "lib")).filter((one) => one.endsWith(".js")).map((one) => readFileSync(join(__dirname, "..", "lib", one), "utf8")),
   ].join("\n");
-  assert.deepStrictEqual(Object.keys(entries()).filter((name) => !sources.includes(name)), []);
+  const families = [...sources.matchAll(/["'`]([a-z-]+\.[a-z-]*-)(?:\$\{|["'`])/g)].map((found) => found[1]);
+  assert.deepStrictEqual(Object.keys(entries()).filter((name) => !sources.includes(name) && !families.some((one) => name.startsWith(one))), []);
   const unallowed = commandFiles().filter((file) => {
     const text = readFileSync(join(COMMANDS_AT, file), "utf8");
     return /evalation-say /.test(text) && !/^allowed-tools:.*Bash\(evalation-say:\*\)/m.test(text);
@@ -105,19 +106,59 @@ test("every line in the catalogue is used by a command or a script, and a comman
   assert.deepStrictEqual(unallowed, []);
 });
 
-const SESSION_SCRIPTS = ["bin/evalation-activate", "bin/evalation-ask", "bin/evalation-buy","bin/evalation-deliver", "bin/evalation-loopback", "bin/evalation-packs", "bin/evalation-questions",
-  "bin/evalation-remove", "bin/evalation-report", "bin/evalation-rotate", "bin/evalation-run", "bin/evalation-scan", "bin/evalation-status",
-  "lib/print.js", "lib/questions.js", "lib/remove.js", "lib/run-say.js"];
 
-test("no script a session shows builds a sentence for the person outside the catalogue", () => {
-  const built = SESSION_SCRIPTS.flatMap((file) => {
-    const lines = readFileSync(join(__dirname, "..", file), "utf8").split("\n").filter((line) => !/\/\/ say:allow: (report|agent|machine), ?\S/.test(line))
-      .map((line) => line.replace(/(\braised\(.*?),\s*"(?:[^"\\]|\\.)*"\s*\)/g, "$1)"));
-    return lines.flatMap((line) => [...line.matchAll(/(["`])((?:(?!\1)[^\\\n]|\\.){20,}?)\1/g)].map((found) => found[2]))
-      .filter((one) => /^[A-Z][a-z]+[\s,]/.test(one) && one.trim().split(/\s+/).length >= 5 && /[.?](?:$|\s|\$)/.test(one))
-      .map((one) => `${file}: ${one.slice(0, 80)}`);
+const CODE = ["bin", "lib"].flatMap((folder) => readdirSync(join(__dirname, "..", folder))
+  .filter((name) => (/\.js$/.test(name) || !name.includes(".")) && !/^linguist/.test(name))
+  .map((name) => `${folder}/${name}`))
+  .filter((file) => statSync(join(__dirname, "..", file)).isFile());
+
+function sentencesWritten(file) {
+  const text = readFileSync(join(__dirname, "..", file), "utf8").replace(/\/\*[\s\S]*?\*\//g, " ").split("\n")
+    .filter((line) => !/\/\/ say:allow: machine, ?\S/.test(line) && !/^\s*(\/\/|\*|\/\*)/.test(line)).join("\n");
+  const plain = (found) => found.replace(/\$\{[^{}]*(\{[^{}]*\}[^{}]*)*\}/g, " Blank ").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+  const said = [...text.matchAll(/`((?:[^`\\]|\\.)*)`|"((?:[^"\\\n]|\\.)*)"|'((?:[^'\\\n]|\\.)*)'/g)]
+    .filter((found) => !/class=\s*$|className:\s*$/.test(text.slice(Math.max(0, found.index - 12), found.index)))
+    .map((found) => plain(found[1] ?? found[2] ?? found[3]));
+  const sentences = said.flatMap((one) => one.split(/(?<=[.?!])\s+/))
+    .filter((one) => /^[A-Z][a-z']+[\s,]/.test(one) && one.split(/\s+/).filter((word) => /^[A-Za-z']+[,.?!:]?$/.test(word) && word !== "Blank").length >= 4);
+  const fragments = said.filter((one) => one !== "use strict" && /^[A-Za-z]/.test(one) && !/[{}=;()<>\\|#$@*]/.test(one)
+    && one.split(/\s+/).every((word) => /^[A-Za-z'][A-Za-z'-]*[,.?!:]?$/.test(word))
+    && one.split(/\s+/).filter((word) => word !== "Blank").length >= 2 && !sentences.includes(one));
+  const plurals = [...text.matchAll(/=== 1 \? ["'`][a-z]+["'`] : ["'`][a-z]+["'`]/g)].map((found) => found[0]);
+  return [...sentences, ...fragments, ...plurals];
+}
+
+const STILL_TO_MOVE = {
+  reason: "the plugin's agents' instructions, the fault remedies sent to Evalation and the machine-only strings move into the catalogue or carry a machine marker in the second pull request of ADR-0092",
+  granted_by: "the session building ADR-0092, landing the text a person reads first",
+  granted_on: "2026-10-02",
+  expires_on: "2026-10-09",
+  files: ["bin/evalation-findings", "lib/questions.js", "bin/evalation-verify", "lib/say.js", "bin/evalation-read", "lib/prose.js",
+    "bin/evalation-store", "bin/evalation-questions", "bin/evalation-activate", "lib/home.js", "bin/evalation-deck", "bin/evalation-chain",
+    "lib/sheet.js", "bin/evalation-score", "lib/run-say.js", "bin/evalation-scan", "bin/evalation-gate", "bin/evalation-ask", "lib/remove.js",
+    "lib/print.js", "lib/pptx.js", "bin/evalation-open", "bin/evalation-news", "bin/evalation-hostnames", "bin/evalation-inventory",
+    "bin/evalation-loopback", "bin/evalation-rotate", "lib/assure.js", "lib/sign.js", "lib/slides.js", "lib/zip.js"],
+};
+
+test("no file of the plugin writes a sentence of its own, so every sentence comes from the catalogue", () => {
+  const excused = new Date().toISOString().slice(0, 10) <= STILL_TO_MOVE.expires_on ? new Set(STILL_TO_MOVE.files) : new Set();
+  assert.deepStrictEqual(CODE.filter((file) => !excused.has(file)).flatMap((file) => sentencesWritten(file).map((one) => `${file}: ${one.slice(0, 90)}`)), []);
+});
+
+test("no catalogue file holds a name twice, since the second would silently replace the first", () => {
+  const folder = join(__dirname, "..", "lib", "say");
+  const twice = readdirSync(folder).filter((one) => one.endsWith(".json")).flatMap((file) => {
+    const names = [...readFileSync(join(folder, file), "utf8").matchAll(/^\s*"([a-z-]+\.[a-z0-9.-]+)":/gm)].map((found) => found[1]);
+    return names.filter((name, at) => names.indexOf(name) !== at).map((name) => `${file}: ${name}`);
   });
-  assert.deepStrictEqual(built, []);
+  assert.deepStrictEqual(twice, []);
+});
+
+test("every catalogue line spells each word it holds so it can be spelled for any locale", () => {
+  const { unheld } = require("../lib/spelling.js");
+  const words = Object.entries(entries()).flatMap(([name, one]) => [one.say, one.ask, ...(Array.isArray(one.options) ? one.options.flatMap((each) => [each.label, each.description]) : [])]
+    .flatMap((text) => (text && typeof text === "object" ? Object.values(text) : [text])).filter(Boolean).flatMap((text) => unheld(text).map((word) => `${name}: ${word}`)));
+  assert.deepStrictEqual(words, []);
 });
 
 test("no line a customer reads calls anything free", () => {

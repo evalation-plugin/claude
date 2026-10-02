@@ -39,31 +39,14 @@ const { inventory } = require("./evalation-inventory");
 const { deck } = require("./evalation-deck");
 const { detail } = require("./evalation-detail");
 const { shownPath } = require("../lib/solution.js");
+const { line } = require("../lib/run-say.js");
 
 let target = null;
 
 // What a deliverable calls each discipline. The rubric weights these same keys, so a name here that
 // the rubric does not weight is a section that cannot be scored.
-const DISCIPLINES = {
-  SEC: "Security Defensive",
-  XSEC: "Security Adversarial",
-  ARCH: "Architecture",
-  QUAL: "Code quality",
-  PRIV: "Privacy & supply-chain",
-  REL: "Reliability & testing",
-  PERF: "Performance & cost",
-  COMP: "Compliance & governance",
-  UX: "Accessibility & UX",
-  DOC: "Documentation & operability",
-  WIKI: "Documentation (Wiki)",
-  AIPE: "AI & prompt engineering",
-  ALG: "Algorithm correctness",
-  RES: "Resilience & FMEA",
-  CVE: "Dependency CVE/SBOM",
-  API: "API & contract design",
-  DR: "DR & durability",
-  SLO: "Observability & SLO",
-};
+const DISCIPLINES = Object.fromEntries(["SEC", "XSEC", "ARCH", "QUAL", "PRIV", "REL", "PERF", "COMP", "UX", "DOC", "WIKI", "AIPE", "ALG",
+  "RES", "CVE", "API", "DR", "SLO"].map((code) => [code, line(`detail.discipline-${code.toLowerCase()}`)]));
 
 // Severity as the builders spell it, and what each is worth in the work order. Priority is severity
 // and nothing else, so the same findings always sort into the same tiers.
@@ -133,7 +116,7 @@ function belowScan(one, results) {
   const result = results.find((each) => each.key === one.scanned);
   const worst = result ? cardWorst(result, results, RANK.map((sev) => sev.toLowerCase())) : null;
   const reason = String(one.below_scan).trim();
-  return worst ? `Rated below the scanner's ${worst}: ${reason}` : reason;
+  return worst ? line("detail.below-scan", { worst, reason }) : reason;
 }
 
 // Where the finding rests, to the line. A run cites a range, and a reader handed the file alone has
@@ -196,6 +179,7 @@ function reviewFindings(document) {
       id: `${prefix}-${String(at + 1).padStart(2, "0")}`,
       sev: known.sev,
       model: withoutVendor(one.model) || readBy,
+      title: one.title,
       finding: one.observed,
       below: belowScan(one, document.scan?.relevant ?? []),
       remediation: one.required,
@@ -228,7 +212,7 @@ function reviewFindings(document) {
       name: DISCIPLINES[prefix] ?? prefix,
       count: rows.length,
       blurb: looked.length
-        ? `Read for ${looked.slice(0, 4).join(", ")}${looked.length > 4 ? ", among others" : ""}.` // say:allow: report,printed in the review detail PDF
+        ? line(looked.length > 4 ? "detail.blurb-more" : "detail.blurb", { looked: looked.slice(0, 4).join(", ") })
         : "",
       unchecked,
       findings: rows,
@@ -244,39 +228,23 @@ function reviewFindings(document) {
     .filter(Boolean))].sort();
 
   const solution = document.target?.kind === "solution" ? document.target : null;
-  const whole = solution ? `the ${(solution.repositories ?? []).filter((one) => one.vcs === "git").length} repositories of this product together` : "the repository";
+  const whole = solution ? line("shared.whole-several", { count: String((solution.repositories ?? []).filter((one) => one.vcs === "git").length) }) : line("shared.whole-one");
   const built = {
-    title: "Evalation Hardening Review",
-    subtitle: solution
-      ? `Detailed findings by discipline · Product: ${repository}`
-      : `Detailed findings by discipline · Repository: ${repository}`,
+    title: line("detail.title"),
+    subtitle: line("detail.subtitle", { label: line(solution ? "shared.label-product" : "shared.label-repository"), name: repository || line("shared.unnamed") }),
     tenant: repository,
     solution,
     generated_at: String(document.at ?? "").slice(0, 10).replace(/-/g, ""),
     meta: {
-      // What was done, in enough detail that a reader can weigh the report before reading a row of
-      // it: how much was read, how it was read, what a row carries, how the rows are ordered, and
-      // what the assessment did not do.
-      intro: [
-        `We read ${whole} against ${categories.length} disciplines and found ${weaknesses} ` +
-        `findings, along with ${(document.findings ?? []).length - weaknesses} controls working as intended.`,
-
-        "Each discipline has its own section, and one that found nothing still gets a section so a " +
-        "reader can see it was read.",
-
-        "Within a section, findings run in priority order. Each names the model that found it, the " + // say:allow: report,the review detail PDF's opening
-        "file and lines it rests on, whether a second check confirmed it, and the fix.",
-
-        "We read the code without running it and changed nothing.", // say:allow: report,the review detail PDF's opening
-      ].join(" "),
+      intro: line("detail.intro", { whole, count: String(categories.length), weaknesses: String(weaknesses),
+        findings: line("shared.noun-finding", { count: String(weaknesses) }), good: String((document.findings ?? []).length - weaknesses),
+        controls: line("shared.noun-control", { count: String((document.findings ?? []).length - weaknesses) }) }),
       finding_count: weaknesses,
       models,
     },
     legend: {
-      priority: "P0 do first · P1 near-term · P2 should-fix · P3 cleanup.",
-      result:
-        "Scanned if a scanner found it · verified if a second check confirmed it against the " +
-        `${solution ? "repositories" : "repository"} · asserted if nothing did.`,
+      priority: line("detail.legend-priority"),
+      result: line("detail.legend-result", { source: solution ? "repositories" : "repository" }),
     },
     categories,
   };
@@ -323,7 +291,7 @@ function deliver(source, named, target) {
   // Named for the review they hold. A run reads one concern set today, hardening, and a run that
   // read several has no one title to give them.
   const concerns = (document.packs ?? []).filter((one) => one.kind === "concern-set").map((one) => one.pack);
-  const name = concerns.length === 1 ? reviewName(document, concerns[0]) : "Evalation Findings";
+  const name = concerns.length === 1 ? reviewName(document, concerns[0]) : line("detail.findings-name");
   const pack = join(into, `${name} Pack.pdf`);
   const findings = join(into, `${name} Detail.pdf`);
 

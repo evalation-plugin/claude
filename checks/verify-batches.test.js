@@ -57,6 +57,17 @@ test("one claim citing long lines is still shown whole, and says where the rest 
   }
 });
 
+test("a missing item that cites the mechanism lacking the control shows its verifier those lines", () => {
+  const tree = mkdtempSync(join(tmpdir(), "evalation-batches-"));
+  mkdirSync(join(tree, "src"));
+  writeFileSync(join(tree, "src", "auth.js"), "export function signIn(user) {\n  return session(user);\n}\n");
+  const { itemShown } = require("../bin/evalation-verify");
+  const shown = itemShown(tree, { find: "A second factor checked in the sign-in flow", proof: "runs", result: "missing", searched: "Looked for a second factor.",
+    evidence: [{ path: "src/auth.js", from: 1, to: 3, quote: "return session(user)", grade: "executable" }] }, 0).join("\n");
+  assert.match(shown, /searched: Looked for a second factor\./);
+  assert.match(shown, /return session\(user\)/);
+});
+
 test("the reader and the verifier are both told an item is found only where the lines are what it means within its question", () => {
   const { tree, file } = written();
   verify(["plan", file, tree]);

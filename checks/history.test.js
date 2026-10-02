@@ -18,7 +18,7 @@ test("one person making most of a year's commits is a finding, with the share an
   const found = authorship(log({ "a@x.io": 8, "b@x.io": 2 }));
   assert.strictEqual(found.length, 1);
   assert.strictEqual(found[0].severity, "high");
-  assert.match(found[0].body, /the most active person made 80% of them, across 2 people/);
+  assert.match(found[0].body, /the most active person made 80%, across 2 people/);
   assert.doesNotMatch(JSON.stringify(found), /x\.io/);
 });
 
@@ -44,7 +44,7 @@ test("a bot named as one in its author name or address is not counted as a perso
 test("one person committing from two addresses under one name is one person", () => {
   const found = authorship(log({ "sam\x1f35871900+sam@users.noreply.github.com": 386, "Sam\x1fsam@gmail.com": 2 }));
   assert.match(found[0].title, /Every commit made by one person/);
-  assert.match(found[0].body, /made 100% of them, across 1 person/);
+  assert.match(found[0].body, /made 100%, across 1 person/);
 });
 
 test("people sharing no name or address stay separate, and a bare address still counts", () => {
@@ -60,7 +60,7 @@ test("a scan of a checkout counts one person with two addresses once", () => {
     execFileSync("git", ["-C", tree, "-c", `user.name=${name}`, "-c", `user.email=${email}`, "commit", "-qm", email]);
   }
   const found = scan(tree, ["history"]).document.findings.find((one) => one.key === "history:concentration");
-  assert.match(found.body, /Of 3 commits in the last twelve months, the most active person made 67% of them, across 2 people/);
+  assert.match(found.body, /Of 3 commits in the last twelve months, the most active person made 67%, across 2 people/);
 });
 
 test("an area resting on one person counts that person once across addresses, and leaves bots out", () => {
@@ -72,12 +72,12 @@ test("an area resting on one person counts that person once across addresses, an
     execFileSync("git", ["-C", tree, "-c", `user.name=${name}`, "-c", `user.email=${email}`, "commit", "-qm", String(n)]);
   }
   const area = scan(tree, ["history"]).document.findings.find((one) => one.key === "history:area:src");
-  assert.match(area.body, /Of 11 commits to src in the last twelve months, one person made 91% of them/);
+  assert.match(area.body, /Of 11 commits to src in the last twelve months, one person made 91%\./);
 });
 
 test("a single author is high, and a year with no commits says so", () => {
   assert.match(authorship(log({ a: 5 }))[0].title, /one person/);
-  assert.match(authorship("")[0].body, /No commits/);
+  assert.match(authorship("")[0].body, /Nobody has committed/);
 });
 
 test("a history card says how to spread the work, never to change code", () => {
@@ -87,7 +87,7 @@ test("a history card says how to spread the work, never to change code", () => {
   const html = scanResults({ findings: authorship(log({ a: 9, b: 1 })), intro: "x", tagWord: "", tagOf: () => [],
     phaseOf: scans.named, consequences, remedies, upgradeTo: scans.upgradeTo, compared: scans.compared,
     compatible: scans.compatible, cardOf: scans.cardOf });
-  const todo = html.match(/<b>What to do<\/b>([^<]*)/)[1];
+  const todo = html.match(/<b>The fix<\/b>([^<]*)/)[1];
   assert.match(todo, /second person/);
   assert.doesNotMatch(todo, /Change the code/);
 });
@@ -107,7 +107,7 @@ test("a scan of a checkout reads its history, and a folder with none says why", 
   const held = scan(tree, ["history"]).document;
   const phase = held.phases.find((one) => one.phase === "history");
   assert.ok(phase.ran);
-  assert.match(held.findings.find((one) => one.phase === "history").body, /the most active person made 60% of them/);
+  assert.match(held.findings.find((one) => one.phase === "history").body, /the most active person made 60%/);
 
   const loose = mkdtempSync(join(tmpdir(), "evalation-loose-"));
   const none = scan(loose, ["history"]).document.phases.find((one) => one.phase === "history");

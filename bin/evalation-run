@@ -166,7 +166,7 @@ function settled(packs) {
           entry: entry.identifier,
           status: "not-applicable",
           from: "authored",
-          because: entry.in_force === false ? `${entry.title} is not in force, so the pack answers it.` : `${entry.title} places no duty a repository could meet, so the pack answers it.`,
+          because: spoken(entry.in_force === false ? "report.not-in-force" : "report.no-duty", { title: entry.title || entry.identifier }),
           justification: entry.justification,
         });
         continue;
@@ -177,10 +177,7 @@ function settled(packs) {
         entry: entry.identifier,
         status: "org-level",
         from: "authored",
-        because: entry.written_by === "customer"
-          ? `${entry.title} is held in the organisation's own records, which a repository does not keep, so it is answered as the organisation's.`
-          : `${entry.title} is about how the organisation runs, which a repository does not record, ` +
-            "so the pack answers it.",
+        because: spoken(entry.written_by === "customer" ? "report.org-records" : "report.org-runs", { title: entry.title || entry.identifier }),
         justification: entry.justification,
         ...(entry.raised_by?.length ? { raised_by: entry.raised_by } : {}),
       });
@@ -523,7 +520,7 @@ function served(answer, sets = [], where = null) {
     revision: answer.revision,
     remaining: answer.remaining,
     already: answer.already === true,
-    admitted: "a directory on this machine, read through the fence and reaching no host",
+    admitted: "a directory on this machine, read through the fence and reaching no host", // say:allow: machine, a record field no page prints
     skill: answer.skill,
     packs,
     // How this run's findings become a score, where the packs it selected are scored at all. It is

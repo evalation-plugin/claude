@@ -70,5 +70,6 @@
   "ev-activate.unclear": { "say": "This machine's sign-in couldn't be read. Unlock this machine's password store (Keychain on a Mac), then run /ev-activate again." },
   "ev-activate.unreachable": { "say": "Evalation couldn't be reached. Check this machine is online, then run /ev-activate again." },
   "ev-activate.unreadable": { "say": "Evalation sent back an answer it couldn't read. Run /ev-activate to try again." },
-  "ev-activate.unreadable-twice": { "say": "Evalation isn't answering properly. Email support@evalation.ai." }
+  "ev-activate.unreadable-twice": { "say": "Evalation isn't answering properly. Email support@evalation.ai." },
+  "ev-activate.waiting-script": { "say": "Waiting up to five minutes for you to finish signing in." }
 }

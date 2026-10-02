@@ -35,7 +35,7 @@ test("a scanner that failed to install is reported as could not be installed, wi
   assert.strictEqual(shown.phases.sca.declined, false);
   assert.match(shown.phases.sca.could_not_install.why, /no formula/);
   const ran = scan("run", repository(), "--phases", "sca");
-  assert.match(ran.not_checked[0].why, /Trivy could not be installed \(.*no formula.*\)/);
+  assert.match(ran.not_checked[0].why, /Trivy couldn't be installed \(.*no formula.*\)/);
   assert.doesNotMatch(JSON.stringify(ran), /chose|declined/);
 });
 
@@ -65,7 +65,7 @@ test("show describes each tool in plain words with a page to install it by hand,
   const ran = scan("run", repository(), "--phases", "history,sast");
   assert.deepStrictEqual(ran.checked, ["the commit history"]);
   assert.strictEqual(ran.not_checked[0].checks, "risky code patterns");
-  assert.match(ran.not_checked[0].why, /Semgrep is not installed on this machine/);
+  assert.match(ran.not_checked[0].why, /Semgrep isn't installed on this machine/);
   assert.doesNotMatch(JSON.stringify({ ...ran, written: "" }), /\b(sca|sast|sbom|phase)\b/);
 });
 
@@ -93,7 +93,7 @@ test("a scan stopped by the repository changing under it says what to do in one 
   const ran = spawnSync(process.execPath, [join(BIN, "evalation-scan"), "run", tree, "--phases", "secret"], { encoding: "utf8",
     env: { ...process.env, EVALATION_PLUGIN_HOME: home, EVALATION_LOCAL: join(at, "evalation.local"), EVALATION_SECRET_CMD: `${process.execPath} ${mover}` } });
   assert.strictEqual(ran.status, 1);
-  assert.strictEqual(ran.stderr, "The repository changed while it was being scanned, so the run stopped. No pack credits were used. Stop whatever is changing it, then run /ev-run again.\n");
+  assert.strictEqual(ran.stderr, "The repository changed while it was being scanned, so the run stopped before using any pack credits. Stop whatever is changing it, then run /ev-run again.\n");
 });
 
 test("delivering with no browser names each page to open and says a PDF printed by hand is not signed", () => {
@@ -131,8 +131,8 @@ test("the evidence pack names the repository in full and the question revision, 
   const document = run(repository());
   const asked = new Map(document.packs[0].entries_asked.map((one) => [`soc2/${one.identifier}`, one]));
   const html = page(document, document.answers.filter((one) => one.pack === "soc2"), asked);
-  assert.match(html, /What this repository evidences · Repository: acme\/app/);
-  assert.match(html, /Assessed [^.]+ against question revision 1\.80\./);
+  assert.match(html, /Evidence from this repository · Repository: acme\/app/);
+  assert.match(html, /Assessed on [^.]+ against version 1\.80 of the questions\./);
   assert.doesNotMatch(html, /governance revision|Repo:/);
 });
 
@@ -412,7 +412,7 @@ test("the scan and the evidence pack stop on a fault with plain lines, and the d
   assert.strictEqual(reported.status, 1);
   const report = faultFile(reported.stderr);
   assert.strictEqual(report.lines[0], "The run stopped on a fault in Evalation while writing the reports. " +
-    "Your findings are kept. Its pack credits were used when it started.");
+    "Your findings are kept, and the run used its pack credits when it started.");
   assert.doesNotMatch(reported.stderr, /no-answers|findings\.json/);
   assert.match(report.detail, /no-answers/);
 });

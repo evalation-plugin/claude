@@ -11,7 +11,7 @@
   "ev-remove.nothing-saved": { "say": "Evalation has saved nothing on this machine." },
   "ev-remove.only-sign-in": { "say": "Evalation holds only this machine's damaged sign-in and its keys here. Removing deletes them." },
   "ev-remove.nothing-else": { "say": "Evalation has nothing else on this machine." },
-  "ev-remove.old-reports": { "say": "Evalation's folder also holds reports an older version saved there: <reports>. Removing deletes them. Reports in your Documents folder stay." },
+  "ev-remove.old-reports": { "say": "Evalation's folder also holds reports an older version saved there: <reports>. Removing Evalation deletes them, and reports in your Documents folder stay." },
   "ev-remove.report": { "say": "the <names> from the check of <repository> on <date>" },
   "ev-remove.report-unnamed": { "say": "the <names> from the check on <date>" },
   "ev-remove.remove": { "ask": "Remove Evalation from this machine?", "header": "Remove", "options": [
@@ -31,8 +31,8 @@
     { "label": "Keep on my account", "description": "You can use it on your other computers." },
     { "label": "Delete with the rest", "description": "Deletes it with Evalation's folder." }
   ] },
-  "ev-remove.conversations": { "say": "Claude Code keeps <count> other conversations where you ran an Evalation command, including what Evalation found in your code. They're from these project folders: <places>. Deleting them can't be undone. Other conversations and your project files aren't touched." },
-  "ev-remove.conversation": { "say": "Claude Code keeps one other conversation where you ran an Evalation command, including what Evalation found in your code. It's from the project folder <folder>, on <from>. Deleting it can't be undone. Other conversations and your project files aren't touched." },
+  "ev-remove.conversations": { "say": "Claude Code keeps <count> other conversations where you ran an Evalation command, including what Evalation found in your code. They're from these project folders: <places>. Deleting them can't be undone, and other conversations and your project files stay as they are." },
+  "ev-remove.conversation": { "say": "Claude Code keeps one other conversation where you ran an Evalation command, including what Evalation found in your code. It's from the project folder <folder>, on <from>. Deleting it can't be undone, and other conversations and your project files stay as they are." },
   "ev-remove.place": { "say": "<count> in <folder> from <from> to <to>" },
   "ev-remove.place-day": { "say": "<count> in <folder> on <from>" },
   "ev-remove.place-one": { "say": "one in <folder> on <from>" },

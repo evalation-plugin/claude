@@ -1,0 +1,83 @@
+{
+  "scan.phase-name-sca": { "say": "dependency advisories" },
+  "scan.phase-name-sbom": { "say": "bill of materials" },
+  "scan.phase-name-sast": { "say": "static analysis" },
+  "scan.phase-name-secret": { "say": "secret scan" },
+  "scan.phase-name-history": { "say": "authorship in git history" },
+  "scan.phase-name-licence": { "say": "dependency licences" },
+  "scan.no-file": { "say": "no file named" },
+  "scan.transitive": { "say": "brought in by another dependency" },
+  "scan.why-no-scan": { "say": "no scan ran over this repository this time" },
+  "scan.why-off": { "say": "the <phase> didn't run: <why>" },
+  "scan.why-off-unknown": { "say": "the <phase> wasn't part of this scan" },
+  "scan.why-old": { "say": "this version of Evalation can't measure it, so update the plugin and run it again" },
+  "scan.why-partial": { "say": "the <phase> scan couldn't read these packages: <unread>, so it covers only part of the repository" },
+  "scan.why-partial-more": { "say": "the <phase> scan couldn't read these packages: <unread> and <more> more, so it covers only part of the repository" },
+  "scan.org-found": { "say": "The scan found what only the organisation can settle, and each is listed below." },
+  "scan.org-partial": { "say": "The list may be incomplete, because <why>." },
+  "scan.phases": { "say": "Phases:" },
+  "scan.tool-failed": { "say": "<tool> couldn't be installed (<why>)" },
+  "scan.tool-declined": { "say": "the person running the review chose not to install <tool>" },
+  "scan.tool-declined-on": { "say": "the person running the review chose not to install <tool> on <on>" },
+  "scan.tool-missing": { "say": "<tool> isn't installed on this machine" },
+  "scan.tool-not-on-path": { "say": "<brew> finished, but <tool> still isn't on the path" },
+  "scan.phase-off": { "say": "The <phase> didn't run: <why>." },
+  "scan.phase-counted": { "say": "The <phase> ran <tool> and counted <count> components." },
+  "scan.phase-counted-kinds": { "say": "The <phase> ran <tool> and counted <count> components (<kinds>)." },
+  "scan.phase-found": { "say": "The <phase> ran <tool> and found <count>." },
+  "scan.phase-found-but": { "say": "The <phase> ran <tool> and found <count>, but <why>." },
+  "scan.floor": { "say": "Findings at or above the <floor> floor: <count>." },
+  "scan.floor-below": { "say": "Findings at or above the <floor> floor: <count>. Below it: <below>." },
+  "scan.licence-restricted-title": { "say": "Dependencies under a restrictive licence" },
+  "scan.licence-restricted": { "count": "count", "say": {
+    "one": "<count> of the <total> production dependencies is under a licence that can oblige the product to share its own code: <names>.",
+    "many": "<count> of the <total> production dependencies are under a licence that can oblige the product to share its own code: <names>."
+  } },
+  "scan.licence-in-code-title": { "say": "Code in the repository under a restrictive licence" },
+  "scan.licence-in-code": { "count": "count", "say": {
+    "one": "A file in the repository carries a licence that can oblige the product to share its own code: <names>.",
+    "many": "<count> files in the repository carry a licence that can oblige the product to share its own code: <names>."
+  } },
+  "scan.licence-unknown-title": { "say": "Dependencies declaring no licence" },
+  "scan.licence-unknown": { "count": "count", "say": {
+    "one": "<count> of the production dependencies the repository names itself declares no licence: <names>.",
+    "many": "<count> of the production dependencies the repository names itself declare no licence: <names>."
+  } },
+  "scan.outside-title": { "say": "People outside the company who committed" },
+  "scan.outside": { "count": "count", "say": {
+    "one": "<count> of the <total> people who ever committed has no commit address at <domains>.",
+    "many": "<count> of the <total> people who ever committed have no commit address at <domains>."
+  } },
+  "scan.private-why": { "say": "commits only through a code host's private address, so we can't show they're staff" },
+  "scan.quiet-title": { "say": "No commits in a year" },
+  "scan.quiet": { "say": "Nobody has committed to this code in the last twelve months." },
+  "scan.one-author-title": { "say": "Every commit made by one person" },
+  "scan.most-author-title": { "say": "Most commits made by one person" },
+  "scan.concentration": { "count": "people", "say": {
+    "one": "Of <total> commits in the last twelve months, the most active person made <share>%, across <people> person.",
+    "many": "Of <total> commits in the last twelve months, the most active person made <share>%, across <people> people."
+  } },
+  "scan.no-releases-title": { "say": "No releases tagged in a year" },
+  "scan.few-releases-title": { "say": "Few releases tagged in a year" },
+  "scan.releases": { "count": "count", "say": {
+    "one": "Someone tagged <count> release in the last twelve months.",
+    "many": "Someone tagged <count> releases in the last twelve months."
+  } },
+  "scan.dormant-title": { "say": "Areas nobody changed in a year" },
+  "scan.dormant": { "say": "Nobody changed <areas> in the last twelve months." },
+  "scan.dormant-more": { "say": "Nobody changed <areas> or <more> more in the last twelve months." },
+  "scan.area-title": { "say": "One person behind most changes to <area>" },
+  "scan.area": { "say": "Of <count> commits to <area> in the last twelve months, one person made <share>%." },
+  "scan.slowing-title": { "say": "Changes slowed in the last three months" },
+  "scan.slowing": { "say": "The last three months averaged <recent> commits a month, down from <before> a month in the nine months before that." },
+  "scan.departed-title": { "say": "Much of the work by people who stopped committing" },
+  "scan.departed": { "say": "Of <total> commits in the last twelve months, <share>% came from <gone> of <people> people with no commit in the three months before the newest commit." },
+  "scan.tickets-title": { "say": "Few changes name the ticket they answer" },
+  "scan.tickets": { "say": "Of <total> commits in the last twelve months, <share>% name a ticket in their message, such as #123 or ABC-123." },
+  "scan.reverts-title": { "say": "Changes often undone" },
+  "scan.reverts": { "say": "Of <total> commits in the last twelve months, <reverted> undid an earlier one, <share>% of them." },
+  "scan.tests-title": { "say": "Code changed without its tests" },
+  "scan.tests": { "say": "Of <count> commits changing source code in the last twelve months, <share>% also changed a test file." },
+  "scan.markers-title": { "say": "Unfinished work marked in the code" },
+  "scan.markers": { "say": "The tracked source holds <markers> lines marked TODO, FIXME, HACK or XXX in <lines> lines, <rate> per thousand lines." }
+}

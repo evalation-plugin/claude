@@ -31,7 +31,7 @@ test("a deck read after an earlier run has a slide saying what changed", () => {
   writeFileSync(join(home, "findings", "deck-earlier.json"), JSON.stringify(hardening("2026-09-23T00:00:00.000Z", ["found", "found"], 70)));
   const shaped = synthesise(reviewFindings(hardening("2026-09-25T00:00:00.000Z", ["found", "missing"], 64)));
   const { file } = deck(shaped, join(mkdtempSync(join(tmpdir(), "evalation-deck-")), "Pack.pdf"), { render: false });
-  const slide = texts(file).find((one) => /What changed since 23 September 2026/.test(one));
+  const slide = texts(file).find((one) => /Changes since 23 September 2026/.test(one));
   assert.ok(slide, "a slide headed with the date of the earlier run");
   assert.match(slide, /The hardness score moved from 70 to 64/);
   assert.match(slide, /SEC01 Untrusted input/);
@@ -43,7 +43,7 @@ test("a short slide keeps every block's bar, and its blocks sit at the template'
   writeFileSync(join(home, "findings", "deck-earlier.json"), JSON.stringify(hardening("2026-09-23T00:00:00.000Z", ["found", "found"], 70)));
   const shaped = synthesise(reviewFindings(hardening("2026-09-25T00:00:00.000Z", ["found", "missing"], 64)));
   const { file } = deck(shaped, join(mkdtempSync(join(tmpdir(), "evalation-deck-")), "Pack.pdf"), { render: false });
-  const part = file.entries.find((one) => /^ppt\/slides\/slide\d+\.xml$/.test(one.name) && /What changed since/.test(one.content.toString("utf8")));
+  const part = file.entries.find((one) => /^ppt\/slides\/slide\d+\.xml$/.test(one.name) && /Changes since/.test(one.content.toString("utf8")));
   const all = pptx.shapes(pptx.blank(pptx.stripNotes(part.content.toString("utf8"))));
   const blocks = all.filter((one) => one.left > 700_000 && one.left < 800_000 && one.text.trim());
   const bars = all.filter((one) => !one.text.trim() && one.left === 502920 && one.top > 1_600_000 && one.top < 6_400_000);
@@ -59,8 +59,29 @@ test("the board pack's own words say product and count only repositories under v
   assert.match(said, /The product scores 64/);
 });
 
+test("a filled deck carries none of the template's own headings, each replaced from the catalogue", () => {
+  const shaped = synthesise(reviewFindings({ ...hardening("2026-09-25T00:00:00.000Z", ["found", "missing"], 64), target: { repository: "acme/first" } }));
+  const { file } = deck(shaped, join(mkdtempSync(join(tmpdir(), "evalation-deck-")), "Pack.pdf"), { render: false });
+  const all = texts(file).join(" ");
+  for (const old of ["Strengths to preserve", "What we think of how", "How this audit was produced", "The one risk path that matters",
+    "Health / hardness score", "Convergent themes", "HOW WELL IT IS BUILT", "WHERE THE RISK IS", "WHAT IT TAKES TO CLOSE", "PRESERVE AS INVARIANTS"]) {
+    assert.ok(!all.includes(old), `the deck still says ${old}`);
+  }
+});
+
+test("a control to keep shows its title whole, never a cut sentence", () => {
+  const run = hardening("2026-09-25T00:00:00.000Z", ["found", "missing"], 64);
+  run.findings.push({ id: "f-2", pack: "hardening", concern: "SEC01", severity: "positive", title: "Queries use parameters",
+    observed: `${"Every query passes its values as parameters, which the driver sends apart from the statement text ".repeat(3)}so input never becomes SQL.`,
+    required: "Keep it.", at: { path: "src/b.js", from: 1, to: 1 } });
+  const { file } = deck(synthesise(reviewFindings({ ...run, target: { repository: "acme/first" } })), join(mkdtempSync(join(tmpdir(), "evalation-deck-")), "Pack.pdf"), { render: false });
+  const slide = texts(file).find((one) => /Queries use parameters/.test(one));
+  assert.ok(slide, "the control's title is on the roadmap slide");
+  assert.doesNotMatch(slide, /…/);
+});
+
 test("a deck with no earlier run has no such slide", () => {
   const shaped = synthesise(reviewFindings({ ...hardening("2026-09-25T00:00:00.000Z", ["found", "missing"], 64), target: { repository: "acme/first" } }));
   const { file } = deck(shaped, join(mkdtempSync(join(tmpdir(), "evalation-deck-")), "Pack.pdf"), { render: false });
-  assert.ok(!texts(file).some((one) => /What changed since/.test(one)));
+  assert.ok(!texts(file).some((one) => /Changes since/.test(one)));
 });

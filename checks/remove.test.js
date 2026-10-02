@@ -226,7 +226,7 @@ test("reports kept inside the plugin's folder by an older version are named befo
   assert.doesNotMatch(WORDS, /<count> reports/);
   removal({ home, claude, cwd: read, clearHistory: false, ...quiet });
   assert.strictEqual(existsSync(home), false);
-  assert.match(line("ev-remove.old-reports", { reports: shown.reports_named }), /: the board pack, .+\. Removing deletes them\. Reports in your Documents folder stay\.$/);
+  assert.match(line("ev-remove.old-reports", { reports: shown.reports_named }), /: the board pack, .+\. Removing Evalation deletes them, and reports in your Documents folder stay\.$/);
   assert.match(FLAT, /`evalation-say ev-remove\.old-reports reports="<reports_named>"`/);
   assert.strictEqual(JSON.parse(spawnSync(process.execPath, [join(__dirname, "..", "bin", "evalation-remove"), "folders"], { encoding: "utf8", env: { ...process.env, EVALATION_PLUGIN_HOME: home, CLAUDE_CONFIG_DIR: claude } }).stdout).reports_named, null);
 });
@@ -301,7 +301,7 @@ test("counts of one read as one, and the promise about folders names the project
   assert.strictEqual(line("ev-remove.open-one"), "One of them is open in another Claude Code window, so it's kept. To delete it too, close that window first.");
   assert.match(line("ev-remove.kept-two"), /^This conversation and one other still open were kept\./);
   assert.match(line("ev-remove.conversation", { folder: "evalation", from: "29 September 2026" }), /It's from the project folder evalation, on 29 September 2026\. Deleting it can't be undone/);
-  for (const name of ["ev-remove.conversations", "ev-remove.conversation"]) assert.match(line(name, { count: 2, places: "x", folder: "x", from: "x" }), /your project files aren't touched/);
+  for (const name of ["ev-remove.conversations", "ev-remove.conversation"]) assert.match(line(name, { count: 2, places: "x", folder: "x", from: "x" }), /your project files stay as they are/);
   assert.doesNotMatch(WORDS, /nothing in your folders is touched/);
 });
 

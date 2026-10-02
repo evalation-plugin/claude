@@ -9,6 +9,7 @@ const { join } = require("node:path");
 
 const home = mkdtempSync(join(tmpdir(), "evalation-home-"));
 process.env.EVALATION_PLUGIN_HOME = home;
+process.env.EVALATION_SPELLING = process.env.EVALATION_SPELLING || "commonwealth";
 
 const git = (cwd, ...args) => execFileSync("git", args, { cwd, stdio: "ignore" });
 
