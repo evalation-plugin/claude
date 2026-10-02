@@ -704,16 +704,53 @@ const GROUP = 25;
  * What is left to read, in groups: each within one pack, in the pack's own order, at most GROUP, and
  * a pack's groups even in size, so no reader is started for the one entry left over.
  */
+const PRINTED = 24000;
+
+function printedSize(entry) {
+  const theirs = entry.written_by === "customer";
+  const said = JSON.stringify(shown(entry), null, 2).length;
+  return theirs ? said + JSON.stringify(customerFenced([entry])).length : said;
+}
+
 function groupsOf(served) {
   const out = [];
   for (const one of served.to_read ?? []) {
     const kind = (served.packs ?? []).find((pack) => pack.pack === one.pack)?.body?.kind ?? "standard";
-    const size = Math.ceil(one.entries.length / Math.ceil(one.entries.length / GROUP));
-    for (let at = 0; at < one.entries.length; at += size) {
-      out.push({ pack: one.pack, kind, entries: one.entries.slice(at, at + size) });
+    const sizes = one.entries.map(printedSize);
+    const total = sizes.reduce((sum, size) => sum + size, 0);
+    for (let parts = Math.max(Math.ceil(one.entries.length / GROUP), Math.ceil(total / PRINTED), 1); ; parts += 1) {
+      const split = splitInto(one.entries, sizes, parts, Math.min(PRINTED, Math.ceil((total / parts) * 1.2)));
+      if (split.length <= parts || parts >= one.entries.length) {
+        out.push(...split.map((entries) => ({ pack: one.pack, kind, entries })));
+        break;
+      }
     }
   }
   return out.map((group, index) => ({ group: index + 1, of: out.length, ...group }));
+}
+
+function splitInto(entries, sizes, parts, most) {
+  const count = Math.ceil(entries.length / parts);
+  const out = [];
+  let printed = 0;
+  entries.forEach((entry, at) => {
+    const held = out.at(-1);
+    if (held === undefined || held.length >= count || (printed + sizes[at] > most && held.length > 0)) {
+      out.push([entry]);
+      printed = sizes[at];
+    } else {
+      held.push(entry);
+      printed += sizes[at];
+    }
+  });
+  return out;
+}
+
+function shown(entry) {
+  return entry.written_by === "customer"
+    ? { identifier: entry.identifier, written_by: "customer",
+      looks_for: (entry.looks_for ?? []).map((item) => pick(item, ["proof", "phase", "at_least"])) }
+    : pick(entry, ["identifier", "title", "intent", "looks_for", "section", "locator", "obligation", "note"]);
 }
 
 /** One group, as its reader is handed it. */
@@ -726,10 +763,7 @@ function groupOf(served, n) {
   const theirs = one.entries.filter((entry) => entry.written_by === "customer");
   return {
     ...one,
-    entries: one.entries.map((entry) => (entry.written_by === "customer"
-      ? { identifier: entry.identifier, written_by: "customer",
-        looks_for: (entry.looks_for ?? []).map((item) => pick(item, ["proof", "phase", "at_least"])) }
-      : pick(entry, ["identifier", "title", "intent", "looks_for", "section", "locator", "obligation", "note"]))),
+    entries: one.entries.map(shown),
     ...(theirs.length > 0 ? { customer: customerFenced(theirs) } : {}),
     owes: one.kind === "concern-set"
       ? "one accounted row per concern saying what was looked for, and a finding for each weakness or working control found"
@@ -1062,6 +1096,6 @@ function main() {
   );
 }
 
-module.exports = { credentialIn, checked, groupOf, methodology, raise, skeletonOf: skeleton };
+module.exports = { credentialIn, checked, groupOf, groupsOf, methodology, raise, skeletonOf: skeleton };
 
 if (require.main === module) main();
