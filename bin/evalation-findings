@@ -21,7 +21,7 @@
 const errors = require("../lib/errors.js");
 
 const { createHash } = require("node:crypto");
-const { existsSync, mkdirSync, readFileSync, writeFileSync } = require("node:fs");
+const { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } = require("node:fs");
 const { dirname, join, resolve, relative, isAbsolute } = require("node:path");
 const { pluginHome } = require("../lib/home.js");
 
@@ -896,6 +896,28 @@ function shape() {
   ].join("\n");
 }
 
+function toRecheck(held, n, part, tree) {
+  const entries = new Map((groupsOf(held)[n - 1]?.entries ?? []).map((one) => [`${one.pack}/${one.identifier}`, one]));
+  const listed = (at) => `${at.length === 1 ? "item" : "items"} ${at.map((one) => one + 1).join(", ")}`;
+  const lines = [];
+  for (const row of [...(part.answers ?? []), ...(part.accounted ?? [])]) {
+    const named = `${row.pack}/${row.entry ?? row.concern}`;
+    const items = entries.get(named)?.looks_for ?? [];
+    const rows = row.looked_for ?? [];
+    const at = (wanted) => rows.map((one, index) => (wanted(one, items[index] ?? {}) ? index : -1)).filter((index) => index >= 0);
+    const missing = at((one, item) => one.result === "missing" && item.proof !== "scan");
+    const found = at((one, item) => one.result === "found" && item.proof !== "scan");
+    const scanned = at((_, item) => item.proof === "scan");
+    if (missing.length > 0 || (rows.length === 0 && row.searched)) lines.push(`${named}: search again${missing.length > 0 ? ` for ${listed(missing)}` : ""} with other words and in other places before saying it is absent, and check every claim using every, only, no, none or all across the whole repository`);
+    if (found.length > 0 || (rows.length === 0 && (row.evidence ?? []).length > 0)) lines.push(`${named}: ${found.length > 0 ? `${listed(found)} found` : "found"}: check the cited lines are the thing the item names, never a product feature doing its own job`);
+    if (scanned.length > 0) lines.push(`${named}: ${listed(scanned)} settled by the scan: read every number and result again from evalation-read ${tree} scan`);
+  }
+  for (const one of part.findings ?? []) {
+    if (one.scanned) lines.push(`${one.pack}/${one.concern} finding "${one.title}": read its scan result again from evalation-read ${tree} scan`);
+  }
+  return lines;
+}
+
 function served(path) {
   try {
     return JSON.parse(readFileSync(path, "utf8"));
@@ -933,6 +955,13 @@ function verbs(argv) {
     }
     const said = partChecked(served(run), Number(n), part, resolve(tree || process.cwd()));
     if (said.length > 0) fail(`observed: ${said.length} thing${said.length === 1 ? "" : "s"} in part ${n} to fix, against the answer format evalation-findings shape prints:`, said);
+    const rechecked = `${resolve(run)}.part-${Number(n)}.rechecked`;
+    if (!existsSync(rechecked)) {
+      writeFileSync(rechecked, "");
+      fail(`required: part ${n} holds, and is kept once you check it again. A second reader most often finds a claim of absence that a wider search disproves, an item counted as found on lines that are not the thing itself, and a scan result read wrongly. Check each line below, fix what is wrong, then hand the part in again with \`evalation-findings part\`.`,
+        toRecheck(served(run), Number(n), part, tree || process.cwd()));
+    }
+    rmSync(rechecked, { force: true });
     // A part handed on standard input is kept beside the run once it holds, so a reader holding no
     // tool to write files leaves its part where the merge reads it.
     if (file === "-") writeFileSync(join(dirname(resolve(run)), `part-${Number(n)}.json`), JSON.stringify(part, null, 2) + "\n");

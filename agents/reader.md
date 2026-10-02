@@ -21,5 +21,8 @@ evalation-findings part <run.json> <n> - <repository> <<'EOF'
 EOF
 ```
 
-Fix everything it names and hand it in again until it says the part holds. The shell runs these
+Fix everything it names and hand it in again until it says the part holds. The first time it holds,
+it hands back a list of claims to check again before it keeps the part: search again where you said
+something is absent, check that each found item's lines are the thing itself, and read the scan again
+for each scan result. Check each, fix what is wrong, and hand the part in again. The shell runs these
 Evalation commands one at a time and nothing else, so never try another command or chain two.
