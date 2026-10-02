@@ -120,6 +120,15 @@ test("no script a session shows builds a sentence for the person outside the cat
   assert.deepStrictEqual(built, []);
 });
 
+test("no line a customer reads calls anything free", () => {
+  const lines = Object.entries(entries()).flatMap(([name, one]) => [one.say, one.ask, ...(Array.isArray(one.options) ? one.options.flatMap((each) => [each.label, each.description]) : [])]
+    .filter(Boolean).map((text) => [name, text]));
+  const described = commandFiles().map((file) => [file, (readFileSync(join(COMMANDS_AT, file), "utf8").match(/^description: (.*)$/m) ?? [])[1] ?? ""]);
+  const notes = JSON.parse(readFileSync(join(__dirname, "..", "release-notes.json"), "utf8")).releases.flatMap((one) => one.notes.map((note) => [`release ${one.version}`, note]));
+  const free = [...lines, ...described, ...notes].filter(([, text]) => /\bfree\b/i.test(text)).map(([where, text]) => `${where}: ${text.slice(0, 80)}`);
+  assert.deepStrictEqual(free, []);
+});
+
 test("a tick-box question that takes none says to press Skip, since Submit stays off until something is ticked", () => {
   const all = entries();
   for (const name of ["ev-run.evidence", "ev-run.tools", "ev-run.sets-many"]) {
@@ -131,8 +140,15 @@ test("a tick-box question that takes none says to press Skip, since Submit stays
 });
 
 test("a line that waits for the person to type says the run carries on once they answer, and how to type it", () => {
-  assert.strictEqual(entries()["ev-run.domains-type"].say,
-    "Before the review starts: which email domains or addresses does the company that owns this code use? Type domains such as example.com, or whole addresses such as anna@gmail.com, with commas between several.");
+  const all = entries();
+  for (const name of ["ev-run.domains", "ev-run.domains-type", "ev-run.domains-one"]) {
+    const said = all[name].say ?? all[name].ask;
+    assert.match(said, /owns all of its code/, `${name} says why it asks`);
+    assert.match(said, /example\.com|<domain>/, `${name} gives a domain as an example`);
+    assert.match(said, /personal/, `${name} asks for a staff member's personal address`);
+    assert.match(said, /consultant/, `${name} asks for a consultant's address`);
+    assert.match(said, /stays on this machine/, `${name} says where the answer goes`);
+  }
   const { typedDomains, domainChoices, outsiders } = require("../bin/evalation-scan");
   assert.deepStrictEqual(typedDomains("acme.com, Acme.io\nanna@GMAIL.com  @example.com;old.acme.com"), ["acme.com", "acme.io", "anna@gmail.com", "example.com", "old.acme.com"]);
   const authors = [{ name: "Steve", address: "steve@gmail.com" }, { name: "Bea", address: "bea@gmail.com" }, { name: "Cal", address: "cal@acme.io" }];
