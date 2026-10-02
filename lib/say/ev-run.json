@@ -21,12 +21,12 @@
   "ev-run.area-history": { "say": "the commit history" },
   "ev-run.area-licence": { "say": "the licences dependencies are under" },
   "ev-run.does-licence": { "say": "reads the licences your dependencies are under" },
-  "ev-run.domains": { "ask": "Which email domains or addresses does the company that owns this code use? Tick each one, or pick Other and type more, with commas between several.", "header": "Domains", "several": true, "options": "given" },
-  "ev-run.domains-type": { "say": "Before the review starts: which email domains or addresses does the company that owns this code use? Type domains such as example.com, or whole addresses such as anna@gmail.com, with commas between several." },
+  "ev-run.domains": { "ask": "Investment Due Diligence asks whether the company owns all of its code, so the review lists everyone in the git history who committed from outside the company. Which of these email domains does the company use? Tick each one. Pick Other to add more, such as example.com, and the whole address of a staff member's personal account or a consultant whose work the company owns, such as anna@gmail.com. Your answer stays on this machine.", "header": "Domains", "several": true, "options": "given" },
+  "ev-run.domains-type": { "say": "Before the review starts: Investment Due Diligence asks whether the company owns all of its code, so the review lists everyone in the git history who committed from outside the company. Type the email domains the company uses, such as example.com. Add the whole address of a staff member's personal account or a consultant whose work the company owns, such as anna@gmail.com. Put commas between several. Your answer stays on this machine." },
   "ev-run.domain-sign-in": { "say": "Your Evalation sign-in" },
-  "ev-run.domains-one": { "ask": "Does the company that owns this code use only <domain>?", "header": "Domains", "options": [
+  "ev-run.domains-one": { "ask": "Investment Due Diligence asks whether the company owns all of its code, so the review lists everyone in the git history who committed from outside the company. Does the company use only <domain>? Pick Add others if anyone else counts as the company's, such as a staff member's personal account or a consultant whose work the company owns. Your answer stays on this machine.", "header": "Domains", "options": [
     { "label": "Just that one", "description": "Counts only <domain> as the company's." },
-    { "label": "Add others", "description": "Type the other domains or addresses next." }
+    { "label": "Add others", "description": "Type the other domains or whole addresses next." }
   ] },
   "ev-run.domain-person": { "say": "1 person commits from this domain" },
   "ev-run.domain-people": { "say": "<count> people commit from this domain" },
@@ -194,9 +194,9 @@
   "ev-run.short-one-credit": { "say": "You have one pack credit and chose <count> packs. Run /ev-account to buy more, then run /ev-run again, or choose fewer packs." },
   "ev-run.short-one-pack": { "say": "You have <credits> pack credits and chose one pack. Run /ev-account to buy more, then run /ev-run again." },
 
-  "ev-run.tools-installed": { "say": "<tools>, the free security tools this review uses, are already installed." },
-  "ev-run.tool-installed": { "say": "<tool>, the free security tool this review uses, is already installed." },
-  "ev-run.tools": { "ask": "Which free security tools should be installed with Homebrew? Each checks one area and takes a while to install. Without a tool, the reading alone covers its area. Press Skip to install none.", "header": "Tools", "several": true, "options": "given" },
+  "ev-run.tools-installed": { "say": "<tools>, the security tools this review uses, are already installed." },
+  "ev-run.tool-installed": { "say": "<tool>, the security tool this review uses, is already installed." },
+  "ev-run.tools": { "ask": "Which security tools should be installed with Homebrew? Each checks one area and takes a while to install. Without a tool, the reading alone covers its area. Press Skip to install none.", "header": "Tools", "several": true, "options": "given" },
   "ev-run.tool-declined": { "say": "You chose not to install this on <date>." },
   "ev-run.tool-failed": { "say": "This couldn't be installed on <date>: <why>." },
   "ev-run.tool-installs": { "say": "Installs it." },
@@ -208,8 +208,8 @@
   "ev-run.no-brew": { "say": "Homebrew isn't on this machine, so the review runs without these tools and the report lists what wasn't checked. To add them yourself, see:" },
   "ev-run.tool-page": { "say": "<tool>: <page>" },
 
-  "ev-run.scanning": { "say": "Running the free security tools over the repository. This takes a while." },
-  "ev-run.scanning-several": { "say": "Running the free security tools over the repositories. This takes a while." },
+  "ev-run.scanning": { "say": "Running the security tools over the repository. This takes a while." },
+  "ev-run.scanning-several": { "say": "Running the security tools over the repositories. This takes a while." },
   "ev-run.already": { "say": "This run had already started, so no more pack credits were used." },
 
   "ev-run.reading": { "say": "Reading the repository against <packs>. This takes a while." },

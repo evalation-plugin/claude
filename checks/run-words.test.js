@@ -158,13 +158,13 @@ test("ev-run's lines keep the words the reports use, held in the catalogue where
     "Include all version controlled folders",
     "Let me choose which ones to include",
     "Its files back up what the code shows.",
-    "Running the free security tools over the repositories.",
+    "Running the security tools over the repositories.",
     "Keep the name <name>",
     "The reports name the product <name>.",
     "The ones you choose are read together as one product.",
     "Reading takes a while and uses a good part of your Claude usage.",
     "It takes a while and uses more of your Claude usage, but no pack credits.",
-    "<tools>, the free security tools this review uses, are already installed.",
+    "<tools>, the security tools this review uses, are already installed.",
     "Nothing is read. Switch to main, then run /ev-run again.",
     "Nothing is read. Pull the latest changes, then run /ev-run again.",
     "This run had already started, so no more pack credits were used.",
@@ -348,8 +348,8 @@ test("show prints the scanner question ready to ask, or the line to say where no
   assert.strictEqual(one.asks.questions[0].header, "Install");
   assert.match(one.asks.questions[0].question, /^Install Gitleaks with Homebrew\?/);
   tools(brewed, "trivy", "semgrep");
-  assert.strictEqual(brewed("show", "--phases", "sca,sast").said, "Trivy and Semgrep, the free security tools this review uses, are already installed.");
-  assert.strictEqual(brewed("show", "--phases", "sca").said, "Trivy, the free security tool this review uses, is already installed.");
+  assert.strictEqual(brewed("show", "--phases", "sca,sast").said, "Trivy and Semgrep, the security tools this review uses, are already installed.");
+  assert.strictEqual(brewed("show", "--phases", "sca").said, "Trivy, the security tool this review uses, is already installed.");
 });
 
 test("the evidence pack's command prints what to say about a report left unprinted or unsigned", () => {
