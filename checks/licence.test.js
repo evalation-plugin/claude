@@ -2,7 +2,8 @@
 
 const test = require("node:test");
 const assert = require("node:assert");
-const { spawnSync } = require("node:child_process");
+const { execFileSync, spawnSync } = require("node:child_process");
+const { mkdirSync, writeFileSync } = require("node:fs");
 const { join } = require("node:path");
 const { repository } = require("./fixture.js");
 const { licences, scan } = require("../bin/evalation-scan");
@@ -54,6 +55,32 @@ test("a lockfile that is not one of the repository's files is left out", () => {
   assert.deepStrictEqual(said.findings, []);
 });
 
+test("licence text in the repository's own files is rated by the licence, and its own top-level licence is not", () => {
+  const files = (...held) => ({ Class: "license-file", Target: "Loose File License(s)", Licenses: held.map(([path, name]) => ({ FilePath: path, Name: name, Category: "x" })) });
+  const out = JSON.stringify({ Results: [files(["LICENSE", "GPL-3.0"], ["vendor/zlib/LICENSE.txt", "Zlib"], ["third/gnu/README.md", "GPL-2.0"], ["node_modules/x/LICENSE", "AGPL-3.0"])] });
+  const said = of(licences(out, ["LICENSE", "vendor/zlib/LICENSE.txt", "third/gnu/README.md"]), "licence:in-code");
+  assert.strictEqual(said.severity, "high");
+  assert.strictEqual(said.at.path, "third/gnu/README.md");
+  assert.match(said.body, /third\/gnu\/README\.md \(GPL-2\.0\)/);
+  assert.doesNotMatch(said.body, /LICENSE \(GPL-3\.0\)|zlib|node_modules/);
+  assert.strictEqual(of(licences(JSON.stringify({ Results: [files(["LICENSE", "AGPL-3.0"])] }), ["LICENSE"]), "licence:in-code"), undefined);
+});
+
+test("a repository with no lockfile still reports licence text in its own files", () => {
+  const { adapterFor } = require("../bin/evalation-scan");
+  const tree = repository();
+  mkdirSync(join(tree, "third"));
+  writeFileSync(join(tree, "third", "README.md"), "GPL\n");
+  execFileSync("git", ["-C", tree, "add", "-A"]);
+  execFileSync("git", ["-C", tree, "-c", "user.email=check@example.com", "-c", "user.name=check", "commit", "-qm", "third"]);
+  const out = JSON.stringify({ Results: [{ Class: "license-file", Licenses: [{ FilePath: "third/README.md", Name: "GPL-3.0" }] }] });
+  const said = adapterFor("licence", "trivy").read(out, tree);
+  assert.strictEqual(said.skipped, undefined);
+  assert.strictEqual(of(said, "licence:in-code").severity, "high");
+  assert.match(of(said, "licence:in-code").body, /^A file in the repository carries /);
+  assert.deepStrictEqual(said.measures, ["licence:in-code"], "a dependency rule no lockfile measured is never counted as clean");
+});
+
 test("the phase has a name a person reads, a pack item may name it, and trivy is asked for production dependencies only", () => {
   assert.strictEqual(scans.named("licence"), "dependency licences");
   const { problems } = require("../lib/questions.js");
@@ -67,7 +94,7 @@ test("the phase has a name a person reads, a pack item may name it, and trivy is
   assert.strictEqual(JSON.parse(shown.stdout).phases.licence.tool, "trivy");
   const { argvOf } = require("../bin/evalation-scan");
   const argv = argvOf("licence", "/repo");
-  assert.ok(argv.includes("license") && !argv.includes("--include-dev-deps"));
+  assert.ok(argv.includes("license") && argv.includes("--license-full") && !argv.includes("--include-dev-deps"));
 });
 
 test("the bill of materials makes no licence claim, since its copy holds no installed dependency", () => {
@@ -90,12 +117,15 @@ test("a checkout with no installed dependencies says the licences were not read"
 test("each licence card says what could happen if it is left and what closes it", () => {
   const { scanResults } = require("../lib/sheet.js");
   const { consequences, remedies } = require("../lib/weaknesses.js");
-  const { findings } = licences(trivy(lockfile("pnpm-lock.yaml", [pkg("a", "direct", "GPL-3.0"), pkg("b", "direct")])), ["pnpm-lock.yaml"]);
+  const out = JSON.parse(trivy(lockfile("pnpm-lock.yaml", [pkg("a", "direct", "GPL-3.0"), pkg("b", "direct")])));
+  out.Results.push({ Class: "license-file", Licenses: [{ FilePath: "third/README.md", Name: "GPL-2.0" }] });
+  const { findings } = licences(JSON.stringify(out), ["pnpm-lock.yaml", "third/README.md"]);
   const html = scanResults({ findings: findings.map((one) => ({ ...one, phase: "licence" })), intro: "x", tagWord: "", tagOf: () => [], phaseOf: scans.named, consequences, remedies,
     upgradeTo: scans.upgradeTo, compared: scans.compared, compatible: scans.compatible, cardOf: scans.cardOf });
   const lefts = [...html.matchAll(/<b>If it is left<\/b><p>([^<]*)/g)].map((one) => one[1]);
   const todos = [...html.matchAll(/<b>What to do<\/b>([^<]*)/g)].map((one) => one[1]);
-  assert.strictEqual(lefts.length, 2);
-  assert.strictEqual(new Set(todos).size, 2);
+  assert.strictEqual(lefts.length, 3);
+  assert.strictEqual(new Set(lefts).size, 3);
+  assert.strictEqual(new Set(todos).size, 3);
   assert.ok(todos.every((one) => !/Change the code/.test(one)));
 });
