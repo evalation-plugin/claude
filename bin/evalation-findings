@@ -387,7 +387,7 @@ function checked(document, where) {
     if (accountedFor.has(named)) said.push(`${named}: accounted for twice`);
     accountedFor.add(named);
     if (!String(row.because ?? "").trim()) {
-      said.push(`${named}: accounted for with nothing said about what was looked at`);
+      said.push(`${named}: accounted for with no because, the field saying what was looked at`);
     }
     if (!concerns.has(named)) said.push(`${named}: accounted for and never selected`);
     const list = lists.get(named);
@@ -916,7 +916,7 @@ function verbs(argv) {
     return true;
   }
   if (verb === "methodology") {
-    process.stdout.write(`${methodology(served(rest[0]))}\n`);
+    process.stdout.write(`${methodology(served(rest[0]))}\n\n${shape()}\n`);
     return true;
   }
   if (verb === "group") {
@@ -932,7 +932,7 @@ function verbs(argv) {
       fail(`unreadable-part: ${thrown.message}`);
     }
     const said = partChecked(served(run), Number(n), part, resolve(tree || process.cwd()));
-    if (said.length > 0) fail(`observed: ${said.length} thing${said.length === 1 ? "" : "s"} in part ${n} to fix:`, said);
+    if (said.length > 0) fail(`observed: ${said.length} thing${said.length === 1 ? "" : "s"} in part ${n} to fix, against the answer format evalation-findings shape prints:`, said);
     // A part handed on standard input is kept beside the run once it holds, so a reader holding no
     // tool to write files leaves its part where the merge reads it.
     if (file === "-") writeFileSync(join(dirname(resolve(run)), `part-${Number(n)}.json`), JSON.stringify(part, null, 2) + "\n");
