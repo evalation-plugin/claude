@@ -87,7 +87,7 @@ test("a history card says how to spread the work, never to change code", () => {
   const html = scanResults({ findings: authorship(log({ a: 9, b: 1 })), intro: "x", tagWord: "", tagOf: () => [],
     phaseOf: scans.named, consequences, remedies, upgradeTo: scans.upgradeTo, compared: scans.compared,
     compatible: scans.compatible, cardOf: scans.cardOf });
-  const todo = html.match(/<b>What to do<\/b>([^<]*)/)[1];
+  const todo = html.match(/<b>The fix<\/b>([^<]*)/)[1];
   assert.match(todo, /second person/);
   assert.doesNotMatch(todo, /Change the code/);
 });

@@ -39,7 +39,7 @@ if (verb === "folders") {
   }, null, 2)}\n`);
 } else if (verb === "sets") {
   const listing = require("../lib/questions.js").listed(HOME);
-  if (listing.account === "unreachable") fail("unreachable: the account's question sets could not be read");
+  if (listing.account === "unreachable") fail("unreachable: the account's question sets could not be read"); // say:allow: machine, a fault code the command reads
   const asked = setsAsked(listing);
   process.stdout.write(asked ? `${JSON.stringify(asked)}\n` : "none\n");
 } else if (verb === "keep-sets") {

@@ -1,4 +1,9 @@
 {
+  "summary.whole-product": { "count": "count", "say": { "one": "the <count> repository of this product", "many": "the <count> repositories of this product" } },
+  "summary.whole-repository-start": { "say": "The repository" },
+  "summary.whole-product-start": { "say": "The product" },
+  "summary.severe-critical": { "say": "<count> critical" },
+  "summary.severe-high": { "say": "<count> high" },
   "summary.score": { "say": "<whole> scores <score> of 100, across <count> <disciplines>." },
   "summary.score-graded": { "say": "<whole> scores <score> of 100, grade <grade>, across <count> <disciplines>." },
   "summary.covered": { "say": "The review covered <count> <disciplines>." },
@@ -81,8 +86,8 @@
   "summary.c-holding-title": { "say": "Controls already holding" },
   "summary.c-nothing-holding-title": { "say": "No control found holding" },
   "summary.c-good": { "count": "count", "say": {
-    "one": "We found <count> control working, a place where we looked for a weakness and found the control doing its job.",
-    "many": "We found <count> controls working, places where we looked for a weakness and found the control doing its job."
+    "one": "We found <count> control working, a place where we tested for a weakness and the control held.",
+    "many": "We found <count> controls working, places where we tested for a weakness and the control held."
   } },
   "summary.c-good-none": { "say": "We found no controls working as intended." },
   "summary.c-clean": { "count": "count", "say": {
@@ -97,6 +102,7 @@
   "summary.c-read": { "say": "We read <whole> against <count> <disciplines>." },
   "summary.c-read-using": { "say": "We read <whole> against <count> <disciplines>, using <models>." },
   "summary.c-confirmed": { "say": "A second check confirmed or a scanner found <count> of the <total> findings, and the other <rest> rest on one reading, marked asserted." },
+  "summary.c-confirmed-all": { "say": "A second check confirmed or a scanner found every one of the <total> findings." },
   "summary.c-unconfirmed": { "say": "Every finding rests on one reading, marked asserted, so check each against the code before acting on it." },
   "summary.c-fixes-title": { "say": "The work the fixes take" },
   "summary.c-tiers": { "say": "The work splits into <p0> to do first, <p1> near-term, <p2> should-fix and <p3> cleanup." },

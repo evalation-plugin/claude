@@ -19,7 +19,7 @@
   "changes.concern": { "say": "<concern> <title>: <items>." },
   "changes.concern-item": { "say": "item <at>, <find>, is now <to>" },
   "changes.nothing": { "say": "Nothing changed in the answers or the scanner results." },
-  "changes.revision": { "say": "The questions moved from revision <from> to <to> between the two runs." },
+  "changes.revision": { "say": "The questions changed from version <from> to version <to> between the two runs." },
   "changes.note-hardness-title": { "say": "The hardness score" },
   "changes.note-improved": { "say": "Improved, from <from> to <to>." },
   "changes.note-worsened": { "say": "Worsened, from <from> to <to>." },

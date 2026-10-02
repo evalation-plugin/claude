@@ -520,7 +520,7 @@ function served(answer, sets = [], where = null) {
     revision: answer.revision,
     remaining: answer.remaining,
     already: answer.already === true,
-    admitted: "a directory on this machine, read through the fence and reaching no host",
+    admitted: "a directory on this machine, read through the fence and reaching no host", // say:allow: machine, a record field no page prints
     skill: answer.skill,
     packs,
     // How this run's findings become a score, where the packs it selected are scored at all. It is

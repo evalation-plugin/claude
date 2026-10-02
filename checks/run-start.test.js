@@ -344,7 +344,7 @@ test("the last run of a folder is found for printing its reports again, and a fo
   assert.deepStrictEqual(said.packs, [{ pack: "soc2", kind: "standard", title: "SOC 2 Trust Services Criteria" }]);
   const none = await started(machine(), 9, "--last", tree);
   assert.strictEqual(none.code, 1);
-  assert.strictEqual(none.stderr, "This folder has no earlier run on this machine, so there are no reports to print again.\n");
+  assert.strictEqual(none.stderr, "This folder has no earlier run on this machine. Run /ev-run here first, then print its reports.\n");
   assert.ok(catalogued(none.stderr.trim()), `not a catalogue line: ${none.stderr}`);
 });
 

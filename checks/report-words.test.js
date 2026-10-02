@@ -35,10 +35,28 @@ test("every check of the Writing standard a machine can decide refuses its examp
     "a US spelling": "The organization keeps its color settings.",
     "the same opening twice running": "The scan ran over the code. The scan found two weaknesses.",
     "short sentences in a row": "The scan ran. It found two. Both are fixed.",
+    "an internal status name": "This is total-gap because both items are missing.",
   };
   for (const [rule, example] of Object.entries(caught)) assert.ok(held(example).includes(rule), `${rule}: ${example} gave ${held(example)}`);
   assert.deepStrictEqual(held("The scan read every dependency your repository names and found two with known advisories, both fixed in a later release."), []);
   assert.deepStrictEqual(held("Pick the one which suits you."), []);
+});
+
+test("an advisory's text names its package once and ends each sentence with one full stop", () => {
+  const { adapterFor } = require("../bin/evalation-scan");
+  const out = JSON.stringify({ Results: [{ Target: "pnpm-lock.yaml", Vulnerabilities: [{
+    VulnerabilityID: "CVE-1", PkgID: "undici@7.27.2", PkgName: "undici", InstalledVersion: "7.27.2", Severity: "LOW",
+    Title: "undici: Undici: Response queue poisoning.", Description: "A server can inject a response." }] }] });
+  const [one] = adapterFor("sca", "trivy").read(out, "/nowhere");
+  assert.strictEqual(one.body, "undici: Response queue poisoning. A server can inject a response.");
+});
+
+test("a reason the pack gives is worded at print, so an earlier run's findings carry the current words", () => {
+  const document = run();
+  const one = document.answers.find((each) => each.pack === "soc2" && each.from === "authored" && each.status === "org-level");
+  assert.ok(one, "the fixture holds an org-level answer from the pack");
+  one.because = "This old wording, which a repository does not record, is gone.";
+  assert.doesNotMatch(opened(document), /This old wording/);
 });
 
 test("spelling follows the person's locale, and a line written once reads right in either", () => {

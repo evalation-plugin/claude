@@ -158,7 +158,7 @@ async function signedIn(complete, answer = () => [200, { revision: "1.86" }], pr
   const home = mkdtempSync(join(tmpdir(), "evalation-approval-sign-in-"));
   let sent = false;
   const signing = await ran("evalation-activate", [provider], { PATH: mkdtempSync(join(tmpdir(), "evalation-no-browser-")), ...on(home, server.base) }, (stderr) => {
-    if (!sent && server.back() && /Waiting for you/.test(stderr)) {
+    if (!sent && server.back() && /Waiting up to five minutes/.test(stderr)) {
       sent = true;
       fetch(`${server.back()}?code=c&state=S`).catch(() => {});
     }

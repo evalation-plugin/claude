@@ -138,11 +138,11 @@ function model(document) {
     });
 
   return {
-    title: document.title ?? "Evalation Hardening Review",
+    title: document.title ?? said("detail.title"),
     subtitle: document.subtitle ?? "",
     tenant: labelled(document),
     solution: document.solution ?? null,
-    auditType: "Hardening Review",
+    auditType: said("deck.audit-type").toUpperCase(),
     // Weaknesses only. A control found working is counted where the verdict names it, and counting it
     // here too put 147 on the cover beside commentary that says 108.
     findings: findings.filter((one) => one.sev !== "Positive").length,
@@ -412,28 +412,17 @@ function align(slide, marker) {
   const moves = [];
   for (const { box, beside } of pairs) {
 
-    // The block of words is centred on its label, not its first line: placing the first line on the
-    // label's centre leaves a three-line block hanging below the box it belongs to.
-    //
-    // The block is anchored to the top of its own box and the box is cut to the words, because these
-    // boxes are drawn far taller than what is written in them and centring one of those lifts it
-    // clear over whatever sits above.
     const size = Number(/<a:rPr[^>]*sz="(\d+)"/.exec(beside.body)?.[1] ?? 900) / 100;
     const inset = Number(/<a:bodyPr[^>]*tIns="(\d+)"/.exec(beside.body)?.[1] ?? 45720);
     const line = size * 1.25 * 12700;
-    const lines = shared;
-    const top = Math.round(box.top + boxHeight(box) / 2 - (lines * line) / 2 - inset);
-
-    // The box is cut to what it holds as well as moved. Left at the height the template drew, a box
-    // moved up to centre its words reaches down into the block below it, which is an overlap rather
-    // than an alignment.
-    const tall = Math.round(lines * line + inset * 2);
+    const tall = Math.round(shared * line + inset * 2);
+    const top = Math.round(box.top + boxHeight(box) / 2 - tall / 2);
 
     moves.push({
       shape: beside,
       body: beside.body
         .replace(/(<a:bodyPr[^>]*?)\sanchor="[a-z]+"/, "$1")
-        .replace(/<a:bodyPr/, '<a:bodyPr anchor="t"')
+        .replace(/<a:bodyPr/, '<a:bodyPr anchor="ctr"')
         .replace(/<a:ext cx="(\d+)" cy="\d+"\/>/, (whole, cx) => `<a:ext cx="${cx}" cy="${tall}"/>`)
         .replace(/<a:off x="(-?\d+)" y="(-?\d+)"\/>/, (whole, x) => `<a:off x="${x}" y="${top}"/>`),
     });
@@ -452,17 +441,10 @@ function align(slide, marker) {
       .sort((a, b) => Math.abs(a.top - box.top) - Math.abs(b.top - box.top))[0];
     if (!beside) continue;
 
-    const size = Number(/<a:rPr[^>]*sz="(\d+)"/.exec(beside.body)?.[1] ?? 900) / 100;
-    const inset = Number(/<a:bodyPr[^>]*tIns="(\d+)"/.exec(beside.body)?.[1] ?? 45720);
-    const line = size * 1.25 * 12700;
-
-    // Measured the way the placement measured, and every row against the same count. Checking each
-    // row against its own estimate would pass exactly the drift this exists to catch, since the
-    // placement and the check would make the same mistake in the same place.
-    const says = beside.top + inset + (shared * line) / 2;
+    const says = beside.top + boxHeight(beside) / 2;
     const middle = box.top + boxHeight(box) / 2;
 
-    if (Math.abs(says - middle) > 40_000) {
+    if (!/<a:bodyPr[^>]*anchor="ctr"/.test(beside.body) || Math.abs(says - middle) > 40_000) {
       throw raised(
         `${JSON.stringify(box.text.trim())} and the text beside it are ` +
         `${Math.round(Math.abs(says - middle) / 914.4) / 100}in apart, so they are not aligned`,
@@ -611,7 +593,7 @@ function deck(document, into, options = {}) {
 
   // 2 - what the tree is. Measured, so it owes nothing to anybody's account of the codebase.
   const glance = slides[1];
-  glance.xml = pptx.fill(glance.xml, held.solution ? { ...type, "Repository at a glance": said("deck.glance-product") } : type); // say:allow: machine, the template's own heading the deck replaces
+  glance.xml = pptx.fill(glance.xml, held.solution ? { ...type, "Repository at a glance": said("deck.glance-product"), REPOSITORY: said("deck.glance-product-foot").toUpperCase() } : type); // say:allow: machine, the template's own heading the deck replaces
   if (held.overview) {
     let xml = glance.xml;
     const languages = held.overview.languages ?? [];
@@ -942,11 +924,10 @@ function deck(document, into, options = {}) {
         .slice(0, 4)
         .map(([name, count]) => `${name} (${count})`);
 
-      return `${items.length} ${items.length === 1 ? "finding" : "findings"}, ${MEANS[tier]}.` +
-        (spread.length
-          ? ` Concentrated in ${spread.join(", ")}${where.size > spread.length
-            ? `, and ${where.size - spread.length} other ${where.size - spread.length === 1 ? "discipline" : "disciplines"}` : ""}.`
-          : "");
+      const places = [...spread, ...(where.size > spread.length ? [said("deck.tier-others", { count: String(where.size - spread.length) })] : [])];
+      const listed = places.length > 1 ? said("shared.list-and", { rest: places.slice(0, -1).join(", "), last: places.at(-1) }) : places[0];
+      return said("deck.tier-count", { count: String(items.length), findings: said("shared.noun-finding", { count: String(items.length) }), means: MEANS[tier] }) +
+        (places.length ? ` ${said("deck.tier-where", { places: listed })}` : "");
     }),
   );
 
@@ -993,12 +974,16 @@ function deck(document, into, options = {}) {
   // Every slide part, not only the ones the template opened with, since repeating the findings slide
   // added parts that carry the same notes and the same empty slots.
   const headings = {
+    ...Object.fromEntries([["HOW WELL IT IS BUILT", "deck.label-build"], ["WHERE THE RISK IS", "deck.label-risk"],
+      ["WHAT IT TAKES TO CLOSE", "deck.label-close"], ["THE BOTTOM LINE", "deck.label-bottom"], ["PRESERVE AS INVARIANTS", "deck.label-keep"],
+      ["REMEDIATION ROADMAP", "deck.label-roadmap"], ["DECISIONS (ADRS)", "deck.label-decisions"], ["IAC (TERRAFORM)", "deck.label-iac"]]
+      .map(([from, name]) => [from, said(name).toUpperCase()])),
     "What we think of how it's built": said("deck.heading-build"),
     "How this audit was produced": said("deck.heading-method"), // say:allow: machine, the template's own heading the deck replaces
     "The one risk path that matters": said("deck.heading-path"), // say:allow: machine, the template's own heading the deck replaces
     "Health / hardness score": said("deck.heading-score"),
     "Convergent themes": said("deck.heading-themes"),
-    "Strengths to preserve · and the roadmap": said("deck.heading-strengths"), // say:allow: machine, the template's own heading the deck replaces
+    "Strengths to preserve  ·  and the roadmap": said("deck.heading-strengths"), // say:allow: machine, the template's own heading the deck replaces
   };
   const parts = file.entries.filter((one) => /^ppt\/slides\/slide\d+\.xml$/.test(one.name));
   for (const part of parts) {

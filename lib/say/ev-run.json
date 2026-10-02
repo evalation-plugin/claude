@@ -108,7 +108,7 @@
   "ev-run.set-closed-pack": { "say": "Your question set <set> extends <pack>, and that pack takes no extra questions, so the run didn't start and used no pack credits. Run /ev-run again and leave the set out." },
   "ev-run.set-no-pack": { "say": "Your question set <set> extends no pack, so the run didn't start and used no pack credits. Run /ev-questions to pick a pack for it." },
   "ev-run.no-solution": { "say": "This folder holds no repositories to read together, so no pack credits were used. Run /ev-run from the folder that holds them." },
-  "ev-run.no-last": { "say": "This folder has no earlier run on this machine, so there are no reports to print again." },
+  "ev-run.no-last": { "say": "This folder has no earlier run on this machine. Run /ev-run here first, then print its reports." },
 
   "ev-run.start-short": { "say": "This run reads <count> packs and you have <left> pack credits, so it didn't start. Run /ev-account to buy more, then run /ev-run again, or choose fewer packs." },
   "ev-run.start-short-none": { "say": "This run reads <count> packs and you have no pack credits, so it didn't start. Run /ev-account to buy some, then run /ev-run again, or choose fewer packs." },

@@ -118,8 +118,8 @@ function split(text) {
 // the opposite of what the finding says. So the block is named and coloured by which it is.
 function remedy(sev) {
   return sev === "Positive"
-    ? { label: "What to keep", className: "did keep" }
-    : { label: "What to do", className: "did" };
+    ? { label: said("cards.keep-label"), className: "did keep" }
+    : { label: said("cards.todo-label"), className: "did" };
 }
 
 function entry(one, lens) {
@@ -207,14 +207,14 @@ function facts(document) {
   const meta = document.meta ?? {};
   // The repository is not here: the subtitle on every page already names it, and a fact stated twice
   // on one page is a fact a reader stops trusting the layout about.
-  const said = [
-    ["Assessed", dated(document.generated_at)],
-    ["Disciplines read", (document.categories ?? []).length],
-    ["Findings", meta.finding_count ?? everyFinding(document).length],
-    ["Read by", (meta.models ?? []).join(", ")],
+  const rows = [
+    [said("detail.fact-assessed"), dated(document.generated_at)],
+    [said("detail.fact-disciplines"), (document.categories ?? []).length],
+    [said("detail.fact-findings"), meta.finding_count ?? everyFinding(document).length],
+    [said("detail.fact-models"), (meta.models ?? []).join(", ")],
   ].filter(([, value]) => value !== undefined && value !== null && String(value) !== "");
 
-  return `<ul class="facts">${said
+  return `<ul class="facts">${rows
     .map(([label, value]) => `<li>${escaped(label)}<b>${escaped(value)}</b></li>`).join("")}</ul>`;
 }
 
@@ -250,7 +250,7 @@ function scanned(document) {
       ? (one.inventory
         ? said("detail.row-counted", { tool: one.tool, count: String(one.inventory.components) })
         : said("detail.row-found", { tool: one.tool, count: String(one.found) }))
-      : said("detail.row-off", { why: one.why ?? "no reason recorded" });
+      : said("detail.row-off", { why: one.why ?? said("shared.no-reason") });
     return `<dt${one.ran ? "" : ' class="off"'}>${escaped(named(one.phase))}</dt>` +
       `<dd${one.ran ? "" : ' class="off"'}>${escaped(row)}</dd>`;
   }).join("");
@@ -299,14 +299,14 @@ ${hardness.grade ? `<span class="chip-grade"> &middot; ${escaped(said("detail.ch
       (word) => `<span style="color:${standing(word)}">${word}</span>`);
 
   const parts = [
-    ["Id", escaped(said("detail.key-id"))],
-    ["Headline", escaped(said("detail.key-headline"))],
-    ["Severity", escaped(said("detail.key-severity"))],
-    ["Priority", escaped(legend.priority ?? said("detail.key-priority"))],
-    ["Model", escaped(said("detail.key-model"))],
-    ["Where it rests", escaped(said("detail.key-rests", { where: document.solution ? "repository, file and lines" : "file and lines" }))],
-    ["Standing", standings],
-    ["What to do", escaped(said("detail.key-todo"))],
+    [said("detail.label-id"), escaped(said("detail.key-id"))],
+    [said("detail.label-headline"), escaped(said("detail.key-headline"))],
+    [said("detail.label-severity"), escaped(said("detail.key-severity"))],
+    [said("detail.label-priority"), escaped(legend.priority ?? said("detail.key-priority"))],
+    [said("detail.label-model"), escaped(said("detail.key-model"))],
+    [said("shared.label-rests"), escaped(said("detail.key-rests", { where: said(document.solution ? "shared.where-several" : "shared.where-one") }))],
+    [said("detail.label-standing"), standings],
+    [said("cards.todo-label"), escaped(said("detail.key-todo"))],
   ];
 
   return `<div class="block">
@@ -333,7 +333,7 @@ ${scanned(document)}
 }
 
 function page(document) {
-  const foot = said("detail.foot", { title: document.title ?? "Evalation Hardening Review" });
+  const foot = said("detail.foot", { title: document.title ?? said("detail.title") });
 
   const reported = document.scan?.reported ?? {};
   const blocks = opening(document) + changesSection(document.changes ?? null, document.changes_pack ?? "") +
@@ -343,7 +343,7 @@ function page(document) {
     scanResults({
       findings: document.scan?.relevant ?? [],
       intro: said("detail.scanner-intro"),
-      tagWord: "Cited in",
+      tagWord: said("detail.cited-in"),
       tagOf: (one) => reported[one.key] ?? [],
       phaseOf: named,
       consequences,
@@ -368,7 +368,7 @@ ${css()}
   text-transform:uppercase;color:${SEVERITY.Medium};font-weight:400;margin-bottom:3px}
 </style>
 <div id="source">${blocks}</div>
-${paginator({ title: document.title ?? "Evalation Hardening Review", subtitle: document.subtitle ?? "", foot })}`;
+${paginator({ title: document.title ?? said("detail.title"), subtitle: document.subtitle ?? "", foot })}`;
 }
 
 function detail(document, into, seal, theirs = []) {
@@ -388,6 +388,6 @@ if (require.main === module) {
   const done = detail(document, resolve(into));
   const count = everyFinding(document).length;
   process.stdout.write(done.printed
-    ? `wrote ${count} findings across ${(document.categories ?? []).length} disciplines\n`
+    ? `${said("detail.wrote", { count: String(count), disciplines: String((document.categories ?? []).length) })}\n`
     : `${said("detail.no-browser", { page: done.page })}\n`);
 }

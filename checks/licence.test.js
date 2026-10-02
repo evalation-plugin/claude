@@ -122,8 +122,8 @@ test("each licence card says what could happen if it is left and what closes it"
   const { findings } = licences(JSON.stringify(out), ["pnpm-lock.yaml", "third/README.md"]);
   const html = scanResults({ findings: findings.map((one) => ({ ...one, phase: "licence" })), intro: "x", tagWord: "", tagOf: () => [], phaseOf: scans.named, consequences, remedies,
     upgradeTo: scans.upgradeTo, compared: scans.compared, compatible: scans.compatible, cardOf: scans.cardOf });
-  const lefts = [...html.matchAll(/<b>If it is left<\/b><p>([^<]*)/g)].map((one) => one[1]);
-  const todos = [...html.matchAll(/<b>What to do<\/b>([^<]*)/g)].map((one) => one[1]);
+  const lefts = [...html.matchAll(/<b>Risk if left<\/b><p>([^<]*)/g)].map((one) => one[1]);
+  const todos = [...html.matchAll(/<b>The fix<\/b>([^<]*)/g)].map((one) => one[1]);
   assert.strictEqual(lefts.length, 3);
   assert.strictEqual(new Set(lefts).size, 3);
   assert.strictEqual(new Set(todos).size, 3);

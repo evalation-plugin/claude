@@ -44,18 +44,18 @@ const HOME = pluginHome();
 
 let target = null;
 
-const here = () => (target?.kind === "solution" ? "this product" : "this repository");
+const here = () => line(target?.kind === "solution" ? "shared.this-product" : "shared.this-repository");
 
 // The vocabulary, in the order a reader should meet it: what is wrong first, what is right after,
 // and what is nobody's or somebody else's last. Coverage is this pack's own, as severity is the
 // findings detail's, and neither writes into the other.
 const STATUSES = [
-  ["total-gap", "Gap", "G", "#FB3B4E"],
-  ["partial-gap", "Partial", "P", "#FFB020"],
-  ["covered", "Covered", "C", "#35C46A"],
-  ["no-evidence", "Environment", "E", "#A7B4CC"],
-  ["org-level", "Org-level", "O", "#8FA2C6"],
-  ["not-applicable", "Not applicable", "N", "#6F82AB"],
+  ["total-gap", "G", "#FB3B4E"],
+  ["partial-gap", "P", "#FFB020"],
+  ["covered", "C", "#35C46A"],
+  ["no-evidence", "E", "#A7B4CC"],
+  ["org-level", "O", "#8FA2C6"],
+  ["not-applicable", "N", "#6F82AB"],
 ];
 
 function fail(reason) {
@@ -69,11 +69,11 @@ function faulted(detail) {
 }
 
 function named(status) {
-  return STATUSES.find(([one]) => one === status)?.[1] ?? status;
+  return STATUSES.some(([one]) => one === status) ? line(`report.status-${status}`) : status;
 }
 
 function colourOf(status) {
-  return STATUSES.find(([one]) => one === status)?.[3] ?? CHROME.faint;
+  return STATUSES.find(([one]) => one === status)?.[2] ?? CHROME.faint;
 }
 
 // How far an answer was checked, in the colours the findings detail gives the same words, so a
@@ -82,7 +82,7 @@ const STANDING = { verified: colourOf("covered"), asserted: CHROME.blue, scanned
 
 function standing(answer) {
   const word = answer.confirmed === "verified" ? "verified" : "asserted";
-  return `<span style="color:${STANDING[word]}">${word}</span>`;
+  return `<span style="color:${STANDING[word]}">${escaped(line(`shared.standing-${word}`))}</span>`;
 }
 
 function counted(answers) {
@@ -102,7 +102,7 @@ function evidence(answer) {
   const held = answer.evidence ?? [];
   const searched = String(answer.searched ?? "").trim();
   if (held.length === 0 && !searched) {
-    return '<div class="cite"><div class="where"><span>no citation recorded</span></div></div>';
+    return `<div class="cite"><div class="where"><span>${escaped(line("report.no-citation"))}</span></div></div>`;
   }
   const lines = held.map((one) => {
     const range = one.to && one.to !== one.from ? `${one.from}-${one.to}` : one.from;
@@ -115,8 +115,8 @@ function evidence(answer) {
   // An absence has no line to show, so the answer says what was looked for and where, which a reader
   // can look for again.
   const looked = searched
-    ? [`<div class="cite"><div class="where"><span>What was searched</span>` +
-       `<span class="grade">nothing found</span></div><p class="looked">${escaped(searched)}</p></div>`]
+    ? [`<div class="cite"><div class="where"><span>${escaped(line("report.searched"))}</span>` +
+       `<span class="grade">${escaped(line("report.nothing-found"))}</span></div><p class="looked">${escaped(searched)}</p></div>`]
     : [];
   return [...lines, ...looked].join("");
 }
@@ -124,11 +124,11 @@ function evidence(answer) {
 // What each result is called on the page, and its colour: found in the colour of a control that
 // holds, missing in the colour of a total gap, and an item out of reach in grey.
 const RESULT = {
-  found: ["found", colourOf("covered")],
-  missing: ["missing", colourOf("total-gap")],
-  "does-not-apply": ["does not apply", CHROME.faint],
-  "not-checked": ["not checked", colourOf("partial-gap")],
-  "no-evidence": ["environment", colourOf("no-evidence")],
+  found: colourOf("covered"),
+  missing: colourOf("total-gap"),
+  "does-not-apply": CHROME.faint,
+  "not-checked": colourOf("partial-gap"),
+  "no-evidence": colourOf("no-evidence"),
 };
 
 // Severities worst first, the order a scanner's findings are listed in under an item.
@@ -141,12 +141,12 @@ const SEVERITY = ["critical", "high", "medium", "low", "info"];
  */
 function scanned(want, row, scan) {
   const phase = phaseNamed(want.phase);
-  const level = want.at_least ? `at ${want.at_least} or above` : "at any severity";
+  const level = want.at_least ? line("report.level-at", { level: want.at_least }) : line("report.level-any");
   if (row.result === "not-checked") {
     const ran = (scan?.phases ?? []).find((one) => one.phase === want.phase);
     const says = settled(want, scan);
     if (ran?.ran && says.result === "not-checked") return `<p class="looked">${escaped(line("report.scan-not-checked", { why: says.why }))}</p>`;
-    return `<p class="looked">${escaped(ran && !ran.ran ? line("report.scan-off", { phase, why: ran.why || "no reason recorded" }) : line("report.scan-not-run", { phase, here: here() }))}</p>`;
+    return `<p class="looked">${escaped(ran && !ran.ran ? line("report.scan-off", { phase, why: ran.why || line("shared.no-reason") }) : line("report.scan-not-run", { phase, here: here() }))}</p>`;
   }
   // Counted once per result, as the table lists them. The same advisory in two lockfiles is one.
   const seen = new Set();
@@ -175,8 +175,9 @@ function quoted(one) {
 function items(answer, list, scan) {
   return list.map((want, at) => {
     const row = answer.looked_for?.[at] ?? {};
-    const [word, colour] = RESULT[row.result] ?? ["not answered", CHROME.faint];
-    const tag = want.proof === "scan" ? `<span class="grade" style="color:${STANDING.scanned}">scanned</span> ` : "";
+    const word = escaped(line(row.result in RESULT ? `report.result-${row.result}` : "report.result-none"));
+    const colour = RESULT[row.result] ?? CHROME.faint;
+    const tag = want.proof === "scan" ? `<span class="grade" style="color:${STANDING.scanned}">${escaped(line("shared.standing-scanned"))}</span> ` : "";
     const under = want.proof === "scan" ? scanned(want, row, scan)
       : row.result === "found"
       ? (row.evidence ?? []).map((one) => {
@@ -186,7 +187,7 @@ function items(answer, list, scan) {
           quoted(one);
       }).join("")
       : row.result === "no-evidence"
-      ? `<p class="looked">${escaped(line("report.no-evidence-item"))}</p>`
+      ? ""
       : `<p class="looked">${escaped(row.result === "missing" ? row.searched : row.why)}</p>` +
         (row.result === "missing" ? (row.evidence ?? []).map((one) => {
           const range = one.to && one.to !== one.from ? `${one.from}-${one.to}` : one.from;
@@ -203,7 +204,7 @@ function items(answer, list, scan) {
 // forgot to write down.
 function closing(answer) {
   if (answer.remedy) {
-    return `<div class="did"><b>What to do</b>${escaped(answer.remedy)}</div>`;
+    return `<div class="did"><b>${escaped(line("cards.todo-label"))}</b>${escaped(answer.remedy)}</div>`;
   }
   if (answer.justification) {
     const label = line(answer.status === "not-applicable" ? "report.label-not-applicable" : "report.label-organisation");
@@ -217,10 +218,17 @@ const namesPeople = (answers) => answers.some((one) => (one.raised ?? []).some((
 function raisedList(answer) {
   return (answer.raised ?? []).map((one) => {
     const said = one.person
-      ? `${one.person.name}, ${one.person.addresses.join(", ")}, ${one.person.commits} ${one.person.commits === 1 ? "commit" : "commits"}${one.person.why ? `. ${one.person.why}` : ""}`
-      : `${one.package.name} ${one.package.version}, ${one.package.licence ?? "declares no licence"}`;
+      ? `${one.person.name}, ${one.person.addresses.join(", ")}, ${line("report.commits", { count: String(one.person.commits) })}${one.person.why ? `. ${one.person.why}` : ""}`
+      : `${one.package.name} ${one.package.version}, ${one.package.licence ?? line("report.no-licence")}`;
     return `<div class="cite item"><div class="where"><span>${escaped(said)}</span></div></div>`;
   }).join("");
+}
+
+function authoredBecause(answer, clause) {
+  const title = clause?.title || answer.entry;
+  if (answer.status === "not-applicable") return line(clause?.in_force === false ? "report.not-in-force" : "report.no-duty", { title });
+  if (answer.status === "org-level") return line(clause?.written_by === "customer" ? "report.org-records" : "report.org-runs", { title });
+  return answer.because;
 }
 
 function entry(answer, asked, pack, scan) {
@@ -230,12 +238,13 @@ function entry(answer, asked, pack, scan) {
   // Where the answer came from. A clause settled by the pack was never read against this tree, and
   // an auditor weighing it has to be able to see that without going to the methodology.
   const tag = answer.from === "authored"
-    ? "answered from the pack"
+    ? escaped(line("report.from-pack"))
     : [escaped(answer.model ?? ""), standing(answer)].filter(Boolean).join(" &middot; ");
 
+  const because = answer.from === "authored" && !answer.raised?.length ? authoredBecause(answer, clause) : answer.because;
   const body = [
     clause?.intent ? `<p class="asked">${escaped(clause.intent)}</p>` : "",
-    answer.because ? `<p class="because">${escaped(answer.because)}</p>` : "",
+    because ? `<p class="because">${escaped(because)}</p>` : "",
     raisedList(answer),
     answer.from === "authored" ? ""
       : clause?.looks_for?.length && Array.isArray(answer.looked_for) ? items(answer, clause.looks_for, scan)
@@ -265,7 +274,7 @@ ${marker}
 // grey, the same colours the tags and the first page's bar use.
 function heading(title, answers) {
   const held = counted(answers);
-  const split = STATUSES.map(([status, , letter, colour]) =>
+  const split = STATUSES.map(([status, letter, colour]) =>
     `<span style="color:${held[status] ? colour : CHROME.faint}">${letter} ${held[status]}</span>`)
     .join('<span class="bar-sep">|</span>');
   return `${escaped(title)} (${answers.length}): <span class="split">${split}</span>`;
@@ -285,7 +294,7 @@ function section(part, answers, asked, noun, scan) {
     ? `<span class="obligation ${part.obligation}">${escaped(part.obligation)}</span>`
     : "";
   const count = answers.length === 1 ? noun.one : noun.many;
-  const blurb = [`${answers.length} ${count} assessed against ${here()}.`, part.note]
+  const blurb = [line("report.section-count", { count: String(answers.length), nouns: count, here: here() }), part.note]
     .filter(Boolean).join(" ");
 
   // The heading travels with its first entry. Left to break on its own it lands at the foot of a
@@ -376,8 +385,8 @@ function facts(document, answers, packs) {
     ["Assessed", dated(document.at)],
     ["Against", standards.map((one) => nameOf(one, one.pack)).join(", ")],
     ["Edition", standards.map((one) => one.version).filter(Boolean).join(", ")],
-    ["Entries", answers.length],
-    ["Governance revision", document.revision],
+    [nounAcross(packs).many.replace(/^./, (one) => one.toUpperCase()), answers.length],
+    [line("report.fact-version"), document.revision],
     ["Run", document.run],
   ].filter(([, value]) => value !== undefined && value !== null && String(value) !== "");
 
@@ -391,12 +400,12 @@ function tally(answers) {
   const held = counted(answers);
   const total = answers.length;
 
-  const cells = STATUSES.map(([status, label, , colour]) =>
+  const cells = STATUSES.map(([status, , colour]) =>
     `<li><div class="n" style="color:${colour}">${held[status]}</div>` +
-    `<div class="l">${label}</div></li>`).join("");
+    `<div class="l">${escaped(named(status))}</div></li>`).join("");
 
   const bar = total === 0 ? "" : `<div class="bar">${STATUSES
-    .map(([status, , , colour]) =>
+    .map(([status, , colour]) =>
       `<span style="width:${(held[status] / total) * 100}%;background:${colour}"></span>`)
     .join("")}</div>`;
 
@@ -426,21 +435,21 @@ function opening(document, answers, packs, asked) {
   const noun = nounAcross(packs);
   const marks = grades(asked);
   const several = document.target?.kind === "solution";
-  const source = several ? "repositories" : "repository";
+  const source = line(several ? "shared.word-repositories" : "shared.word-repository");
   const parts = [
-    ["Identifier", line("report.key-identifier", { noun: noun.one })],
-    ["Asked", line("report.key-asked", { subject: several ? "product" : "repository" })],
-    ["Answer", line("report.key-answer", { source })],
-    ["Where it rests", line("report.key-rests", { where: several ? "repository, file and lines" : "file and lines" })],
-    ["Looked for", line("report.key-looked")],
-    ["Status", line("report.key-status")],
-    ["Checked", line("report.key-checked", { source })],
-    ["What to do", line("report.key-todo", { noun: called(noun.one) })],
+    [line("report.label-identifier"), line("report.key-identifier", { noun: noun.one })],
+    [line("report.label-asked"), line("report.key-asked", { subject: line(several ? "shared.word-product" : "shared.word-repository") })],
+    [line("report.label-answer"), line("report.key-answer", { source })],
+    [line("shared.label-rests"), line("report.key-rests", { where: line(several ? "shared.where-several" : "shared.where-one") })],
+    [line("report.label-looked"), line("report.key-looked")],
+    [line("report.label-status"), line("report.key-status")],
+    [line("report.label-checked"), line("report.key-checked", { source })],
+    [line("cards.todo-label"), line("report.key-todo", { noun: called(noun.one) })],
   ];
-  if (marks.length > 0) parts.push(["In scope", line("report.key-scope", { noun: noun.one })]);
+  if (marks.length > 0) parts.push([line("report.label-scope"), line("report.key-scope", { noun: noun.one })]);
 
   const held = (document.target?.repositories ?? []).filter((one) => one.vcs === "git").length;
-  const whole = several ? `the ${held} repositories of this product together` : "the repository";
+  const whole = several ? line("shared.whole-several", { count: String(held) }) : line("shared.whole-one");
   const others = answers.length - read;
   const published = (packs ?? []).some((one) => answers.some((each) => each.pack === one.pack) && !one.version_is_ours);
   return `<div class="block">
@@ -485,7 +494,7 @@ function scanFindings(document, packs, asked) {
   return scanResults({
     findings: (document.scan?.relevant ?? []).filter((one) => bears.has(one.phase)),
     intro: line("report.scanner-intro"),
-    tagWord: "Bears on",
+    tagWord: line("report.bears-on"),
     tagOf: (one) => bears.get(one.phase) ?? [],
     phaseOf: phaseNamed,
     consequences,
@@ -525,10 +534,10 @@ function page(document, answers, asked) {
     }, rows, asked, noun, document.scan)).join("");
   }).join("") + scanFindings(document, [...byPack.keys()], asked);
 
-  const title = "Evalation Evidence Pack";
+  const title = line("report.title");
   const several = document.target?.kind === "solution";
-  const subtitle = line("report.subtitle", { kind: several ? "product" : "repository", label: several ? "Product" : "Repository",
-    name: repository || document.target?.name || "unnamed" });
+  const subtitle = line("report.subtitle", { kind: line(several ? "shared.word-product" : "shared.word-repository"),
+    label: line(several ? "shared.label-product" : "shared.label-repository"), name: repository || document.target?.name || line("shared.unnamed") });
   const date = dated(document.at);
   const revision = String(document.revision ?? "");
   const foot = !revision ? line("report.foot-bare", { title })
@@ -568,7 +577,7 @@ function main() {
   }
   errors.pinned(document.revision);
   if (document.schema !== "evalation.findings.v1") {
-    faulted(`not-a-findings-file: ${source} says it is ${document.schema ?? "nothing"}`);
+    faulted(`not-a-findings-file: ${source} says it is ${document.schema ?? "nothing"}`); // say:allow: machine, fault detail sent to Evalation
   }
 
   // What each entry asked, so the report carries the question beside the answer. A reader judging
@@ -593,7 +602,7 @@ function main() {
       - (asking.get(`${b.pack}/${b.entry}`) ?? Number.MAX_SAFE_INTEGER)
     || String(a.entry).localeCompare(String(b.entry)));
 
-  if (!answers.length) faulted(`no-answers: ${source} carries no coverage to report`);
+  if (!answers.length) faulted(`no-answers: ${source} carries no coverage to report`); // say:allow: machine, fault detail sent to Evalation
 
   // One evidence pack per standard, named for it, so a folder holding several says which is which and
   // an auditor for one standard is handed that standard alone.

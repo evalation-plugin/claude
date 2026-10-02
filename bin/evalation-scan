@@ -332,7 +332,8 @@ const ADAPTERS = {
             at: { path: within(root, result.Target) },
             // What the weakness is and what it lets somebody do: the advisory's title, then the opening
             // of its description, which is where an advisory says what an attacker gains.
-            body: [one.Title, opening(one.Description)].filter(Boolean).join(". "),
+            body: [String(one.Title ?? "").replace(/^([^:]{1,60}):\s+\1:\s+/i, "$1: ").replace(/\.+\s*$/, ""), opening(one.Description)]
+              .filter(Boolean).join(". "),
             link: one.PrimaryURL ?? null,
             // The class of weakness, which is what says what an attacker could do with it.
             cwe: cwesOf(one.CweIDs ?? []),
