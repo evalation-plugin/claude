@@ -82,11 +82,22 @@ function read(tree, second) {
   sh("evalation-scan", ["run", tree, "--phases", scanFor(packs).phases.join(",")]);
   const run = served({ run: second ? "run-second" : "run-first", packs, revision: "1.82", skill: "Read the repository.", remaining: 9, rubrics: [rubric] }, [questions], tree);
   writeFileSync(runFile, JSON.stringify({ ...run, target: { repository: "acme/app", path: tree } }));
-  assert.match(sh("evalation-findings", ["methodology", runFile]), /Read the repository\./);
+  const method = sh("evalation-findings", ["methodology", runFile]);
+  assert.match(method, /Read the repository\./);
+  assert.match(method, /An answer, one per entry of a standard:/, "a reader is handed the answer format with the methodology");
   const groups = JSON.parse(sh("evalation-findings", ["groups", runFile]));
   const parts = groups.map((one) => {
     const group = JSON.parse(sh("evalation-findings", ["group", runFile, String(one.group)]));
     if (group.pack === "cyber-insurance") assert.match(group.customer, /<<<CUSTOMER-QUESTIONS [0-9a-f]+/);
+    if (group.pack === "hardening") {
+      const unsaid = partFor(group, second);
+      delete unsaid.accounted[0].because;
+      const refused = spawnSync(process.execPath, [join(BIN, "evalation-findings"), "part", runFile, String(one.group), "-", tree],
+        { env, input: JSON.stringify(unsaid), encoding: "utf8" });
+      assert.notStrictEqual(refused.status, 0);
+      assert.match(refused.stderr, /hardening\/SEC01: accounted for with no because/);
+      assert.match(refused.stderr, /evalation-findings shape/, "a refused part says where the format is printed");
+    }
     // Handed on standard input, as an Evalation reader hands it, and kept by the command once it holds.
     sh("evalation-findings", ["part", runFile, String(one.group), "-", tree], JSON.stringify(partFor(group, second)));
     return join(work, `part-${one.group}.json`);
