@@ -1,5 +1,5 @@
 ---
-description: Replace the key this machine uses to open what Evalation sends it, for when this machine's copy may have been exposed. Free and instant.
+description: Replace the key this machine uses to open what Evalation sends it, for when this machine's copy may have been exposed. Takes a moment and uses no pack credits.
 allowed-tools: Bash(evalation-rotate:*), Bash(evalation-say:*), Bash(evalation-status:*)
 ---
 
