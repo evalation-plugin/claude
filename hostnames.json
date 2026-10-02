@@ -6,6 +6,11 @@
       "host": "api.evalation.ai",
       "serves": "the payload server: the pin, the pack catalogue, the served rules and the reports",
       "reached_by": "bin/evalation-ask"
+    },
+    {
+      "host": "api.deps.dev",
+      "serves": "Google's public package registry, asked for the licences of public packages a person agreed to send, per ADR-0090",
+      "reached_by": "lib/lookup.js"
     }
   ]
 }
