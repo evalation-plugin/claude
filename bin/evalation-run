@@ -27,6 +27,7 @@ const { newestFor, phasesRead } = require("../lib/scans.js");
 const { runScript } = require("../lib/script.js");
 const { choose, solutionOf } = require("../lib/solution.js");
 const { answered } = require("../lib/answer.js");
+const { atEdition, editionsOf, monthOf } = require("../lib/editions.js");
 
 
 function fail(reason) {
@@ -186,6 +187,18 @@ function settled(packs) {
   return held;
 }
 
+function editioned(packs) {
+  return packs.map((pack) => ({ pack: pack.pack, title: pack.body?.title ?? pack.pack, editions: editionsOf(pack.body) }))
+    .filter((one) => one.editions.length > 1);
+}
+
+function atChosen(packs, chosen) {
+  return packs.map((pack) => {
+    const editions = editionsOf(pack.body);
+    return editions.length === 0 ? pack : { ...pack, body: atEdition(pack.body, chosen[pack.pack] ?? editions[0]) };
+  });
+}
+
 /** What is left for the reading, which is what the run actually costs. */
 function reading(packs) {
   return packs.map((pack) => ({
@@ -337,6 +350,8 @@ function saying(part, args) {
     packs: () => words.packs({ repository: target(at()).repository, credits: credits(), usual: usual(), titles: titles() }),
     usual: () => words.usualAsk({ usual: usual(), titles: titles() }),
     all: () => words.all({ titles: titles() }),
+    edition: () => words.editionAsk({ ...editioned(jsonOf("evalation-packs", ["list"]).packs ?? []).find((one) => one.pack === args[0]),
+      earlier: args[1] === "earlier", year: /^\d{4}$/.test(args[1] ?? "") ? args[1] : null }),
     sets: () => words.setsFor({ pack: args[0], titles: titles(), sets: sets() }),
     "pick-sets": () => words.pickSets({ pack: args[0], titles: titles(), sets: sets() }),
     short: () => words.short(credits(), args[0]),
@@ -406,6 +421,13 @@ function main() {
     process.stdout.write(`${JSON.stringify(scanFor((listed.packs ?? []).filter((one) => named.includes(one.pack))))}\n`);
     return;
   }
+  if (process.argv[2] === "--editions") {
+    const named = process.argv.slice(3);
+    const listed = named.length === 0 ? [] : (jsonOf("evalation-packs", ["list"]).packs ?? []).filter((one) => named.includes(one.pack));
+    process.stdout.write(`${JSON.stringify(editioned(listed).map((one) => ({ ...one,
+      editions: one.editions.map((edition) => ({ edition, label: monthOf(edition) })) })))}\n`);
+    return;
+  }
   if (process.argv[2] === "--solution") {
     const at = process.argv[3];
     const rest = process.argv.slice(4);
@@ -423,9 +445,13 @@ function main() {
   const args = process.argv.slice(3);
   const sets = [];
   const wanted = [];
+  const chosen = {};
   for (let at = 0; at < args.length; at += 1) {
     if (args[at] === "--questions") sets.push(setFrom(args[++at]));
-    else wanted.push(args[at]);
+    else if (args[at] === "--edition") {
+      const [pack, edition] = String(args[++at] ?? "").split("=");
+      chosen[pack] = edition;
+    } else wanted.push(args[at]);
   }
   answered(wanted);
 
@@ -480,7 +506,17 @@ function main() {
 
   // Named here, before the server is asked, so a retry after our own transport failed is the same run
   // rather than a second one to be charged for.
-  const key = JSON.stringify([resolve(where), [...packs].sort(), sets.map((one) => `${one.pack}/${one.name}`).sort()]);
+  if (Object.keys(chosen).length > 0) {
+    const listed = jsonOf("evalation-packs", ["list"]).packs ?? [];
+    for (const [pack, edition] of Object.entries(chosen)) {
+      const body = listed.find((one) => one.pack === pack)?.body;
+      if (!editionsOf(body).includes(edition)) {
+        fail(spoken("ev-run.edition-unknown", { pack: body?.title ?? pack, edition: /^\d{4}-(0[1-9]|1[0-2])$/.test(edition ?? "") ? monthOf(edition) : edition }));
+      }
+    }
+  }
+  const key = JSON.stringify([resolve(where), [...packs].sort(), sets.map((one) => `${one.pack}/${one.name}`).sort(),
+    Object.entries(chosen).sort()]);
   const run = pending()[key] ?? `run-${randomBytes(6).toString("hex")}`;
   keepPending(key, run);
 
@@ -491,7 +527,7 @@ function main() {
     fail(said.said);
   }
   counted = true;
-  const document = { ...served({ ...got.answer, run }, sets, where), target: target(where) };
+  const document = { ...served({ ...got.answer, run }, sets, where, chosen), target: target(where) };
   const { written, rubrics } = kept(document);
   keepPending(key, null);
   process.stdout.write(`${JSON.stringify({ written, rubrics, remaining: document.remaining, already: document.already, scan: document.scan }, null, 2)}\n`);
@@ -508,9 +544,9 @@ function setFrom(file) {
   return set;
 }
 
-function served(answer, sets = [], where = null) {
+function served(answer, sets = [], where = null, chosen = {}) {
   errors.pinned(answer.revision);
-  let packs = answer.packs ?? [];
+  let packs = atChosen(answer.packs ?? [], chosen);
   for (const one of sets) {
     packs = packs.map((pack) => (pack.pack === one.pack ? extended(pack, one) : pack));
   }
