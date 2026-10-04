@@ -189,6 +189,21 @@ and each answer's label says what choosing it does.
    draft the person is editing. Each set prints in a sub-section of its own under `User provided
    questions`, so two sets may each hold a Q1.
 
+   Once the packs are chosen, find whether any of them carries more than one edition of its
+   framework:
+
+   ```
+   evalation-run --editions <pack ...>
+   ```
+
+   It prints a list, empty where no chosen pack carries several editions: then ask nothing about
+   editions. For each pack it lists, ask `evalation-run --say edition <pack>`. On the latest edition,
+   use it. On An earlier edition, ask `evalation-run --say edition <pack> earlier`, then on the year
+   ticked ask `evalation-run --say edition <pack> <year>`, and use the edition ticked. Each answer is
+   a label from the pack's `editions` list, so take the `edition` printed beside that label, such as
+   2026-09, and pass it to step 4 as `--edition <pack>=<edition>`. A pack the list leaves out is read
+   as served. Where `--editions` fails, show the line it prints as printed and stop.
+
    **Each question says what this run will spend.** It spends one pack credit for each pack it
    reads, and `evalation-status` prints how many credits are left. Where the packs chosen are more
    than the balance, say so with `evalation-run --say short <P>`, with <P> the count of packs chosen, and ask
@@ -299,7 +314,7 @@ and each answer's label says what choosing it does.
 4. **Start the run.**
 
    ```
-   evalation-run <target> [pack ...] [--questions <file> ...]
+   evalation-run <target> [pack ...] [--questions <file> ...] [--edition <pack>=<edition> ...]
    ```
 
    Start it with no announcement. The target is the repository to read, and the working directory

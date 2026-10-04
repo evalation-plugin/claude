@@ -206,6 +206,15 @@
   "ev-run.sets-pick": { "ask": "Which of your question sets should <pack> use?", "header": "Sets", "several": true, "options": "given" },
 
   "ev-run.short": { "say": "You have <credits> pack credits and chose <count> packs. Run /ev-account to buy more, then run /ev-run again, or choose fewer packs." },
+  "ev-run.edition": { "ask": "Which edition of <pack> should this run check the code against?", "header": "Edition", "options": "given" },
+  "ev-run.edition-latest": { "say": "The edition in force now." },
+  "ev-run.edition-earlier": { "say": "An earlier edition" },
+  "ev-run.edition-earlier-means": { "say": "Pick the edition that was in force when the work was done." },
+  "ev-run.edition-year": { "ask": "Which year did the edition of <pack> you need take effect?", "header": "Year", "options": "given" },
+  "ev-run.edition-year-means": { "say": "Shows the editions that took effect in <year>." },
+  "ev-run.edition-pick": { "ask": "Which edition of <pack> from <year> should this run check the code against?", "header": "Edition", "options": "given" },
+  "ev-run.edition-from": { "say": "Checks the code against the edition in force from <month>." },
+  "ev-run.edition-unknown": { "say": "<pack> has no <edition> edition, so the run didn't start and used no pack credits. Run /ev-run again and choose one of the editions it offers." },
   "ev-run.short-one-credit": { "say": "You have one pack credit and chose <count> packs. Run /ev-account to buy more, then run /ev-run again, or choose fewer packs." },
   "ev-run.short-one-pack": { "say": "You have <credits> pack credits and chose one pack. Run /ev-account to buy more, then run /ev-run again." },
 
