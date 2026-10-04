@@ -27,6 +27,7 @@ const SUMMARIES = {
   hardening: "ev-packs.summary-hardening",
   hipaa: "ev-packs.summary-hipaa",
   "investment-diligence": "ev-packs.summary-investment-diligence",
+  ism: "ev-packs.summary-ism",
   iso27001: "ev-packs.summary-iso27001",
   iso42001: "ev-packs.summary-iso42001",
   "nist-ai-rmf": "ev-packs.summary-nist-ai-rmf",

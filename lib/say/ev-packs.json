@@ -41,6 +41,7 @@
   "ev-packs.summary-hardening": { "say": "Whether your code would stand up to attackers, outages and mistakes." },
   "ev-packs.summary-hipaa": { "say": "US rules for keeping health information private and secure." },
   "ev-packs.summary-investment-diligence": { "say": "What investors and buyers check in a company's software." },
+  "ev-packs.summary-ism": { "say": "Australian Government security controls for systems that handle government information." },
   "ev-packs.summary-iso27001": { "say": "The international information security certification." },
   "ev-packs.summary-iso42001": { "say": "The international certification for managing AI systems." },
   "ev-packs.summary-nist-ai-rmf": { "say": "US guidance on finding and managing the risks of AI systems." },

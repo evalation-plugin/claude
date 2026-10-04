@@ -208,7 +208,7 @@ test("a pack list with nothing ticked adds no pack and the command carries on", 
 });
 
 test("every pack summary is a catalogue line, one per pack handle, and the chooser uses it where the server sends none", async () => {
-  const handles = ["cyber-insurance", "dora", "eu-ai-act", "gdpr", "hardening", "hipaa", "investment-diligence", "iso27001", "iso42001", "nist-ai-rmf",
+  const handles = ["cyber-insurance", "dora", "eu-ai-act", "gdpr", "hardening", "hipaa", "investment-diligence", "ism", "iso27001", "iso42001", "nist-ai-rmf",
     "nist-csf", "nist-ssdf", "nz-privacy-act", "owasp-agentic-threats", "owasp-agentic-top-ten", "owasp-asvs", "pci-dss", "soc2"];
   for (const one of handles) assert.ok(LINES[`ev-packs.summary-${one}`]?.say, one);
   const catalogue = { revision: "1", packs: handles.map((one) => ({ pack: one, kind: "standard", body: { title: `Pack ${one}` } })) };
