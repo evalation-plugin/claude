@@ -1,6 +1,14 @@
 {
   "releases": [
     {
+      "version": "0.74.0",
+      "date": "2026-10-05",
+      "notes": [
+        "A new pack checks your code against the Australian Information Security Manual, September 2026 edition.",
+        "Where a check finds no document a requirement asks for, the fix now says to include the folder that holds your documentation when you start the next check."
+      ]
+    },
+    {
       "version": "0.73.0",
       "date": "2026-10-02",
       "notes": [
