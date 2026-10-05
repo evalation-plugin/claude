@@ -1,5 +1,3 @@
-// The hardness score, counted from a concern's items: the same items give the same score however the
-// reading words or splits its findings.
 "use strict";
 
 const test = require("node:test");
@@ -35,7 +33,6 @@ const bar = (scored, category) => scored.bars.find((one) => one.category === cat
 
 test("a missing item costs its severity, a found one counts for it, one not applying counts for nothing", () => {
   const scored = hardness(run([]), rubric);
-  // One high missing and one strength: 100 * e^(-10/95), plus a quarter of what was lost times 1/9.
   assert.strictEqual(bar(scored, "SEC"), Math.round(100 * Math.exp(-10 / 95) + (100 - 100 * Math.exp(-10 / 95)) * 0.25 * (1 / 9)));
 });
 

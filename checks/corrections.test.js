@@ -1,5 +1,3 @@
-// A correction group is checked on its own: its findings' concerns count as read, and the verifier's
-// own reasons, kept in a claim's history, are working notes no customer reads.
 "use strict";
 
 const test = require("node:test");

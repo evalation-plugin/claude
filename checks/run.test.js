@@ -1,8 +1,3 @@
-// A whole run, driven through the commands in the order a session runs them: the run file, the scan,
-// the reading's parts, the merge, verifying with a correction round, the score, both deliverables,
-// and a second run that reports what changed. The reading's answers and the verifier's verdicts are
-// written here, so it needs no model, and every seam between the commands is crossed as it is in a
-// customer's run. Faults that each command's own checks missed were found by customers in these seams.
 "use strict";
 
 const test = require("node:test");
@@ -20,7 +15,6 @@ const work = mkdtempSync(join(tmpdir(), "evalation-run-"));
 const env = { ...process.env, EVALATION_PLUGIN_HOME: home, HOME: work,
   EVALATION_SCA_CMD: `${process.execPath} ${join(__dirname, "fake-scanner.js")}` };
 
-/** One command as a session runs it, refused loudly with what it printed. */
 function sh(command, args, input) {
   const ran = spawnSync(process.execPath, [join(BIN, command), ...args], { env, input, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
   if (ran.status !== 0) throw new Error(`${command} ${args[0] ?? ""} refused:\n${ran.stderr}${ran.stdout}`);
@@ -50,7 +44,6 @@ const cite = { path: "src/auth.js", from: 1, to: 2, quote: "if (!req.session)", 
 const found = () => ({ result: "found", evidence: [cite] });
 const missing = () => ({ result: "missing", searched: "Looked in src and the tests and found none." });
 
-/** What the reading writes for each group, as a reader would after reading the tree. */
 function partFor(group, second) {
   if (group.pack === "soc2") {
     return { answers: [{ pack: "soc2", entry: "CC6.1", status: "partial-gap", because: "A shared guard exists, and the scan holds a high advisory.",
@@ -70,7 +63,6 @@ function partFor(group, second) {
   };
 }
 
-/** A run from the run file to a findings file, as steps 2 to 7 of ev-run take it. */
 function read(tree, second) {
   const runFile = join(work, second ? "run-2.json" : "run-1.json");
   const setFile = join(work, "questions.json");
@@ -114,12 +106,9 @@ function read(tree, second) {
   return JSON.parse(sh("evalation-findings", [merged, tree])).written;
 }
 
-/** Verifying and one correction round, as step 8 takes it, doubting a concern row and another concern's finding. */
 function verify(written, tree) {
   sh("evalation-verify", ["plan", written, tree]);
   const plan = JSON.parse(readFileSync(`${written}.verify/plan.json`, "utf8"));
-  // SEC01's row and SEC02's finding, so a correction group holds a finding whose concern's row it
-  // does not hold, which is the group a customer's run met.
   const doubted = new Set([
     JSON.parse(readFileSync(written, "utf8")).accounted.find((one) => one.concern === "SEC01").id,
     ...JSON.parse(readFileSync(written, "utf8")).findings.map((one) => one.id),

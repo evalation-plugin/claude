@@ -1,5 +1,3 @@
-// What changed since the last run of the same repository: the answers that moved and the items that
-// moved them, the scanner results that arrived or went, and the score.
 "use strict";
 
 const test = require("node:test");

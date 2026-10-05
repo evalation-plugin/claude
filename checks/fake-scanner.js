@@ -1,5 +1,3 @@
-// Stands in for the dependency scanner in the whole-run check, through the seam evalation-scan gives
-// a test: it prints one high advisory in the shape the scan reads, for whatever tree it is handed.
 "use strict";
 
 process.stdout.write(JSON.stringify([{

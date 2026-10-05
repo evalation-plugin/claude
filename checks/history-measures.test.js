@@ -1,6 +1,3 @@
-// What a year of git history says beyond who wrote it: how often the team releases, which areas
-// nobody has touched, which rest on one person, and whether the pace has fallen. Each is a number,
-// and an item names the one it rests on.
 "use strict";
 
 const test = require("node:test");

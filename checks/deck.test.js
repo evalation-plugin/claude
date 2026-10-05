@@ -1,4 +1,3 @@
-// The board pack carries what changed since the last run, on a slide of its own, where there is one.
 "use strict";
 
 const test = require("node:test");
