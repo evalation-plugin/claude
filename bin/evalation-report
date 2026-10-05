@@ -39,6 +39,7 @@ const { consequences, remedies } = require("../lib/weaknesses.js");
 const { keepFindings, reportsFolder, reviewName } = require("../lib/reports.js");
 const { CHROME, css, escaped, paginator, scanResults } = require("../lib/sheet.js");
 const { readBlock, shownPath } = require("../lib/solution.js");
+const { remedyOf } = require("../lib/docs-remedy.js");
 
 const HOME = pluginHome();
 
@@ -202,9 +203,10 @@ function items(answer, list, scan) {
 // What closes it, or why nothing here can. A clause the deploying organisation owns has a
 // justification and no remedy, and printing an empty fix bar under it would read as work somebody
 // forgot to write down.
-function closing(answer) {
-  if (answer.remedy) {
-    return `<div class="did"><b>${escaped(line("cards.todo-label"))}</b>${escaped(answer.remedy)}</div>`;
+function closing(answer, clause) {
+  const remedy = answer.from === "authored" ? answer.remedy : remedyOf(answer, clause?.looks_for);
+  if (remedy) {
+    return `<div class="did"><b>${escaped(line("cards.todo-label"))}</b>${escaped(remedy)}</div>`;
   }
   if (answer.justification) {
     const label = line(answer.status === "not-applicable" ? "report.label-not-applicable" : "report.label-organisation");
@@ -249,7 +251,7 @@ function entry(answer, asked, pack, scan) {
     answer.from === "authored" ? ""
       : clause?.looks_for?.length && Array.isArray(answer.looked_for) ? items(answer, clause.looks_for, scan)
       : evidence(answer),
-    closing(answer),
+    closing(answer, clause),
   ].join("");
 
   // Whether the standard assesses this one in every audit or only where a level was elected. One

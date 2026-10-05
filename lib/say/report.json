@@ -67,6 +67,7 @@
   "report.level-at": { "say": "at <level> or above" },
   "report.level-any": { "say": "at any severity" },
   "report.from-pack": { "say": "answered from the pack" },
+  "report.docs-folder": { "say": "Where this documentation is kept outside the code, include the folder that holds it when you start the next check with /ev-run. The check reads that folder as evidence, uses no extra pack credits, and counts each document it finds there." },
   "report.section-count": { "say": "<count> <nouns> assessed against <here>." },
   "report.label-identifier": { "say": "Identifier" },
   "report.label-asked": { "say": "Asked" },
