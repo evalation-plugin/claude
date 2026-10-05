@@ -1,5 +1,3 @@
-// What a reading can see: every file the repository tracks, lockfiles and agent settings among them,
-// and a scan phase only where something asks for it.
 "use strict";
 
 const test = require("node:test");

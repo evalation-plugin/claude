@@ -1,5 +1,3 @@
-// Authorship in git history, measured and never judged: how concentrated the last twelve months of
-// commits are in one person, as shares with no name or address kept.
 "use strict";
 
 const test = require("node:test");

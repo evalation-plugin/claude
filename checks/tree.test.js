@@ -1,4 +1,3 @@
-// Which files are the repository, and which repositories a folder holds.
 "use strict";
 
 const test = require("node:test");

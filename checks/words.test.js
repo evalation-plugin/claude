@@ -1,5 +1,3 @@
-// What the plugin writes itself: the summary names only the severities it found, and the writing
-// rules catch what a machine can decide while leaving quoted text alone.
 "use strict";
 
 const test = require("node:test");

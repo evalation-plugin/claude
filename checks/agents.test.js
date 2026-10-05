@@ -1,5 +1,3 @@
-// Evalation's own agents hold one tool, the shell, and a gate the plugin ships lets them run one
-// Evalation command at a time and nothing else. A session's own calls, and any other agent's, pass.
 "use strict";
 
 const test = require("node:test");

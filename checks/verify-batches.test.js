@@ -1,7 +1,3 @@
-// A verifier reads its grid whole or not at all: a command's output past about 30,000 characters is
-// saved to a file the agent holds no tool to open, and five of a customer's seventeen batches were
-// lost that way. Planning again also once deleted twelve batches of recorded answers before they
-// were applied, which answers kept by claim make harmless.
 "use strict";
 
 const test = require("node:test");
@@ -13,14 +9,12 @@ const { join } = require("node:path");
 require("./fixture.js");
 
 const VERIFY = join(__dirname, "..", "bin", "evalation-verify");
-// What the agent is shown in place and in full. Output past it is saved to a file.
 const SHOWN = 30000;
 
 function verify(args, input) {
   return spawnSync(process.execPath, [VERIFY, ...args], { input, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
 }
 
-/** A findings file of thirty findings, each citing forty long lines. */
 function written() {
   const tree = mkdtempSync(join(tmpdir(), "evalation-batches-"));
   mkdirSync(join(tree, "src"));
@@ -86,7 +80,6 @@ test("planning again keeps answers recorded and not yet applied, each on its own
   verify(["record", file, "1"], "ROW 1: CONFIRMED | The cited lines hold it.");
   const again = verify(["plan", file, tree]);
   assert.strictEqual(again.status, 0, again.stderr);
-  // The new plan leaves out the claim answered, so its first row is another claim.
   verify(["record", file, "1"], "ROW 1: NOT-CONFIRMED | The lines do not hold it.");
   assert.strictEqual(verify(["apply", file, "a model"]).status, 0);
   const findings = new Map(JSON.parse(readFileSync(file, "utf8")).findings.map((one) => [one.id, one.verification.verdict]));

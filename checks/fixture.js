@@ -1,5 +1,3 @@
-// fixture - a repository, a scan of it and a run over it, small enough to read and real enough that
-// the findings check, the score and the tree are driven as they are in a customer's run.
 "use strict";
 
 const { execFileSync } = require("node:child_process");
@@ -13,7 +11,6 @@ process.env.EVALATION_SPELLING = process.env.EVALATION_SPELLING || "commonwealth
 
 const git = (cwd, ...args) => execFileSync("git", args, { cwd, stdio: "ignore" });
 
-/** A git repository holding one file, committed, with the lines the run cites. */
 function repository(at = mkdtempSync(join(tmpdir(), "evalation-tree-"))) {
   mkdirSync(join(at, "src"), { recursive: true });
   writeFileSync(join(at, "src", "auth.js"), [
@@ -31,7 +28,6 @@ function repository(at = mkdtempSync(join(tmpdir(), "evalation-tree-"))) {
   return at;
 }
 
-/** A scan of the tree, written where lib/scans.js finds it, holding the findings given. */
 function scanned(tree, findings, at = "2026-09-25T00:00:00.000Z") {
   mkdirSync(join(home, "scans"), { recursive: true });
   writeFileSync(join(home, "scans", `${at.replace(/[:.]/g, "-")}.json`), JSON.stringify({
@@ -45,7 +41,6 @@ const RUNS = { find: "A shared check every protected route passes through", proo
 const WRITTEN = { find: "Written restore steps", proof: "written" };
 const DEPENDENCIES = { find: "No known critical or high advisories in the pinned dependencies", proof: "scan", phase: "sca", at_least: "high" };
 
-/** A run with one standard entry and one hardening concern, each listing what it looks for. */
 function run(tree) {
   return {
     run: "run-check", at: "2026-09-24T00:00:00.000Z", revision: "1.80", read_by: "Opus 5.5",

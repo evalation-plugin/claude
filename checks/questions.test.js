@@ -1,5 +1,3 @@
-// Questions a customer brings to a run: checked like a pack's own entries, read as data behind a fence,
-// kept for reuse under a name, and free in the custom pack.
 "use strict";
 
 const test = require("node:test");

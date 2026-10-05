@@ -1,4 +1,3 @@
-// The findings check, driven with a run over a real tree: the rules a reading's answers are held to.
 "use strict";
 
 const test = require("node:test");
