@@ -653,7 +653,15 @@ evalation-run --last <target>
 ```
 
 which prints `written`, the findings file of the newest run on this folder, and its `packs`. Where
-it fails, show the line it prints as printed and stop. Otherwise say `evalation-say ev-run.writing`
+it fails, show the line it prints as printed and stop. Then run
+
+```
+evalation-summary state <written>
+```
+
+which names each pack's executive summary as `missing`, `unchecked` or `checked`. For each pack it
+names as `missing`, have the summary written and checked as step 9 says, and for each `unchecked`
+one, start the summary checker alone. This uses no pack credits. Then say `evalation-say ev-run.writing`
 and run step 10 over `written`: `evalation-deliver` where a pack's `kind` is
 `concern-set` and `evalation-report` where one is `standard`. The reports go into that run's own
 folder in place of the earlier copies. Then show anything step 10 printed about signing, then the

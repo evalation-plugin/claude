@@ -35,6 +35,18 @@ const sheetsOf = (document) => {
   return settled(browser(), file).split('<div class="sheet">').slice(1);
 };
 
+test("state names each pack's summary as missing, unchecked or checked, so printing again can finish what a run left", () => {
+  const { write, grid, record, state } = summaryOf();
+  const file = findingsFile();
+  const packs = JSON.parse(readFileSync(file, "utf8")).packs.map((one) => one.pack);
+  assert.deepStrictEqual(state(file), Object.fromEntries(packs.map((one) => [one, "missing"])));
+  write(file, "soc2", JSON.stringify(GOOD));
+  assert.strictEqual(state(file).soc2, "unchecked");
+  assert.match(grid(file, "soc2"), /SENTENCE 1/);
+  record(file, "soc2", "SENTENCE 1: CONFIRMED | holds\nSENTENCE 2: CONFIRMED | holds");
+  assert.strictEqual(state(file).soc2, "checked");
+});
+
 test("a brief and a grid too long to show at once come in pages an agent can read, and together hold every entry", () => {
   const { brief, write, grid } = summaryOf();
   const document = run(tree);

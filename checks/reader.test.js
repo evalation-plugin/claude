@@ -24,6 +24,21 @@ function tree() {
   return at;
 }
 
+test("a search pattern carrying an inline case flag is read, since every search ignores case already", () => {
+  const at = tree();
+  const said = spawnSync(process.execPath, [READ, at, "search", "(?i)QUINN"], { encoding: "utf8" });
+  assert.strictEqual(said.status, 0, said.stderr);
+  assert.match(said.stdout, /quinn-proto/);
+});
+
+test("help prints how to use the reader and counts as no failure", () => {
+  for (const asked of [["help"], ["--help"]]) {
+    const said = spawnSync(process.execPath, [READ, tree(), ...asked], { encoding: "utf8" });
+    assert.strictEqual(said.status, 0, asked.join(" "));
+    assert.match(said.stdout, /search <pattern>/);
+  }
+});
+
 test("files the repository tracks under .claude are part of it", () => {
   const at = tree();
   assert.ok(filesOf(at).some((one) => one.endsWith(join(".claude", "skills", "review", "SKILL.md"))));

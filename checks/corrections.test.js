@@ -24,6 +24,14 @@ function withFinding() {
   return document;
 }
 
+test("a correction handed under the wrong list is told the list it belongs in", () => {
+  const { corrected } = require("../bin/evalation-verify");
+  const document = withFinding();
+  const id = document.accounted[0].id;
+  const { done } = corrected(document, [id], { findings: [{ ...document.accounted[0] }] });
+  assert.deepStrictEqual(done.refused, [`${id}: is one of the accounted, so it goes under "accounted"`]);
+});
+
 test("a group of a concern row and another concern's finding is checked as read", () => {
   assert.deepStrictEqual(checked(focusOf(withFinding(), ["c-1", "f-1"]), tree), []);
 });

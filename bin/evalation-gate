@@ -66,7 +66,8 @@ const command = String(call.tool_input?.command ?? "");
 // The command line itself, with a heredoc's body taken out, since the body is data the command reads.
 const line = command.replace(/<<\s*'?(\w+)'?\n[\s\S]*?\n\1\s*$/, "").trim();
 if (!COMMANDS.test(`${line} `)) refused(`"${line.slice(0, 60)}" is not an Evalation reading command`);
-if (JOINED.test(line)) refused(`"${line.slice(0, 60)}" joins, pipes or redirects commands`);
+const unquoted = line.replace(/'[^']*'/g, "''").replace(/"((?:[^"\\]|\\.)*)"/g, (whole, inside) => (/\$\(|`/.test(inside) ? whole : '""'));
+if (JOINED.test(unquoted)) refused(`"${line.slice(0, 60)}" joins, pipes or redirects commands`);
 if (call.agent_type === CHECKER && VERDICT.test(line)) {
   const { pluginHome } = require("../lib/home.js");
   require("../lib/questions.js").stamp(pluginHome(), call.agent_id);

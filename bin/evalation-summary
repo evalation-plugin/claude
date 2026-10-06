@@ -186,8 +186,19 @@ function record(source, name, text) {
   return { pack: name, state: summary.state, confirmed, of: count };
 }
 
+const STATES = { asserted: "unchecked", verified: "checked", "left-out": "checked" };
+
+function state(source) {
+  const document = readJson(source, "findings");
+  return Object.fromEntries((document.packs ?? []).map((one) => [one.pack, STATES[document.summaries?.[one.pack]?.state] ?? "missing"]));
+}
+
 function main() {
   const [verb, source, name, page] = process.argv.slice(2);
+  if (verb === "state" && source) {
+    process.stdout.write(`${JSON.stringify(state(source), null, 2)}\n`);
+    return;
+  }
   const usage = "usage: evalation-summary brief <findings.json> <pack> [page] | write <findings.json> <pack> - | grid <findings.json> <pack> [page] | record <findings.json> <pack>"; // say:allow: machine, usage for a command only agents run
   if (!source || !name) fail(usage);
   if (verb === "brief") process.stdout.write(`${brief(source, name, page)}\n`);
@@ -197,6 +208,6 @@ function main() {
   else fail(usage);
 }
 
-module.exports = { brief, grid, record, write };
+module.exports = { brief, grid, record, state, write };
 
 if (require.main === module) main();
