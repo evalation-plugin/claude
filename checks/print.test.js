@@ -226,15 +226,12 @@ test("a report the check refuses never stops the other packs of the run from pri
 });
 
 test("a browser that stops says how, so the fault kept for support holds the cause", () => {
-  const { chmodSync, writeFileSync } = require("node:fs");
+  const { writeFileSync } = require("node:fs");
   const { settled } = require("../lib/print.js");
   const folder = mkdtempSync(join(tmpdir(), "evalation-browser-"));
-  const fake = join(folder, "browser");
-  writeFileSync(fake, "#!/bin/sh\necho 'renderer crashed: out of memory' >&2\nexit 3\n");
-  chmodSync(fake, 0o755);
   writeFileSync(join(folder, "page.html"), "<p>A page</p>");
-  assert.throws(() => settled(fake, join(folder, "page.html")), (thrown) =>
-    /exit status 3/.test(thrown.message) && /renderer crashed: out of memory/.test(thrown.message));
+  assert.throws(() => settled(process.execPath, join(folder, "page.html")), (thrown) =>
+    /exit status 9/.test(thrown.message) && /bad option: --/.test(thrown.message));
 });
 
 test("a slot the reading did not write is still refused", () => {
