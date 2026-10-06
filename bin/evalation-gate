@@ -16,9 +16,13 @@ const { resolve, sep } = require("node:path");
 const OURS = /^evalation-plugin:/;
 // The verbs an agent's task names, and none that write the run: merging, applying and delivering are
 // the session's.
-const COMMANDS = /^\s*\S*evalation-(read\s|findings\s+(group|part|methodology|shape)\b|verify\s+(grid|record|correction|correct)\b|questions\s+(grid|verdict)\b)/;
+const COMMANDS = /^\s*\S*evalation-(read\s|findings\s+(group|part|methodology|shape)\b|verify\s+(grid|record|correction|correct)\b|questions\s+(grid|verdict)\b|summary\s+(brief|write|grid|record)\b)/;
 const VERDICT = /evalation-questions\s+verdict\b/;
 const CHECKER = "evalation-plugin:question-checker";
+const SUMMARY_ONLY = [
+  [/evalation-summary\s+write\b/, "evalation-plugin:summary-writer", "only the summary writer writes a summary, so the session never writes the summary it reports. Start the summary-writer agent on the pack."],
+  [/evalation-summary\s+record\b/, "evalation-plugin:summary-checker", "only the summary checker records a summary's verdict, so a summary is never passed by whoever wrote it. Start the summary-checker agent on the pack."],
+];
 // A second command, a pipe, a substitution or an output redirect, outside the heredoc body.
 const JOINED = /[;&|`]|\$\(|>|<(?!<)/;
 
@@ -46,6 +50,12 @@ if (named.includes("questions-checked") || named.includes("checker-stamp")) {
 if (VERDICT.test(String(call.tool_input?.command ?? "")) && call.agent_type !== CHECKER) {
   process.stderr.write("only the question checker records a verdict, so a draft is never passed by the session that wrote it. Start the question-checker agent on the draft.\n");
   process.exit(2);
+}
+for (const [pattern, agent, why] of SUMMARY_ONLY) {
+  if (pattern.test(String(call.tool_input?.command ?? "")) && call.agent_type !== agent) {
+    process.stderr.write(`${why}\n`);
+    process.exit(2);
+  }
 }
 if (!OURS.test(String(call.agent_type ?? ""))) process.exit(0);
 // Handing its answer back to the session reads and runs nothing.

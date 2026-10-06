@@ -336,6 +336,7 @@ function executive(document) {
       .sort((a, b) => ORDER.reduce((found, sev) => found || (b.counts[sev] ?? 0) - (a.counts[sev] ?? 0), 0)),
     serious,
     none: said("detail.summary-none"),
+    reading: document.reading ?? null,
   });
 }
 

@@ -1,6 +1,6 @@
 ---
 description: Check this repository against your packs. Uses one pack credit per pack you choose.
-allowed-tools: Bash(evalation-say:*), Bash(evalation-read:*), Bash(evalation-run:*), Bash(evalation-packs show:*), Bash(evalation-status:*), Bash(evalation-questions list:*), Bash(evalation-questions path:*), Bash(evalation-scan show:*), Bash(evalation-scan install:*), Bash(evalation-scan decline:*), Bash(evalation-scan lookup:*), Bash(evalation-scan open:*), Bash(evalation-scan run:*), Bash(evalation-findings:*), Bash(evalation-verify:*), Bash(evalation-score:*), Bash(evalation-deliver:*), Bash(evalation-report:*), Bash(evalation-check-pdf:*)
+allowed-tools: Bash(evalation-say:*), Bash(evalation-read:*), Bash(evalation-run:*), Bash(evalation-packs show:*), Bash(evalation-status:*), Bash(evalation-questions list:*), Bash(evalation-questions path:*), Bash(evalation-scan show:*), Bash(evalation-scan install:*), Bash(evalation-scan decline:*), Bash(evalation-scan lookup:*), Bash(evalation-scan open:*), Bash(evalation-scan run:*), Bash(evalation-findings:*), Bash(evalation-verify:*), Bash(evalation-summary:*), Bash(evalation-score:*), Bash(evalation-deliver:*), Bash(evalation-report:*), Bash(evalation-check-pdf:*)
 ---
 
 Open by showing `evalation-say ev-run.intro` exactly as printed, before anything else.
@@ -570,6 +570,19 @@ and each answer's label says what choosing it does.
 
    The rubric is the file step 4 printed for that pack under `rubrics`. A pack with no file there
    is not scored, and that is not a failure.
+
+   **Then have each pack's executive summary written and checked**, every run, whether or not the
+   person chose to check the claims, since an unchecked summary of the findings is the text a reader
+   trusts most. It uses no pack credits. Say `evalation-say ev-run.summarising` first.
+
+   For each pack the run read, start a fresh `evalation-plugin:summary-writer` agent, with the line
+   `evalation-say ev-run.summary-writer-task` prints as its description, and give it the file step 7
+   wrote, the pack's identifier and `${CLAUDE_PLUGIN_ROOT}/bin` as where the commands are, and nothing
+   more. When it hands back, start a fresh `evalation-plugin:summary-checker` agent the same way, with
+   the line `evalation-say ev-run.summary-checker-task` prints, so a summary is never passed by whoever
+   wrote it. The packs can run side by side. Never write or check a summary yourself, since the gate
+   refuses both to anything but those agents. A summary its checker does not confirm whole is left
+   out of the report, which says so and prints the rest of the summary as counted from the findings.
 
 10. **Produce the artefacts**, which are what somebody is actually given. Run `evalation-deliver`
    where the run read a concern set and `evalation-report` where it read a standard, both over the

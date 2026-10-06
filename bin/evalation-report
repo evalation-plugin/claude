@@ -531,6 +531,10 @@ function executive(document, answers, asked) {
     serious,
     none: line("report.summary-none", { noun: noun.one }),
     closing: require("../lib/say.js").entries()[`report.closing-${pack?.pack}`] ? line(`report.closing-${pack.pack}`) : "",
+    reading: document.summaries?.[pack?.pack] ?? null,
+    weigh: sectionsOf(pack, answers, asked)
+      .filter(([, list]) => list.some((one) => one.status === "total-gap" || one.status === "partial-gap"))
+      .flatMap(([part]) => part.weigh ?? []),
   });
 }
 
