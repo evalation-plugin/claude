@@ -641,16 +641,24 @@ function main() {
   mkdirSync(folder, { recursive: true });
   keepFindings(resolve(source), folder);
   const printedSoFar = [];
+  const failed = [];
   let written;
   try {
-    written = [...new Set(answers.map((one) => one.pack))].map((pack) => {
+    written = [...new Set(answers.map((one) => one.pack))].flatMap((pack) => {
       const own = answers.filter((one) => one.pack === pack);
       const alone = { ...document, packs: (document.packs ?? []).filter((one) => one.pack === pack) };
       const out = join(folder, `${reviewName(document, pack)} Evidence Pack.pdf`);
-      const done = print(page(alone, own, asked), `${out.replace(/\.pdf$/, "")}.html`, out, { run: document.run },
-        readingOf(document));
+      let done;
+      try {
+        done = print(page(alone, own, asked), `${out.replace(/\.pdf$/, "")}.html`, out, { run: document.run },
+          readingOf(document));
+      } catch (thrown) {
+        if (!thrown?.file) throw thrown;
+        failed.push(thrown);
+        return [];
+      }
       printedSoFar.push(done.printed ? out : done.page);
-      return {
+      return [{
         pack,
         written: done.printed ? out : done.page,
         printed: done.printed,
@@ -660,11 +668,15 @@ function main() {
         cited: citing(own),
         by_status: counted(own),
         ...(namesPeople(own) ? { names_people: true } : {}),
-      };
+      }];
     });
   } catch (thrown) {
     if (!thrown?.unfit) errors.report("unexpected-error", thrown);
-    fail(unwritten(thrown, printedSoFar));
+    fail(unwritten([...failed, thrown], printedSoFar));
+  }
+  if (failed.length > 0) {
+    for (const one of failed) if (!one.unfit) errors.report("unexpected-error", one);
+    fail(unwritten(failed, printedSoFar));
   }
 
   process.stdout.write(`${JSON.stringify({ folder, packs: written, said: said(written, folder) }, null, 2)}\n`);

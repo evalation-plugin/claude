@@ -20,5 +20,7 @@
   "summary-step.problem-no-entry": { "say": "Sentence <at> of the <part> names no entry it rests on." },
   "summary-step.problem-unknown": { "say": "Sentence <at> of the <part> rests on <id>, and this pack holds no entry <id>." },
   "summary-step.problem-rules": { "say": "Sentence <at> of the <part> breaks the writing rules: <rule>." },
-  "summary-step.unanswered": { "say": "The checker gave no answer." }
+  "summary-step.unanswered": { "say": "The checker gave no answer." },
+  "summary-step.page-next": { "say": "This is page <page> of <pages>, so read every page before you answer and print the next with: <command>" },
+  "summary-step.page-last": { "say": "This is the last page, <page> of <pages>." }
 }

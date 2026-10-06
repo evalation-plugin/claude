@@ -5,6 +5,7 @@ require("../lib/errors.js");
 const { readFileSync, renameSync, writeFileSync } = require("node:fs");
 const { offences } = require("../lib/prose.js");
 const { line } = require("../lib/run-say.js");
+const { SHOWN, pages } = require("../lib/pages.js");
 
 const SENTENCES = 6;
 const LONGEST = 320;
@@ -57,16 +58,25 @@ function purposeOf(pack) {
   return String(pack.description ?? "").trim() || line("summary-step.not-stated");
 }
 
-function brief(source, name) {
+function paged(head, rows, tail, page, command) {
+  const groups = pages(rows, SHOWN - [...head, ...tail].join("\n").length - 400);
+  const at = Math.min(Math.max(1, Number(page) || 1), groups.length);
+  const count = { page: String(at), pages: String(groups.length) };
+  const where = groups.length === 1 ? []
+    : at < groups.length ? ["", line("summary-step.page-next", { ...count, command: `${command} ${at + 1}` })]
+      : ["", line("summary-step.page-last", count)];
+  return [...head, ...groups[at - 1], ...where, ...(at === groups.length ? ["", ...tail] : [])].join("\n");
+}
+
+function brief(source, name, page) {
   const document = readJson(source, "findings");
   const pack = packOf(document, name);
-  return [
+  return paged([
     `${pack.title ?? pack.pack}`,
     purposeOf(pack),
     "",
     line("summary-step.brief-entries"),
-    ...entriesOf(document, pack).map(shown),
-    "",
+  ], entriesOf(document, pack).map(shown), [
     line("summary-step.brief-write"),
     line("summary-step.brief-paragraph", { most: String(SENTENCES) }),
     line("summary-step.brief-rests", { longest: String(LONGEST) }),
@@ -78,7 +88,7 @@ function brief(source, name) {
     "  EOF",
     "",
     line("summary-step.brief-fix"),
-  ].join("\n");
+  ], page, `evalation-summary brief ${source} ${name}`); // say:allow: machine, a command only agents run
 }
 
 function problemsOf(said, ids) {
@@ -128,7 +138,7 @@ function sentencesOf(summary) {
   return [...(summary.paragraph ?? []), ...(summary.weigh ?? [])];
 }
 
-function grid(source, name) {
+function grid(source, name, page) {
   const document = readJson(source, "findings");
   const pack = packOf(document, name);
   const summary = document.summaries?.[name];
@@ -138,11 +148,10 @@ function grid(source, name) {
     `SENTENCE ${at + 1}: ${one.say}`,
     ...one.rests_on.map((id) => (byId.has(id) ? shown(byId.get(id)) : `${id} | ${line("summary-step.not-in-pack")}`).replace(/^/gm, "  ")),
   ].join("\n"));
-  return [
+  return paged([
     purposeOf(pack),
     "",
-    ...rows,
-    "",
+  ], rows, [
     line("summary-step.grid-about"),
     line("summary-step.grid-confirmed"),
     "",
@@ -151,7 +160,7 @@ function grid(source, name) {
     `  evalation-summary record ${source} ${name} <<'EOF'`,
     "  SENTENCE <n>: CONFIRMED|NOT-CONFIRMED | ...",
     "  EOF",
-  ].join("\n");
+  ], page, `evalation-summary grid ${source} ${name}`); // say:allow: machine, a command only agents run
 }
 
 function record(source, name, text) {
@@ -178,11 +187,11 @@ function record(source, name, text) {
 }
 
 function main() {
-  const [verb, source, name] = process.argv.slice(2);
-  const usage = "usage: evalation-summary brief <findings.json> <pack> | write <findings.json> <pack> - | grid <findings.json> <pack> | record <findings.json> <pack>"; // say:allow: machine, usage for a command only agents run
+  const [verb, source, name, page] = process.argv.slice(2);
+  const usage = "usage: evalation-summary brief <findings.json> <pack> [page] | write <findings.json> <pack> - | grid <findings.json> <pack> [page] | record <findings.json> <pack>"; // say:allow: machine, usage for a command only agents run
   if (!source || !name) fail(usage);
-  if (verb === "brief") process.stdout.write(`${brief(source, name)}\n`);
-  else if (verb === "grid") process.stdout.write(`${grid(source, name)}\n`);
+  if (verb === "brief") process.stdout.write(`${brief(source, name, page)}\n`);
+  else if (verb === "grid") process.stdout.write(`${grid(source, name, page)}\n`);
   else if (verb === "write") process.stdout.write(`${JSON.stringify(write(source, name, readFileSync(0, "utf8")), null, 2)}\n`);
   else if (verb === "record") process.stdout.write(`${JSON.stringify(record(source, name, readFileSync(0, "utf8")), null, 2)}\n`);
   else fail(usage);
