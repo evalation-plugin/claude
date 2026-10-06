@@ -234,6 +234,21 @@ test("a browser that stops says how, so the fault kept for support holds the cau
     /exit status 9/.test(thrown.message) && /bad option: --/.test(thrown.message));
 });
 
+test("a page is laid out only once its fonts have loaded, and says so, since a layout measured in a stand-in font cuts pages", () => {
+  const document = run(tree);
+  const asked = new Map();
+  for (const pack of document.packs) for (const one of pack.entries_asked ?? []) asked.set(`${pack.pack}/${one.identifier}`, one);
+  const { browser, settled } = require("../lib/print.js");
+  const { writeFileSync } = require("node:fs");
+  const file = join(mkdtempSync(join(tmpdir(), "evalation-fonts-")), "pack.html");
+  writeFileSync(file, page(document, document.answers.filter((one) => one.pack === "soc2"), asked));
+  assert.match(settled(browser(), file), /<body[^>]*data-fonts="ready"/);
+  const { into, done } = printedFrom(document);
+  done();
+  const text = execFileSync("pdftotext", [into, "-"], { encoding: "utf8" });
+  assert.match(text, /Page 1 of \d+/, "the PDF is the laid-out page the check passed, with its footer on every sheet");
+});
+
 test("a slot the reading did not write is still refused", () => {
   const document = run(tree);
   document.answers[0].remedy = "Add 'environment: ${{ inputs.target }}' to the workflow.";
