@@ -445,7 +445,8 @@ function corrected(document, ids, part) {
       allowed.delete(one.id);
       const at = copy[list].findIndex((each) => each.id === one.id);
       if (at < 0) {
-        done.refused.push(`${one.id}: not in the findings file`);
+        const home = ["answers", "findings", "accounted"].find((other) => other !== list && (copy[other] ?? []).some((each) => each.id === one.id));
+        done.refused.push(home ? `${one.id}: is one of the ${home}, so it goes under "${home}"` : `${one.id}: not in the findings file`);
         continue;
       }
       const was = copy[list][at];
@@ -585,6 +586,6 @@ function main() {
   process.stdout.write(JSON.stringify(out, null, 2) + "\n");
 }
 
-module.exports = { focusOf, itemShown };
+module.exports = { corrected, focusOf, itemShown };
 
 if (require.main === module) main();
