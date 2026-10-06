@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "0.76.2",
+      "date": "2026-10-06",
+      "notes": [
+        "An executive summary a little too long for one page now runs on to a second page, so a long purpose or many points to weigh never cut the page off."
+      ]
+    },
+    {
       "version": "0.76.1",
       "date": "2026-10-06",
       "notes": [
