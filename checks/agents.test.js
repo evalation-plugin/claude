@@ -55,6 +55,16 @@ test("an Evalation agent hands its answer back to the session", () => {
   assert.ok(gate({ tool_name: "SubagentHandback", tool_input: { message: "Batch 7 recorded." }, agent_type: "evalation-plugin:verifier" }).allowed);
 });
 
+test("a pipe or a bracket inside a quoted search pattern is the pattern, while a command run inside quotes is still refused", () => {
+  const read = "/x/bin/evalation-read /repo search";
+  assert.ok(bash(`${read} "docker|compose|privileged"`).allowed);
+  assert.ok(bash(`${read} 'length < 3|top secret' "**/*.{yml,yaml}"`).allowed);
+  assert.ok(!bash(`${read} "$(cat /etc/passwd)"`).allowed);
+  assert.ok(!bash(`${read} "\`id\`"`).allowed);
+  assert.ok(!bash(`${read} docker | head`).allowed);
+  assert.ok(!bash(`${read} "docker" > /tmp/out`).allowed);
+});
+
 test("the session's own calls and other agents' calls pass the gate", () => {
   assert.ok(gate({ tool_name: "Bash", tool_input: { command: "ls" } }).allowed);
   assert.ok(bash("ls", "general-purpose").allowed);

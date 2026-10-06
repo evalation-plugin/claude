@@ -253,7 +253,7 @@ function list(root, pattern) {
  * to know whether anything matched.
  */
 function found(root, pattern, glob, limit = LINES * 4) {
-  const held = new RegExp(pattern, "i");
+  const held = new RegExp(String(pattern).replace(/\(\?i\)/g, ""), "i");
   const holds = matching(glob);
   const out = [];
   for (const path of walk(root)) {
@@ -392,6 +392,10 @@ const USAGE = `usage: evalation-read <target> <verb> [...]
 
 function main() {
   const [target, verb, ...rest] = process.argv.slice(2);
+  if ([target, verb].some((one) => one === "help" || one === "--help")) {
+    process.stdout.write(USAGE);
+    return;
+  }
   if (!target || !verb) {
     process.stderr.write(USAGE);
     process.exit(2);
