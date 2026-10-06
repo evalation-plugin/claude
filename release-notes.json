@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "0.76.1",
+      "date": "2026-10-06",
+      "notes": [
+        "A long executive summary now runs on to the next page wherever it needs to, carrying a list or table across with its heading marked continued, so no page is cut off."
+      ]
+    },
+    {
       "version": "0.76.0",
       "date": "2026-10-06",
       "notes": [
