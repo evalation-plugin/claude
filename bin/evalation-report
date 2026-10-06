@@ -37,8 +37,8 @@ const { line } = require("../lib/run-say.js");
 const { cardOf, compared, compatible, named: phaseNamed, settled, upgradeTo } = require("../lib/scans.js");
 const { consequences, remedies } = require("../lib/weaknesses.js");
 const { keepFindings, reportsFolder, reviewName } = require("../lib/reports.js");
-const { CHROME, css, escaped, paginator, scanResults } = require("../lib/sheet.js");
-const { readBlock, shownPath } = require("../lib/solution.js");
+const { CHROME, css, escaped, paginator, scanResults, summary } = require("../lib/sheet.js");
+const { readAppendix, readBlock, shownPath } = require("../lib/solution.js");
 const { docsLine } = require("../lib/docs-remedy.js");
 
 const HOME = pluginHome();
@@ -510,6 +510,29 @@ function scanFindings(document, packs, asked) {
   });
 }
 
+function executive(document, answers, asked) {
+  const pack = (document.packs ?? []).find((one) => answers.some((each) => each.pack === one.pack));
+  const noun = nounOf(pack);
+  const held = counted(answers);
+  const rest = answers.length - held.covered - held["partial-gap"] - held["total-gap"];
+  const serious = ["total-gap", "partial-gap"].flatMap((status) => answers.filter((one) => one.status === status)).map((one) => {
+    const clause = asked.get(`${one.pack}/${one.entry}`);
+    return { id: clause?.shown ?? one.entry, title: clause?.title ?? "", label: named(one.status), colour: colourOf(one.status) };
+  });
+  return summary({
+    purpose: String(pack?.description ?? "").trim(),
+    shows: [
+      line("report.summary-shows", { total: String(answers.length), nouns: noun.many, covered: String(held.covered),
+        partial: String(held["partial-gap"]), gap: String(held["total-gap"]) }),
+      rest > 0 ? line("report.summary-rest", { count: String(rest) }) : "",
+    ],
+    columns: STATUSES.filter(([status]) => held[status] > 0).map(([status, , colour]) => ({ key: status, label: named(status), colour })),
+    rows: sectionsOf(pack, answers, asked).map(([part, list]) => ({ title: part.title || nameOf(pack, pack?.pack), counts: counted(list) })),
+    serious,
+    none: line("report.summary-none", { noun: noun.one }),
+  });
+}
+
 function page(document, answers, asked) {
   const repository = document.target?.repository ?? "";
   const packs = document.packs ?? [];
@@ -523,7 +546,7 @@ function page(document, answers, asked) {
 
   // What moved since the last run of this repository kept on this machine, where there is one.
   const since = changes(document, earlierFor(document, HOME));
-  const blocks = opening(document, answers, packs, asked) +
+  const blocks = executive(document, answers, asked) + opening(document, answers, packs, asked) +
     [...byPack.keys()].map((pack) => changesSection(since, pack)).join("") + [...byPack.entries()].map(([pack, held]) => {
     const one = packs.find((each) => each.pack === pack);
     const noun = nounOf(one);
@@ -535,7 +558,7 @@ function page(document, answers, asked) {
       ...part,
       title: several && part.title ? `${nameOf(one, pack)}, ${part.title}` : (part.title || nameOf(one, pack)),
     }, rows, asked, noun, document.scan)).join("");
-  }).join("") + scanFindings(document, [...byPack.keys()], asked);
+  }).join("") + scanFindings(document, [...byPack.keys()], asked) + readAppendix(document.target);
 
   const title = line("report.title");
   const several = document.target?.kind === "solution";

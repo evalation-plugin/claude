@@ -233,6 +233,7 @@ function reviewFindings(document) {
     title: line("detail.title"),
     subtitle: line("detail.subtitle", { label: line(solution ? "shared.label-product" : "shared.label-repository"), name: repository || line("shared.unnamed") }),
     tenant: repository,
+    purpose: (document.packs ?? []).filter((one) => one.kind === "concern-set").map((one) => String(one.description ?? "").trim()).filter(Boolean).join(" "),
     solution,
     generated_at: String(document.at ?? "").slice(0, 10).replace(/-/g, ""),
     meta: {

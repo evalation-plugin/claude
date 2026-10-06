@@ -30,9 +30,9 @@ const { resolve } = require("node:path");
 const { print } = require("../lib/print.js");
 const { cardOf, compared, compatible, named, upgradeTo } = require("../lib/scans.js");
 const { consequences, remedies } = require("../lib/weaknesses.js");
-const { CHROME, css, escaped, paginator, scanResults } = require("../lib/sheet.js");
+const { CHROME, css, escaped, paginator, scanResults, summary } = require("../lib/sheet.js");
 const { changesSection } = require("../lib/changes.js");
-const { readBlock, shownPath } = require("../lib/solution.js");
+const { readAppendix, readBlock, shownPath } = require("../lib/solution.js");
 const { entries, say } = require("../lib/say.js");
 
 const said = (name, values) => say(entries(), name, values);
@@ -270,17 +270,8 @@ function scanned(document) {
 // The opening page: what was assessed, what it came to, and how to read a finding.
 function opening(document) {
   const meta = document.meta ?? {};
-  const summary = document.exec_summary ?? {};
   const hardness = document.hardness ?? {};
   const legend = document.legend ?? {};
-
-  const columns = [
-    [escaped(said("detail.label-risk")), summary.where_risk],
-    [escaped(said("detail.label-close")), summary.what_it_takes],
-    [escaped(said("detail.label-bottom")), summary.bottom_line],
-  ].filter(([, value]) => value)
-    .map(([label, value]) =>
-      `<div class="column"><h3>${label}</h3><p>${escaped(value)}</p></div>`).join("");
 
   // The one number a reader takes away, beside the split it is a summary of. It sits in the flow
   // rather than pinned to the foot of the page: pinned, it lands on top of whatever the page was
@@ -320,10 +311,6 @@ ${readBlock(document.solution)}
 <p class="intro">${escaped(meta.intro ?? "")}</p>
 </div>
 ${scanned(document)}
-<div class="block">
-<h2>${escaped(said("detail.summary-title"))}</h2>
-<div class="columns">${columns}</div>
-</div>
 <div class="block last">
 <h2>${escaped(said("detail.key-title"))}</h2>
 <p class="lede">${escaped(said("detail.key-lede"))}</p>
@@ -332,11 +319,31 @@ ${scanned(document)}
 </div>`;
 }
 
+function executive(document) {
+  const told = document.exec_summary ?? {};
+  const findings = (document.categories ?? []).flatMap((one) => one.findings ?? []);
+  const sevs = ORDER.filter((sev) => findings.some((one) => one.sev === sev));
+  const countsOf = (list) => Object.fromEntries(sevs.map((sev) => [sev, list.filter((one) => one.sev === sev).length]));
+  const serious = findings.filter((one) => one.sev !== "Positive")
+    .sort((a, b) => String(a.pr || "P9").localeCompare(String(b.pr || "P9")) || ORDER.indexOf(a.sev) - ORDER.indexOf(b.sev)
+      || String(a.id).localeCompare(String(b.id)))
+    .map((one) => ({ id: one.id, title: one.title || one.finding || "", label: one.sev, colour: SEVERITY[one.sev] ?? CHROME.faint }));
+  return summary({
+    purpose: String(document.purpose ?? "").trim(),
+    shows: [told.lead, told.where_risk, told.what_it_takes],
+    columns: sevs.map((sev) => ({ key: sev, label: sev, colour: SEVERITY[sev] ?? CHROME.faint, apart: sev === "Positive" })),
+    rows: (document.categories ?? []).map((one) => ({ title: one.name, counts: countsOf(one.findings ?? []) }))
+      .sort((a, b) => ORDER.reduce((found, sev) => found || (b.counts[sev] ?? 0) - (a.counts[sev] ?? 0), 0)),
+    serious,
+    none: said("detail.summary-none"),
+  });
+}
+
 function page(document) {
   const foot = said("detail.foot", { title: document.title ?? said("detail.title") });
 
   const reported = document.scan?.reported ?? {};
-  const blocks = opening(document) + changesSection(document.changes ?? null, document.changes_pack ?? "") +
+  const blocks = executive(document) + opening(document) + changesSection(document.changes ?? null, document.changes_pack ?? "") +
     (document.categories ?? []).map(section).join("") +
     // Every scanner result, so the cards stay with the concerns the pack asks about and the tools'
     // output is read here in one place. A result a card cites names that card.
@@ -353,7 +360,7 @@ function page(document) {
       compatible,
       cardOf,
       shown: (path) => shownPath(document.solution, path),
-    });
+    }) + readAppendix(document.solution);
 
   return `<!doctype html><meta charset="utf-8"><title>${escaped(document.title ?? "")}</title>
 <style>
@@ -376,7 +383,7 @@ function detail(document, into, seal, theirs = []) {
   return print(html, `${into.replace(/\.pdf$/, "")}.html`, into, seal, theirs);
 }
 
-module.exports = { detail, scanned };
+module.exports = { detail, page, scanned };
 
 if (require.main === module) {
   const [source, into] = process.argv.slice(2);

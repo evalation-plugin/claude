@@ -694,7 +694,7 @@ function skeleton(served, readBy) {
       return {
         pack: one.pack,
         kind: body.kind ?? one.kind,
-        ...pick(body, ["title", "version", "entry_noun", "sections"]),
+        ...pick(body, ["title", "description", "version", "entry_noun", "sections"]),
         selected: entries.map((entry) => entry.identifier),
         entries_asked: entries.map((entry) => pick(entry, ["identifier", "shown", "title", "intent", "looks_for", "section", "obligation", "note", "bears_on", "in_force", "applies", "raised_by"])),
       };
