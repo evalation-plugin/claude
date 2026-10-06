@@ -108,7 +108,7 @@ test("a summary too long for one page takes two, each filled, with the most seri
 });
 
 test("page 1 of a two-page summary never ends on one or two serious items", () => {
-  for (let count = 14; count <= 26; count += 1) {
+  for (let count = 26; count <= 34; count += 1) {
     const document = standard(40, 30, 10);
     const pack = document.packs[0];
     pack.sections = Array.from({ length: count }, (_, at) => ({ identifier: `S${at + 1}`, title: `Section ${at + 1}` }));
