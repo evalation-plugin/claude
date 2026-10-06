@@ -77,22 +77,45 @@ test("the summary counts each section, in the pack's order", () => {
 });
 
 test("a summary with more serious items than its page holds lists those that fit, says how many more, and stays on one page", () => {
-  const sheets = reportSheets(standard(40, 10, 0));
+  const sheets = reportSheets(standard(20, 5, 0));
   const listed = (sheets[0].match(/<li data-entry="/g) ?? []).length;
   const more = Number((sheets[0].match(/data-more="(\d+)"/) ?? [])[1]);
   assert.ok(listed >= 5, `the page lists ${listed}`);
-  assert.strictEqual(listed + more, 50);
+  assert.strictEqual(listed + more, 25);
   assert.doesNotMatch(sheets[0], /data-cut=/);
   assert.match(sheets[1], /class="facts"/);
 });
 
-test("a summary with more sections than its page holds folds the last into one row, keeps every count, and stays on one page", () => {
-  const document = standard(30, 30, 30);
+const filledOf = (sheet) => Number((sheet.match(/data-filled="(\d+)"/) ?? [])[1]);
+
+test("a summary too long for one page takes two, each filled, with the most serious items running onto page 2", () => {
+  const document = standard(40, 30, 10);
+  const pack = document.packs[0];
+  pack.sections = Array.from({ length: 20 }, (_, at) => ({ identifier: `S${at + 1}`, title: `Section ${at + 1}` }));
+  pack.entries_asked.forEach((one, at) => { one.section = `S${(at % 20) + 1}`; });
+  const sheets = reportSheets(document);
+  for (const sheet of sheets.slice(0, 2)) {
+    assert.doesNotMatch(sheet, /data-cut=|data-others=/);
+    assert.ok(filledOf(sheet) >= 80, `a summary page fills ${filledOf(sheet)}%`);
+  }
+  assert.strictEqual((sheets[0].match(/<tr data-section="/g) ?? []).length, 20);
+  assert.match(sheets[1], /data-part="serious"/);
+  assert.doesNotMatch(sheets[1], /class="facts"/);
+  assert.match(sheets[2], /class="facts"/);
+  const listed = sheets.slice(0, 2).reduce((sum, one) => sum + (one.match(/<li data-entry="/g) ?? []).length, 0);
+  const more = Number((sheets[1].match(/data-more="(\d+)"/) ?? [0, 0])[1]);
+  assert.strictEqual(listed + more, 70);
+});
+
+test("a summary folds its last sections into one row only where a second page would be left part empty, and keeps every count", () => {
+  const document = standard(2, 0, 88);
   const pack = document.packs[0];
   pack.description = PURPOSE.repeat(6);
   pack.sections = Array.from({ length: 30 }, (_, at) => ({ identifier: `S${at + 1}`, title: `Section ${at + 1}` }));
   pack.entries_asked.forEach((one, at) => { one.section = `S${(at % 30) + 1}`; });
-  const sheet = reportSheets(document)[0];
+  const sheets = reportSheets(document);
+  const sheet = sheets[0];
+  assert.match(sheets[1], /class="facts"/);
   assert.doesNotMatch(sheet, /data-cut=/);
   const shown = (sheet.match(/<tr data-section="/g) ?? []).length;
   const folded = Number((sheet.match(/<tr data-others="(\d+)"/) ?? [])[1]);
