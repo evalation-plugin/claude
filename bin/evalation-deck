@@ -24,7 +24,7 @@ const { join, resolve } = require("node:path");
 const pptx = require("../lib/pptx.js");
 const { changeNotes, dated } = require("../lib/changes.js");
 const { render } = require("../lib/slides.js");
-const { print } = require("../lib/print.js");
+const { print, unwritten } = require("../lib/print.js");
 const { assure } = require("../lib/assure.js");
 const { readSlides } = require("../lib/solution.js");
 const { entries, say } = require("../lib/say.js");
@@ -1057,7 +1057,14 @@ if (require.main === module) {
     process.stderr.write("usage: evalation-deck <review-findings.json> <out.pdf>\n");
     process.exit(2);
   }
-  const done = deck(JSON.parse(readFileSync(resolve(source), "utf8")), resolve(into));
+  let done;
+  try {
+    done = deck(JSON.parse(readFileSync(resolve(source), "utf8")), resolve(into));
+  } catch (thrown) {
+    if (!thrown?.unfit) throw thrown;
+    process.stderr.write(`${unwritten(thrown)}\n`);
+    process.exit(1);
+  }
   process.stdout.write(done.printed
     ? `wrote ${done.slides} slides carrying ${done.findings} findings\n`
     : `${said("detail.no-browser", { page: done.page })}\n`);

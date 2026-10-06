@@ -27,7 +27,7 @@ require("../lib/errors.js");
 const { readFileSync } = require("node:fs");
 const { resolve } = require("node:path");
 
-const { print } = require("../lib/print.js");
+const { print, unwritten } = require("../lib/print.js");
 const { cardOf, compared, compatible, named, upgradeTo } = require("../lib/scans.js");
 const { consequences, remedies } = require("../lib/weaknesses.js");
 const { CHROME, css, escaped, paginator, scanResults, summary } = require("../lib/sheet.js");
@@ -393,7 +393,14 @@ if (require.main === module) {
     process.exit(2);
   }
   const document = JSON.parse(readFileSync(resolve(source), "utf8"));
-  const done = detail(document, resolve(into));
+  let done;
+  try {
+    done = detail(document, resolve(into));
+  } catch (thrown) {
+    if (!thrown?.unfit) throw thrown;
+    process.stderr.write(`${unwritten(thrown)}\n`);
+    process.exit(1);
+  }
   const count = everyFinding(document).length;
   process.stdout.write(done.printed
     ? `${said("detail.wrote", { count: String(count), disciplines: String((document.categories ?? []).length) })}\n`
