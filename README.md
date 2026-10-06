@@ -1,6 +1,14 @@
 # Evalation for Claude Code
 
-Reads a repository against the packs you select and reports what it evidences. It changes nothing.
+Evalation checks your code against compliance standards, regulations, security reviews and investor due diligence, and writes signed PDF reports to share.
+
+Standards: SOC 2, ISO 27001, ISO 42001, PCI DSS, OWASP ASVS, the OWASP Top 10 for Agentic Applications, OWASP Agentic AI Threats, NIST CSF 2.0, NIST SSDF, NIST AI RMF and the Australian ISM.
+
+Regulations: GDPR, the EU AI Act, DORA, HIPAA and the New Zealand Privacy Act.
+
+Evalation Custom Packs: The Hardening Review tests whether your code would hold up in the real world. It covers 18 areas, such as what an attacker could reach, what breaks when a service you rely on fails, and what could go wrong without anyone noticing. Investment Due Diligence is for investors and buyers judging a company's software before they commit. It checks whether the product matches the pitch, what could lose money or trust, whether the code is an asset or a liability, whether it will cope with growth and how much depends on one or two people. Cyber Insurance Risk is for insurers deciding whether to cover a company and at what price. It answers the questions of an underwriting questionnaire from the code itself, from sign-in, patching and backups to risks most standards miss, such as charges an attacker could run up on your accounts and payments redirected to an attacker.
+
+Every finding points to the file and line in your code, and your code never leaves your machine.
 
 ## What a pack is
 
