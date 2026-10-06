@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "0.76.4",
+      "date": "2026-10-06",
+      "notes": [
+        "Reports now lay out the same way every time, and a long report no longer fails at random with a page cut off at its foot."
+      ]
+    },
+    {
       "version": "0.76.3",
       "date": "2026-10-06",
       "notes": [
