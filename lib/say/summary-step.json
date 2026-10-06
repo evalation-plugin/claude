@@ -2,7 +2,7 @@
   "summary-step.not-stated": { "say": "not stated" },
   "summary-step.brief-entries": { "say": "Entries, each as id, section, standing and title, with what the run found:" },
   "summary-step.brief-write": { "say": "Write the executive summary of this pack for the reader its purpose names." },
-  "summary-step.brief-paragraph": { "say": "First a paragraph of 1 to <most> sentences saying what the findings show taken together: where the strength is, where the risk is and what the gaps have in common. Then up to <most> points the reader should weigh before deciding, each one sentence naming something to ask, check or think about." },
+  "summary-step.brief-paragraph": { "say": "First a paragraph of 1 to <most> sentences saying what the findings show taken together: where the code is strong, where the findings show risk and what the gaps have in common. Never rank the risks or call one the largest or the most serious, since weighing them is the reader's job. Then up to <most> points the reader should weigh before deciding, each one sentence naming something to ask, check or think about." },
   "summary-step.brief-rests": { "say": "Every sentence names, in rests_on, the ids of the entries it rests on, and says nothing those entries don't show. Never make the reader's decision for them: give no verdict, no rating and no advice to buy, invest, sign or reject. Write plain words a person outside software would follow, with no status names, and at most <longest> characters a sentence." },
   "summary-step.brief-hand": { "say": "Hand it in on standard input, in this exact shape:" },
   "summary-step.brief-fix": { "say": "It answers with any problems to fix. Fix them and hand it in again until it's written." },
