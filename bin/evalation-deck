@@ -32,7 +32,7 @@ const { entries, say } = require("../lib/say.js");
 const said = (name, values) => say(entries(), name, values);
 
 const ASSETS = resolve(__dirname, "..", "reporting", "assets");
-const TEMPLATE = join(ASSETS, "review-deck-template.pptx");
+const TEMPLATE = join(ASSETS, "review-deck-template");
 const INCH = 914400;
 
 // What the template drew room for. A category with more findings than this runs onto a second slide
@@ -569,7 +569,7 @@ function fillTable(slide, marker, columns, values, below, decorate, margin = 0) 
 
 function deck(document, into, options = {}) {
   const held = model(document);
-  const file = pptx.open(readFileSync(TEMPLATE));
+  const file = pptx.openFolder(TEMPLATE);
   const slides = file.slides;
   const type = { "{{AUDIT TYPE}}": held.auditType };
 

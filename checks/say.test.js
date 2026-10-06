@@ -137,7 +137,7 @@ const STILL_TO_MOVE = {
     "bin/evalation-store", "bin/evalation-questions", "bin/evalation-activate", "lib/home.js", "bin/evalation-deck", "bin/evalation-chain",
     "lib/sheet.js", "bin/evalation-score", "lib/run-say.js", "bin/evalation-scan", "bin/evalation-gate", "bin/evalation-ask", "lib/remove.js",
     "lib/print.js", "lib/pptx.js", "bin/evalation-open", "bin/evalation-news", "bin/evalation-hostnames", "bin/evalation-inventory",
-    "bin/evalation-loopback", "bin/evalation-rotate", "lib/assure.js", "lib/sign.js", "lib/slides.js", "lib/zip.js"],
+    "bin/evalation-loopback", "bin/evalation-rotate", "lib/assure.js", "lib/sign.js", "lib/slides.js"],
 };
 
 test("no file of the plugin writes a sentence of its own, so every sentence comes from the catalogue", () => {
