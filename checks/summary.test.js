@@ -143,6 +143,19 @@ test("the page's layout script declares each function once, since a second decla
   assert.deepStrictEqual(names.filter((one, at) => names.indexOf(one) !== at), []);
 });
 
+test("a summary only a little over a page that can't give enough rows flows on to the next page, and nothing is cut", () => {
+  const document = standard(0, 6, 0);
+  const pack = document.packs[0];
+  pack.description = PURPOSE.repeat(10);
+  const say = "The review step holds up best, since it checks each model reply against a fixed shape, caps its size and stops at the first rejection.";
+  document.summaries = { [pack.pack]: { state: "verified", paragraph: Array.from({ length: 4 }, () => ({ say, rests_on: ["INV01"] })),
+    weigh: Array.from({ length: 6 }, (_, at) => ({ say: `${say} Ask who owns point ${at + 1}.`, rests_on: ["INV01"] })) } };
+  const sheets = reportSheets(document);
+  const facts = sheets.findIndex((one) => /class="facts"/.test(one));
+  for (const sheet of sheets.slice(0, facts)) assert.doesNotMatch(sheet, /data-cut=/);
+  assert.strictEqual((sheets.slice(0, facts).join("").match(/Ask who owns point \d/g) ?? []).length, 6);
+});
+
 test("page 1 of a two-page summary never ends on one or two serious items", () => {
   for (let count = 26; count <= 34; count += 1) {
     const document = standard(40, 30, 10);
