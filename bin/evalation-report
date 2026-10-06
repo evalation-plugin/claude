@@ -530,6 +530,7 @@ function executive(document, answers, asked) {
     rows: sectionsOf(pack, answers, asked).map(([part, list]) => ({ title: part.title || nameOf(pack, pack?.pack), counts: counted(list) })),
     serious,
     none: line("report.summary-none", { noun: noun.one }),
+    closing: require("../lib/say.js").entries()[`report.closing-${pack?.pack}`] ? line(`report.closing-${pack.pack}`) : "",
   });
 }
 
