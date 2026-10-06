@@ -166,8 +166,13 @@ function record(source, name, text) {
   }
   const held = Array.from({ length: count }, (_, at) => verdicts.get(at + 1) ?? { verdict: "UNANSWERED", why: line("summary-step.unanswered") });
   const confirmed = held.filter((one) => one.verdict === "CONFIRMED").length;
-  summary.state = confirmed === count ? "verified" : "left-out";
-  summary.checked = held.map((one, at) => ({ sentence: at + 1, ...one }));
+  const sentences = sentencesOf(summary);
+  const lead = summary.paragraph.length;
+  const keeps = (at) => held[at].verdict === "CONFIRMED";
+  summary.checked = held.map((one, at) => ({ sentence: at + 1, say: sentences[at].say, ...one }));
+  summary.paragraph = summary.paragraph.filter((_, at) => keeps(at));
+  summary.weigh = summary.weigh.filter((_, at) => keeps(lead + at));
+  summary.state = confirmed > 0 ? "verified" : "left-out";
   keep(source, document);
   return { pack: name, state: summary.state, confirmed, of: count };
 }

@@ -54,21 +54,29 @@ test("the writer's summary is refused where a sentence rests on no entry, on one
   assert.strictEqual(JSON.parse(readFileSync(file, "utf8")).summaries.soc2.state, "asserted");
 });
 
-test("a summary is verified only where its checker confirms every sentence, and is left out otherwise", () => {
+test("a summary keeps each sentence its checker confirms, drops each one it does not, and is left out only where it confirms none", () => {
   const { write, grid, record } = summaryOf();
+  const kept = (file) => JSON.parse(readFileSync(file, "utf8")).summaries.soc2;
   const both = findingsFile();
   write(both, "soc2", JSON.stringify(GOOD));
   assert.match(grid(both, "soc2"), /SENTENCE 2/);
   record(both, "soc2", "SENTENCE 1: CONFIRMED | the entry says so\nSENTENCE 2: CONFIRMED | it follows");
-  assert.strictEqual(JSON.parse(readFileSync(both, "utf8")).summaries.soc2.state, "verified");
+  assert.strictEqual(kept(both).state, "verified");
+  assert.deepStrictEqual([kept(both).paragraph.length, kept(both).weigh.length], [1, 1]);
   const one = findingsFile();
   write(one, "soc2", JSON.stringify(GOOD));
   record(one, "soc2", "SENTENCE 1: CONFIRMED | the entry says so\nSENTENCE 2: NOT-CONFIRMED | it tells the reader what to decide");
-  assert.strictEqual(JSON.parse(readFileSync(one, "utf8")).summaries.soc2.state, "left-out");
+  assert.strictEqual(kept(one).state, "verified");
+  assert.deepStrictEqual(kept(one).paragraph.map((row) => row.say), [GOOD.paragraph[0].say]);
+  assert.deepStrictEqual(kept(one).weigh, []);
+  const unanswered = findingsFile();
+  write(unanswered, "soc2", JSON.stringify(GOOD));
+  record(unanswered, "soc2", "SENTENCE 2: CONFIRMED | it follows");
+  assert.deepStrictEqual([kept(unanswered).state, kept(unanswered).paragraph.length, kept(unanswered).weigh.length], ["verified", 0, 1]);
   const none = findingsFile();
   write(none, "soc2", JSON.stringify(GOOD));
-  record(none, "soc2", "SENTENCE 1: CONFIRMED | the entry says so");
-  assert.strictEqual(JSON.parse(readFileSync(none, "utf8")).summaries.soc2.state, "left-out");
+  record(none, "soc2", "SENTENCE 1: NOT-CONFIRMED | not shown\nSENTENCE 2: NOT-CONFIRMED | not shown");
+  assert.strictEqual(kept(none).state, "left-out");
 });
 
 test("a verified summary prints its paragraph and points to weigh, and one left out says so", () => {

@@ -581,8 +581,8 @@ and each answer's label says what choosing it does.
    more. When it hands back, start a fresh `evalation-plugin:summary-checker` agent the same way, with
    the line `evalation-say ev-run.summary-checker-task` prints, so a summary is never passed by whoever
    wrote it. The packs can run side by side. Never write or check a summary yourself, since the gate
-   refuses both to anything but those agents. A summary its checker does not confirm whole is left
-   out of the report, which says so and prints the rest of the summary as counted from the findings.
+   refuses both to anything but those agents. The report prints each sentence the checker confirms
+   and drops each one it doesn't, and says so only where it confirmed none.
 
 10. **Produce the artefacts**, which are what somebody is actually given. Run `evalation-deliver`
    where the run read a concern set and `evalation-report` where it read a standard, both over the
