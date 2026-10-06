@@ -6,6 +6,8 @@ const { execFileSync } = require("node:child_process");
 const { existsSync, statSync } = require("node:fs");
 const { join } = require("node:path");
 
+require("./fixture.js");
+
 const ROOT = join(__dirname, "..");
 const DESIGN = join(ROOT, "reporting", "assets", "review-deck-template");
 const tracked = () => execFileSync("git", ["-C", ROOT, "ls-files"], { encoding: "utf8" }).split("\n").filter(Boolean);
