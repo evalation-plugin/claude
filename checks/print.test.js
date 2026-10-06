@@ -225,6 +225,15 @@ test("a report the check refuses never stops the other packs of the run from pri
   assert.ok(existsSync(join(folder, "out", "Evalation SOC 2 Trust Services Criteria Evidence Pack.pdf")));
 });
 
+test("a browser that stops says how, so the fault kept for support holds the cause", () => {
+  const { writeFileSync } = require("node:fs");
+  const { settled } = require("../lib/print.js");
+  const folder = mkdtempSync(join(tmpdir(), "evalation-browser-"));
+  writeFileSync(join(folder, "page.html"), "<p>A page</p>");
+  assert.throws(() => settled(process.execPath, join(folder, "page.html")), (thrown) =>
+    /exit status 9/.test(thrown.message) && /bad option: --/.test(thrown.message));
+});
+
 test("a slot the reading did not write is still refused", () => {
   const document = run(tree);
   document.answers[0].remedy = "Add 'environment: ${{ inputs.target }}' to the workflow.";
