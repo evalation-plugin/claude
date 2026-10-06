@@ -6,6 +6,8 @@
   "shared.summary-section": { "say": "Section" },
   "shared.summary-total": { "say": "Total" },
   "shared.summary-serious": { "say": "Most serious" },
+  "shared.summary-weigh": { "say": "Points to weigh" },
+  "shared.summary-left-out": { "say": "The reading's own summary is left out, since a separate check didn't confirm every sentence of it." },
   "shared.summary-others": { "count": "count", "say": { "one": "<count> other section", "many": "<count> other sections" } },
   "shared.summary-more": { "say": "And <count> more in the sections that follow." },
   "shared.this-product": { "say": "this product" },

@@ -1,0 +1,193 @@
+#!/usr/bin/env node
+"use strict";
+require("../lib/errors.js");
+
+const { readFileSync, renameSync, writeFileSync } = require("node:fs");
+const { offences } = require("../lib/prose.js");
+const { line } = require("../lib/run-say.js");
+
+const SENTENCES = 6;
+const LONGEST = 320;
+
+function fail(reason) {
+  process.stderr.write(`${reason}\n`);
+  process.exit(1);
+}
+
+function readJson(path, what) {
+  try {
+    return JSON.parse(readFileSync(path === "-" ? 0 : path, "utf8"));
+  } catch (thrown) {
+    fail(`unreadable-${what}: ${path} (${thrown.message})`); // say:allow: machine, a fault the session reports to Evalation
+  }
+}
+
+function keep(path, value) {
+  writeFileSync(`${path}.writing`, `${JSON.stringify(value, null, 2)}\n`);
+  renameSync(`${path}.writing`, path);
+}
+
+function packOf(document, name) {
+  const pack = (document.packs ?? []).find((one) => one.pack === name);
+  if (!pack) fail(`no-such-pack: ${name} is not a pack this run read`); // say:allow: machine, a fault the session reports to Evalation
+  return pack;
+}
+
+function entriesOf(document, pack) {
+  if (pack.kind === "concern-set") {
+    const { reviewFindings } = require("./evalation-deliver");
+    return reviewFindings(document).categories.flatMap((category) => (category.findings ?? []).map((one) => ({
+      id: one.id, section: category.name, standing: one.sev, title: one.title ?? "", told: one.finding ?? "",
+    })));
+  }
+  const sections = new Map((pack.sections ?? []).map((one) => [one.identifier, one.title]));
+  const answers = new Map((document.answers ?? []).filter((one) => one.pack === pack.pack).map((one) => [one.entry, one]));
+  return (pack.entries_asked ?? []).filter((one) => answers.has(one.identifier)).map((one) => {
+    const answer = answers.get(one.identifier);
+    return { id: one.shown ?? one.identifier, section: sections.get(one.section) ?? "", standing: line(`report.status-${answer.status}`),
+      title: one.title ?? "", told: answer.because ?? "" };
+  });
+}
+
+function shown(one) {
+  return [`${one.id} | ${one.section} | ${one.standing} | ${one.title}`, `  ${String(one.told).replace(/\s+/g, " ").trim()}`].join("\n");
+}
+
+function purposeOf(pack) {
+  return String(pack.description ?? "").trim() || line("summary-step.not-stated");
+}
+
+function brief(source, name) {
+  const document = readJson(source, "findings");
+  const pack = packOf(document, name);
+  return [
+    `${pack.title ?? pack.pack}`,
+    purposeOf(pack),
+    "",
+    line("summary-step.brief-entries"),
+    ...entriesOf(document, pack).map(shown),
+    "",
+    line("summary-step.brief-write"),
+    line("summary-step.brief-paragraph", { most: String(SENTENCES) }),
+    line("summary-step.brief-rests", { longest: String(LONGEST) }),
+    "",
+    line("summary-step.brief-hand"),
+    "",
+    `  evalation-summary write ${source} ${name} - <<'EOF'`,
+    '  {"paragraph":[{"say":"...","rests_on":["ID"]}],"weigh":[{"say":"...","rests_on":["ID"]}]}',
+    "  EOF",
+    "",
+    line("summary-step.brief-fix"),
+  ].join("\n");
+}
+
+function problemsOf(said, ids) {
+  if (!said || typeof said !== "object") return [line("summary-step.problem-not-object")];
+  const problems = [];
+  for (const [part, least] of [["paragraph", 1], ["weigh", 0]]) {
+    const rows = said[part];
+    if (!Array.isArray(rows)) {
+      problems.push(line("summary-step.problem-not-list", { part }));
+      continue;
+    }
+    if (rows.length < least || rows.length > SENTENCES) {
+      problems.push(line("summary-step.problem-count", { part, count: String(rows.length), least: String(least), most: String(SENTENCES) }));
+    }
+    rows.forEach((row, at) => {
+      const where = { part, at: String(at + 1) };
+      const say = typeof row?.say === "string" ? row.say.trim() : "";
+      if (!say) problems.push(line("summary-step.problem-empty", where));
+      if (say.length > LONGEST) problems.push(line("summary-step.problem-long", { ...where, length: String(say.length), longest: String(LONGEST) }));
+      const rests = Array.isArray(row?.rests_on) ? row.rests_on : [];
+      if (rests.length === 0) problems.push(line("summary-step.problem-no-entry", where));
+      for (const id of rests) if (!ids.has(String(id))) problems.push(line("summary-step.problem-unknown", { ...where, id: String(id) }));
+      for (const hit of offences(say)) problems.push(line("summary-step.problem-rules", { ...where, rule: hit.rule }));
+    });
+  }
+  return problems;
+}
+
+function write(source, name, text) {
+  const document = readJson(source, "findings");
+  const pack = packOf(document, name);
+  let said;
+  try {
+    said = JSON.parse(text);
+  } catch (thrown) {
+    return { written: false, problems: [line("summary-step.problem-not-json", { why: thrown.message })] };
+  }
+  const problems = problemsOf(said, new Set(entriesOf(document, pack).map((one) => String(one.id))));
+  if (problems.length > 0) return { written: false, problems };
+  const tidy = (rows) => rows.map((row) => ({ say: row.say.trim(), rests_on: row.rests_on.map(String) }));
+  document.summaries = { ...(document.summaries ?? {}), [name]: { paragraph: tidy(said.paragraph), weigh: tidy(said.weigh), state: "asserted" } };
+  keep(source, document);
+  return { written: true, sentences: said.paragraph.length + said.weigh.length };
+}
+
+function sentencesOf(summary) {
+  return [...(summary.paragraph ?? []), ...(summary.weigh ?? [])];
+}
+
+function grid(source, name) {
+  const document = readJson(source, "findings");
+  const pack = packOf(document, name);
+  const summary = document.summaries?.[name];
+  if (!summary) return line("summary-step.none-yet", { pack: name });
+  const byId = new Map(entriesOf(document, pack).map((one) => [String(one.id), one]));
+  const rows = sentencesOf(summary).map((one, at) => [
+    `SENTENCE ${at + 1}: ${one.say}`,
+    ...one.rests_on.map((id) => (byId.has(id) ? shown(byId.get(id)) : `${id} | ${line("summary-step.not-in-pack")}`).replace(/^/gm, "  ")),
+  ].join("\n"));
+  return [
+    purposeOf(pack),
+    "",
+    ...rows,
+    "",
+    line("summary-step.grid-about"),
+    line("summary-step.grid-confirmed"),
+    "",
+    line("summary-step.grid-answer"),
+    "",
+    `  evalation-summary record ${source} ${name} <<'EOF'`,
+    "  SENTENCE <n>: CONFIRMED|NOT-CONFIRMED | ...",
+    "  EOF",
+  ].join("\n");
+}
+
+function record(source, name, text) {
+  const document = readJson(source, "findings");
+  const summary = document.summaries?.[name];
+  if (!summary) fail(`no-summary: no summary of ${name} is written yet`); // say:allow: machine, a fault the session reports to Evalation
+  const count = sentencesOf(summary).length;
+  const verdicts = new Map();
+  for (const said of String(text).split("\n")) {
+    const found = said.match(/^\s*SENTENCE\s+(\d+)\s*:\s*(CONFIRMED|NOT-CONFIRMED)\s*\|?\s*(.*)$/i);
+    if (found && Number(found[1]) >= 1 && Number(found[1]) <= count) verdicts.set(Number(found[1]), { verdict: found[2].toUpperCase(), why: found[3].trim() });
+  }
+  const held = Array.from({ length: count }, (_, at) => verdicts.get(at + 1) ?? { verdict: "UNANSWERED", why: line("summary-step.unanswered") });
+  const confirmed = held.filter((one) => one.verdict === "CONFIRMED").length;
+  const sentences = sentencesOf(summary);
+  const lead = summary.paragraph.length;
+  const keeps = (at) => held[at].verdict === "CONFIRMED";
+  summary.checked = held.map((one, at) => ({ sentence: at + 1, say: sentences[at].say, ...one }));
+  summary.paragraph = summary.paragraph.filter((_, at) => keeps(at));
+  summary.weigh = summary.weigh.filter((_, at) => keeps(lead + at));
+  summary.state = confirmed > 0 ? "verified" : "left-out";
+  keep(source, document);
+  return { pack: name, state: summary.state, confirmed, of: count };
+}
+
+function main() {
+  const [verb, source, name] = process.argv.slice(2);
+  const usage = "usage: evalation-summary brief <findings.json> <pack> | write <findings.json> <pack> - | grid <findings.json> <pack> | record <findings.json> <pack>"; // say:allow: machine, usage for a command only agents run
+  if (!source || !name) fail(usage);
+  if (verb === "brief") process.stdout.write(`${brief(source, name)}\n`);
+  else if (verb === "grid") process.stdout.write(`${grid(source, name)}\n`);
+  else if (verb === "write") process.stdout.write(`${JSON.stringify(write(source, name, readFileSync(0, "utf8")), null, 2)}\n`);
+  else if (verb === "record") process.stdout.write(`${JSON.stringify(record(source, name, readFileSync(0, "utf8")), null, 2)}\n`);
+  else fail(usage);
+}
+
+module.exports = { brief, grid, record, write };
+
+if (require.main === module) main();
