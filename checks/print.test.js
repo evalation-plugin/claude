@@ -182,12 +182,47 @@ test("any other print failure gives one plain line naming the file, and names th
     thrown = caught;
   }
   const said = unwritten(thrown, [join(tree, "A Pack.pdf")]);
-  assert.match(said, /^B Pack\.pdf wasn't written, because printing it stopped\.\nA Pack\.pdf was written before it, in the same folder\.\nYour findings are kept/);
+  assert.match(said, /^B Pack\.pdf wasn't written, because printing it stopped\.\nA Pack\.pdf was written, in the same folder\.\nYour findings are kept/);
   const built = unwritten(new Error("boom")).split("\n");
   assert.strictEqual(built[0], "The reports weren't written, because building them stopped.");
   assert.strictEqual(readFileSync(built.at(-1), "utf8").trim(), "boom");
   assert.match(unwritten(Object.assign(new Error("spawnSync chrome ETIMEDOUT"), { code: "ETIMEDOUT", file: "/r/C Pack.pdf" })),
     /^C Pack\.pdf wasn't written, because the browser took longer than two minutes to print it\.\n/);
+});
+
+test("a cited file whose name is spelled the US way prints, since the name is the repository's own", () => {
+  const { copyFileSync } = require("node:fs");
+  const document = run(tree);
+  copyFileSync(join(tree, "src", "auth.js"), join(tree, "src", "sanitize-color.js"));
+  document.answers[0].looked_for[0].evidence[0].path = "src/sanitize-color.js";
+  document.answers[0].looked_for[0].find = "Sanitisation of input before use, such as removal of control characters";
+  const { into, done } = printedFrom(document);
+  done();
+  assert.ok(existsSync(into));
+});
+
+test("a US spelling never stops a report, since the customer paid for it", () => {
+  const document = run(tree);
+  document.target.repository = "Color Center";
+  const { into, done } = printedFrom(document);
+  done();
+  assert.ok(existsSync(into));
+});
+
+test("a report the check refuses never stops the other packs of the run from printing", () => {
+  const { writeFileSync } = require("node:fs");
+  const { spawnSync } = require("node:child_process");
+  const document = { ...run(tree), schema: "evalation.findings.v1" };
+  const soc2 = document.packs.find((one) => one.pack === "soc2");
+  document.packs = [{ ...soc2, pack: "aaa", title: "{{ title }}" }, ...document.packs];
+  document.answers = [...document.answers.filter((one) => one.pack === "soc2").map((one) => ({ ...one, pack: "aaa" })), ...document.answers];
+  const folder = mkdtempSync(join(tmpdir(), "evalation-others-"));
+  const file = join(folder, "findings.json");
+  writeFileSync(file, JSON.stringify(document));
+  const report = spawnSync(process.execPath, [join(__dirname, "..", "bin", "evalation-report"), file, join(folder, "out")], { encoding: "utf8" });
+  assert.strictEqual(report.status, 1);
+  assert.match(report.stderr, /wasn't written, because its pages failed the check before printing\.\nEvalation SOC 2 Trust Services Criteria Evidence Pack\.pdf was written, in the same folder\.\n/);
+  assert.ok(existsSync(join(folder, "out", "Evalation SOC 2 Trust Services Criteria Evidence Pack.pdf")));
 });
 
 test("a slot the reading did not write is still refused", () => {

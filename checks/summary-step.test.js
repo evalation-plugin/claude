@@ -35,6 +35,39 @@ const sheetsOf = (document) => {
   return settled(browser(), file).split('<div class="sheet">').slice(1);
 };
 
+test("a brief and a grid too long to show at once come in pages an agent can read, and together hold every entry", () => {
+  const { brief, write, grid } = summaryOf();
+  const document = run(tree);
+  const soc2 = document.packs.find((one) => one.pack === "soc2");
+  const template = soc2.entries_asked[0];
+  const answer = document.answers.find((one) => one.pack === "soc2" && one.entry === template.identifier);
+  soc2.entries_asked = Array.from({ length: 400 }, (_, at) => ({ ...template, identifier: `X${at + 1}`, title: `Rule ${at + 1}` }));
+  soc2.selected = soc2.entries_asked.map((one) => one.identifier);
+  document.answers = [...document.answers.filter((one) => one.pack !== "soc2"),
+    ...soc2.entries_asked.map((one) => ({ ...answer, entry: one.identifier, because: `${"A guard exists and no restore steps are written. ".repeat(3)}${one.identifier}.` }))];
+  const file = findingsFile(document);
+  const read = (print) => {
+    const all = [];
+    for (let at = 1; at < 100; at += 1) {
+      const one = print(at);
+      assert.ok(one.length <= 25000, `page ${at} is ${one.length} characters`);
+      all.push(one);
+      if (!/print the next with:/i.test(one)) break;
+    }
+    return all;
+  };
+  const briefs = read((at) => brief(file, "soc2", at));
+  assert.ok(briefs.length > 1);
+  for (const one of soc2.entries_asked) assert.ok(briefs.some((each) => each.includes(`${one.identifier} |`)), one.identifier);
+  assert.match(briefs.at(-1), /evalation-summary write/);
+  const many = { paragraph: [{ say: GOOD.paragraph[0].say, rests_on: ["X1"] }], weigh: Array.from({ length: 6 }, () => ({ say: GOOD.weigh[0].say, rests_on: soc2.entries_asked.slice(0, 60).map((one) => one.identifier) })) };
+  assert.strictEqual(write(file, "soc2", JSON.stringify(many)).written, true);
+  const grids = read((at) => grid(file, "soc2", at));
+  assert.ok(grids.length > 1);
+  for (let at = 1; at <= 7; at += 1) assert.ok(grids.some((each) => each.includes(`SENTENCE ${at}:`)), `sentence ${at}`);
+  assert.match(grids.at(-1), /evalation-summary record/);
+});
+
 test("the writer's summary is refused where a sentence rests on no entry, on one the pack does not hold, or breaks the writing rules", () => {
   const { write } = summaryOf();
   const file = findingsFile();

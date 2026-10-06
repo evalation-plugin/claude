@@ -35,6 +35,17 @@ test("every batch's grid is shown to its verifier whole", () => {
   }
 });
 
+test("a new plan waits while a verifier holds a batch it has printed and not yet recorded", () => {
+  const { tree, file } = written();
+  const planned = JSON.parse(verify(["plan", file, tree]).stdout);
+  assert.ok(planned.batches >= 2);
+  verify(["grid", file, "1"]);
+  assert.deepStrictEqual(JSON.parse(verify(["plan", file, tree]).stdout), { waiting: [1] });
+  const rows = verify(["grid", file, "1"]).stdout.match(/^ROW \d+/gm).map((one) => `${one}: CONFIRMED | holds`).join("\n");
+  verify(["record", file, "1"], rows);
+  assert.ok(JSON.parse(verify(["plan", file, tree]).stdout).batches >= 1);
+});
+
 test("one claim citing long lines is still shown whole, and says where the rest of its lines are", () => {
   const tree = mkdtempSync(join(tmpdir(), "evalation-batches-"));
   writeFileSync(join(tree, "CHANGELOG.md"), Array.from({ length: 260 }, (_, at) => `- entry ${at} ${"y".repeat(1800)}`).join("\n"));

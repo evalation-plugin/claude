@@ -531,8 +531,9 @@ and each answer's label says what choosing it does.
    evalation-verify apply <written> "<model>"
    ```
 
-   If the verifying stops part way, plan again: a claim already answered is skipped, whether or not
-   its answer was applied, and `apply` writes every answer recorded.
+   Plan again only once every verifier has handed back. Where `plan` answers `waiting`, a verifier
+   is still checking the batches it names, so wait for it and plan again. A claim already answered
+   is skipped, whether or not its answer was applied, and `apply` writes every answer recorded.
 
    **Then send back what the verifier did not confirm.** A claim found wrong, or one the verifier
    could not settle, goes back to a reader to be fixed against the repository, twice at most:
@@ -627,9 +628,10 @@ and each answer's label says what choosing it does.
    left unprinted or unsigned, why, and what to do: show each exactly as printed in step 11, where it
    is not empty. Anybody holding a report can check it with `evalation-check-pdf <report.pdf>`.
 
-   Where a report is not written, the command prints several lines: the file it did not write and
-   why, any report written before it in the same folder, that the findings are kept, and the file
-   to send to support. Show every line as printed and stop.
+   Where a report is not written, the command still prints every other report, then prints
+   several lines: each file it did not write and why, the reports it did write in the same
+   folder, that the findings are kept, and the file to send to support. Show every line as
+   printed and stop.
 
    The review pack carries no individual findings on purpose: a slide holding fifty of them is neither
    a slide anybody reads nor a document anybody can work from, and the detail is where they live.

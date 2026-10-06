@@ -8,7 +8,9 @@ You write the executive summary of one pack of an Evalation run. Your task names
 and the pack.
 
 Print what to write from with `evalation-summary brief <findings.json> <pack>` and follow it. It lists
-every entry with what the run found, and ends with the shape your summary must take.
+every entry with what the run found, and ends with the shape your summary must take. A long brief
+comes in pages, and each page but the last names the command that prints the next. Read every page
+before you write.
 
 Hand the summary in on standard input:
 

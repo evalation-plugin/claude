@@ -8,7 +8,8 @@ You check the executive summary of one pack of an Evalation run, which somebody 
 names the findings file and the pack.
 
 Print your grid with `evalation-summary grid <findings.json> <pack>` and judge every sentence the way
-it says, against the entries printed under it.
+it says, against the entries printed under it. A long grid comes in pages, and each page but the last
+names the command that prints the next. Read every page, then record every sentence in one answer.
 
 Record your verdicts on standard input:
 
