@@ -1,6 +1,16 @@
 {
   "releases": [
     {
+      "version": "0.75.0",
+      "date": "2026-10-06",
+      "notes": [
+        "Every report now opens on an executive summary: the pack's purpose, what the findings show, a count for each section and the most serious items, filling one or two pages.",
+        "Each run writes a paragraph on what the findings show taken together and points to weigh before deciding, and a second check confirms every sentence before it prints.",
+        "Investment Due Diligence ends its summary by saying the report sets out evidence from the code and is not advice on whether to invest.",
+        "A long list of folders now shows five, with every folder listed in an appendix, and no status label on a report wraps onto a second line."
+      ]
+    },
+    {
       "version": "0.74.0",
       "date": "2026-10-05",
       "notes": [
