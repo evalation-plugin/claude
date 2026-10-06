@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "0.76.3",
+      "date": "2026-10-06",
+      "notes": [
+        "A list that runs across two pages of the executive summary now keeps at least three of its rows on each page, so no row sits alone."
+      ]
+    },
+    {
       "version": "0.76.2",
       "date": "2026-10-06",
       "notes": [
