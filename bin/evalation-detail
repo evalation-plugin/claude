@@ -330,9 +330,10 @@ function executive(document) {
     .map((one) => ({ id: one.id, title: one.title || one.finding || "", label: one.sev, colour: SEVERITY[one.sev] ?? CHROME.faint }));
   return summary({
     purpose: String(document.purpose ?? "").trim(),
-    shows: [told.lead, told.where_risk, told.what_it_takes, told.bottom_line],
-    columns: sevs.map((sev) => ({ key: sev, label: sev, colour: SEVERITY[sev] ?? CHROME.faint })),
-    rows: (document.categories ?? []).map((one) => ({ title: one.name, counts: countsOf(one.findings ?? []) })),
+    shows: [told.lead, told.where_risk, told.what_it_takes],
+    columns: sevs.map((sev) => ({ key: sev, label: sev, colour: SEVERITY[sev] ?? CHROME.faint, apart: sev === "Positive" })),
+    rows: (document.categories ?? []).map((one) => ({ title: one.name, counts: countsOf(one.findings ?? []) }))
+      .sort((a, b) => ORDER.reduce((found, sev) => found || (b.counts[sev] ?? 0) - (a.counts[sev] ?? 0), 0)),
     serious,
     none: said("detail.summary-none"),
   });

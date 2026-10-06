@@ -50,7 +50,7 @@ const detailSheets = () => {
   const { synthesise } = require("../lib/synthesise.js");
   const document = run(tree);
   document.packs[1].description = PURPOSE;
-  document.findings = ["critical", "high", "medium", "low"].map((severity, at) => ({ pack: "hardening", concern: "SEC01", severity,
+  document.findings = ["critical", "high", "medium", "low", "positive"].map((severity, at) => ({ pack: "hardening", concern: "SEC01", severity,
     title: `Weakness ${at + 1}`, observed: "Input reaches a query unescaped.", required: "Escape it.",
     at: { path: "src/auth.js", from: 1, to: 1, quote: "if (!req.session)", grade: "executable" } }));
   return sheetsOf(detailPage(synthesise(reviewFindings(document))));
@@ -84,6 +84,29 @@ test("a summary with more serious items than its page holds lists those that fit
   assert.strictEqual(listed + more, 50);
   assert.doesNotMatch(sheets[0], /data-cut=/);
   assert.match(sheets[1], /class="facts"/);
+});
+
+test("a summary with more sections than its page holds folds the last into one row, keeps every count, and stays on one page", () => {
+  const document = standard(30, 30, 30);
+  const pack = document.packs[0];
+  pack.description = PURPOSE.repeat(6);
+  pack.sections = Array.from({ length: 30 }, (_, at) => ({ identifier: `S${at + 1}`, title: `Section ${at + 1}` }));
+  pack.entries_asked.forEach((one, at) => { one.section = `S${(at % 30) + 1}`; });
+  const sheet = reportSheets(document)[0];
+  assert.doesNotMatch(sheet, /data-cut=/);
+  const shown = (sheet.match(/<tr data-section="/g) ?? []).length;
+  const folded = Number((sheet.match(/<tr data-others="(\d+)"/) ?? [])[1]);
+  assert.ok(shown >= 4 && folded > 0, `${shown} sections shown, ${folded} folded`);
+  assert.strictEqual(shown + folded, 30);
+  const totals = [...sheet.match(/<tr class="total">([\s\S]*?)<\/tr>/)[1].matchAll(/<td[^>]*>(\d+)<\/td>/g)].map((one) => Number(one[1]));
+  assert.strictEqual(totals.at(-1), 90);
+  assert.ok((sheet.match(/<li data-entry="/g) ?? []).length >= 1);
+});
+
+test("the findings detail's total counts weaknesses and leaves out the controls found working", () => {
+  const sheet = detailSheets()[0];
+  const totals = [...sheet.match(/<tr class="total">([\s\S]*?)<\/tr>/)[1].matchAll(/<td[^>]*>(\d+)<\/td>/g)].map((one) => Number(one[1]));
+  assert.strictEqual(totals.at(-1), 4);
 });
 
 test("a summary with few serious items spreads to fill its page", () => {
