@@ -107,6 +107,21 @@ test("a summary too long for one page takes two, each filled, with the most seri
   assert.strictEqual(listed + more, 70);
 });
 
+test("a summary whose purpose and section table outgrow page 1 carries the table on to page 2, and no page is cut", () => {
+  const document = standard(40, 30, 10);
+  const pack = document.packs[0];
+  pack.description = PURPOSE.repeat(7);
+  pack.sections = Array.from({ length: 30 }, (_, at) => ({ identifier: `S${at + 1}`, title: `Guidelines for section ${at + 1} of the manual` }));
+  pack.entries_asked.forEach((one, at) => { one.section = `S${(at % 30) + 1}`; });
+  const sheets = reportSheets(document);
+  for (const sheet of sheets.slice(0, 3)) assert.doesNotMatch(sheet, /data-cut=/);
+  const summary = sheets.slice(0, 2).join("");
+  const shown = (summary.match(/<tr data-section="/g) ?? []).length;
+  const folded = Number((summary.match(/<tr data-others="(\d+)"/) ?? [0, 0])[1]);
+  assert.strictEqual(shown + folded, 30);
+  assert.match(summary, /data-part="serious"/);
+});
+
 test("page 1 of a two-page summary never ends on one or two serious items", () => {
   for (let count = 26; count <= 34; count += 1) {
     const document = standard(40, 30, 10);
