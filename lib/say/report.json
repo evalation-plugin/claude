@@ -13,6 +13,7 @@
   "report.work-title": { "say": "The work done" },
   "report.summary-shows": { "say": "Of the <total> <nouns> asked: <covered> covered, <partial> partly covered and <gap> not covered." },
   "report.summary-rest": { "count": "count", "say": { "one": "One more is for the organisation to answer, needs a running system or doesn't apply.", "many": "<count> more are for the organisation to answer, need a running system or don't apply." } },
+  "report.closing-investment-diligence": { "say": "This report sets out evidence from the code and is not advice on whether to invest." },
   "report.summary-none": { "say": "No <noun> is a gap or partly covered." },
   "report.work-read": { "say": "We read <whole> and answered <read> of the <total> <nouns> from <its> code and files. Each answer cites the lines it rests on, or, for something missing, the search that didn't find it." },
   "report.work-organisation": { "count": "count", "say": {
