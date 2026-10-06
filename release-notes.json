@@ -1,6 +1,16 @@
 {
   "releases": [
     {
+      "version": "0.76.0",
+      "date": "2026-10-06",
+      "notes": [
+        "A report you paid for now always prints when its pages are whole, and spelling, such as a file name in your code, never stops it.",
+        "When one report can't be printed, the others from the same run still are, and the message names each one written.",
+        "Printing again now writes and checks any executive summary the run left out, at no cost in pack credits.",
+        "Large packs, such as the Australian ISM, now get their executive summary written and checked in full."
+      ]
+    },
+    {
       "version": "0.75.0",
       "date": "2026-10-06",
       "notes": [
