@@ -101,6 +101,8 @@ test("a summary too long for one page takes two, each filled, with the most seri
   assert.strictEqual((sheets[0].match(/<tr data-section="/g) ?? []).length, 20);
   assert.match(sheets[1], /data-part="serious"/);
   assert.doesNotMatch(sheets[1], /class="facts"/);
+  const first = (sheets[0].match(/<li data-entry="/g) ?? []).length;
+  assert.ok(first === 0 || first >= 3, `page 1 ends on ${first} serious items`);
   assert.match(sheets[2], /class="facts"/);
   const listed = sheets.slice(0, 2).reduce((sum, one) => sum + (one.match(/<li data-entry="/g) ?? []).length, 0);
   const more = Number((sheets[1].match(/data-more="(\d+)"/) ?? [0, 0])[1]);
