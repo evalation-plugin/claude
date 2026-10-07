@@ -57,6 +57,6 @@ for (const [command, document] of [["evalation-deck", () => synthesise(reviewFin
     assert.strictEqual(ran.status, 1, `exit ${ran.status}: ${ran.stderr}`);
     assert.match(ran.stderr, /wasn't written, because its pages failed the check before printing/);
     assert.doesNotMatch(ran.stderr, /\n\s+at /, "a stack trace reached the person");
-    assert.deepStrictEqual(heldIn(home).map((one) => one.failure), [], "a refused page was reported as a crash");
+    assert.deepStrictEqual(heldIn(home).map((one) => one.failure), ["run-stopped"], "a refused page was reported as a crash, or not at all");
   });
 }
