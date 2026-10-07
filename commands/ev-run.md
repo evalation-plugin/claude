@@ -373,6 +373,7 @@ and each answer's label says what choosing it does.
    evalation-read <target> outline <path>
    evalation-read <target> read <path> [from] [to]
    evalation-read <target> scan
+   evalation-read <target> history <path>
    ```
 
    **Start with `map`.** It says what the tree holds, what it is written in, which files are largest

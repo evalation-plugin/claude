@@ -24,7 +24,8 @@ const errors = require("../lib/errors.js");
 const { raised } = errors;
 
 const { readFileSync, realpathSync, statSync } = require("node:fs");
-const { extname, join, relative, resolve, sep } = require("node:path");
+const { execFileSync } = require("node:child_process");
+const { dirname, extname, join, relative, resolve, sep } = require("node:path");
 
 const { fenced: fence, plain } = require("../lib/fence.js");
 const { newestFor, said } = require("../lib/scans.js");
@@ -339,6 +340,27 @@ function read(root, path, from, to) {
   );
 }
 
+function history(root, path) {
+  const at = within(root, path);
+  const shown = inRepository(root, at);
+  let log;
+  try {
+    log = execFileSync("git", ["-C", dirname(at), "log", "--no-merges", "-n", "50", "--format=%x1e%h %as %s", "--name-only", "--full-diff", "--", at],
+      { encoding: "utf8", maxBuffer: 8 * 1024 * 1024, stdio: ["ignore", "pipe", "ignore"] });
+  } catch {
+    return plain(`${shown}: no git history, since this tree is not a git repository or git is not installed.`);
+  }
+  const top = execFileSync("git", ["-C", dirname(at), "rev-parse", "--show-toplevel"], { encoding: "utf8" }).trim();
+  const own = relative(realpathSync(top), realpathSync(dirname(at))).split(sep).concat(at.split(sep).pop()).filter(Boolean).join("/");
+  const out = log.split("\x1e").map((one) => one.trim()).filter(Boolean).map((one) => {
+    const [head, ...files] = one.split("\n").map((line) => line.trim()).filter(Boolean);
+    const others = files.filter((file) => file !== own);
+    const listed = others.slice(0, 20).join(", ") + (others.length > 20 ? ` and ${others.length - 20} more` : "");
+    return `${head}\n    also changed: ${others.length ? listed : "nothing else"}`;
+  });
+  return paged(out.length ? out : ["no commit changed this file"], `${shown}, the commits that changed it, newest first`);
+}
+
 function numbered(held, from) {
   return held.map((line, n) => `${String(from + n).padStart(6)}  ${line}`).join("\n");
 }
@@ -388,6 +410,7 @@ const USAGE = `usage: evalation-read <target> <verb> [...]
   outline <path>               what one file defines, and at which line
   read <path> [from] [to]      a range of one file, or the whole of a short one
   scan                         what the scanners found, where one was run
+  history <path>               the commits that changed one file, and what else each changed
 `;
 
 function main() {
@@ -414,6 +437,7 @@ function main() {
     outline: () => outline(root, rest[0]),
     read: () => read(root, rest[0], rest[1], rest[2]),
     scan: () => scan(root),
+    history: () => history(root, rest[0]),
   };
 
   const answer = answers[verb];
@@ -421,7 +445,7 @@ function main() {
     process.stderr.write(`no verb ${JSON.stringify(verb)}.\n\n${USAGE}`);
     process.exit(2);
   }
-  if ((verb === "outline" || verb === "read") && !rest[0]) {
+  if ((verb === "outline" || verb === "read" || verb === "history") && !rest[0]) {
     fail(`${verb} needs a path`);
   }
   if (verb === "search" && !rest[0]) fail("search needs a pattern");
@@ -429,7 +453,7 @@ function main() {
   process.stdout.write(`${answer()}\n`);
 }
 
-module.exports = { fenced, plain, map, list, search, found, outline, read };
+module.exports = { fenced, plain, map, list, search, found, outline, read, history };
 
 if (require.main === module) {
   try {
