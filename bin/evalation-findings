@@ -26,7 +26,7 @@ const { dirname, join, resolve, relative, isAbsolute } = require("node:path");
 const { pluginHome } = require("../lib/home.js");
 
 const { cardOf, cardWorst, newestFor, phasesRead, settled: scanSays } = require("../lib/scans.js");
-const { facing, held, own } = require("../lib/prose.js");
+const { facing, own, readingHeld } = require("../lib/prose.js");
 const { fenced } = require("../lib/fence.js");
 const { infrastructureIn } = require("../lib/infrastructure.js");
 const { placeOf, solutionOf } = require("../lib/solution.js");
@@ -446,7 +446,7 @@ function checked(document, where) {
     if (credentialIn(field.text)) {
       said.push(`${field.at}: holds what looks like a credential. Name the setting and never its value`);
     }
-    for (const rule of held(field.text)) {
+    for (const rule of readingHeld(field.text)) {
       said.push(`${field.at}: ${rule}. This is read by somebody deciding what to do about it, so ` +
         `it holds to the writing standard: ${JSON.stringify(field.text.trim().slice(0, 90))}`);
     }
@@ -823,7 +823,7 @@ function partChecked(served, n, part, where) {
 
 /** The answer format, from the lists this checker holds, so what a reader is told is what is checked. */
 function shape() {
-  const { RULES, WRITING_STANDARD } = require("../lib/prose.js");
+  const { READING_RULES, RULES, WRITING_STANDARD } = require("../lib/prose.js");
   return [
     "An answers document holds the run's facts, its packs, and three lists a reading writes:",
     "answers (a standard's, one per entry), findings and accounted (a concern set's). Build the whole",
@@ -902,7 +902,7 @@ function shape() {
     "",
     "Every sentence a customer reads (because, justification, remedy, observed, required, title):",
     `  ${WRITING_STANDARD}`,
-    `  Refused where a machine can tell: ${RULES.map((one) => one.rule).join(", ")}, a credential,`,
+    `  Refused where a machine can tell: ${[...RULES, ...READING_RULES].map((one) => one.rule).join(", ")}, a credential,`,
     "  and an entry of another pack named by its identifier, since each pack is delivered on its own.",
     "  Anything in backticks or double quotes is the repository's own and is left alone.",
   ].join("\n");
