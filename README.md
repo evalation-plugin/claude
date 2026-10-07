@@ -117,9 +117,12 @@ these fields and nothing else:
   swapped for a placeholder, or none
 - `place`: the plugin file and line it happened at, such as `bin/evalation-run:412`, or none
 - `remedy`: the change to Evalation that fixes the fault, written by us, where the plugin knows it, or none
+- `text`: where a command refused what it was given or a run stopped, the whole refusal, up to 2,000
+  characters, scrubbed the same way as `subject` with anything in double quotes swapped too, or none
 
-A report never holds your code, a file's contents, a path on your machine, a repository's name, a
-question you wrote or a finding. Being signed out, out of pack credits, offline or saying no to a
+A report never holds a file's contents, a path on your machine, a repository's name, quoted text or
+a word that looks like code. The `text` of a refusal can hold plain words from what was refused, such
+as a finding's wording where the refusal names it. Being signed out, out of pack credits, offline or saying no to a
 question isn't reported. A report that can't be sent waits on your machine and goes with your next
 Evalation command. Reporting never changes what a command does or says, and there's no setting to
 turn it off.

@@ -15,7 +15,7 @@ require("./fixture.js");
 const ROOT = join(__dirname, "..");
 const BIN = join(ROOT, "bin");
 const ERRORS = join(ROOT, "lib", "errors.js");
-const FIELDS = ["engine", "failure", "place", "remedy", "revision", "source", "subject"];
+const FIELDS = ["engine", "failure", "place", "remedy", "revision", "source", "subject", "text"];
 const ELSEWHERE = join(tmpdir(), "anna", "acme");
 
 function firstLoads(file) {
