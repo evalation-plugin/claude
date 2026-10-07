@@ -197,5 +197,6 @@ fetch(`${base}${path}`, {
   })
   .catch((thrown) => {
     clearTimeout(bell);
+    errors.quiet();
     fail(`unreachable: ${base}${path} (${thrown.message})`);
   });
