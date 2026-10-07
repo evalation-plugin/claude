@@ -1,6 +1,15 @@
 {
   "releases": [
     {
+      "version": "0.77.0",
+      "date": "2026-10-07",
+      "notes": [
+        "Reports state what the code shows and never speak as \"I\" or \"we\".",
+        "The claims check can read a file's git history, so a claim about when a file changed is checked against its commits.",
+        "When a command refuses what it was given, or a run stops, the plugin tells Evalation why, with every path, name and number taken out, so the fault gets fixed without you having to report it."
+      ]
+    },
+    {
       "version": "0.76.4",
       "date": "2026-10-06",
       "notes": [
