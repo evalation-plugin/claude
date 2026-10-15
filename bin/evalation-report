@@ -650,7 +650,7 @@ function main() {
       const out = join(folder, `${reviewName(document, pack)} Evidence Pack.pdf`);
       let done;
       try {
-        done = print(page(alone, own, asked), `${out.replace(/\.pdf$/, "")}.html`, out, { run: document.run },
+        done = print(page(alone, own, asked), `${out.replace(/\.pdf$/, "")}.html`, out, { run: document.run, packs: [pack], report: "evidence-pack" },
           readingOf(document));
       } catch (thrown) {
         if (!thrown?.file) throw thrown;
