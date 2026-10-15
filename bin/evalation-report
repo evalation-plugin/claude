@@ -266,9 +266,9 @@ function entry(answer, asked, pack, scan) {
 <span class="id">${escaped(clause?.shown ?? answer.entry)}</span>
 <span class="ttl">${escaped(clause?.title ?? "")}</span>
 ${marker}
-<span class="tag">${tag}</span>
 <span class="pill" style="background:${colour}">${escaped(named(answer.status))}</span>
 </div>
+${tag ? `<p class="bears">${tag}</p>` : ""}
 <div class="body">${body}</div>
 </article>`;
 }
