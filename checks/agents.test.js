@@ -22,9 +22,6 @@ test("an Evalation agent runs one Evalation command", () => {
   assert.ok(bash("${CLAUDE_PLUGIN_ROOT}/bin/evalation-findings group /s/run.json 2").allowed);
   assert.ok(bash("/x/bin/evalation-findings part /s/run.json 2 - /repo <<'EOF'\n{\"answers\":[]}\nEOF").allowed);
   assert.ok(bash("/x/bin/evalation-verify record /f.json 3 <<'EOF'\nROW 1: CONFIRMED | holds\nEOF").allowed);
-  assert.ok(bash("${CLAUDE_PLUGIN_ROOT}/bin/evalation-findings fact-group /s/run.json 1").allowed);
-  assert.ok(bash("/x/bin/evalation-findings fact-part /s/run.json 1 - /repo <<'EOF'\n{\"facts\":[]}\nEOF").allowed);
-  assert.ok(!bash("/x/bin/evalation-findings settle /s/run.json").allowed, "settling is the session's");
 });
 
 test("an Evalation agent is refused anything else, with the reason", () => {

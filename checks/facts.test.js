@@ -148,6 +148,15 @@ test("a part that leaves a fact out, adds one, or gives no account is refused, a
   assert.strictEqual(left(made.run), 8);
 });
 
+test("the reader agent prints a group of facts and hands in its rows, and settling stays the session's", () => {
+  const gate = (command) => spawnSync(process.execPath, [join(BIN, "evalation-gate")], { encoding: "utf8", input: JSON.stringify({
+    hook_event_name: "PreToolUse", tool_name: "Bash", tool_input: { command }, agent_type: "evalation-plugin:reader", agent_id: "a-1", cwd: "/repo" }) }).status === 0;
+  assert.ok(gate("${CLAUDE_PLUGIN_ROOT}/bin/evalation-findings fact-group /s/run.json 1"));
+  assert.ok(gate("/x/bin/evalation-findings fact-part /s/run.json 1 - /repo <<'EOF'\n{\"facts\":[]}\nEOF"));
+  assert.ok(!gate("/x/bin/evalation-findings settle /s/run.json"));
+  assert.ok(!gate("/x/bin/evalation-findings facts /s/run.json"));
+});
+
 test("the findings check accepts an answer from a fact settled as not holding, and refuses one whose fact was not", () => {
   const made = started();
   settledWith(made, [denied(AD), held(CLASSIFIED), held(SSH), unknown(WIRELESS)]);
