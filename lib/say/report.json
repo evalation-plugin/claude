@@ -20,6 +20,9 @@
     "one": "The other <noun> is about how the organisation runs. A repository doesn't record that, so the report marks it for the organisation to answer.",
     "many": "The other <count> <nouns> are about how the organisation runs. A repository doesn't record that, so the report marks each one for the organisation to answer."
   } },
+  "report.left-org": { "count": "count", "say": { "one": "one <noun> for the organisation to answer", "many": "<count> <noun> for the organisation to answer" } },
+  "report.left-na": { "count": "count", "say": { "one": "one <noun> that doesn't apply", "many": "<count> <noun> that don't apply" } },
+  "report.left-out": { "say": "You asked to leave out <counts>. The counts on this page still include them, and Evalation Findings.json holds each answer." },
   "report.not-in-force": { "say": "<title> isn't in force, so the pack answers it." },
   "report.no-duty": { "say": "<title> places no duty a repository could meet, so the pack answers it." },
   "report.unsigned": { "say": "Signature missing, document cannot be verified" },

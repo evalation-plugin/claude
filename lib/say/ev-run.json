@@ -158,6 +158,11 @@
       { "label": "Read them as they are", "description": "The report describes these branches." },
       { "label": "Stop, so I can switch them to main", "description": "Nothing is read. Switch them, then run /ev-run again." }
     ] },
+  "ev-run.leave-out": { "ask": "Leave out <counts> from the reports?", "header": "Leave out",
+    "options": [
+      { "label": "Leave them out", "description": "The reports skip them and say so on the main page. Your findings file keeps every one, and /ev-run print can print them later with no pack credits." },
+      { "label": "Print every clause", "description": "The reports print all of them and run longer." }
+    ] },
   "ev-run.copies-each": { "say": "The newest change in <repository> is from <date>." },
   "ev-run.copies": { "ask": "Read these copies as they are?", "header": "Copies",
     "options": [
