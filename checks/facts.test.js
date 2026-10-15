@@ -6,7 +6,7 @@ const { spawnSync } = require("node:child_process");
 const { existsSync, mkdtempSync, readFileSync, writeFileSync } = require("node:fs");
 const { tmpdir } = require("node:os");
 const { join } = require("node:path");
-const { home, repository } = require("./fixture.js");
+const { found, home, repository } = require("./fixture.js");
 const { served } = require("../bin/evalation-run");
 
 const BIN = join(__dirname, "..", "bin");
@@ -35,7 +35,7 @@ const packs = () => [
   { pack: "other", kind: "standard", body: { pack: "other", kind: "standard", title: "Another Standard", entries: [entry("B1", [AD]), entry("B2")] } },
 ];
 
-const cite = { path: "src/auth.js", from: 1, to: 2, quote: "if (!req.session)", grade: "executable" };
+const cite = found().evidence[0];
 const denied = (fact) => ({ fact, result: "does-not-hold", searched: "Looked in the code and the settings for it and found none." });
 const held = (fact) => ({ fact, result: "holds", evidence: [cite] });
 const unknown = (fact) => ({ fact, result: "cannot-tell", searched: "Looked in the repository and its settings, and the code does not show it either way." });
@@ -44,7 +44,7 @@ function started(list = packs()) {
   const tree = repository();
   const folder = mkdtempSync(join(tmpdir(), "evalation-facts-"));
   const run = join(folder, "run.json");
-  writeFileSync(run, JSON.stringify({ ...served({ run: "run-facts", packs: list, revision: "1.99", skill: "Read the repository.", remaining: 9, rubrics: [] }, [], tree),
+  writeFileSync(run, JSON.stringify({ ...served({ run: "run-facts", packs: list, revision: "1.99", skill: "Settle each fact, then read.", remaining: 9, rubrics: [] }, [], tree),
     target: { repository: "acme/app", path: tree } }));
   return { tree, folder, run };
 }
@@ -75,6 +75,10 @@ test("a malformed facts field is refused where it is read, with its cause and it
       return true;
     });
   }
+  const two = packs();
+  two[0].body.entries[0].facts = [AD, AD];
+  two[1].body.entries[0].facts = "Does it?";
+  assert.throws(() => served({ run: "r", packs: two, revision: "1.99" }, [], null), /Entry A1 of the ism pack names one fact twice.*Entry B1 of the other pack names its facts/, "every faulty entry is named at once");
   const made = started();
   const document = JSON.parse(readFileSync(made.run, "utf8"));
   document.to_read[0].entries[0].facts = "Does it?";
