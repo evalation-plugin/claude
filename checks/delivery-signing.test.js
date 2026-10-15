@@ -9,12 +9,9 @@ const { mkdirSync, mkdtempSync, writeFileSync } = require("node:fs");
 const { tmpdir } = require("node:os");
 const { join } = require("node:path");
 const { repository, run, scanned } = require("./fixture.js");
-const { browser } = require("../lib/print.js");
 
 const tree = repository();
 scanned(tree, []);
-
-const NO_BROWSER = browser() ? false : "uncovered: no browser is installed, so no report is printed to be signed";
 
 function machine() {
   const home = mkdtempSync(join(tmpdir(), "evalation-delivery-"));
@@ -66,14 +63,14 @@ async function signedBy(command) {
   return { done, asked };
 }
 
-test("an evidence pack is signed naming its pack and the evidence-pack kind", { skip: NO_BROWSER }, async () => {
+test("an evidence pack is signed naming its pack and the evidence-pack kind", async () => {
   const { done, asked } = await signedBy("evalation-report");
   assert.strictEqual(done.status, 0, done.stderr);
   assert.deepStrictEqual(asked, [{ run: "run-check", packs: ["soc2"], report: "evidence-pack" }],
     "bin/evalation-report must seal each evidence pack with its pack id and the kind evidence-pack, as lib/print.js signatureFor sends them");
 });
 
-test("a concern set's review pack and review detail are each signed naming the concern set and their own kind", { skip: NO_BROWSER }, async () => {
+test("a concern set's review pack and review detail are each signed naming the concern set and their own kind", async () => {
   const { done, asked } = await signedBy("evalation-deliver");
   assert.strictEqual(done.status, 0, done.stderr);
   assert.deepStrictEqual(asked, [
