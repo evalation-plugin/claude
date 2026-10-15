@@ -289,5 +289,10 @@
   "ev-run.done-medium": { "say": "<count> medium" },
   "ev-run.done-low": { "say": "<count> low" },
   "ev-run.done-info": { "say": "<count> informational" },
-  "ev-run.done-folder": { "say": "The reports are in this folder:\n<folder>" }
+  "ev-run.done-folder": { "say": "The reports are in this folder:\n<folder>" },
+  "ev-run.reader-handed": { "say": "Part <part> is handed in." },
+  "ev-run.verifier-handed": { "say": "Batch <batch> is handed in." },
+  "ev-run.corrector-handed": { "say": "Group <group> is handed in." },
+  "ev-run.unconfirmed": { "say": "<id> stays marked asserted: <why>" },
+  "ev-run.unconfirmed-bare": { "say": "<id> stays marked asserted." }
 }

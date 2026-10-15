@@ -21,3 +21,7 @@ EOF
 
 The shell runs these Evalation commands one at a time and nothing else, so never try another command
 or chain two.
+
+Where the command answers with a `said` line, your last reply is that line, copied exactly, and
+nothing else. The verdicts are already in their file, so write no summary, verdict or note. Where it
+names rows still missing, answer those rows again first.

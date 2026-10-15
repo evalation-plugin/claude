@@ -29,6 +29,7 @@ require("../lib/errors.js");
 const { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, statSync, writeFileSync } = require("node:fs");
 const { join, resolve } = require("node:path");
 const { fenced } = require("./evalation-read");
+const { line } = require("../lib/run-say.js");
 
 // Rows in one batch: the cited lines of each fit beside each other in one reading.
 const ROWS = Number(process.env.EVALATION_VERIFY_ROWS || 12);
@@ -310,7 +311,13 @@ function record(source, n, said) {
   keep(planOf(source), held);
   const every = answered(source);
   const missing = ids.map((id, i) => ({ id, row: i + 1 })).filter((one) => !every[one.id]).map((one) => one.row);
-  return { batch: n, answered: ids.length - missing.length, missing, asked: held.asked[n - 1], may_ask_again: missing.length > 0 && held.asked[n - 1] < ASKS };
+  return { batch: n, answered: ids.length - missing.length, missing, asked: held.asked[n - 1], may_ask_again: missing.length > 0 && held.asked[n - 1] < ASKS,
+    ...(missing.length === 0 ? { said: line("ev-run.verifier-handed", { batch: String(n) }) } : {}) };
+}
+
+function unconfirmed(source) {
+  return claims(readJson(source, "findings")).filter((one) => one.item.verification && one.item.verification.verdict !== "confirmed")
+    .map((one) => (one.item.verification.why ? line("ev-run.unconfirmed", { id: one.id, why: one.item.verification.why }) : line("ev-run.unconfirmed-bare", { id: one.id })));
 }
 
 function apply(source, model) {
@@ -526,7 +533,7 @@ function correct(source, n, file) {
   const said = [...done.refused, ...checked(focusOf(copy, ids), held.tree)];
   if (said.length > 0) fail(`observed: ${said.length} thing${said.length === 1 ? "" : "s"} in correction ${n} to fix:\n  ${said.join("\n  ")}`);
   keep(correctionPart(source, n), part);
-  return { group: n, corrected: done.corrected, withdrawn: done.withdrawn, stands: done.stands };
+  return { group: n, corrected: done.corrected, withdrawn: done.withdrawn, stands: done.stands, said: line("ev-run.corrector-handed", { group: String(n) }) };
 }
 
 function applyCorrections(source) {
@@ -561,6 +568,11 @@ function main() {
   }
   if (verb === "correct" && source && Number(third) >= 1 && process.argv[5]) {
     process.stdout.write(JSON.stringify(correct(source, Number(third), process.argv[5]), null, 2) + "\n");
+    return;
+  }
+  if (verb === "unconfirmed" && source) {
+    const said = unconfirmed(source);
+    if (said.length > 0) process.stdout.write(`${said.join("\n")}\n`);
     return;
   }
   if (verb === "corrected" && source) {

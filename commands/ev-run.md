@@ -64,6 +64,13 @@ and ask the question it prints with AskUserQuestion, passing its questions uncha
 once, then the rest. Never write a line, a question, a label or a description yourself. An answer
 the person types in place of the options is their answer.
 
+**A worker hands back one line, and the run says one line for it and nothing more.** Each reader,
+verifier, corrector, summary writer and summary checker ends with a single line that a command
+printed. Show the catalogue line the steps below name for a reader and for a verifier, and nothing
+for the others, and write nothing of your own about what any worker read, checked, found or fixed, since all of that is already in the files the commands
+keep. What a stage came to is shown once, at its end, from the output of the command the step
+names, and never from a worker's reply.
+
 **Before each long stage, say in one line what it is and that it takes a while**, with the line the
 step names. Never give a duration, a usage figure or a count of parts: nobody has measured them, and a
 number the person cannot place tells them nothing. Otherwise say nothing while readers, checkers or
@@ -563,6 +570,10 @@ and each answer's label says what choosing it does.
    Then say what the checking came to with `evalation-run --say tally <n> <v> <c> <w>`. Take <n> from
    the first `apply`, all four of its counts added together, <v> from `verified` added over every
    `apply`, and <c> and <w> from `corrected` and `withdrawn` added over every `corrected`.
+
+   Then run `evalation-verify unconfirmed <written>` and show each line it prints as printed. It
+   prints one line for each claim that stays marked asserted, and nothing where every claim held.
+   This is the only place the claims not confirmed are named.
 
 9. **Score it**, for a pack that is scored.
 

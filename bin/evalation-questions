@@ -234,7 +234,7 @@ function main() {
     const { refused, unchecked } = verdict(HOME, read(arg), readFileSync(0, "utf8"), CRITERIA, flags[0]);
     const said = [["Answer these again:", refused], ["Still to answer:", unchecked]]
       .filter(([, rows]) => rows.length > 0).map(([head, rows]) => `${head}\n  ${rows.join("\n  ")}\n`).join("");
-    process.stdout.write(said || "Recorded.\n");
+    process.stdout.write(said || `${say(lines(), "ev-questions.checker-handed")}\n`);
   } else {
     fail("usage: evalation-questions folder | check <file> | criteria | packs | choose-action | choose-set [page] [--delete] | delete <name> | choose-pack [page] | pack-named <typed> | choose-claims <file> | choose-name <name> <name> | show <file> | approve <file> |grid <file> [Qn] | verdict <file> [Qn] (answers on stdin) | save <file> [--replace] [--unchecked] | list [--plain] | path <name> [--run] | draft <name> | keep-on-account <name> | drop-from-account <name>");
   }

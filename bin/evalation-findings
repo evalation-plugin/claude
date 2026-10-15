@@ -977,7 +977,7 @@ function verbs(argv) {
     // A part handed on standard input is kept beside the run once it holds, so a reader holding no
     // tool to write files leaves its part where the merge reads it.
     if (file === "-") writeFileSync(join(dirname(resolve(run)), `part-${Number(n)}.json`), JSON.stringify(part, null, 2) + "\n");
-    process.stdout.write(`part ${n} holds: ${(part.answers ?? []).length} answers, ${(part.findings ?? []).length} findings, ${(part.accounted ?? []).length} accounted\n`);
+    process.stdout.write(`part ${n} holds: ${(part.answers ?? []).length} answers, ${(part.findings ?? []).length} findings, ${(part.accounted ?? []).length} accounted\n${line("ev-run.reader-handed", { part: String(Number(n)) })}\n`);
     return true;
   }
   if (verb === "merge") {
