@@ -16,7 +16,7 @@ const { resolve, sep } = require("node:path");
 const OURS = /^evalation-plugin:/;
 // The verbs an agent's task names, and none that write the run: merging, applying and delivering are
 // the session's.
-const COMMANDS = /^\s*\S*evalation-(read\s|findings\s+(group|part|methodology|shape)\b|verify\s+(grid|record|correction|correct)\b|questions\s+(grid|verdict)\b|summary\s+(brief|write|grid|record)\b)/;
+const COMMANDS = /^\s*\S*evalation-(read\s|findings\s+(group|part|fact-group|fact-part|methodology|shape)\b|verify\s+(grid|record|correction|correct)\b|questions\s+(grid|verdict)\b|summary\s+(brief|write|grid|record)\b)/;
 const VERDICT = /evalation-questions\s+verdict\b/;
 const CHECKER = "evalation-plugin:question-checker";
 const SUMMARY_ONLY = [

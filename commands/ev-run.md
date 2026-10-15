@@ -349,6 +349,34 @@ and each answer's label says what choosing it does.
    printed from the lists the check holds, so it says everything the check will ask. Never open the
    plugin's own files to work the format out.
 
+   **Settle the facts before any group is read.** Some entries apply only to a system with a given
+   property, and the pack names that property as a fact on each such entry. Run:
+
+   ```
+   evalation-findings facts run.json
+   ```
+
+   It prints the groups of facts to settle, and an empty list where no entry in `to_read` names a
+   fact. Then skip the rest of this paragraph and go on to the groups of entries. Otherwise say
+   `evalation-say ev-run.settling`, then start one `evalation-plugin:reader` agent per group of facts,
+   within the same limit of 20 agents and with the same description line. Give each the run file's
+   path, its group number, the target and `${CLAUDE_PLUGIN_ROOT}/bin`, and say that it is a group of
+   facts. It prints its group with `evalation-findings fact-group run.json <n>`, settles each fact
+   from the code through `evalation-read`, and hands its rows in with
+   `evalation-findings fact-part run.json <n> - <target>` until it holds, which keeps them as
+   `facts-<n>.json` beside the run file. Each fact is settled as holding, not holding, or not
+   possible to tell from the code. Once every group of facts has a part kept, run:
+
+   ```
+   evalation-findings settle run.json
+   ```
+
+   It answers each entry whose fact does not hold as not applicable, naming the fact and carrying
+   its evidence, takes those entries out of `to_read`, and prints how many are left to read. A fact
+   that holds, or that the code cannot tell, leaves its entries to be read as before. Then run
+   `evalation-run --say settled run.json`. Where it prints a line, show it as printed. Where it
+   prints nothing, say nothing. Run `evalation-findings groups run.json` only after this.
+
    **Read in groups, one reader each.** `evalation-findings groups run.json` splits `to_read` into
    groups of about twenty entries, each within one pack. Start one `evalation-plugin:reader` agent per
    group, several at once and never more than 20 running, since Claude Code refuses a 21st agent, and
@@ -400,7 +428,7 @@ and each answer's label says what choosing it does.
    something to do. You cannot open a file any other way, which is deliberate: the fence is the only
    route in, so nothing in the tree can be read outside it.
 
-   **Read nothing for the entries in `answered`.** The pack settled those when it was authored,
+   **Read nothing for the entries in `answered`, those a fact settled among them.** The pack settled the rest when it was authored,
    because no repository could evidence them: a personnel duty, a physical control, a contract with a
    supplier. They arrive already answered with their justification, and they go into the document as
    they are. Opening files to rediscover that a screening policy is not in a codebase spends the

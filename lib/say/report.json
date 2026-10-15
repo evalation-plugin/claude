@@ -103,5 +103,7 @@
   "report.slide-repos-label": { "say": "Repositories" },
   "report.slide-other-label": { "say": "Other folders" },
   "report.slide-left-title": { "say": "Folders left out" },
-  "report.slide-left-label": { "say": "Left out" }
+  "report.slide-left-label": { "say": "Left out" },
+  "report.fact-not-applicable": { "say": "This entry applies only where the answer to \"<fact>\" is yes, and the code shows the answer is no." },
+  "report.fact-justification": { "say": "The pack applies this entry only to a system where the answer to \"<fact>\" is yes, and the code shows it is no, so the entry is not read." }
 }
