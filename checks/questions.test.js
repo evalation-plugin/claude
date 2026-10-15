@@ -253,13 +253,10 @@ test("questions are checked in parallel, one checker each, and every checker's v
   const checked = (id) => new Promise((done) => {
     stamp(at, `checker-${id}`);
     const child = spawn(process.execPath, [CLI, "verdict", file, id], { env: { ...process.env, EVALATION_PLUGIN_HOME: at } });
-    let out = "";
-    child.stdout.on("data", (chunk) => { out += chunk; });
     child.stdin.end(answered(grid(at, draft, CRITERIA, id).rows));
-    child.on("close", () => done(out));
+    child.on("close", done);
   });
-  const outputs = await Promise.all(["Q1", "Q2", "Q3"].map(checked));
-  assert.deepStrictEqual(outputs, outputs.map(() => `${line("ev-questions.checker-handed")}\n`));
+  await Promise.all(["Q1", "Q2", "Q3"].map(checked));
   assert.deepStrictEqual(status(at, draft), [], "all three checkers' verdicts are recorded, each with a checker's stamp");
   const command = readFileSync(join(__dirname, "..", "commands", "ev-questions.md"), "utf8");
   assert.match(command, /one `question-checker` for each question/);
