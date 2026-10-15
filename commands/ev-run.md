@@ -66,8 +66,8 @@ the person types in place of the options is their answer.
 
 **A worker hands back one line, and the run says one line for it and nothing more.** Each reader,
 verifier, corrector, summary writer and summary checker ends with a single line that a command
-printed. Show the catalogue line the step names for it, and write nothing of your own about what
-the worker read, checked, found or fixed, since all of that is already in the files the commands
+printed. Show the catalogue line the steps below name for a reader and for a verifier, and nothing
+for the others, and write nothing of your own about what any worker read, checked, found or fixed, since all of that is already in the files the commands
 keep. What a stage came to is shown once, at its end, from the output of the command the step
 names, and never from a worker's reply.
 

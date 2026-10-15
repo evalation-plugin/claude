@@ -12,6 +12,7 @@ const { grid, stamp } = require("../lib/questions.js");
 const { entries, say } = require("../lib/say.js");
 
 const handed = (name, values) => say(entries(), name, values);
+const DOUBT = "Nine modules were claimed and eight carry it.";
 
 const BIN = join(__dirname, "..", "bin");
 const work = mkdtempSync(join(tmpdir(), "evalation-run-"));
@@ -120,8 +121,13 @@ function verify(written, tree) {
   plan.batches.forEach((ids, at) => {
     sh("evalation-verify", ["grid", written, String(at + 1)]);
     const lines = ids.map((id, row) => (doubted.has(id)
-      ? `ROW ${row + 1}: NOT-CONFIRMED | Eight modules carry it, not nine.`
+      ? `ROW ${row + 1}: NOT-CONFIRMED | ${DOUBT}`
       : `ROW ${row + 1}: CONFIRMED | The cited lines hold it.`));
+    if (at === 0 && ids.length > 1) {
+      const partly = JSON.parse(sh("evalation-verify", ["record", written, "1"], lines[0]));
+      assert.strictEqual(partly.said, undefined);
+      assert.strictEqual(partly.missing.length, ids.length - 1);
+    }
     const recorded = JSON.parse(sh("evalation-verify", ["record", written, String(at + 1)], lines.join("\n")));
     assert.strictEqual(recorded.said, handed("ev-run.verifier-handed", { batch: String(at + 1) }));
   });
@@ -129,7 +135,7 @@ function verify(written, tree) {
   const unconfirmed = sh("evalation-verify", ["unconfirmed", written]).trim().split("\n");
   assert.strictEqual(unconfirmed.length, doubted.size);
   for (const id of doubted) {
-    assert.ok(unconfirmed.includes(handed("ev-run.unconfirmed", { id, why: "Eight modules carry it, not nine." })), id);
+    assert.ok(unconfirmed.includes(handed("ev-run.unconfirmed", { id, why: DOUBT })), id);
   }
   sh("evalation-verify", ["corrections", written, tree]);
   const groups = JSON.parse(readFileSync(`${written}.correct/plan.json`, "utf8")).groups;
