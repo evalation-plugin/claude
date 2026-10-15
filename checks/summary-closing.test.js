@@ -5,9 +5,9 @@ const assert = require("node:assert");
 const { mkdtempSync, writeFileSync } = require("node:fs");
 const { tmpdir } = require("node:os");
 const { join } = require("node:path");
-const { repository, run, scanned } = require("./fixture.js");
+const { engine, repository, run, scanned } = require("./fixture.js");
 const { page } = require("../bin/evalation-report");
-const { browser, settled } = require("../lib/print.js");
+const { settled } = require("../lib/print.js");
 
 const tree = repository();
 scanned(tree, []);
@@ -21,7 +21,7 @@ const summaryOf = (name) => {
   for (const pack of document.packs) for (const one of pack.entries_asked ?? []) asked.set(`${pack.pack}/${one.identifier}`, one);
   const file = join(mkdtempSync(join(tmpdir(), "evalation-closing-")), "page.html");
   writeFileSync(file, page(document, document.answers.filter((one) => one.pack === name), asked));
-  return settled(browser(), file).split('<div class="sheet">')[1];
+  return settled(engine(), file).split('<div class="sheet">')[1];
 };
 
 test("the investment pack's summary closes on the line saying it is not advice on whether to invest", () => {
