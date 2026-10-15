@@ -76,7 +76,7 @@ function claims(document) {
   const held = [];
   const lists = listsOf(document);
   for (const answer of document.answers ?? []) {
-    if (answer.from === "authored") continue;
+    if (answer.from === "authored" || answer.from === "fact") continue;
     const list = lists.get(`${answer.pack}/${answer.entry}`) ?? [];
     const items = Array.isArray(answer.looked_for) ? list.map((want, at) => ({ ...want, ...answer.looked_for[at] })) : [];
     held.push({ id: answer.id, item: answer, claimed: `${answer.pack} ${answer.entry} is ${answer.status}`, because: answer.because, items, cites: answer.evidence ?? [], searched: String(answer.searched ?? "").trim() });

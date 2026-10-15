@@ -31,6 +31,7 @@ const { fenced } = require("../lib/fence.js");
 const { infrastructureIn } = require("../lib/infrastructure.js");
 const { placeOf, solutionOf } = require("../lib/solution.js");
 const { line } = require("../lib/run-say.js");
+const facts = require("../lib/facts.js");
 
 const STATUSES = ["covered", "partial-gap", "total-gap", "no-evidence", "org-level", "not-applicable"];
 const EXEMPT = ["org-level", "not-applicable"];
@@ -201,6 +202,31 @@ function crossed(document) {
   return said;
 }
 
+function wordsHeld(written) {
+  const said = [];
+  for (const field of facing(written)) {
+    if (credentialIn(field.text)) {
+      said.push(`${field.at}: holds what looks like a credential. Name the setting and never its value`);
+    }
+    for (const rule of readingHeld(field.text)) {
+      said.push(`${field.at}: ${rule}. This is read by somebody deciding what to do about it, so ` +
+        `it holds to the writing standard: ${JSON.stringify(field.text.trim().slice(0, 90))}`);
+    }
+  }
+  return said;
+}
+
+function factAnswered(named, answer, entry, row) {
+  const said = [];
+  const values = { named, fact: String(answer.fact).slice(0, 80), status: answer.status };
+  if (row?.result !== "does-not-hold") said.push(line("ev-run.fact-unsettled", values));
+  if (!(entry?.facts ?? []).includes(answer.fact)) said.push(line("ev-run.fact-not-on-entry", values));
+  if (answer.status !== "not-applicable") said.push(line("ev-run.fact-status", values));
+  if (row && JSON.stringify(answer.evidence ?? []) !== JSON.stringify(row.evidence ?? [])) said.push(line("ev-run.fact-evidence-differs", values));
+  if (!String(answer.justification ?? "").trim()) said.push(line("ev-run.fact-no-justification", values));
+  return said;
+}
+
 function checked(document, where) {
   const said = [];
 
@@ -298,6 +324,13 @@ function checked(document, where) {
     }
   }
 
+  const settledFacts = new Map();
+  (document.facts ?? []).forEach((row, at) => {
+    said.push(...facts.rowProblems(row, at));
+    for (const one of row?.evidence ?? []) cited(where, one, said);
+    settledFacts.set(row?.fact, row);
+  });
+
   const answered = new Set();
   for (const answer of document.answers ?? []) {
     const named = `${answer.pack}/${answer.entry}`;
@@ -310,6 +343,11 @@ function checked(document, where) {
     }
     if (!String(answer.because ?? "").trim()) {
       said.push(`${named}: says nothing about why it is ${answer.status} rather than the status either side of it`);
+    }
+
+    if (answer.from === "fact") {
+      said.push(...factAnswered(named, answer, settledBy.get(named), settledFacts.get(answer.fact)));
+      continue;
     }
 
     const evidence = answer.evidence ?? [];
@@ -441,16 +479,7 @@ function checked(document, where) {
   // until it is inconvenient, and these five cost a regular expression each.
   // The reading's own lists only. The packs carry what the pack's authors wrote, and a reading cannot
   // be refused for a pack's title.
-  const written = { answers: document.answers, findings: document.findings, accounted: document.accounted };
-  for (const field of facing(written)) {
-    if (credentialIn(field.text)) {
-      said.push(`${field.at}: holds what looks like a credential. Name the setting and never its value`);
-    }
-    for (const rule of readingHeld(field.text)) {
-      said.push(`${field.at}: ${rule}. This is read by somebody deciding what to do about it, so ` +
-        `it holds to the writing standard: ${JSON.stringify(field.text.trim().slice(0, 90))}`);
-    }
-  }
+  said.push(...wordsHeld({ answers: document.answers, findings: document.findings, accounted: document.accounted, facts: document.facts }));
   said.push(...crossed(document));
 
   // A finding saying a tool found it names a key the scan of this target actually holds. The report
@@ -681,6 +710,7 @@ function raise(document, scan) {
 
 function skeleton(served, readBy) {
   errors.pinned(served.revision);
+  facts.checkedPacks(served.packs);
   return {
     run: served.run,
     at: served.at,
@@ -696,9 +726,10 @@ function skeleton(served, readBy) {
         kind: body.kind ?? one.kind,
         ...pick(body, ["title", "description", "version", "entry_noun", "sections"]),
         selected: entries.map((entry) => entry.identifier),
-        entries_asked: entries.map((entry) => pick(entry, ["identifier", "shown", "title", "intent", "looks_for", "section", "obligation", "note", "bears_on", "in_force", "applies", "raised_by"])),
+        entries_asked: entries.map((entry) => pick(entry, ["identifier", "shown", "title", "intent", "looks_for", "section", "obligation", "note", "bears_on", "in_force", "applies", "raised_by", "facts"])),
       };
     }),
+    ...(served.facts ? { facts: served.facts } : {}),
     answers: [...(served.answered ?? [])],
     findings: [],
     accounted: [],
@@ -892,6 +923,8 @@ function shape() {
     "  credit. Findings still say what was found and what fixes it: a finding for each missing item worth",
     "  telling, at that item's severity or the scanner's where it rests on a scanner result.",
     "",
+    line("ev-run.fact-shape"),
+    "",
     "A citation:",
     `  {"path":"relative/to/tree.ts","from":10,"to":14,"quote":"...","grade":"<grade>"}`,
     `  grade is one of ${GRADES.join(", ")}: code that performs the control or tests it, a setting`,
@@ -928,6 +961,66 @@ function toRecheck(held, n, part, tree) {
     if (one.scanned) lines.push(`${one.pack}/${one.concern} finding "${one.title}": read its scan result again from evalation-read ${tree} scan`);
   }
   return lines;
+}
+
+function factGroup(held, n) {
+  const all = facts.groupsOf(held);
+  const one = all[n - 1];
+  if (!one) fail(`no-such-group: ${n}, and this run has ${all.length} groups of facts to settle`);
+  return one;
+}
+
+function factPart(run, n, file, tree) {
+  let part;
+  try {
+    part = JSON.parse(readFileSync(file === "-" ? 0 : file, "utf8"));
+  } catch (thrown) {
+    fail(`unreadable-part: ${thrown.message}`);
+  }
+  const group = factGroup(served(run), Number(n));
+  const where = resolve(tree || process.cwd());
+  const said = facts.partProblems(group, part);
+  for (const row of part.facts ?? []) for (const one of row?.evidence ?? []) cited(where, one, said);
+  said.push(...wordsHeld({ facts: part.facts }));
+  if (said.length > 0) fail(line("ev-run.fact-part-refused", { count: said.length, number: Number(n) }), said);
+  const denied = part.facts.filter((row) => row.result === "does-not-hold");
+  const rechecked = `${resolve(run)}.fact-part-${Number(n)}.rechecked`;
+  if (denied.length > 0 && !existsSync(rechecked)) {
+    writeFileSync(rechecked, "");
+    fail(line("ev-run.fact-part-recheck", { number: Number(n) }), denied.map((row) => line("ev-run.fact-recheck-row", { fact: row.fact })));
+  }
+  rmSync(rechecked, { force: true });
+  writeFileSync(join(dirname(resolve(run)), `facts-${Number(n)}.json`), JSON.stringify(part, null, 2) + "\n");
+  process.stdout.write(`${line("ev-run.fact-part-held", { number: Number(n), count: part.facts.length })}\n`);
+}
+
+function entriesLeft(held) {
+  return (held.to_read ?? []).reduce((sum, one) => sum + one.entries.length, 0);
+}
+
+function settle(run) {
+  const held = served(run);
+  const groups = facts.groupsOf(held);
+  const rows = [];
+  for (const group of groups) {
+    const file = join(dirname(resolve(run)), `facts-${group.group}.json`);
+    if (!existsSync(file)) fail(line("ev-run.fact-unread", { number: group.group }));
+    const part = JSON.parse(readFileSync(file, "utf8"));
+    const said = facts.partProblems(group, part);
+    if (said.length > 0) fail(line("ev-run.fact-part-refused", { count: said.length, number: group.group }), said);
+    rows.push(...group.facts.map((fact) => pick(part.facts.find((row) => row.fact === fact), ["fact", "result", "evidence", "searched"])));
+  }
+  const settled = groups.length > 0 ? facts.settled(held, rows) : held;
+  if (groups.length > 0) writeFileSync(resolve(run), JSON.stringify(settled, null, 2) + "\n");
+  const record = settled.facts ?? [];
+  process.stdout.write(`${JSON.stringify({
+    facts: record.length,
+    does_not_hold: record.filter((one) => one.result === "does-not-hold").map((one) => one.fact),
+    holds: record.filter((one) => one.result === "holds").length,
+    cannot_tell: record.filter((one) => one.result === "cannot-tell").length,
+    answered_from_a_fact: (settled.answered ?? []).filter((one) => one.from === "fact").length,
+    to_read: entriesLeft(settled),
+  }, null, 2)}\n`);
 }
 
 function served(path) {
@@ -980,6 +1073,23 @@ function verbs(argv) {
     process.stdout.write(`part ${n} holds: ${(part.answers ?? []).length} answers, ${(part.findings ?? []).length} findings, ${(part.accounted ?? []).length} accounted\n`);
     return true;
   }
+  if (verb === "facts") {
+    process.stdout.write(`${JSON.stringify(facts.groupsOf(served(rest[0])).map((one) => ({ group: one.group, of: one.of, facts: one.facts.length })), null, 2)}\n`);
+    return true;
+  }
+  if (verb === "fact-group") {
+    const one = factGroup(served(rest[0]), Number(rest[1]));
+    process.stdout.write(`${JSON.stringify({ ...one, owes: "one row per fact" }, null, 2)}\n`);
+    return true;
+  }
+  if (verb === "fact-part") {
+    factPart(...rest);
+    return true;
+  }
+  if (verb === "settle") {
+    settle(rest[0]);
+    return true;
+  }
   if (verb === "merge") {
     const at = rest.indexOf("--read-by");
     const readBy = at >= 0 ? rest[at + 1] : undefined;
@@ -1004,7 +1114,12 @@ function verbs(argv) {
 }
 
 function main() {
-  if (verbs(process.argv.slice(2))) return;
+  try {
+    if (verbs(process.argv.slice(2))) return;
+  } catch (thrown) {
+    if (!thrown?.factsField) throw thrown;
+    fail(thrown.message);
+  }
   const [source, target] = process.argv.slice(2);
   if (!source) {
     process.stderr.write(
@@ -1115,9 +1230,11 @@ function main() {
 
   const counted = {};
   let authored = 0;
+  let byFact = 0;
   for (const answer of document.answers ?? []) {
     counted[answer.status] = (counted[answer.status] ?? 0) + 1;
     if (answer.from === "authored") authored += 1;
+    if (answer.from === "fact") byFact += 1;
   }
   process.stdout.write(
     JSON.stringify(
@@ -1126,8 +1243,9 @@ function main() {
         answers: (document.answers ?? []).length,
         // Said apart, because the difference between somebody having looked and nobody having needed
         // to is what a reader of this report has to be able to see.
-        read: (document.answers ?? []).length - authored,
+        read: (document.answers ?? []).length - authored - byFact,
         answered_from_the_pack: authored,
+        answered_from_a_fact: byFact,
         findings: (document.findings ?? []).length,
         by_status: counted,
       },

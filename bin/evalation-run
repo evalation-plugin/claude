@@ -27,6 +27,7 @@ const { newestFor, phasesRead } = require("../lib/scans.js");
 const { runScript } = require("../lib/script.js");
 const { choose, solutionOf } = require("../lib/solution.js");
 const { answered } = require("../lib/answer.js");
+const { checkedPacks } = require("../lib/facts.js");
 const { atEdition, editionsOf, monthOf } = require("../lib/editions.js");
 
 
@@ -356,6 +357,7 @@ function saying(part, args) {
     "pick-sets": () => words.pickSets({ pack: args[0], titles: titles(), sets: sets() }),
     short: () => words.short(credits(), args[0]),
     reading: () => words.reading(read()),
+    settled: () => words.settled(read()),
     tally: () => words.tally(...args.slice(0, 4)),
     done: () => words.done(read(), args[1]),
     folder: () => words.folder(read(), args[1]),
@@ -550,6 +552,7 @@ function served(answer, sets = [], where = null, chosen = {}) {
   for (const one of sets) {
     packs = packs.map((pack) => (pack.pack === one.pack ? extended(pack, one) : pack));
   }
+  checkedPacks(packs);
   return {
     run: answer.run,
     at: new Date().toISOString(),
