@@ -86,5 +86,6 @@
   ] },
   "ev-questions.next-run": { "say": "Next time you run /ev-run with <pack>, you can tick <name>." },
   "ev-questions.change-saved": { "say": "Saved your changes to <name>." },
-  "ev-questions.unconfirmed-note": { "say": "Runs and reports treat unconfirmed questions like any others." }
+  "ev-questions.unconfirmed-note": { "say": "Runs and reports treat unconfirmed questions like any others." },
+  "ev-questions.checker-handed": { "say": "The answers for this question are handed in." }
 }

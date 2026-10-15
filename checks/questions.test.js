@@ -253,10 +253,13 @@ test("questions are checked in parallel, one checker each, and every checker's v
   const checked = (id) => new Promise((done) => {
     stamp(at, `checker-${id}`);
     const child = spawn(process.execPath, [CLI, "verdict", file, id], { env: { ...process.env, EVALATION_PLUGIN_HOME: at } });
+    let out = "";
+    child.stdout.on("data", (chunk) => { out += chunk; });
     child.stdin.end(answered(grid(at, draft, CRITERIA, id).rows));
-    child.on("close", done);
+    child.on("close", () => done(out));
   });
-  await Promise.all(["Q1", "Q2", "Q3"].map(checked));
+  const outputs = await Promise.all(["Q1", "Q2", "Q3"].map(checked));
+  assert.deepStrictEqual(outputs, outputs.map(() => `${line("ev-questions.checker-handed")}\n`));
   assert.deepStrictEqual(status(at, draft), [], "all three checkers' verdicts are recorded, each with a checker's stamp");
   const command = readFileSync(join(__dirname, "..", "commands", "ev-questions.md"), "utf8");
   assert.match(command, /one `question-checker` for each question/);
@@ -417,7 +420,7 @@ test("verdict tells the checker plainly what it recorded, with no counts or raw 
   const run = (answers) => spawnSync(process.execPath, [CLI, "verdict", file, "Q1"], { input: answers, env: { ...process.env, EVALATION_PLUGIN_HOME: at }, encoding: "utf8" });
   const partly = run(answered(rows.slice(0, 2)) + "\nQ1 item 2 C99: YES | \"Code\"");
   assert.strictEqual(partly.stdout, "Answer these again:\n  Q1 item 2 C99: not a criterion this row is asked\nStill to answer:\n  Q1 item 2\n");
-  assert.strictEqual(run(answered(rows)).stdout, "Recorded.\n");
+  assert.strictEqual(run(answered(rows)).stdout, `${line("ev-questions.checker-handed")}\n`);
 });
 
 test("the list prints plain lines for the person, naming unconfirmed questions briefly", () => {

@@ -9,6 +9,9 @@ const { join } = require("node:path");
 const { home, repository } = require("./fixture.js");
 const { scanFor, served } = require("../bin/evalation-run");
 const { grid, stamp } = require("../lib/questions.js");
+const { entries, say } = require("../lib/say.js");
+
+const handed = (name, values) => say(entries(), name, values);
 
 const BIN = join(__dirname, "..", "bin");
 const work = mkdtempSync(join(tmpdir(), "evalation-run-"));
@@ -98,7 +101,8 @@ function read(tree, second) {
       assert.match(first.stderr, /hardening\/SEC01: search again/);
       assert.match(first.stderr, /hardening\/SEC01: item 1 found/);
     }
-    sh("evalation-findings", ["part", runFile, String(one.group), "-", tree], JSON.stringify(partFor(group, second)));
+    const kept = sh("evalation-findings", ["part", runFile, String(one.group), "-", tree], JSON.stringify(partFor(group, second)));
+    assert.strictEqual(kept.trim().split("\n").at(-1), handed("ev-run.reader-handed", { part: String(one.group) }));
     return join(work, `part-${one.group}.json`);
   });
   const merged = sh("evalation-findings", ["merge", runFile, "--read-by", "Opus 5.5", ...parts]).trim();
@@ -118,9 +122,15 @@ function verify(written, tree) {
     const lines = ids.map((id, row) => (doubted.has(id)
       ? `ROW ${row + 1}: NOT-CONFIRMED | Eight modules carry it, not nine.`
       : `ROW ${row + 1}: CONFIRMED | The cited lines hold it.`));
-    sh("evalation-verify", ["record", written, String(at + 1)], lines.join("\n"));
+    const recorded = JSON.parse(sh("evalation-verify", ["record", written, String(at + 1)], lines.join("\n")));
+    assert.strictEqual(recorded.said, handed("ev-run.verifier-handed", { batch: String(at + 1) }));
   });
   sh("evalation-verify", ["apply", written, "Opus 5.5"]);
+  const unconfirmed = sh("evalation-verify", ["unconfirmed", written]).trim().split("\n");
+  assert.strictEqual(unconfirmed.length, doubted.size);
+  for (const id of doubted) {
+    assert.ok(unconfirmed.includes(handed("ev-run.unconfirmed", { id, why: "Eight modules carry it, not nine." })), id);
+  }
   sh("evalation-verify", ["corrections", written, tree]);
   const groups = JSON.parse(readFileSync(`${written}.correct/plan.json`, "utf8")).groups;
   assert.ok(groups.some((ids) => ids.some((id) => id.startsWith("c-")) && ids.some((id) => id.startsWith("f-"))),
@@ -132,7 +142,8 @@ function verify(written, tree) {
       const list = id.startsWith("f-") ? "findings" : id.startsWith("c-") ? "accounted" : "answers";
       answer[list].push({ id, stands: "Read again against the lines cited, and it holds." });
     }
-    sh("evalation-verify", ["correct", written, String(at + 1), "-"], JSON.stringify(answer));
+    const corrected = JSON.parse(sh("evalation-verify", ["correct", written, String(at + 1), "-"], JSON.stringify(answer)));
+    assert.strictEqual(corrected.said, handed("ev-run.corrector-handed", { group: String(at + 1) }));
   });
   sh("evalation-verify", ["corrected", written]);
 }

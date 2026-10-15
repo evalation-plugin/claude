@@ -131,7 +131,7 @@ function write(source, name, text) {
   const tidy = (rows) => rows.map((row) => ({ say: row.say.trim(), rests_on: row.rests_on.map(String) }));
   document.summaries = { ...(document.summaries ?? {}), [name]: { paragraph: tidy(said.paragraph), weigh: tidy(said.weigh), state: "asserted" } };
   keep(source, document);
-  return { written: true, sentences: said.paragraph.length + said.weigh.length };
+  return { written: true, sentences: said.paragraph.length + said.weigh.length, said: line("summary-step.writer-handed", { pack: name }) };
 }
 
 function sentencesOf(summary) {
@@ -183,7 +183,7 @@ function record(source, name, text) {
   summary.weigh = summary.weigh.filter((_, at) => keeps(lead + at));
   summary.state = confirmed > 0 ? "verified" : "left-out";
   keep(source, document);
-  return { pack: name, state: summary.state, confirmed, of: count };
+  return { pack: name, state: summary.state, confirmed, of: count, said: line("summary-step.checker-handed", { pack: name }) };
 }
 
 const STATES = { asserted: "unchecked", verified: "checked", "left-out": "checked" };

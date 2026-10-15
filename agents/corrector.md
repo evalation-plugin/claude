@@ -21,3 +21,6 @@ EOF
 
 Fix everything it names and hand them in again until they hold. The shell runs these Evalation
 commands one at a time and nothing else, so never try another command or chain two.
+
+Once they hold, your last reply is the command's `said` line, copied exactly, and nothing else. The
+corrections are already in their file, so write no summary, correction or note.
