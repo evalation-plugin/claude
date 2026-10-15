@@ -1117,8 +1117,8 @@ function main() {
   try {
     if (verbs(process.argv.slice(2))) return;
   } catch (thrown) {
-    if (!thrown?.remedyForReport) throw thrown;
-    fail(thrown.message, [thrown.remedyForReport]);
+    if (!thrown?.factsField) throw thrown;
+    fail(thrown.message);
   }
   const [source, target] = process.argv.slice(2);
   if (!source) {

@@ -71,7 +71,7 @@ test("a malformed facts field is refused where it is read, with its cause and it
     assert.throws(() => served({ run: "r", packs: list, revision: "1.99" }, [], null), (thrown) => {
       assert.match(thrown.message, cause);
       assert.match(thrown.message, /Entry A1 of the ism pack/);
-      assert.match(thrown.remedyForReport, /facts field is a list of questions, each ending in a question mark and named once/);
+      assert.match(thrown.message, /facts field is a list of questions, each ending in a question mark and named once/);
       return true;
     });
   }
