@@ -9,6 +9,7 @@ const { mkdirSync, mkdtempSync, writeFileSync } = require("node:fs");
 const { tmpdir } = require("node:os");
 const { join } = require("node:path");
 const { repository, run, scanned } = require("./fixture.js");
+const { browser } = require("../lib/print.js");
 
 const tree = repository();
 scanned(tree, []);
@@ -30,8 +31,12 @@ function signing() {
     let body = "";
     req.on("data", (chunk) => { body += chunk; });
     req.on("end", () => {
-      if (req.url === "/sign") asked.push(JSON.parse(body));
-      res.writeHead(200, { "content-type": "application/json" });
+      const { run: name, digest, packs = [], report = null } = JSON.parse(body);
+      const shaped = typeof name === "string" && typeof digest === "string"
+        && Array.isArray(packs) && packs.every((one) => typeof one === "string")
+        && (report === null || typeof report === "string");
+      if (shaped && req.url === "/sign") asked.push({ run: name, packs, report });
+      res.writeHead(shaped ? 200 : 422, { "content-type": "application/json" });
       res.end(JSON.stringify({ signature: Buffer.alloc(64, 7).toString("base64"), signed_at: "2026-10-15T00:00:00Z" }));
     });
   });
@@ -48,9 +53,11 @@ function ran(command, args, env) {
   });
 }
 
-const named = (asked) => asked.map(({ run: name, packs, report }) => ({ run: name, packs, report }));
-
 test("each report signed names the pack it is for and which of its reports it is", async () => {
+  if (!browser()) {
+    console.log("uncovered: no browser is installed, so no report is printed to be signed");
+    return;
+  }
   const home = machine();
   const { server, asked, at } = await signing();
   const env = { ...process.env, EVALATION_PLUGIN_HOME: home, EVALATION_LOCAL: join(home, "evalation.local"), EVALATION_KEY_STORE: "file", EVALATION_SERVER: at };
@@ -60,12 +67,12 @@ test("each report signed names the pack it is for and which of its reports it is
 
   const report = await ran("evalation-report", [source, join(folder, "report")], env);
   assert.strictEqual(report.status, 0, report.stderr);
-  assert.deepStrictEqual(named(asked), [{ run: "run-check", packs: ["soc2"], report: "evidence-pack" }]);
+  assert.deepStrictEqual(asked, [{ run: "run-check", packs: ["soc2"], report: "evidence-pack" }]);
 
   asked.length = 0;
   const deliver = await ran("evalation-deliver", [source, join(folder, "review")], env);
   assert.strictEqual(deliver.status, 0, deliver.stderr);
-  assert.deepStrictEqual(named(asked), [
+  assert.deepStrictEqual(asked, [
     { run: "run-check", packs: ["hardening"], report: "review-pack" },
     { run: "run-check", packs: ["hardening"], report: "review-detail" },
   ]);
