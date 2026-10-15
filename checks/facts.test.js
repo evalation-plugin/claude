@@ -103,7 +103,9 @@ test("a fact settled as not holding takes its entries out of the reading, and th
   assert.ok(fact.every((one) => one.status === "not-applicable" && one.fact === AD && one.because.includes(AD) && one.justification));
   assert.strictEqual(ok("evalation-run", ["--say", "settled", made.run]).trim(), "3 questions don't apply to this system, so they aren't read. The report says why.");
   assert.strictEqual(JSON.parse(ok("evalation-findings", ["facts", made.run])).length, 0, "a settled run has nothing left to settle");
+  const bytes = readFileSync(made.run, "utf8");
   assert.deepStrictEqual(JSON.parse(ok("evalation-findings", ["settle", made.run])), summary, "settling again changes nothing");
+  assert.strictEqual(readFileSync(made.run, "utf8"), bytes, "and leaves the run file as it was");
   assert.strictEqual(left(made.run), 5);
 });
 
@@ -141,6 +143,11 @@ test("a part that leaves a fact out, adds one, or gives no account is refused, a
   assert.match(send([{ fact: group.facts[0], result: "maybe" }, ...full.slice(1)]).stderr, /A result is holds, does-not-hold or cannot-tell/);
   assert.match(send([{ ...held(group.facts[0]), evidence: [{ ...cite, quote: "not in the file" }] }, ...full.slice(1)]).stderr, /the quote is not there/);
   assert.match(send([{ ...unknown(group.facts[0]), searched: "It isn't there; it is elsewhere." }, ...full.slice(1)]).stderr, /a semicolon/);
+  const several = send([{ fact: group.facts[0], result: "holds" }, { fact: group.facts[1], result: "maybe" }, ...full.slice(2, -1)]).stderr;
+  assert.match(several, /observed: 3 things in part 1 of the facts to fix/, "every fault is reported in one result");
+  assert.match(several, /says the fact holds and cites nothing/);
+  assert.match(several, /A result is holds, does-not-hold or cannot-tell/);
+  assert.match(several, /holds a fact with no row/);
   assert.ok(!existsSync(join(made.folder, "facts-1.json")), "nothing is kept from a refused part");
   const early = sh("evalation-findings", ["settle", made.run]);
   assert.notStrictEqual(early.status, 0);
