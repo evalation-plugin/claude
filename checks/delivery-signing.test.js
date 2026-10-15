@@ -14,6 +14,8 @@ const { browser } = require("../lib/print.js");
 const tree = repository();
 scanned(tree, []);
 
+const NO_BROWSER = browser() ? false : "uncovered: no browser is installed, so no report is printed to be signed";
+
 function machine() {
   const home = mkdtempSync(join(tmpdir(), "evalation-delivery-"));
   mkdirSync(join(home, "keys"), { recursive: true });
@@ -31,10 +33,9 @@ function signing() {
     let body = "";
     req.on("data", (chunk) => { body += chunk; });
     req.on("end", () => {
-      const { run: name, digest, packs = [], report = null } = JSON.parse(body);
+      const { run: name, digest, packs, report } = JSON.parse(body);
       const shaped = typeof name === "string" && typeof digest === "string"
-        && Array.isArray(packs) && packs.every((one) => typeof one === "string")
-        && (report === null || typeof report === "string");
+        && Array.isArray(packs) && packs.every((one) => typeof one === "string") && typeof report === "string";
       if (shaped && req.url === "/sign") asked.push({ run: name, packs, report });
       res.writeHead(shaped ? 200 : 422, { "content-type": "application/json" });
       res.end(JSON.stringify({ signature: Buffer.alloc(64, 7).toString("base64"), signed_at: "2026-10-15T00:00:00Z" }));
@@ -53,28 +54,30 @@ function ran(command, args, env) {
   });
 }
 
-test("each report signed names the pack it is for and which of its reports it is", async () => {
-  if (!browser()) {
-    console.log("uncovered: no browser is installed, so no report is printed to be signed");
-    return;
-  }
+async function signedBy(command) {
   const home = machine();
   const { server, asked, at } = await signing();
   const env = { ...process.env, EVALATION_PLUGIN_HOME: home, EVALATION_LOCAL: join(home, "evalation.local"), EVALATION_KEY_STORE: "file", EVALATION_SERVER: at };
   const folder = mkdtempSync(join(tmpdir(), "evalation-delivery-run-"));
   const source = join(folder, "findings.json");
   writeFileSync(source, JSON.stringify({ ...run(tree), schema: "evalation.findings.v1" }));
+  const done = await ran(command, [source, join(folder, "reports")], env);
+  server.close();
+  return { done, asked };
+}
 
-  const report = await ran("evalation-report", [source, join(folder, "report")], env);
-  assert.strictEqual(report.status, 0, report.stderr);
-  assert.deepStrictEqual(asked, [{ run: "run-check", packs: ["soc2"], report: "evidence-pack" }]);
+test("an evidence pack is signed naming its pack and the evidence-pack kind", { skip: NO_BROWSER }, async () => {
+  const { done, asked } = await signedBy("evalation-report");
+  assert.strictEqual(done.status, 0, done.stderr);
+  assert.deepStrictEqual(asked, [{ run: "run-check", packs: ["soc2"], report: "evidence-pack" }],
+    "bin/evalation-report must seal each evidence pack with its pack id and the kind evidence-pack, as lib/print.js signatureFor sends them");
+});
 
-  asked.length = 0;
-  const deliver = await ran("evalation-deliver", [source, join(folder, "review")], env);
-  assert.strictEqual(deliver.status, 0, deliver.stderr);
+test("a concern set's review pack and review detail are each signed naming the concern set and their own kind", { skip: NO_BROWSER }, async () => {
+  const { done, asked } = await signedBy("evalation-deliver");
+  assert.strictEqual(done.status, 0, done.stderr);
   assert.deepStrictEqual(asked, [
     { run: "run-check", packs: ["hardening"], report: "review-pack" },
     { run: "run-check", packs: ["hardening"], report: "review-detail" },
-  ]);
-  server.close();
+  ], "bin/evalation-deliver must seal the review pack as review-pack and the review detail as review-detail, each with the concern sets it covers");
 });
