@@ -11,6 +11,11 @@
       "host": "api.deps.dev",
       "serves": "Google's public package registry, asked for the licences of public packages a person agreed to send, per ADR-0090",
       "reached_by": "lib/lookup.js"
+    },
+    {
+      "host": "storage.googleapis.com",
+      "serves": "Google's download server for Chrome for Testing, asked once for the pinned headless shell the plugin prints reports with, which a person agreed to download and which is checked against a pinned SHA-256, per ADR-0193",
+      "reached_by": "lib/print-engine.json"
     }
   ]
 }

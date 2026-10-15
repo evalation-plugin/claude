@@ -1,7 +1,7 @@
 "use strict";
 
 const { execFileSync } = require("node:child_process");
-const { mkdirSync, mkdtempSync, writeFileSync } = require("node:fs");
+const { mkdirSync, mkdtempSync, rmSync, statSync, symlinkSync, writeFileSync } = require("node:fs");
 const { tmpdir } = require("node:os");
 const { join } = require("node:path");
 
@@ -10,6 +10,37 @@ process.env.EVALATION_PLUGIN_HOME = home;
 process.env.EVALATION_SPELLING = process.env.EVALATION_SPELLING || "commonwealth";
 
 const git = (cwd, ...args) => execFileSync("git", args, { cwd, stdio: "ignore" });
+
+function engine() {
+  const printer = require("../lib/engine.js");
+  const shared = join(tmpdir(), "evalation-checks-print-engine");
+  const lock = join(shared, "installing");
+  mkdirSync(join(shared, "print-engine"), { recursive: true });
+  try {
+    symlinkSync(join(shared, "print-engine"), join(home, "print-engine"), "junction");
+  } catch (thrown) {
+    if (thrown.code !== "EEXIST") throw thrown;
+  }
+  while (!printer.ready()) {
+    try {
+      mkdirSync(lock);
+    } catch (thrown) {
+      if (thrown.code !== "EEXIST") throw thrown;
+      if (Date.now() - statSync(lock).mtimeMs > 600_000) rmSync(lock, { recursive: true, force: true });
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 2000);
+      continue;
+    }
+    try {
+      const done = JSON.parse(execFileSync(process.execPath, [join(__dirname, "..", "bin", "evalation-print-engine"), "install"], {
+        encoding: "utf8", env: { ...process.env, EVALATION_PLUGIN_HOME: shared },
+      }));
+      if (!done.ready) throw new Error(done.said);
+    } finally {
+      rmSync(lock, { recursive: true, force: true });
+    }
+  }
+  return printer.executable();
+}
 
 function repository(at = mkdtempSync(join(tmpdir(), "evalation-tree-"))) {
   mkdirSync(join(at, "src"), { recursive: true });
@@ -81,4 +112,4 @@ function missing() {
   return { result: "missing", searched: "Looked in docs and scripts for restore steps and found none." };
 }
 
-module.exports = { found, home, missing, repository, run, scanned };
+module.exports = { engine, found, home, missing, repository, run, scanned };

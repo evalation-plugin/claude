@@ -6,7 +6,7 @@ const { spawnSync } = require("node:child_process");
 const { mkdtempSync, readdirSync } = require("node:fs");
 const { platform, tmpdir } = require("node:os");
 const { join } = require("node:path");
-require("./fixture.js");
+const { engine } = require("./fixture.js");
 const { print } = require("../lib/print.js");
 const { stores } = require("../bin/evalation-store");
 
@@ -109,6 +109,7 @@ test("status never tells the person about a seat or a released revision", () => 
 });
 
 test("a page that cannot be signed carries the reason in plain words", () => {
+  engine();
   const folder = mkdtempSync(join(tmpdir(), "evalation-sign-"));
   const previous = process.env.EVALATION_LOCAL;
   process.env.EVALATION_LOCAL = join(tmpdir(), "evalation-no-such-settings");

@@ -1,6 +1,6 @@
 ---
 description: Check this repository against your packs. Uses one pack credit per pack you choose.
-allowed-tools: Bash(evalation-say:*), Bash(evalation-read:*), Bash(evalation-run:*), Bash(evalation-packs show:*), Bash(evalation-status:*), Bash(evalation-questions list:*), Bash(evalation-questions path:*), Bash(evalation-scan show:*), Bash(evalation-scan install:*), Bash(evalation-scan decline:*), Bash(evalation-scan lookup:*), Bash(evalation-scan open:*), Bash(evalation-scan run:*), Bash(evalation-findings:*), Bash(evalation-verify:*), Bash(evalation-summary:*), Bash(evalation-score:*), Bash(evalation-deliver:*), Bash(evalation-report:*), Bash(evalation-check-pdf:*)
+allowed-tools: Bash(evalation-say:*), Bash(evalation-read:*), Bash(evalation-run:*), Bash(evalation-packs show:*), Bash(evalation-status:*), Bash(evalation-questions list:*), Bash(evalation-questions path:*), Bash(evalation-scan show:*), Bash(evalation-scan install:*), Bash(evalation-scan decline:*), Bash(evalation-scan lookup:*), Bash(evalation-scan open:*), Bash(evalation-scan run:*), Bash(evalation-findings:*), Bash(evalation-verify:*), Bash(evalation-summary:*), Bash(evalation-score:*), Bash(evalation-deliver:*), Bash(evalation-report:*), Bash(evalation-check-pdf:*), Bash(evalation-print-engine show:*), Bash(evalation-print-engine install:*), Bash(evalation-print-engine decline:*)
 ---
 
 Open by showing `evalation-say ev-run.intro` exactly as printed, before anything else.
@@ -19,6 +19,10 @@ a run will spend should not have to approve the reading of their own balance to 
 run each take a tool name the command's own table has to hold, or a directory, and open takes only a
 list lookup wrote, so nothing here chooses what executes. `set` is what names the command behind a phase, and a grant over it would be a grant over
 any command on the machine.
+
+`evalation-print-engine` is granted at show, install and decline. Install fetches the one pinned
+file named in lib/print-engine.json from the one host hostnames.json declares and checks its
+fingerprint, and takes no argument, so a grant over it is a grant over that one fetch.
 
 Writing is deliberately absent. The commands write everything the run keeps, the run file and its
 rubrics, the scan, the parts and the findings, all in the plugin's own folder, so the session never
@@ -614,12 +618,36 @@ and each answer's label says what choosing it does.
    A standard answers coverage, so `evalation-report` builds one evidence pack for each standard the
    run read: a clause per row with the question, the answer, the evidence and the status.
 
-   Before they start, say `evalation-say ev-run.writing`.
+   **Before they start, get the print engine ready.** Both print with the one engine Evalation
+   downloads and checks itself, and never with a browser already on the machine, because a
+   deliverable an auditor is handed has to print the same everywhere.
 
-   **Both write PDFs**, printed here with the browser already on the machine, because a deliverable an
-   auditor is handed has to print the same everywhere. Where no browser is found they leave the page
-   each PDF would have been printed from, and say which to open and print by hand. Where a browser
-   printed it, only the PDF is kept.
+   ```
+   evalation-print-engine show
+   ```
+
+   It prints `ready`, `said` and `asks`. Show `said` exactly as printed where it is not null. Where
+   `asks` is not null, ask it with AskUserQuestion, passing its questions unchanged. On Download it:
+
+   ```
+   evalation-print-engine install
+   ```
+
+   and show the `said` it prints. On Print without it:
+
+   ```
+   evalation-print-engine decline
+   ```
+
+   and say nothing more, since the reports then say why they are not signed. Where `ready` is true,
+   ask nothing and say nothing. A download that fails never stops the run: the reports are written
+   as pages to print by hand, with the cause and what to do.
+
+   Then say `evalation-say ev-run.writing`.
+
+   **Both write PDFs.** Where the print engine is not on the machine they leave the page each PDF
+   would have been printed from, and say which to open and print by hand. Where the engine printed
+   it, only the PDF is kept.
 
    **Every PDF is signed by Evalation** as it is printed, so a reader that checks signatures shows an
    unchanged report as signed and an edited one as altered. Only the digest of the file is sent to be
@@ -662,8 +690,8 @@ evalation-summary state <written>
 
 which names each pack's executive summary as `missing`, `unchecked` or `checked`. For each pack it
 names as `missing`, have the summary written and checked as step 9 says, and for each `unchecked`
-one, start the summary checker alone. This uses no pack credits. Then say `evalation-say ev-run.writing`
-and run step 10 over `written`: `evalation-deliver` where a pack's `kind` is
+one, start the summary checker alone. This uses no pack credits. Then get the print engine ready as
+step 10 says, say `evalation-say ev-run.writing` and run the rest of step 10 over `written`: `evalation-deliver` where a pack's `kind` is
 `concern-set` and `evalation-report` where one is `standard`. The reports go into that run's own
 folder in place of the earlier copies. Then show anything step 10 printed about signing, then the
 lines `evalation-run --say folder <written>` prints, and nothing more.

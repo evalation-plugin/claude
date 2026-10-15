@@ -96,12 +96,12 @@ test("a scan stopped by the repository changing under it says what to do in one 
   assert.strictEqual(ran.stderr, "The repository changed while it was being scanned, so the run stopped before using any pack credits. Stop whatever is changing it, then run /ev-run again.\n");
 });
 
-test("delivering with no browser names each page to open and says a PDF printed by hand is not signed", () => {
+test("delivering with no print engine names each page to open and says a PDF printed by hand is not signed", () => {
   const { said } = require("../bin/evalation-deliver");
   const text = said({ printed: false, into: "/r", pages: ["/r/Evalation Hardening Review Pack.html", "/r/Evalation Hardening Review Detail.html"], unsigned: [] });
   assert.match(text, /Evalation Hardening Review Pack\.html/);
   assert.match(text, /Evalation Hardening Review Detail\.html/);
-  assert.match(text, /so they aren't signed/);
+  assert.match(text, /so the reports aren't signed/);
   assert.doesNotMatch(text, /pages were written/);
 });
 
@@ -113,7 +113,7 @@ test("an unsigned report names its file and reason, and how to get a signed copy
   assert.match(text, /Once this machine is online, run \/ev-run print for signed copies\. Printing again uses no pack credits\./);
   assert.doesNotMatch(text, /ask Claude/);
   const printless = said({ printed: false, into: "/r", pages: ["/r/A Pack.html"], unsigned: [] });
-  assert.match(printless, /then run \/ev-run print\. Printing again/);
+  assert.match(printless, /run \/ev-run print and choose to download it\. Printing again/);
 });
 
 test("each reason a report is unsigned comes with a step the person can take, and the server's own fault goes to support", () => {
@@ -360,7 +360,7 @@ test("the evidence pack's command prints what to say about a report left unprint
   assert.match(text, /A Evidence Pack\.pdf isn't signed because Evalation's server couldn't be reached/);
   assert.match(text, /Once this machine is online, run \/ev-run print for signed copies\./);
   assert.match(text, /B Evidence Pack\.html/);
-  assert.match(text, /so they aren't signed/);
+  assert.match(text, /so the reports aren't signed/);
   assert.strictEqual(said([{ written: "/r/A Evidence Pack.pdf", printed: true }], "/r"), "");
 });
 
