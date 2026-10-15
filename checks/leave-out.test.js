@@ -82,6 +82,31 @@ test("the PDF prints both ways and the findings file is the same either way", ()
   assert.deepStrictEqual(JSON.parse(readFileSync(shorter.source, "utf8")), document);
 });
 
+function pageOf(document, phrase) {
+  const { folder } = printed(document, true);
+  const pdf = join(folder, "out", "Evalation SOC 2 Trust Services Criteria Evidence Pack.pdf");
+  const pages = Number(/Pages:\s+(\d+)/.exec(execFileSync("pdfinfo", [pdf], { encoding: "utf8" }))[1]);
+  for (let at = 1; at <= pages; at += 1) {
+    const text = execFileSync("pdftotext", ["-f", String(at), "-l", String(at), pdf, "-"], { encoding: "utf8" }).replace(/\s+/g, " ");
+    if (text.includes(phrase)) return at;
+  }
+  return 0;
+}
+
+function longer(document) {
+  for (let at = 0; at < 80; at += 1) {
+    const identifier = `CC9.${at}`;
+    document.packs[0].selected.push(identifier);
+    document.packs[0].entries_asked.push({ identifier, title: `Extra duty ${at}`, intent: `What does extra duty ${at} need?`, bears_on: "repository" });
+    document.answers.push({ pack: "soc2", entry: identifier, status: "partial-gap", from: "authored", because: "Some of it is missing.", justification: "Only part is recorded." });
+  }
+  return document;
+}
+
+test("the line that says clauses were left out is on page 1 of the printed pack, however long the summary", () => {
+  for (const document of [held(), longer(held())]) assert.strictEqual(pageOf(document, "You asked to leave out"), 1);
+});
+
 const sayLeaveOut = (document) => {
   const source = join(mkdtempSync(join(tmpdir(), "evalation-leave-say-")), "findings.json");
   writeFileSync(source, JSON.stringify(document));

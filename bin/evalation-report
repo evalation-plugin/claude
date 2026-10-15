@@ -433,7 +433,7 @@ function grades(asked) {
 }
 
 // The opening page: what was assessed, what it came to, and how to read one of the standard's parts.
-function opening(document, answers, packs, asked, left) {
+function opening(document, answers, packs, asked) {
   const read = answers.filter((one) => one.from !== "authored").length;
   const noun = nounAcross(packs);
   const marks = grades(asked);
@@ -466,7 +466,6 @@ ${readBlock(document.target)}
     ...(others === 0 ? [] : [line("report.work-organisation", { count: String(others), noun: noun.one, nouns: noun.many })]),
     line("report.work-untouched")].join(" "))}</p>
 ${namesPeople(answers) ? `<p class="intro">${escaped(line("ev-run.names-people-page"))}</p>` : ""}
-${left ? `<p class="intro">${escaped(line("report.left-out", { counts: left }))}</p>` : ""}
 ${published ? `<p class="intro">${escaped(line("report.work-over-time"))}</p>` : ""}
 </div>
 <div class="block last">
@@ -511,7 +510,7 @@ function scanFindings(document, packs, asked) {
   });
 }
 
-function executive(document, answers, asked) {
+function executive(document, answers, asked, left) {
   const pack = (document.packs ?? []).find((one) => answers.some((each) => each.pack === one.pack));
   const noun = nounOf(pack);
   const held = counted(answers);
@@ -526,6 +525,7 @@ function executive(document, answers, asked) {
       line("report.summary-shows", { total: String(answers.length), nouns: noun.many, covered: String(held.covered),
         partial: String(held["partial-gap"]), gap: String(held["total-gap"]) }),
       rest > 0 ? line("report.summary-rest", { count: String(rest) }) : "",
+      left ? line("report.left-out", { counts: left }) : "",
     ],
     columns: STATUSES.filter(([status]) => held[status] > 0).map(([status, , colour]) => ({ key: status, label: named(status), colour })),
     rows: sectionsOf(pack, answers, asked).map(([part, list]) => ({ title: part.title || nameOf(pack, pack?.pack), counts: counted(list) })),
@@ -553,7 +553,7 @@ function page(document, answers, asked, leave = false) {
   // What moved since the last run of this repository kept on this machine, where there is one.
   const since = changes(document, earlierFor(document, HOME));
   const left = leave ? leftOut(answers, nounAcross(packs)) : "";
-  const blocks = executive(document, answers, asked) + opening(document, answers, packs, asked, left) +
+  const blocks = executive(document, answers, asked, left) + opening(document, answers, packs, asked) +
     [...byPack.keys()].map((pack) => changesSection(since, pack)).join("") + [...byPack.entries()].map(([pack, held]) => {
     const one = packs.find((each) => each.pack === pack);
     const noun = nounOf(one);
