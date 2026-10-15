@@ -355,6 +355,7 @@ function saying(part, args) {
     sets: () => words.setsFor({ pack: args[0], titles: titles(), sets: sets() }),
     "pick-sets": () => words.pickSets({ pack: args[0], titles: titles(), sets: sets() }),
     short: () => words.short(credits(), args[0]),
+    "leave-out": () => words.leaveOut(read()),
     reading: () => words.reading(read()),
     tally: () => words.tally(...args.slice(0, 4)),
     done: () => words.done(read(), args[1]),
@@ -366,7 +367,7 @@ function saying(part, args) {
     said = parts[part]();
   } catch (thrown) {
     errors.report("unexpected-error", thrown);
-    faulted(`--say ${part}: ${thrown?.message ?? thrown}`, ["reading", "tally", "done", "folder"].includes(part));
+    faulted(`--say ${part}: ${thrown?.message ?? thrown}`, ["reading", "tally", "done", "folder", "leave-out"].includes(part));
   }
   if (said) process.stdout.write(`${said}\n`);
 }

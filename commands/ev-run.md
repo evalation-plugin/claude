@@ -590,6 +590,12 @@ and each answer's label says what choosing it does.
    where the run read a concern set and `evalation-report` where it read a standard, both over the
    file step 7 wrote.
 
+   Just before them, run `evalation-run --say leave-out <written>`. It prints nothing where the run
+   holds no clause for the organisation to answer and none that doesn't apply: then ask nothing and
+   print every clause. Otherwise ask the question it prints with AskUserQuestion, passing it
+   unchanged. On Leave them out, add `--leave-out` to the `evalation-report` command below. On Print
+   every clause, add nothing.
+
    ```
    evalation-deliver <written> "" <target>
    evalation-report  <written>
@@ -662,8 +668,11 @@ evalation-summary state <written>
 
 which names each pack's executive summary as `missing`, `unchecked` or `checked`. For each pack it
 names as `missing`, have the summary written and checked as step 9 says, and for each `unchecked`
-one, start the summary checker alone. This uses no pack credits. Then say `evalation-say ev-run.writing`
-and run step 10 over `written`: `evalation-deliver` where a pack's `kind` is
+one, start the summary checker alone. This uses no pack credits. Then ask the leave out question
+step 10 describes with `evalation-run --say leave-out <written>`, so the person can print the other
+version at no pack credits. Then say `evalation-say ev-run.writing`
+and run step 10 over `written`, with `--leave-out` on `evalation-report` where the person chose to
+leave those clauses out: `evalation-deliver` where a pack's `kind` is
 `concern-set` and `evalation-report` where one is `standard`. The reports go into that run's own
 folder in place of the earlier copies. Then show anything step 10 printed about signing, then the
 lines `evalation-run --say folder <written>` prints, and nothing more.

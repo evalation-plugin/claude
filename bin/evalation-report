@@ -33,7 +33,7 @@ const { pluginHome } = require("../lib/home.js");
 const { changes, changesSection, earlierFor } = require("../lib/changes.js");
 const { print, unprintedSaid, unsignedSaid, unsignedThen, unwritten } = require("../lib/print.js");
 const { readingOf } = require("../lib/prose.js");
-const { line } = require("../lib/run-say.js");
+const { leftOut, line, STAYS_OUT } = require("../lib/run-say.js");
 const { cardOf, compared, compatible, named: phaseNamed, settled, upgradeTo } = require("../lib/scans.js");
 const { consequences, remedies } = require("../lib/weaknesses.js");
 const { keepFindings, reportsFolder, reviewName } = require("../lib/reports.js");
@@ -433,7 +433,7 @@ function grades(asked) {
 }
 
 // The opening page: what was assessed, what it came to, and how to read one of the standard's parts.
-function opening(document, answers, packs, asked) {
+function opening(document, answers, packs, asked, left) {
   const read = answers.filter((one) => one.from !== "authored").length;
   const noun = nounAcross(packs);
   const marks = grades(asked);
@@ -466,6 +466,7 @@ ${readBlock(document.target)}
     ...(others === 0 ? [] : [line("report.work-organisation", { count: String(others), noun: noun.one, nouns: noun.many })]),
     line("report.work-untouched")].join(" "))}</p>
 ${namesPeople(answers) ? `<p class="intro">${escaped(line("ev-run.names-people-page"))}</p>` : ""}
+${left ? `<p class="intro">${escaped(line("report.left-out", { counts: left }))}</p>` : ""}
 ${published ? `<p class="intro">${escaped(line("report.work-over-time"))}</p>` : ""}
 </div>
 <div class="block last">
@@ -538,7 +539,7 @@ function executive(document, answers, asked) {
   });
 }
 
-function page(document, answers, asked) {
+function page(document, answers, asked, leave = false) {
   const repository = document.target?.repository ?? "";
   const packs = document.packs ?? [];
   target = document.target ?? null;
@@ -551,7 +552,8 @@ function page(document, answers, asked) {
 
   // What moved since the last run of this repository kept on this machine, where there is one.
   const since = changes(document, earlierFor(document, HOME));
-  const blocks = executive(document, answers, asked) + opening(document, answers, packs, asked) +
+  const left = leave ? leftOut(answers, nounAcross(packs)) : "";
+  const blocks = executive(document, answers, asked) + opening(document, answers, packs, asked, left) +
     [...byPack.keys()].map((pack) => changesSection(since, pack)).join("") + [...byPack.entries()].map(([pack, held]) => {
     const one = packs.find((each) => each.pack === pack);
     const noun = nounOf(one);
@@ -559,7 +561,8 @@ function page(document, answers, asked) {
     // one standard the opening page has already named it, and repeating it on every heading is the
     // same words down the page saying nothing new.
     const several = byPack.size > 1;
-    return sectionsOf(one, held, asked).map(([part, rows]) => section({
+    const printed = leave ? held.filter((each) => !STAYS_OUT.includes(each.status)) : held;
+    return (printed.length === 0 ? [] : sectionsOf(one, printed, asked)).map(([part, rows]) => section({
       ...part,
       title: several && part.title ? `${nameOf(one, pack)}, ${part.title}` : (part.title || nameOf(one, pack)),
     }, rows, asked, noun, document.scan)).join("");
@@ -594,9 +597,10 @@ ${paginator({ title, subtitle, foot })}`;
 }
 
 function main() {
-  const [source, into] = process.argv.slice(2);
+  const leave = process.argv.includes("--leave-out");
+  const [source, into] = process.argv.slice(2).filter((one) => one !== "--leave-out");
   if (!source) {
-    process.stderr.write("usage: evalation-report <findings.json> [into-dir]\n");
+    process.stderr.write("usage: evalation-report <findings.json> [into-dir] [--leave-out]\n");
     process.exit(2);
   }
 
@@ -650,7 +654,7 @@ function main() {
       const out = join(folder, `${reviewName(document, pack)} Evidence Pack.pdf`);
       let done;
       try {
-        done = print(page(alone, own, asked), `${out.replace(/\.pdf$/, "")}.html`, out, { run: document.run },
+        done = print(page(alone, own, asked, leave), `${out.replace(/\.pdf$/, "")}.html`, out, { run: document.run },
           readingOf(document));
       } catch (thrown) {
         if (!thrown?.file) throw thrown;
