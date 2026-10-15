@@ -238,3 +238,54 @@ test("the findings file keeps each pack's stated purpose", () => {
     packs: [{ pack: "investment-diligence", body: { kind: "standard", title: "Investment", description: PURPOSE, entries: [] } }] }, "Opus 5.5");
   assert.strictEqual(held.packs[0].description, PURPOSE);
 });
+
+const noCut = (sheets) => assert.deepStrictEqual(sheets.filter((one) => /data-cut=/.test(one)).map((one) => (one.match(/data-cut="([^"]*)"/) ?? [])[1]), []);
+
+test("a summary whose few points to weigh are each most of a page flows item by item, and nothing is cut", () => {
+  const document = standard(6, 3, 0);
+  const pack = document.packs[0];
+  const long = (at) => `Point ${at} to weigh. ${"Ask who owns the gaps in this section and what it would cost to close them. ".repeat(50)}`;
+  pack.sections = pack.sections.map((one, at) => ({ ...one, weigh: at < 4 ? [long(at + 1)] : [] }));
+  const sheets = reportSheets(document);
+  noCut(sheets);
+  assert.strictEqual((sheets.join("").match(/Point \d to weigh\./g) ?? []).length, 4);
+});
+
+test("a summary whose reading is longer than a page flows paragraph by paragraph, and nothing is cut", () => {
+  const document = standard(6, 3, 0);
+  const say = "The review step holds up best, since it checks each model reply against a fixed shape, caps its size and stops at the first rejection. ".repeat(12);
+  document.summaries = { [document.packs[0].pack]: { state: "verified", paragraph: Array.from({ length: 6 }, (_, at) => ({ say: `Paragraph ${at + 1}. ${say}`, rests_on: ["INV01"] })), weigh: [] } };
+  const sheets = reportSheets(document);
+  noCut(sheets);
+  assert.strictEqual((sheets.join("").match(/Paragraph \d\./g) ?? []).length, 6);
+});
+
+const overshoot = (html) => {
+  const watch = `<script>setTimeout(function () { var flows = document.querySelectorAll('.flow'); for (var f = 0; f < flows.length; f++) { var last = flows[f].lastElementChild;
+    if (last && last.getBoundingClientRect().bottom > flows[f].getBoundingClientRect().bottom) flows[f].setAttribute('data-over', String(f + 1)); } }, 2500);</script>`;
+  return sheetsOf(html.replace("</script>", "</script>" + watch)).filter((one) => /data-over=/.test(one)).length;
+};
+
+test("every page ends inside its foot, not within the half pixel the page check forgives", () => {
+  const document = standard(0, 0, 0);
+  const pack = document.packs[0];
+  const statuses = Array.from({ length: 220 }, (_, at) => ["total-gap", "partial-gap", "covered"][at % 3]);
+  pack.entries_asked = statuses.map((_, at) => ({ identifier: `INV${String(at + 1).padStart(3, "0")}`, title: `Question ${at + 1} about the product`,
+    intent: "Does the code hold it?", section: `S${(at % SECTIONS.length) + 1}`, bears_on: "repository" }));
+  pack.selected = pack.entries_asked.map((one) => one.identifier);
+  document.answers = statuses.map((status, at) => ({ pack: pack.pack, entry: pack.entries_asked[at].identifier, status,
+    because: `Read the code. ${"The code shows it in one place. ".repeat(1 + (at * 7) % 11)}`, remedy: `Build it. ${"Then check it. ".repeat((at * 5) % 7)}` }));
+  assert.strictEqual(overshoot(page(document, document.answers.filter((one) => one.pack === "soc2"), askedOf(document))), 0);
+});
+
+test("an appendix of folders longer than a page flows on to the next, and nothing is cut", () => {
+  const document = standard(2, 2);
+  document.target = { ...document.target, kind: "solution", name: "Acme",
+    repositories: Array.from({ length: 700 }, (_, at) => ({ folder: `repo-${at + 1}`, repository: `acme/repo-${at + 1}`, vcs: "git" })),
+    left_out: Array.from({ length: 300 }, (_, at) => ({ folder: `copy-${at + 1}`, why: "not chosen for this review" })) };
+  const sheets = reportSheets(document);
+  noCut(sheets);
+  const appendix = sheets.join("");
+  assert.strictEqual((appendix.match(/<li><b>acme\/repo-\d+<\/b>/g) ?? []).length, 705);
+  assert.strictEqual((appendix.match(/<li><b>copy-\d+<\/b>/g) ?? []).length, 305);
+});
