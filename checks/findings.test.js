@@ -35,7 +35,7 @@ test("an answer whose status differs from the count is refused, naming the count
   const document = run(tree);
   document.answers[0].status = "covered";
   assert.deepStrictEqual(about(checked(document, tree), "soc2/CC6.1"), [
-    "soc2/CC6.1: covered, and it found 1 of the 2 items that apply, which makes it partial-gap",
+    "soc2/CC6.1: covered, and it found 1 of the 2 items that apply, and that makes it partial-gap",
   ]);
 });
 

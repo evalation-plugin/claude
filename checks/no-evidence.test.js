@@ -67,7 +67,7 @@ test("with no infrastructure code, an item the code itself shows is still found"
 
 test("an item the code should hold is never no evidence found", () => {
   assert.deepStrictEqual(about(checked(asking(bare, [{ result: "no-evidence" }, { result: "no-evidence" }], "no-evidence"), bare)), [
-    "soc2/CC6.1 item 1: no-evidence, which only an item the pack marks as possibly held outside the code can be",
+    "soc2/CC6.1 item 1: no-evidence fits only an item the pack marks as possibly held outside the code",
   ]);
 });
 
@@ -84,7 +84,7 @@ test("an entry whose every item is no evidence found carries that status, never 
   const document = asking(bare, [{ result: "does-not-apply", why: "No routes." }, { result: "no-evidence" }], "not-applicable");
   document.answers[0].justification = "No routes are served.";
   assert.deepStrictEqual(about(checked(document, bare)), [
-    "soc2/CC6.1: not-applicable, and it found 0 of the 0 items that apply, with 1 held to environment, which makes it no-evidence",
+    "soc2/CC6.1: not-applicable, and it found 0 of the 0 items that apply, with 1 held to environment, and that makes it no-evidence",
   ]);
   document.answers[0].status = "no-evidence";
   assert.deepStrictEqual(about(checked(document, bare)), []);

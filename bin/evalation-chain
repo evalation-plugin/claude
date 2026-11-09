@@ -91,5 +91,6 @@ try {
 if (call.tool_name !== "Bash") process.exit(0);
 const found = segments(String(call.tool_input?.command ?? "")).map(script).filter(Boolean);
 if (found.length < 2) process.exit(0);
-process.stderr.write(`This command joins ${found.join(", ")} in one call. Run each in its own call, with nothing joined to it.\n`);
+const { entries, say } = require("../lib/say.js");
+process.stderr.write(`${say(entries(), "chain.joined", { scripts: found.join(", ") })}\n`);
 process.exit(2);
