@@ -32,7 +32,7 @@ const server = http.createServer((req, res) => {
   }
   if (!u || u.pathname !== '/callback') {
     res.writeHead(404, { 'content-type': 'text/plain' });
-    res.end('not found');
+    res.end('not found'); // say:allow: machine, the body of a 404 for a path the sign-in never uses
     return;
   }
   const code = u.searchParams.get('code') || '';
