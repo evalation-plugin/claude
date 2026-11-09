@@ -17,7 +17,7 @@ const NOT_FINISHED = { clock: "ev-rotate.not-finished-clock", unreachable: "ev-r
   "key-store-refused": "ev-rotate.not-finished-key-store", other: "ev-rotate.not-finished-other" };
 const ENDED = { refused: "ev-account.refused", ended: "ev-account.ended" };
 const PKCS8_X25519 = Buffer.from("302e020100300506032b656e04220420", "hex");
-const DAMAGED = "sign-in-damaged: this machine's Evalation sign-in could not be read, so nothing was changed";
+const DAMAGED = "sign-in-damaged: this machine's Evalation sign-in could not be read, so nothing was changed"; // say:allow: machine, a prefix line the session maps to a catalogue line
 
 function fail(reason) {
   process.stderr.write(reason + "\n");
@@ -45,7 +45,7 @@ function signsIn(held) {
     try {
       key = store.held(reference.service, reference.account);
     } catch (thrown) {
-      if (!store.absent(thrown)) fail("sign-in-unclear: this machine's Evalation sign-in could not be read just now, so nothing was changed");
+      if (!store.absent(thrown)) fail("sign-in-unclear: this machine's Evalation sign-in could not be read just now, so nothing was changed"); // say:allow: machine, a prefix line the session maps to a catalogue line
     }
   }
   if (!key || Buffer.from(key, "base64").length !== 32) fail(DAMAGED);
@@ -57,7 +57,7 @@ function named() {
   try {
     text = readFileSync(settings, "utf8");
   } catch {
-    fail("no-settings: this machine is not signed in to Evalation, so there is nothing to replace");
+    fail("no-settings: this machine is not signed in to Evalation, so there is nothing to replace"); // say:allow: machine, a prefix line the session maps to a catalogue line
   }
   let held;
   try {
@@ -67,7 +67,7 @@ function named() {
   }
   signsIn(held);
   const reference = store.referenced(held?.secrets?.receiving_key);
-  if (!reference) fail("no-receiving-key: this machine's sign-in names no key to replace, so nothing was changed");
+  if (!reference) fail("no-receiving-key: this machine's sign-in names no key to replace, so nothing was changed"); // say:allow: machine, a prefix line the session maps to a catalogue line
   return { service: reference.service, current: reference.account, previous: `${reference.account}-previous` };
 }
 
@@ -115,7 +115,7 @@ function restored(standing) {
 function finished(sent) {
   try {
     const packs = ask("/packs", {});
-    if (!Array.isArray(packs.packs)) throw raised("what came back is not a catalogue", null);
+    if (!Array.isArray(packs.packs)) throw raised("what came back is not a catalogue", null); // say:allow: machine, fault detail shown only under --reason
     ask("/rotate", { receiving_key: sent, confirmed: true });
   } catch (thrown) {
     stopped(NOT_FINISHED, thrown);
@@ -128,9 +128,9 @@ function finished(sent) {
 let current;
 try {
   current = store.held(SERVICE, CURRENT);
-  if (!current) throw raised("it is empty", null);
+  if (!current) throw raised("it is empty", null); // say:allow: machine, a cause caught at once and shown to nobody
 } catch {
-  fail("no-key: this machine's current key could not be read, so nothing was changed");
+  fail("no-key: this machine's current key could not be read, so nothing was changed"); // say:allow: machine, a prefix line the session maps to a catalogue line
 }
 
 const older = held(PREVIOUS);
@@ -140,7 +140,7 @@ else if (older) {
   try {
     sent = publicOf(current);
   } catch {
-    if (!restored(older)) stop(NOT_FINISHED, "key-store-refused", "the kept key is not a key and the one before it could not be put back");
+    if (!restored(older)) stop(NOT_FINISHED, "key-store-refused", "the kept key is not a key and the one before it could not be put back"); // say:allow: machine, fault detail shown only under --reason
     current = older;
   }
   if (sent) {
