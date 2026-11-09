@@ -123,7 +123,7 @@ function spoken(day) {
 
 function missingWhy(tool, held) {
   const failed = held.could_not_install[tool];
-  if (failed) return line("scan.tool-failed", { tool: nameOf(tool), why: failed.why || "no reason recorded" });
+  if (failed) return line("scan.tool-failed", { tool: nameOf(tool), why: failed.why || line("scan.no-reason") });
   if (held.declined.includes(tool)) {
     const on = spoken(held.declined_on[tool]);
     return on ? line("scan.tool-declined-on", { tool: nameOf(tool), on }) : line("scan.tool-declined", { tool: nameOf(tool) });
@@ -418,7 +418,9 @@ function licenceGrade(expression) {
   return choices.includes(null) ? null : choices.reduce((mildest, one) => (ranked(one) < ranked(mildest) ? one : mildest));
 }
 
-const listedUpTo = (names) => `${names.slice(0, 12).join(", ")}${names.length > 12 ? ` and ${names.length - 12} more` : ""}`;
+const namesUpTo = (names, most) => (names.length > most ? line("scan.names-more", { names: names.slice(0, most).join(", "), more: String(names.length - most) }) : names.join(", "));
+
+const listedUpTo = (names) => namesUpTo(names, 12);
 
 const unquoted = (text) => String(text).trim().replace(/^["']|["']$/g, "");
 
@@ -652,12 +654,12 @@ const BY_PHASE = {
         const sent = held.lookup ? lookedUp(held.lookup) : null;
         const said = licences(out, files, files.filter((one) => basename(one) === "Cargo.lock").map((one) => cratesIn(root, one)), sent?.answers ?? []);
         const told = sent ? { looked_up: sent.said, ...(sent.failed ? { lookup_failed: sent.failed } : {}) } : {};
-        if (said.lockfiles === 0 && said.findings.length === 0) return { skipped: "no-lockfile", why: "the repository holds no dependency lockfile to read licences from" };
-        if (said.lockfiles === 0) return { findings: said.findings, unread: [], ...told, measures: ["licence:in-code"], why: "the repository holds no dependency lockfile to read dependency licences from" };
+        if (said.lockfiles === 0 && said.findings.length === 0) return { skipped: "no-lockfile", why: line("scan.why-no-lockfile") };
+        if (said.lockfiles === 0) return { findings: said.findings, unread: [], ...told, measures: ["licence:in-code"], why: line("scan.why-no-lockfile-deps") };
         const todo = fetchSaid(said.fetch);
         if (said.read === 0 && said.findings.length === 0) return { skipped: "not-installed", why: [`no dependency licences could be read from ${said.unread.join(", ")}, since the dependencies are not installed here.`, ...todo].join(" ").replace(/\.$/, "") };
         return { findings: said.findings, unread: said.unread, ...told, ...(todo.length > 0 ? { todo } : {}), ...(said.read === 0 ? { measures: ["licence:in-code"] } : {}),
-          ...(said.unread.length > 0 ? { why: `licences not read for ${said.unread.length > 5 ? `${said.unread.slice(0, 5).join(", ")} and ${said.unread.length - 5} more` : said.unread.join(", ")}, since those dependencies are not installed here${sent ? " and deps.dev gave no licence for them" : ""}` } : {}) };
+          ...(said.unread.length > 0 ? { why: line(sent ? "scan.why-unread-sent" : "scan.why-unread", { names: namesUpTo(said.unread, 5) }) } : {}) };
       },
     },
   },
@@ -723,7 +725,7 @@ function outsiders(authors, domains) {
       ...(one.addresses.every(privateAddress) ? { why: line("scan.private-why") } : {}) }))
     .sort((a, b) => b.commits - a.commits || a.name.localeCompare(b.name));
   if (outside.length === 0) return null;
-  return { key: "history:outside-contributors", phase: "history", severity: "low", at: { path: "git history" }, names_people: true,
+  return { key: "history:outside-contributors", phase: "history", severity: "low", at: { path: line("scan.at-history") }, names_people: true,
     title: line("scan.outside-title"),
     body: line("scan.outside", { count: String(outside.length), total: String(all.length), domains: domains.join(" or ") }),
     people: outside };
@@ -778,7 +780,7 @@ function authorship(out) {
   const counts = new Map();
   for (const one of people(authors).filter(Boolean)) counts.set(one, (counts.get(one) ?? 0) + 1);
   const total = [...counts.values()].reduce((sum, one) => sum + one, 0);
-  const at = { path: "git history" };
+  const at = { path: line("scan.at-history") };
   if (total === 0) {
     return [{ key: "history:quiet", phase: "history", severity: "medium", title: line("scan.quiet-title"), at,
       body: line("scan.quiet") }];
@@ -795,8 +797,8 @@ function authorship(out) {
 
 /** The history phase, read from the checkout itself, since the copy the other tools read has none. */
 function history(root, isRepository, named) {
-  if (!named.enabled) return { phase: "history", tool: "git", ran: false, reason: "off", why: "it is turned off", findings: [] };
-  if (!isRepository) return { phase: "history", tool: "git", ran: false, reason: "no-history", why: "the target has no git history", findings: [] };
+  if (!named.enabled) return { phase: "history", tool: "git", ran: false, reason: "off", why: line("scan.why-turned-off"), findings: [] };
+  if (!isRepository) return { phase: "history", tool: "git", ran: false, reason: "no-history", why: line("scan.why-no-history"), findings: [] };
   try {
     const git = (...args) => execFileSync("git", ["-C", root, ...args],
       { encoding: "utf8", maxBuffer: 256 * 1024 * 1024, stdio: ["ignore", "pipe", "ignore"] });
@@ -815,7 +817,7 @@ function history(root, isRepository, named) {
       findings: [...authorship(commits.map((one) => `${one.name}\x1f${one.address}`).join("\n")), ...measured({ commits: byPeople, tags, tracked, now }),
         ...practices({ commits: byPeople, source: markersIn(root, tracked) })] };
   } catch (thrown) {
-    return { phase: "history", tool: "git", ran: false, reason: "failed", why: `git could not read the history: ${thrown.message}`, findings: [] };
+    return { phase: "history", tool: "git", ran: false, reason: "failed", why: line("scan.why-git-failed", { why: thrown.message }), findings: [] };
   }
 }
 
@@ -882,7 +884,7 @@ function measured({ commits, tags, tracked, now }) {
   const within = (at, days) => now - Date.parse(at) <= days * DAY;
   const releases = tags.filter((at) => within(at, 365)).length;
   if (releases < 4) {
-    found.push({ key: "history:releases", phase: "history", severity: releases === 0 ? "medium" : "low", at: { path: "git tags" },
+    found.push({ key: "history:releases", phase: "history", severity: releases === 0 ? "medium" : "low", at: { path: line("scan.at-tags") },
       title: line(releases === 0 ? "scan.no-releases-title" : "scan.few-releases-title"),
       body: line("scan.releases", { count: String(releases) }) });
   }
@@ -894,7 +896,7 @@ function measured({ commits, tags, tracked, now }) {
   }
   const dormant = areas.filter((one) => touched.get(one).length === 0);
   if (dormant.length > 0) {
-    found.push({ key: "history:dormant", phase: "history", severity: "low", at: { path: "git history" },
+    found.push({ key: "history:dormant", phase: "history", severity: "low", at: { path: line("scan.at-history") },
       title: line("scan.dormant-title"),
       body: dormant.length > 6 ? line("scan.dormant-more", { areas: dormant.slice(0, 6).join(", "), more: String(dormant.length - 6) })
         : line("scan.dormant", { areas: dormant.join(", ") }) });
@@ -913,7 +915,7 @@ function measured({ commits, tags, tracked, now }) {
   const recent = commits.filter((one) => within(one.at, 90)).length / 3;
   const before = commits.filter((one) => !within(one.at, 90) && within(one.at, 365)).length / 9;
   if (before >= 4 && recent < before / 2) {
-    found.push({ key: "history:slowing", phase: "history", severity: "medium", at: { path: "git history" },
+    found.push({ key: "history:slowing", phase: "history", severity: "medium", at: { path: line("scan.at-history") },
       title: line("scan.slowing-title"),
       body: line("scan.slowing", { recent: String(Math.round(recent)), before: String(Math.round(before)) }) });
   }
@@ -963,7 +965,7 @@ function practices({ commits, source }) {
   const found = [];
   const total = commits.length;
   const share = (part, whole) => Math.round((part / whole) * 100);
-  const at = { path: "git history" };
+  const at = { path: line("scan.at-history") };
   if (total > 0) {
     const last = new Map();
     for (const one of commits) last.set(one.who, Math.max(last.get(one.who) ?? 0, Date.parse(one.at)));
@@ -997,7 +999,7 @@ function practices({ commits, source }) {
   }
   const rate = source.lines > 0 ? (source.markers / source.lines) * 1000 : 0;
   if (rate > 2) {
-    found.push({ key: "history:markers", phase: "history", severity: rate > 5 ? "medium" : "low", at: { path: "tracked source" },
+    found.push({ key: "history:markers", phase: "history", severity: rate > 5 ? "medium" : "low", at: { path: line("scan.at-source") },
       title: line("scan.markers-title"),
       body: line("scan.markers", { markers: String(source.markers), lines: String(source.lines), rate: rate.toFixed(1) }) });
   }
@@ -1022,7 +1024,7 @@ function runPhase(phase, named, target, isRepository, held) {
   const override = process.env[`EVALATION_${phase.toUpperCase()}_CMD`];
   const adapter = adapterFor(phase, named.tool);
 
-  if (!named.enabled) return { phase, tool: named.tool, ran: false, reason: "off", why: "it is turned off", findings: [] };
+  if (!named.enabled) return { phase, tool: named.tool, ran: false, reason: "off", why: line("scan.why-turned-off"), findings: [] };
   if (!override) {
     // Why it did not run, in the words a person reading the report will be given. A declined install
     // is a decision somebody made and reads as one, a failed install is not a decision, and a
@@ -1040,7 +1042,7 @@ function runPhase(phase, named, target, isRepository, held) {
       };
     }
     if (!adapter) {
-      return { phase, tool: named.tool, ran: false, reason: "no-adapter", why: `this build knows no adapter for ${named.tool}`, findings: [] };
+      return { phase, tool: named.tool, ran: false, reason: "no-adapter", why: line("scan.why-no-adapter", { tool: named.tool }), findings: [] };
     }
   }
 
@@ -1085,7 +1087,7 @@ function runPhase(phase, named, target, isRepository, held) {
       tool: named.tool,
       ran: false,
       reason: "failed",
-      why: `the tool did not finish: ${String(thrown.message ?? thrown).split("\n")[0]}`,
+      why: line("scan.why-unfinished", { why: String(thrown.message ?? thrown).split("\n")[0] }),
       findings: [],
     };
   } finally {
@@ -1128,9 +1130,9 @@ function withOutsiders(said, authors, domains) {
 function scan(target, only = null, { domains = [], lookup = null } = {}) {
   const root = resolve(target);
   try {
-    if (!statSync(root).isDirectory()) fail(`${target} is not a directory`);
+    if (!statSync(root).isDirectory()) fail(`${target} is not a directory`); // say:allow: machine, detail for the fault file
   } catch {
-    fail(`no-such-target: ${target} is not a directory this machine can read`);
+    fail(`no-such-target: ${target} is not a directory this machine can read`); // say:allow: machine, detail for the fault file
   }
 
   const held = phases();
@@ -1266,8 +1268,7 @@ function show(only = null) {
  */
 function install(tools) {
   if (!onThisMachine(BREW)) {
-    fail(`this build installs scanners with ${BREW}, which is not on this machine. Install the ` +
-      `tools another way, or run the review without them and it will say what it did not check.`);
+    fail(line("scan.no-brew", { brew: BREW }));
   }
   const done = [];
   for (const tool of tools) {
@@ -1334,17 +1335,17 @@ function main() {
       show(asked(rest).only);
       return;
     case "install":
-      if (rest.length === 0) fail("usage: evalation-scan install <tool ...>");
+      if (rest.length === 0) fail("usage: evalation-scan install <tool ...>"); // say:allow: machine, detail for the fault file
       answered(rest);
       install(rest);
       return;
     case "decline":
-      if (rest.length === 0) fail("usage: evalation-scan decline <tool ...>");
+      if (rest.length === 0) fail("usage: evalation-scan decline <tool ...>"); // say:allow: machine, detail for the fault file
       answered(rest);
       decline(rest);
       return;
     case "domains": {
-      if (!rest[0]) fail("usage: evalation-scan domains <target>");
+      if (!rest[0]) fail("usage: evalation-scan domains <target>"); // say:allow: machine, detail for the fault file
       const root = resolve(rest[0]);
       const solution = existsSync(join(root, ".git")) ? null : solutionOf(root);
       const choices = domainChoices(authorsOver(root, solution), settings().signed_in_as);
@@ -1359,7 +1360,7 @@ function main() {
       return;
     }
     case "lookup": {
-      if (!rest[0]) fail("usage: evalation-scan lookup <target>");
+      if (!rest[0]) fail("usage: evalation-scan lookup <target>"); // say:allow: machine, detail for the fault file
       const root = resolve(rest[0]);
       const named = phases().phases.licence;
       if (!named?.enabled || named.tool !== "trivy" || !onThisMachine("trivy")) {
@@ -1376,7 +1377,7 @@ function main() {
     case "open": {
       const folder = join(HOME, "lookups");
       const path = rest[0] ? resolve(rest[0]) : "";
-      if (!path.startsWith(`${folder}/`) && !path.startsWith(`${folder}\\`) || !existsSync(path)) fail(`evalation-scan opens only a list evalation-scan lookup wrote, under ${folder}`);
+      if (!path.startsWith(`${folder}/`) && !path.startsWith(`${folder}\\`) || !existsSync(path)) fail(`evalation-scan opens only a list evalation-scan lookup wrote, under ${folder}`); // say:allow: machine, detail for the fault file
       const override = process.env.EVALATION_OPEN_CMD;
       const [command, ...args] = override ? override.split(/\s+/) : process.platform === "darwin" ? ["open"] : process.platform === "win32" ? ["explorer"] : ["xdg-open"];
       const opened = spawnSync(command, [...args, path], { stdio: "ignore" });
@@ -1388,7 +1389,7 @@ function main() {
       const { domains, rest: afterDomains } = domainsAsked(afterPhases);
       const at = afterDomains.indexOf("--lookup");
       const lookup = at < 0 ? null : afterDomains[at + 1];
-      if (at >= 0 && !(lookup && isAbsolute(lookup) && lookup.startsWith(join(HOME, "lookups")))) fail(`the list to look up must be one evalation-scan lookup wrote, under ${join(HOME, "lookups")}`);
+      if (at >= 0 && !(lookup && isAbsolute(lookup) && lookup.startsWith(join(HOME, "lookups")))) fail(`the list to look up must be one evalation-scan lookup wrote, under ${join(HOME, "lookups")}`); // say:allow: machine, detail for the fault file
       const left = at < 0 ? afterDomains : afterDomains.filter((_, index) => index !== at && index !== at + 1);
       if (!left[0]) fail("usage: evalation-scan run <target> [--phases a,b] [--domains a.com,b.com] [--lookup <list>]");
       const { path, document } = scan(left[0], only, { domains, lookup });
@@ -1409,7 +1410,7 @@ function main() {
     }
     case "set": {
       const [phase, tool] = rest;
-      if (!phase || !tool) fail("usage: evalation-scan set <phase> <tool|off>");
+      if (!phase || !tool) fail("usage: evalation-scan set <phase> <tool|off>"); // say:allow: machine, detail for the fault file
       if (!DEFAULTS[phase]) fail(`no phase ${JSON.stringify(phase)}. The phases are ${Object.keys(DEFAULTS).join(", ")}.`);
       // Only a tool this file knows how to start and how to read. A name from anywhere else is a
       // command somebody would be running without having chosen it.
@@ -1422,7 +1423,7 @@ function main() {
       if (tool !== "off" && !adapterFor(phase, tool)) {
         const fits = [...new Set([...Object.keys(BY_PHASE[phase] ?? {}), ...Object.entries(ADAPTERS)
           .filter(([, one]) => one.phase === phase).map(([name]) => name)])];
-        fail(`${tool} does not answer the ${phase} phase. ` +
+        fail(`${tool} does not answer the ${phase} phase. ` + // say:allow: machine, detail for the fault file
           (fits.length ? `For ${phase} this knows ${fits.join(", ")}.` : `This knows no tool for ${phase}.`)); // say:allow: machine,detail for the fault file, and set is not granted to a session
       }
       const held = settings();

@@ -23,5 +23,9 @@
   "deck.label-keep": { "say": "Controls to keep" },
   "deck.label-roadmap": { "say": "The order of fixes" },
   "deck.label-decisions": { "say": "Decision records" },
-  "deck.label-iac": { "say": "Infrastructure as code" }
+  "deck.label-iac": { "say": "Infrastructure as code" },
+  "deck.label-since": { "say": "Since last run" },
+  "deck.folders-named": { "say": "other folders: <folders>" },
+  "deck.folders-counted": { "count": "count", "say": { "one": "one other folder", "many": "<count> other folders" } },
+  "deck.misaligned": { "say": "<text> and the text beside it are <gap> apart, so they are not aligned." }
 }
