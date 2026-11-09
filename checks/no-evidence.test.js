@@ -84,7 +84,7 @@ test("an entry whose every item is no evidence found carries that status, never 
   const document = asking(bare, [{ result: "does-not-apply", why: "No routes." }, { result: "no-evidence" }], "not-applicable");
   document.answers[0].justification = "No routes are served.";
   assert.deepStrictEqual(about(checked(document, bare)), [
-    "soc2/CC6.1: not-applicable, and it found 0 of the 0 items that apply, with 1 held to environment, which makes it no-evidence",
+    "soc2/CC6.1: not-applicable, and it found 0 of the 0 items that apply, with 1 held to environment, and that makes it no-evidence",
   ]);
   document.answers[0].status = "no-evidence";
   assert.deepStrictEqual(about(checked(document, bare)), []);
