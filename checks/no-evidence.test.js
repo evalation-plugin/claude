@@ -67,7 +67,7 @@ test("with no infrastructure code, an item the code itself shows is still found"
 
 test("an item the code should hold is never no evidence found", () => {
   assert.deepStrictEqual(about(checked(asking(bare, [{ result: "no-evidence" }, { result: "no-evidence" }], "no-evidence"), bare)), [
-    "soc2/CC6.1 item 1: no-evidence, which only an item the pack marks as possibly held outside the code can be",
+    "soc2/CC6.1 item 1: no-evidence fits only an item the pack marks as possibly held outside the code",
   ]);
 });
 

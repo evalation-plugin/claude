@@ -817,7 +817,7 @@ function history(root, isRepository, named) {
       findings: [...authorship(commits.map((one) => `${one.name}\x1f${one.address}`).join("\n")), ...measured({ commits: byPeople, tags, tracked, now }),
         ...practices({ commits: byPeople, source: markersIn(root, tracked) })] };
   } catch (thrown) {
-    return { phase: "history", tool: "git", ran: false, reason: "failed", why: line("scan.why-git-failed", { why: thrown.message }), findings: [] };
+    return { phase: "history", tool: "git", ran: false, reason: "failed", why: line("scan.why-git-failed", { why: reasonOf(thrown) }), findings: [] };
   }
 }
 
@@ -1087,7 +1087,7 @@ function runPhase(phase, named, target, isRepository, held) {
       tool: named.tool,
       ran: false,
       reason: "failed",
-      why: line("scan.why-unfinished", { why: String(thrown.message ?? thrown).split("\n")[0] }),
+      why: line("scan.why-unfinished", { why: reasonOf(thrown) }),
       findings: [],
     };
   } finally {
@@ -1443,7 +1443,11 @@ function main() {
 
 const argvOf = (phase, target) => adapterFor(phase, DEFAULTS[phase].tool).argv(target, null, false);
 
-module.exports = { adapterFor, argvOf, authorship, cratesIn, domainChoices, licenceRead: licences, licences, measured, outsiders, practices, scan, typedDomains };
+function reasonOf(thrown) {
+  return String(thrown?.message ?? thrown ?? "").split("\n")[0] || line("scan.no-reason");
+}
+
+module.exports = { adapterFor, argvOf, authorship, cratesIn, domainChoices, licenceRead: licences, licences, measured, outsiders, practices, reasonOf, scan, typedDomains };
 
 if (require.main === module) {
   try {
