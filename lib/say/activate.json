@@ -1,0 +1,4 @@
+{
+  "activate.already-holds-a-key": { "say": "already-holds-a-key: this machine already holds <account> for an installation named <installation>. Activating it again would write over the key that proves that installation is itself, and nothing can restore it. Activate under another name, or remove that installation's keys first if it is genuinely gone." },
+  "activate.read-back": { "say": "it read back something other than what was written" }
+}

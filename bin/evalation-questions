@@ -20,18 +20,20 @@ const { CRITERIA, actionQuestion, approval, askServer, changed, claimsQuestion, 
 const { entries: lines, say } = require("../lib/say.js");
 const { answered } = require("../lib/answer.js");
 
+const line = (name, values) => say(lines(), name, values);
+
 const HOME = pluginHome();
 const NAME = /^[A-Za-z0-9][A-Za-z0-9 _-]{0,59}$/;
 const DAY = 24 * 60 * 60 * 1000;
 
 function draftOf(home, name) {
-  if (!NAME.test(String(name))) throw raised(`${name}: not a name a set is kept under`, null);
+  if (!NAME.test(String(name))) throw raised(line("questions.name-not-kept", { name: String(name) }), null);
   mkdirSync(join(home, "drafts"), { recursive: true, mode: 0o700 });
   return join(home, "drafts", `${name}.json`);
 }
 
 function fresh(home, name) {
-  if (saved(home).includes(name)) throw raised(`${name} is already a saved set, so a new set needs another name`, null);
+  if (saved(home).includes(name)) throw raised(line("questions.name-saved-new", { name }), null);
   const draft = draftOf(home, name);
   rmSync(draft, { force: true });
   rmSync(`${draft}.said.json`, { force: true });
@@ -67,14 +69,15 @@ function packsSaid(home, ask = askServer) {
   try {
     packs = served(ask);
   } catch {
-    return "The pack list could not be fetched."; // say:allow: agent,the session reads this answer file, and choose-pack asks the person
+    return line("questions.packs-unfetched");
   }
   const selection = join(home, "packs.json");
   const chosen = existsSync(selection) ? JSON.parse(readFileSync(selection, "utf8")).packs ?? [] : [];
   const titleOf = (one) => one.body?.title ?? one.pack;
   const picked = packs.filter((one) => chosen.includes(one.pack)).map(titleOf);
   const open = packs.filter((one) => extensible(one.body)).map((one) => `${titleOf(one)} (${one.pack})`);
-  return [`Chosen packs: ${picked.join(", ") || "none"}`, `Packs that take extra questions: ${open.join(", ") || "none"}`].join("\n");
+  return [line("questions.packs-chosen", { packs: picked.join(", ") || line("questions.none") }),
+    line("questions.packs-extensible", { packs: open.join(", ") || line("questions.none") })].join("\n");
 }
 
 function titles(ask = askServer) {
@@ -86,7 +89,7 @@ function titles(ask = askServer) {
 }
 
 function runCopyOf(home, name) {
-  if (!NAME.test(String(name))) throw raised(`${name}: not a name a set is kept under`, null);
+  if (!NAME.test(String(name))) throw raised(line("questions.name-not-kept", { name: String(name) }), null);
   mkdirSync(join(home, "runs", "questions"), { recursive: true, mode: 0o700 });
   return join(home, "runs", "questions", `${name}.json`);
 }
@@ -136,7 +139,7 @@ function main() {
     const set = read(arg);
     for (const one of progress(HOME, arg, set)) process.stdout.write(`${one}\n`);
     const { fix, waiting, unconfirmed } = grouped(HOME, set);
-    const said = [["To fix:", fix], ["Waiting for the independent checker:", waiting], ["Not confirmed by the independent checker:", unconfirmed]]
+    const said = [[line("questions.head-fix"), fix], [line("questions.head-waiting"), waiting], [line("questions.head-unconfirmed"), unconfirmed]]
       .filter(([, rows]) => rows.length > 0).map(([head, rows]) => `${head}\n  ${rows.join("\n  ")}\n`).join("");
     tell(HOME, said.trimEnd() || "holds");
   } else if (verb === "folder") {
@@ -149,7 +152,7 @@ function main() {
     try {
       tell(HOME, fresh(HOME, arg));
     } catch (thrown) {
-      tell(HOME, saved(HOME).includes(arg) ? `name taken: ${thrown.message}` : thrown.message);
+      tell(HOME, saved(HOME).includes(arg) ? line("questions.name-taken", { reason: thrown.message }) : thrown.message);
     }
   } else if (verb === "save") {
     const set = read(arg);
@@ -158,7 +161,7 @@ function main() {
       saveChecked(HOME, withTitle(set, titles()), { replace, unchecked: flags.includes("--unchecked") });
       tell(HOME, "saved");
     } catch (thrown) {
-      tell(HOME, !replace && saved(HOME).includes(set.name) ? `name taken: ${thrown.message}` : thrown.message);
+      tell(HOME, !replace && saved(HOME).includes(set.name) ? line("questions.name-taken", { reason: thrown.message }) : thrown.message);
     }
   } else if (verb === "list") {
     process.stdout.write(arg === "--plain" ? `${listSaid(listed(HOME), titles()).join("\n")}\n` : `${JSON.stringify(listed(HOME))}\n`);
@@ -214,7 +217,7 @@ function main() {
     try {
       packs = served(askServer);
     } catch {
-      fail("unreachable: the pack list could not be fetched");
+      fail(line("questions.packs-unreachable"));
     }
     process.stdout.write(`${JSON.stringify(packNamed(packs, arg))}\n`);
   } else if (verb === "choose-claims" || verb === "choose-name" || verb === "approve" || verb === "show") {
@@ -227,14 +230,14 @@ function main() {
       fail(thrown.message);
     }
   } else if (verb === "criteria") {
-    process.stdout.write(`${CRITERIA.map((one) => `${one.id}, for each ${one.about}, a fault where the answer is ${one.fault}: ${one.asks}`).join("\n")}\n`);
+    process.stdout.write(`${CRITERIA.map((one) => line("questions.criterion-line", { id: one.id, about: one.about, fault: one.fault, asks: one.asks })).join("\n")}\n`);
   } else if (verb === "grid") {
     process.stdout.write(`${grid(HOME, read(arg), CRITERIA, flags[0]).text}\n`);
   } else if (verb === "verdict") {
     const { refused, unchecked } = verdict(HOME, read(arg), readFileSync(0, "utf8"), CRITERIA, flags[0]);
-    const said = [["Answer these again:", refused], ["Still to answer:", unchecked]]
+    const said = [[line("questions.head-again"), refused], [line("questions.head-unanswered"), unchecked]]
       .filter(([, rows]) => rows.length > 0).map(([head, rows]) => `${head}\n  ${rows.join("\n  ")}\n`).join("");
-    process.stdout.write(said || "Recorded.\n");
+    process.stdout.write(said || `${say(lines(), "ev-questions.checker-handed")}\n`);
   } else {
     fail("usage: evalation-questions folder | check <file> | criteria | packs | choose-action | choose-set [page] [--delete] | delete <name> | choose-pack [page] | pack-named <typed> | choose-claims <file> | choose-name <name> <name> | show <file> | approve <file> |grid <file> [Qn] | verdict <file> [Qn] (answers on stdin) | save <file> [--replace] [--unchecked] | list [--plain] | path <name> [--run] | draft <name> | keep-on-account <name> | drop-from-account <name>");
   }

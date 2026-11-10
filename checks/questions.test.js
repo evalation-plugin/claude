@@ -417,7 +417,7 @@ test("verdict tells the checker plainly what it recorded, with no counts or raw 
   const run = (answers) => spawnSync(process.execPath, [CLI, "verdict", file, "Q1"], { input: answers, env: { ...process.env, EVALATION_PLUGIN_HOME: at }, encoding: "utf8" });
   const partly = run(answered(rows.slice(0, 2)) + "\nQ1 item 2 C99: YES | \"Code\"");
   assert.strictEqual(partly.stdout, "Answer these again:\n  Q1 item 2 C99: not a criterion this row is asked\nStill to answer:\n  Q1 item 2\n");
-  assert.strictEqual(run(answered(rows)).stdout, "Recorded.\n");
+  assert.strictEqual(run(answered(rows)).stdout, `${line("ev-questions.checker-handed")}\n`);
 });
 
 test("the list prints plain lines for the person, naming unconfirmed questions briefly", () => {

@@ -1,0 +1,6 @@
+{
+  "gate.summary-write": { "say": "only the summary writer writes a summary, so the session never writes the summary it reports. Start the summary-writer agent on the pack." },
+  "gate.summary-record": { "say": "only the summary checker records a summary's verdict, so a summary is never passed by whoever wrote it. Start the summary-checker agent on the pack." },
+  "gate.verdict": { "say": "only the question checker records a verdict, so a draft is never passed by the session that wrote it. Start the question-checker agent on the draft." },
+  "gate.checked-files": { "say": "questions-checked.json and the checker-stamps folder hold the question checker's verdicts, and only evalation-questions verdict writes them. Start the question-checker agent on the draft." }
+}

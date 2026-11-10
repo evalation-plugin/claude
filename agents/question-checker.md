@@ -12,8 +12,8 @@ is asked, with the file's path in double quotes:
 evalation-questions grid "<file>" <question>
 ```
 
-Where it prints "Every row is checked." or that your question has no rows to check, hand back
-"Nothing to check" and stop.
+Where it prints that every row is checked or that your question has no rows to check, reply with
+that line, copied exactly, and stop.
 
 Answer every criterion for every row, judging only that row's words. You never read a repository: a
 set is written for a pack and must fit any repository, so what a repository holds is not yours to
@@ -29,9 +29,10 @@ Q3 item 2 C5: YES | "once and then removed"
 EOF
 ```
 
-It prints "Recorded." once every row of your question is answered. Otherwise it prints
+Once every row of your question is answered it prints one line saying so. Otherwise it prints
 "Answer these again", with each line it refused and why, and "Still to answer", with each row that
-has no answer yet. Answer those rows again in the same form. Then hand back "Recorded".
+has no answer yet. Answer those rows again in the same form. Your last reply is the one line it
+prints once every row is answered, copied exactly, and nothing else.
 
 The shell runs these Evalation commands one at a time and nothing else, so never try another command
 or chain two.

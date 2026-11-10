@@ -43,9 +43,13 @@ const standard = (gaps, partials = 0, covered = 6) => {
   return document;
 };
 
-const reportSheets = (document) => sheetsOf(page(document, document.answers.filter((one) => one.pack === "soc2"), askedOf(document)));
+const fromSummary = (sheets) => sheets.slice(sheets.findIndex((one) => one.includes('data-part="')));
 
-const detailSheets = () => {
+const reportPages = (document) => sheetsOf(page(document, document.answers.filter((one) => one.pack === "soc2"), askedOf(document)));
+
+const reportSheets = (document) => fromSummary(reportPages(document));
+
+const detailPages = () => {
   const { page: detailPage } = require("../bin/evalation-detail");
   const { synthesise } = require("../lib/synthesise.js");
   const document = run(tree);
@@ -56,18 +60,54 @@ const detailSheets = () => {
   return sheetsOf(detailPage(synthesise(reviewFindings(document))));
 };
 
+const detailSheets = () => fromSummary(detailPages());
+
 const parts = (sheet) => [...sheet.matchAll(/data-part="([a-z]+)"/g)].map((one) => one[1]);
 
-test("an evidence pack and the findings detail open on the same summary layout, and the opening facts follow on page 2", () => {
-  const report = reportSheets(standard(4, 3));
-  const detail = detailSheets();
-  assert.deepStrictEqual(parts(report[0]), ["purpose", "shows", "sections", "serious"]);
-  assert.deepStrictEqual(parts(detail[0]), parts(report[0]));
+const footOf = (sheet) => sheet.match(/<span class="foot-left"([^>]*)>([^<]*)</);
+
+test("an evidence pack and the findings detail open on the facts page, and the same summary layout follows on page 2", () => {
+  const report = reportPages(standard(4, 3));
+  const detail = detailPages();
+  assert.deepStrictEqual(parts(report[1]), ["purpose", "shows", "sections", "serious"]);
+  assert.deepStrictEqual(parts(detail[1]), parts(report[1]));
   for (const sheets of [report, detail]) {
-    assert.ok(sheets[0].includes(PURPOSE), "the summary states the pack's purpose");
-    assert.doesNotMatch(sheets[0], /class="facts"/);
-    assert.match(sheets[1], /<div class="flow"[^>]*><div class="block">\s*<ul class="facts">/);
+    assert.match(sheets[0], /<div class="flow"[^>]*><div class="block">\s*<ul class="facts">/);
+    assert.doesNotMatch(sheets[0], /data-part="|class="key/);
+    assert.ok(sheets[1].includes(PURPOSE), "the summary states the pack's purpose");
+    assert.doesNotMatch(sheets[1], /class="facts"/);
   }
+});
+
+test("the facts open on the pack's name, on a line of its own above the rest", () => {
+  const [first] = reportPages(standard(4, 3));
+  assert.match(first, /<ul class="facts"><li class="pack-name">Pack name<b>SOC 2 Trust Services Criteria<\/b><\/li><li>Assessed/);
+  assert.doesNotMatch(first, />Against</);
+});
+
+test("an entry's note prints small on its own card, and the key holds no row for it", () => {
+  const document = standard(2, 0, 0);
+  document.packs[0].entries_asked[0].obligation = "optional";
+  document.packs[0].entries_asked[0].note = "Applies only to systems handling SECRET information.";
+  document.packs[0].entries_asked[1].obligation = "mandatory";
+  document.packs[0].entries_asked[1].note = "Applies to systems at every classification.";
+  const pages = reportPages(document).join("");
+  assert.match(pages, /<article class="entry"[\s\S]*?<p class="scope-note">Applies only to systems handling SECRET information\.<\/p>/);
+  assert.doesNotMatch(pages, /Applies to systems at every classification\./);
+  assert.doesNotMatch(pages, /<dl class="key wide grades">/);
+});
+
+test("every page's footer names the pack and the version, and no longer the report's type or the questions", () => {
+  for (const sheet of reportPages(standard(30, 3))) {
+    assert.match(footOf(sheet)[2], /^SOC 2 Trust Services Criteria\. Assessed on [^.]+ against version [\d.]+\.$/);
+  }
+});
+
+test("a footer keeps to one line by shrinking only when the pack's name is too long for it", () => {
+  const long = standard(4, 3);
+  long.packs[0].title = "NIST Artificial Intelligence Risk Management Framework (AI RMF 1.0)";
+  assert.match(footOf(reportPages(long)[0])[1], /font-size:\s*[\d.]+pt/);
+  assert.doesNotMatch(footOf(reportPages(standard(4, 3))[0])[1], /font-size/);
 });
 
 test("the summary counts each section, in the pack's order", () => {
@@ -83,7 +123,7 @@ test("a summary with more serious items than its page holds lists those that fit
   assert.ok(listed >= 5, `the page lists ${listed}`);
   assert.strictEqual(listed + more, 25);
   assert.doesNotMatch(sheets[0], /data-cut=/);
-  assert.match(sheets[1], /class="facts"/);
+  assert.match(sheets[1], /class="key/);
 });
 
 const filledOf = (sheet) => Number((sheet.match(/data-filled="(\d+)"/) ?? [])[1]);
@@ -100,8 +140,8 @@ test("a summary too long for one page takes two, each filled, with the most seri
   }
   assert.strictEqual((sheets[0].match(/<tr data-section="/g) ?? []).length, 20);
   assert.match(sheets[1], /data-part="serious"/);
-  assert.doesNotMatch(sheets[1], /class="facts"/);
-  assert.match(sheets[2], /class="facts"/);
+  assert.doesNotMatch(sheets[1], /class="key/);
+  assert.match(sheets[2], /class="key/);
   const listed = sheets.slice(0, 2).reduce((sum, one) => sum + (one.match(/<li data-entry="/g) ?? []).length, 0);
   const more = Number((sheets[1].match(/data-more="(\d+)"/) ?? [0, 0])[1]);
   assert.strictEqual(listed + more, 70);
@@ -131,7 +171,7 @@ test("a summary flows by its content, so a list the layout never names runs on t
       `Find out who reviews section ${at + 1} each year and what they look at.`, `Think about what section ${at + 1} would cost to fix before the next audit.`] }));
   pack.entries_asked.forEach((one, at) => { one.section = `S${(at % 12) + 1}`; });
   const sheets = reportSheets(document);
-  const summary = sheets.filter((one) => !/class="facts"/.test(one) && sheets.indexOf(one) < sheets.findIndex((each) => /class="facts"/.test(each)));
+  const summary = sheets.slice(0, sheets.findIndex((each) => /class="key/.test(each)));
   for (const sheet of summary) assert.doesNotMatch(sheet, /data-cut=/);
   const points = summary.join("").match(/Check whether section \d+ has a written plan/g) ?? [];
   assert.strictEqual(points.length, 12);
@@ -151,9 +191,9 @@ test("a summary only a little over a page that can't give enough rows flows on t
   document.summaries = { [pack.pack]: { state: "verified", paragraph: Array.from({ length: 4 }, () => ({ say, rests_on: ["INV01"] })),
     weigh: Array.from({ length: 6 }, (_, at) => ({ say: `${say} Ask who owns point ${at + 1}.`, rests_on: ["INV01"] })) } };
   const sheets = reportSheets(document);
-  const facts = sheets.findIndex((one) => /class="facts"/.test(one));
-  for (const sheet of sheets.slice(0, facts)) assert.doesNotMatch(sheet, /data-cut=/);
-  assert.strictEqual((sheets.slice(0, facts).join("").match(/Ask who owns point \d/g) ?? []).length, 6);
+  const key = sheets.findIndex((one) => /class="key/.test(one));
+  for (const sheet of sheets.slice(0, key)) assert.doesNotMatch(sheet, /data-cut=/);
+  assert.strictEqual((sheets.slice(0, key).join("").match(/Ask who owns point \d/g) ?? []).length, 6);
 });
 
 test("a part split across two pages leaves at least three of its rows on each", () => {
@@ -169,8 +209,8 @@ test("a part split across two pages leaves at least three of its rows on each", 
   document.summaries = { [document.packs[0].pack]: { state: "verified", paragraph: Array.from({ length: 4 }, () => ({ say, rests_on: ["INV01"] })),
     weigh: Array.from({ length: 6 }, (_, at) => ({ say: `${say} Ask who owns point ${at + 1}.`, rests_on: ["INV01"] })) } };
   const sheets = reportSheets(document);
-  const facts = sheets.findIndex((one) => /class="facts"/.test(one));
-  for (const sheet of sheets.slice(0, facts)) {
+  const key = sheets.findIndex((one) => /class="key/.test(one));
+  for (const sheet of sheets.slice(0, key)) {
     const listed = (sheet.match(/<li data-entry="/g) ?? []).length;
     assert.ok(listed === 0 || listed >= 3, `a page holds ${listed} serious items`);
   }
@@ -195,7 +235,7 @@ test("a summary folds its last sections into one row only where a second page wo
   pack.entries_asked.forEach((one, at) => { one.section = `S${(at % 30) + 1}`; });
   const sheets = reportSheets(document);
   const sheet = sheets[0];
-  assert.match(sheets[1], /class="facts"/);
+  assert.match(sheets[1], /class="key/);
   assert.doesNotMatch(sheet, /data-cut=/);
   const shown = (sheet.match(/<tr data-section="/g) ?? []).length;
   const folded = Number((sheet.match(/<tr data-others="(\d+)"/) ?? [])[1]);
@@ -222,7 +262,7 @@ test("a folder list shows five folders and says how many more, and the appendix 
   document.target = { ...document.target, kind: "solution", name: "Acme",
     repositories: Array.from({ length: 8 }, (_, at) => ({ folder: `repo-${at + 1}`, repository: `acme/repo-${at + 1}`, vcs: "git" })),
     left_out: Array.from({ length: 7 }, (_, at) => ({ folder: `copy-${at + 1}`, why: "not chosen for this review" })) };
-  const sheets = reportSheets(document);
+  const sheets = reportPages(document);
   const opening = sheets.find((one) => one.includes('class="repos"'));
   assert.strictEqual((opening.match(/<li><b>acme\/repo-\d+<\/b>/g) ?? []).length, 5);
   assert.strictEqual((opening.match(/<li><b>copy-\d+<\/b>/g) ?? []).length, 5);
@@ -237,4 +277,55 @@ test("the findings file keeps each pack's stated purpose", () => {
   const held = skeletonOf({ run: "r", at: "2026-10-06T00:00:00.000Z", revision: "1.91", target: {},
     packs: [{ pack: "investment-diligence", body: { kind: "standard", title: "Investment", description: PURPOSE, entries: [] } }] }, "Opus 5.5");
   assert.strictEqual(held.packs[0].description, PURPOSE);
+});
+
+const noCut = (sheets) => assert.deepStrictEqual(sheets.filter((one) => /data-cut=/.test(one)).map((one) => (one.match(/data-cut="([^"]*)"/) ?? [])[1]), []);
+
+test("a summary whose few points to weigh are each most of a page flows item by item, and nothing is cut", () => {
+  const document = standard(6, 3, 0);
+  const pack = document.packs[0];
+  const long = (at) => `Point ${at} to weigh. ${"Ask who owns the gaps in this section and what it would cost to close them. ".repeat(50)}`;
+  pack.sections = pack.sections.map((one, at) => ({ ...one, weigh: at < 4 ? [long(at + 1)] : [] }));
+  const sheets = reportSheets(document);
+  noCut(sheets);
+  assert.strictEqual((sheets.join("").match(/Point \d to weigh\./g) ?? []).length, 4);
+});
+
+test("a summary whose reading is longer than a page flows paragraph by paragraph, and nothing is cut", () => {
+  const document = standard(6, 3, 0);
+  const say = "The review step holds up best, since it checks each model reply against a fixed shape, caps its size and stops at the first rejection. ".repeat(12);
+  document.summaries = { [document.packs[0].pack]: { state: "verified", paragraph: Array.from({ length: 6 }, (_, at) => ({ say: `Paragraph ${at + 1}. ${say}`, rests_on: ["INV01"] })), weigh: [] } };
+  const sheets = reportSheets(document);
+  noCut(sheets);
+  assert.strictEqual((sheets.join("").match(/Paragraph \d\./g) ?? []).length, 6);
+});
+
+const overshoot = (html) => {
+  const watch = `<script>setTimeout(function () { var flows = document.querySelectorAll('.flow'); for (var f = 0; f < flows.length; f++) { var last = flows[f].lastElementChild;
+    if (last && last.getBoundingClientRect().bottom > flows[f].getBoundingClientRect().bottom) flows[f].setAttribute('data-over', String(f + 1)); } }, 2500);</script>`;
+  return sheetsOf(html.replace("</script>", "</script>" + watch)).filter((one) => /data-over=/.test(one)).length;
+};
+
+test("every page ends inside its foot, not within the half pixel the page check forgives", () => {
+  const document = standard(0, 0, 0);
+  const pack = document.packs[0];
+  const statuses = Array.from({ length: 220 }, (_, at) => ["total-gap", "partial-gap", "covered"][at % 3]);
+  pack.entries_asked = statuses.map((_, at) => ({ identifier: `INV${String(at + 1).padStart(3, "0")}`, title: `Question ${at + 1} about the product`,
+    intent: "Does the code hold it?", section: `S${(at % SECTIONS.length) + 1}`, bears_on: "repository" }));
+  pack.selected = pack.entries_asked.map((one) => one.identifier);
+  document.answers = statuses.map((status, at) => ({ pack: pack.pack, entry: pack.entries_asked[at].identifier, status,
+    because: `Read the code. ${"The code shows it in one place. ".repeat(1 + (at * 7) % 11)}`, remedy: `Build it. ${"Then check it. ".repeat((at * 5) % 7)}` }));
+  assert.strictEqual(overshoot(page(document, document.answers.filter((one) => one.pack === "soc2"), askedOf(document))), 0);
+});
+
+test("an appendix of folders longer than a page flows on to the next, and nothing is cut", () => {
+  const document = standard(2, 2);
+  document.target = { ...document.target, kind: "solution", name: "Acme",
+    repositories: Array.from({ length: 700 }, (_, at) => ({ folder: `repo-${at + 1}`, repository: `acme/repo-${at + 1}`, vcs: "git" })),
+    left_out: Array.from({ length: 300 }, (_, at) => ({ folder: `copy-${at + 1}`, why: "not chosen for this review" })) };
+  const sheets = reportPages(document);
+  noCut(sheets);
+  const appendix = sheets.join("");
+  assert.strictEqual((appendix.match(/<li><b>acme\/repo-\d+<\/b>/g) ?? []).length, 705);
+  assert.strictEqual((appendix.match(/<li><b>copy-\d+<\/b>/g) ?? []).length, 305);
 });
