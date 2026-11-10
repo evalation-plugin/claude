@@ -89,8 +89,11 @@ test("an entry's note prints small on its own card, and the key holds no row for
   const document = standard(2, 0, 0);
   document.packs[0].entries_asked[0].obligation = "optional";
   document.packs[0].entries_asked[0].note = "Applies only to systems handling SECRET information.";
+  document.packs[0].entries_asked[1].obligation = "mandatory";
+  document.packs[0].entries_asked[1].note = "Applies to systems at every classification.";
   const pages = reportPages(document).join("");
   assert.match(pages, /<article class="entry"[\s\S]*?<p class="scope-note">Applies only to systems handling SECRET information\.<\/p>/);
+  assert.doesNotMatch(pages, /Applies to systems at every classification\./);
   assert.doesNotMatch(pages, /<dl class="key wide grades">/);
 });
 

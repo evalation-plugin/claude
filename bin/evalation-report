@@ -246,7 +246,7 @@ function entry(answer, asked, pack, scan) {
 
   const because = answer.from === "authored" && !answer.raised?.length ? authoredBecause(answer, clause) : answer.because;
   const body = [
-    clause?.obligation && clause.note ? `<p class="scope-note">${escaped(clause.note)}</p>` : "",
+    clause?.obligation === "optional" && clause.note ? `<p class="scope-note">${escaped(clause.note)}</p>` : "",
     clause?.intent ? `<p class="asked">${escaped(clause.intent)}</p>` : "",
     because ? `<p class="because">${escaped(because)}</p>` : "",
     raisedList(answer),
@@ -435,7 +435,7 @@ function readingKey(document, packs, asked) {
     [line("report.label-checked"), line("report.key-checked", { source })],
     [line("cards.todo-label"), line("report.key-todo", { noun: called(noun.one) })],
   ];
-  if ([...asked.values()].some((one) => one.obligation && one.note)) parts.push([line("report.label-scope"), line("report.key-scope", { noun: noun.one })]);
+  if ([...asked.values()].some((one) => one.obligation)) parts.push([line("report.label-scope"), line("report.key-scope", { noun: noun.one })]);
 
   return `<div class="block last">
 <h2>${escaped(line("report.key-title", { noun: called(noun.one) }))}</h2>
