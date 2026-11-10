@@ -265,9 +265,9 @@ function entry(answer, asked, pack, scan) {
 <span class="id">${escaped(clause?.shown ?? answer.entry)}</span>
 <span class="ttl">${escaped(clause?.title ?? "")}</span>
 ${marker}
-<span class="tag">${tag}</span>
 <span class="pill" style="background:${colour}">${escaped(named(answer.status))}</span>
 </div>
+${tag ? `<p class="bears">${tag}</p>` : ""}
 <div class="body">${body}</div>
 </article>`;
 }
@@ -642,7 +642,7 @@ function main() {
       const out = join(folder, `${reviewName(document, pack)} Evidence Pack.pdf`);
       let done;
       try {
-        done = print(page(alone, own, asked), `${out.replace(/\.pdf$/, "")}.html`, out, { run: document.run },
+        done = print(page(alone, own, asked), `${out.replace(/\.pdf$/, "")}.html`, out, { run: document.run, packs: [pack], report: "evidence-pack" },
           readingOf(document));
       } catch (thrown) {
         if (!thrown?.file) throw thrown;

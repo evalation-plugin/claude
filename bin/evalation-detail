@@ -145,9 +145,9 @@ function entry(one, lens) {
 <div class="head">
 <span class="id">${escaped(one.id)}</span>
 <span class="ttl">${escaped(headline)}</span>
-<span class="tag">${said}</span>
 <span class="pill" style="background:${colour}">${escaped(one.sev)}</span>
 </div>
+${said ? `<p class="bears">${said}</p>` : ""}
 <div class="body">${body}</div>
 </article>`;
 }
