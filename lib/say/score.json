@@ -1,0 +1,7 @@
+{
+  "score.rubric-served": { "say": "The rubric is what the run was served. It is never stored: pass what came back from the run." },
+  "score.not-a-number": { "say": "<what>.<name> is <value> where a number is needed" },
+  "score.not-a-rubric": { "say": "not-a-rubric: it says it is <id>" },
+  "score.unusable": { "say": "unusable-rubric: this rubric holds something that is not a number where one is needed:\n  <problems>\nNothing was scored. A score computed from a rubric nothing checked is a number nobody should act on." },
+  "score.nothing": { "say": "nothing-to-score: this run neither read nor found anything from <pack>, and this rubric scores that pack. A run that read nothing has not scored well. Say what it read, and give it no number it did not earn." }
+}
