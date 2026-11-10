@@ -311,7 +311,7 @@ test("an appendix of folders longer than a page flows on to the next, and nothin
   document.target = { ...document.target, kind: "solution", name: "Acme",
     repositories: Array.from({ length: 700 }, (_, at) => ({ folder: `repo-${at + 1}`, repository: `acme/repo-${at + 1}`, vcs: "git" })),
     left_out: Array.from({ length: 300 }, (_, at) => ({ folder: `copy-${at + 1}`, why: "not chosen for this review" })) };
-  const sheets = reportSheets(document);
+  const sheets = reportPages(document);
   noCut(sheets);
   const appendix = sheets.join("");
   assert.strictEqual((appendix.match(/<li><b>acme\/repo-\d+<\/b>/g) ?? []).length, 705);
