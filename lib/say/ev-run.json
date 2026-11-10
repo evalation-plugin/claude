@@ -294,5 +294,6 @@
   "ev-run.done-medium": { "say": "<count> medium" },
   "ev-run.done-low": { "say": "<count> low" },
   "ev-run.done-info": { "say": "<count> informational" },
-  "ev-run.done-folder": { "say": "The reports are in this folder:\n<folder>" }
+  "ev-run.done-folder": { "say": "The reports are in this folder:\n<folder>" },
+  "ev-run.reader-handed": { "say": "Part <part> is handed in." }
 }
