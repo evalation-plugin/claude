@@ -98,7 +98,7 @@ test("the evidence pack names the solution, lists every repository on its openin
   ];
   const asked = new Map(document.packs[0].entries_asked.map((one) => [`soc2/${one.identifier}`, one]));
   const html = page(document, document.answers.filter((one) => one.pack === "soc2"), asked);
-  assert.match(html, /Evidence from this product · Product: Acme platform/);
+  assert.match(html, /Evidence for product: Acme platform/);
   assert.match(html, /as one product, Acme platform\./);
   assert.match(html, /We read the 2 repositories of this product together/);
   assert.doesNotMatch(html, /solution|Solution/);

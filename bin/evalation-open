@@ -59,14 +59,14 @@ function receiving(named) {
  */
 function open(sealed, said, seed) {
   if (sealed?.v !== VERSION) {
-    throw raised(`sealed under ${sealed?.v ?? "nothing"}, and this reads ${VERSION}`, "The plugin could not open an answer sealed with the server's current sealing version. Release a plugin whose bin/evalation-open reads that version.");
+    throw raised(`sealed under ${sealed?.v ?? "nothing"}, and this reads ${VERSION}`, "The plugin could not open an answer sealed with the server's current sealing version. Release a plugin whose bin/evalation-open reads that version."); // say:allow: machine, the remedy of a fault report sent to Evalation
   }
   if (seed.length !== 32) {
     throw raised(`the receiving key is ${seed.length} bytes where one is 32`, null);
   }
 
   const epk = Buffer.from(sealed.epk, "base64");
-  if (epk.length !== 32) throw raised("the throwaway key is not the size one is", null);
+  if (epk.length !== 32) throw raised("the throwaway key is not the size one is", null); // say:allow: machine, the cause line of a fault report sent to Evalation
 
   const ours = createPrivateKey({
     key: Buffer.concat([PKCS8_X25519, seed]),
@@ -85,7 +85,7 @@ function open(sealed, said, seed) {
   const derived = Buffer.from(hkdfSync("sha256", shared, epk, Buffer.from(VERSION, "utf8"), 32));
 
   const body = Buffer.from(sealed.c, "base64");
-  if (body.length < 17) throw raised("the sealed payload is too short to hold a tag", null);
+  if (body.length < 17) throw raised("the sealed payload is too short to hold a tag", null); // say:allow: machine, the cause line of a fault report sent to Evalation
   const tag = body.subarray(body.length - 16);
   const cipher = body.subarray(0, body.length - 16);
 

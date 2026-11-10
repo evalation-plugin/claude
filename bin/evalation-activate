@@ -95,11 +95,11 @@ function refusal(status, text) {
   const said = (refusals.length > 0 ? refusals.map((one) => `${one.observed ?? ""} ${one.failure ?? ""}`).join(" ") : text).trim();
   if (OUR_SETUP.test(said)) {
     errors.report("sign-in-setup-refused", undefined, said, undefined, refusals[0]?.required ?? null);
-    fail(`fault: the sign-in is set up wrongly on our side, so nothing was activated${detailed(said)}`);
+    fail(`fault: the sign-in is set up wrongly on our side, so nothing was activated${detailed(said)}`); // say:allow: machine, a prefix line the session maps to a catalogue line
   }
-  if (TRY_AGAIN.test(said)) fail(`refused: the sign-in did not go through, so nothing was activated${detailed(said)}`);
+  if (TRY_AGAIN.test(said)) fail(`refused: the sign-in did not go through, so nothing was activated${detailed(said)}`); // say:allow: machine, a prefix line the session maps to a catalogue line
   errors.report("sign-in-refused-unrecognised", undefined, said, undefined, refusals[0]?.required ?? null);
-  fail(`refused-unrecognised: the sign-in was refused for a reason this does not recognise, so nothing was activated${detailed(said)}`);
+  fail(`refused-unrecognised: the sign-in was refused for a reason this does not recognise, so nothing was activated${detailed(said)}`); // say:allow: machine, a prefix line the session maps to a catalogue line
 }
 
 // The raw thirty-two bytes are the tail of each encoding, and raw is what the server records.
@@ -147,12 +147,7 @@ function untaken(installation) {
       // Nothing there, which is what this is asking for.
     }
     if (there) {
-      fail(
-        `already-holds-a-key: this machine already holds ${account} for an installation named ` +
-          `${installation}. Activating it again would write over the key that proves that ` +
-          "installation is itself, and nothing can restore it. Activate under another name, or " +
-          "remove that installation's keys first if it is genuinely gone.",
-      );
+      fail(say(entries(), "activate.already-holds-a-key", { account, installation }));
     }
   }
 }
@@ -181,7 +176,7 @@ function somewhere_to_keep_it() {
       // Tidying up, not the thing being established. A store that kept the probe has still shown it
       // can hold a key, which is the whole question.
     }
-    if (back !== value) throw raised("it read back something other than what was written", null);
+    if (back !== value) throw raised(say(entries(), "activate.read-back"), null);
     return store.chosen().name;
   } catch (thrown) {
     fail(`no-key-store: this machine has nowhere to keep a private key (${thrown.message}). Nothing was created and nothing needs undoing. Set EVALATION_KEY_STORE=file to keep the keys in a file only you can read, under ${join(pluginHome(), "keys")}, then run this again.`); // say:allow: machine,a prefix line the session maps to ev-activate.no-key-store
@@ -211,7 +206,7 @@ async function main() {
   const wanted = ARGS[1];
 
   if (signedIn()) {
-    fail("already-activated: this machine is already signed in to Evalation. Run /ev-account to see its pack credits.");
+    fail("already-activated: this machine is already signed in to Evalation. Run /ev-account to see its pack credits."); // say:allow: machine, a prefix line the session maps to ev-activate.already
   }
 
   // Before a browser opens or a server is asked anything, because the alternative is an installation
@@ -239,7 +234,7 @@ async function main() {
   listener = spawnScript("evalation-loopback", [], { stdio: ["ignore", "pipe", "pipe"] });
   let said = "";
   listener.stderr.on("data", (chunk) => { said += chunk; });
-  for (const signal of ["SIGINT", "SIGTERM", "SIGHUP"]) process.on(signal, () => fail("stopped: the sign-in was stopped, so nothing was activated"));
+  for (const signal of ["SIGINT", "SIGTERM", "SIGHUP"]) process.on(signal, () => fail("stopped: the sign-in was stopped, so nothing was activated")); // say:allow: machine, a prefix line the session maps to a catalogue line
   const bound = await awaited(listener, /port=(\d+)/)
     .catch(() => fail(`no-listener: this machine would not let the sign-in wait for the browser (${said.trim() || "no reason given"}), so nothing was activated`));
 
@@ -274,24 +269,24 @@ async function main() {
     listener,
     /code=([^&\s]*)&state=([^&\s]*)&error=([^&\s]*)/,
   ).catch((code) => fail(code === 3
-    ? "timed-out: the sign-in was not finished within five minutes, so nothing was activated"
-    : `no-listener: the sign-in stopped waiting for the browser (${said.trim() || "no reason given"}), so nothing was activated`));
+    ? "timed-out: the sign-in was not finished within five minutes, so nothing was activated" // say:allow: machine, a prefix line the session maps to a catalogue line
+    : `no-listener: the sign-in stopped waiting for the browser (${said.trim() || "no reason given"}), so nothing was activated`)); // say:allow: machine, a prefix line the session maps to a catalogue line
 
   const refused = decodeURIComponent(back[3]);
   if (refused) {
     if (OUR_SETUP.test(refused)) {
       errors.report("sign-in-setup-refused", undefined, refused);
-      fail(`fault: ${provider} refused the sign-in because of how it is set up on our side, so nothing was activated${detailed(refused)}`);
+      fail(`fault: ${provider} refused the sign-in because of how it is set up on our side, so nothing was activated${detailed(refused)}`); // say:allow: machine, a prefix line the session maps to a catalogue line
     }
-    fail(`sign-in-refused: ${provider} declined the sign-in, so nothing was activated${detailed(refused)}`);
+    fail(`sign-in-refused: ${provider} declined the sign-in, so nothing was activated${detailed(refused)}`); // say:allow: machine, a prefix line the session maps to a catalogue line
   }
 
   const state = decodeURIComponent(back[2]);
   if (state !== started.state) {
-    fail("wrong-sign-in: what came back is not the sign-in that went out, so nothing was activated");
+    fail("wrong-sign-in: what came back is not the sign-in that went out, so nothing was activated"); // say:allow: machine, a prefix line the session maps to a catalogue line
   }
   if (!decodeURIComponent(back[1])) {
-    fail("no-code: the sign-in came back carrying nothing to exchange, so nothing was activated");
+    fail("no-code: the sign-in came back carrying nothing to exchange, so nothing was activated"); // say:allow: machine, a prefix line the session maps to a catalogue line
   }
 
   const done = await ask("/activate/complete", {
@@ -420,7 +415,7 @@ function signedIn() {
     key = store.held(reference.service, reference.account);
   } catch (thrown) {
     if (store.absent(thrown)) return false;
-    fail("sign-in-unclear: this machine's Evalation sign-in could not be read. Nothing was changed.");
+    fail("sign-in-unclear: this machine's Evalation sign-in could not be read. Nothing was changed."); // say:allow: machine, a prefix line the session maps to a catalogue line
   }
   return Boolean(key) && Buffer.from(key, "base64").length === 32;
 }

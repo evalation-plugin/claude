@@ -1,0 +1,6 @@
+{
+  "hostnames.undeclared": { "say": "observed: this plugin names a host nothing declared" },
+  "hostnames.declare": { "say": "required: declare it in hostnames.json with what it serves and what reaches it, or take it out, since a host nobody declared is one nobody is keeping alive and the first thing to notice is a customer whose run cannot reach us" },
+  "hostnames.unresolved": { "say": "observed: a declared host does not resolve, so nothing can reach it" },
+  "hostnames.create": { "say": "required: create the record under <zone> and attach the hostname to the app that answers for it, since a name we declared and never created is the same outage as one we mistyped" }
+}

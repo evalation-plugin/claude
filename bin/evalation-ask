@@ -20,6 +20,7 @@ const errors = require("../lib/errors.js");
 const { createHash, createPrivateKey, sign } = require("node:crypto");
 const { readFileSync, existsSync } = require("node:fs");
 const store = require("./evalation-store");
+const { entries, say } = require("../lib/say.js");
 const { join } = require("node:path");
 const { pluginHome } = require("../lib/home.js");
 
@@ -64,16 +65,13 @@ function settings() {
 
 // Settings never hold a secret. They name one, and the store finds it wherever this machine keeps it.
 function secret(named) {
-  if (typeof named !== "string") fail("no-key: the settings name no installation key");
+  if (typeof named !== "string") fail("no-key: the settings name no installation key"); // say:allow: machine, a prefix line the other scripts read by its prefix
   const where = store.referenced(named);
   if (!where) fail(`unreadable-key-reference: ${named}, which is not store:<service>/<account>`);
   try {
     return store.held(where.service, where.account);
   } catch (thrown) {
-    fail(
-      `no-key: ${thrown.message}. Nothing else proves this installation is itself, so sign in again ` +
-        "with /ev-activate if the key is genuinely gone.",
-    );
+    fail(say(entries(), "ask.no-key-held", { reason: thrown.message }));
   }
 }
 
@@ -116,7 +114,7 @@ function opened(held, said, seed) {
 const local = settings();
 const installation = local.installation;
 if (typeof installation !== "string") {
-  fail("no-installation: the settings name no installation, and an ask says which one is making it");
+  fail("no-installation: the settings name no installation, and an ask says which one is making it"); // say:allow: machine, a prefix line the other scripts read by its prefix
 }
 
 // Ours first where we set one, then an installation pointed somewhere deliberately, then the name
