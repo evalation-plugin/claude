@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "0.78.2",
+      "date": "2026-11-10",
+      "notes": [
+        "A run no longer stops to ask you to allow one of its own reads of your code."
+      ]
+    },
+    {
       "version": "0.78.1",
       "date": "2026-11-10",
       "notes": [

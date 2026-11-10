@@ -65,6 +65,18 @@ test("a pipe or a bracket inside a quoted search pattern is the pattern, while a
   assert.ok(!bash(`${read} "docker" > /tmp/out`).allowed);
 });
 
+test("a reading call the gate accepts is approved by bare name or by the plugin's own bin, and no other call is", () => {
+  const approved = (command, agent = "evalation-plugin:reader") => /"permissionDecision":"allow"/.test(spawnSync(process.execPath, [GATE],
+    { input: JSON.stringify({ hook_event_name: "PreToolUse", tool_name: "Bash", tool_input: { command }, agent_type: agent, agent_id: "a-1", cwd: "/repo" }), encoding: "utf8" }).stdout);
+  assert.ok(approved(`${join(ROOT, "bin", "evalation-read")} /repo search "VACUUM INTO|aws s3 cp|sleep" scripts/backup-db.sh`));
+  assert.ok(approved("evalation-read /repo map"));
+  assert.ok(approved(`${join(ROOT, "bin", "evalation-findings")} group /s/run.json 2`));
+  assert.ok(!approved("/x/bin/evalation-read /repo map"));
+  assert.ok(!approved("evalation-read /elsewhere map"));
+  assert.ok(!approved("ls", "general-purpose"));
+  assert.ok(!approved("evalation-read /repo map", ""));
+});
+
 test("the session's own calls and other agents' calls pass the gate", () => {
   assert.ok(gate({ tool_name: "Bash", tool_input: { command: "ls" } }).allowed);
   assert.ok(bash("ls", "general-purpose").allowed);
