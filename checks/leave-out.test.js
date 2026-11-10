@@ -6,11 +6,12 @@ const { execFileSync, spawnSync } = require("node:child_process");
 const { mkdtempSync, readFileSync, writeFileSync } = require("node:fs");
 const { tmpdir } = require("node:os");
 const { join } = require("node:path");
-const { repository, run } = require("./fixture.js");
+const { engine, repository, run } = require("./fixture.js");
 const { page } = require("../bin/evalation-report");
 
 const BIN = join(__dirname, "..", "bin");
 const tree = repository();
+engine();
 
 function held() {
   const document = { schema: "evalation.findings.v1", ...run(tree) };
