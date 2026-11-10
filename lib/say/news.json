@@ -1,0 +1,3 @@
+{
+  "news.run-first": { "say": "Before anything else in this command, run `<run>` and show its output exactly as printed, then carry on with the command." }
+}

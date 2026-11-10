@@ -1,0 +1,3 @@
+{
+  "chain.joined": { "say": "This command joins <scripts> in one call. Run each in its own call, with nothing joined to it." }
+}

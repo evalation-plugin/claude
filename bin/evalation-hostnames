@@ -20,6 +20,7 @@
 // that must always run cannot depend on the network.
 "use strict";
 require("../lib/errors.js");
+const { entries, say } = require("../lib/say.js");
 
 const { readFileSync, readdirSync, statSync } = require("node:fs");
 const { join, dirname } = require("node:path");
@@ -87,16 +88,12 @@ for (const path of sources(root)) {
 }
 
 if (offences.length > 0) {
-  console.error("observed: this plugin names a host nothing declared");
+  console.error(say(entries(), "hostnames.undeclared"));
   for (const one of offences) {
     console.error(`  ${one.here}:${one.line} names ${one.host}`);
     console.error(`    ${one.said}`);
   }
-  console.error(
-    "required: declare it in hostnames.json with what it serves and what reaches it, or take it out, " +
-      "since a host nobody declared is one nobody is keeping alive and the first thing to notice is a " +
-      "customer whose run cannot reach us",
-  );
+  console.error(say(entries(), "hostnames.declare"));
   process.exit(1);
 }
 
@@ -116,14 +113,11 @@ async function main() {
   }
 
   if (missing.length > 0) {
-    console.error("observed: a declared host does not resolve, so nothing can reach it");
+    console.error(say(entries(), "hostnames.unresolved"));
     for (const one of missing) {
       console.error(`  ${one.host} serves ${one.serves}`);
     }
-    console.error(
-      `required: create the record under ${declared.zone} and attach the hostname to the app that ` +
-        "answers for it, since a name we declared and never created is the same outage as one we mistyped",
-    );
+    console.error(say(entries(), "hostnames.create", { zone: declared.zone }));
     process.exit(1);
   }
 
