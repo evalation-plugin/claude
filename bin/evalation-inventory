@@ -96,7 +96,7 @@ function walk(from, at, held) {
 // with no rule here is simply not measured and not shown. A grid of real numbers reads as a
 // measurement; the same grid padded with zeros reads as a repository holding nothing.
 const OBJECTS = {
-  "DOCS PAGES": (path) => /\.(md|mdx|rst|adoc)$/i.test(path) && !/\/(node_modules|vendor)\//.test(path),
+  "DOCS PAGES": (path) => /\.(md|mdx|rst|adoc)$/i.test(path) && !/\/(node_modules|vendor)\//.test(path), // say:allow: machine, the label the pack template prints
   TESTS: (path) => /(^|\/)(tests?|__tests__|spec)\//i.test(path)
     || /\.(test|spec)\.[a-z]+$/i.test(path),
   DOCKERFILES: (path) => /(^|\/)Dockerfile[^/]*$/.test(path) || /\.dockerfile$/i.test(path),
@@ -104,18 +104,18 @@ const OBJECTS = {
   "IAC (TERRAFORM)": (path) => /\.tf$/i.test(path),
   "CONTRACTS / SCHEMAS": (path) => /\.schema\.json$/i.test(path)
     || /(^|\/)(openapi|swagger)[^/]*\.(ya?ml|json)$/i.test(path),
-  "PROTOBUF DEFS": (path) => /\.proto$/i.test(path),
-  "GRAPHQL APIS": (path) => /\.(graphql|gql)$/i.test(path),
-  "WEB UI COMPONENTS": (path) => /\.(tsx|jsx|vue|svelte)$/i.test(path),
-  "CI JOBS": (path) => /(^|\/)\.github\/workflows\/[^/]+\.ya?ml$/i.test(path)
+  "PROTOBUF DEFS": (path) => /\.proto$/i.test(path), // say:allow: machine, the label the pack template prints
+  "GRAPHQL APIS": (path) => /\.(graphql|gql)$/i.test(path), // say:allow: machine, the label the pack template prints
+  "WEB UI COMPONENTS": (path) => /\.(tsx|jsx|vue|svelte)$/i.test(path), // say:allow: machine, the label the pack template prints
+  "CI JOBS": (path) => /(^|\/)\.github\/workflows\/[^/]+\.ya?ml$/i.test(path) // say:allow: machine, the label the pack template prints
     || /(^|\/)\.(gitlab-ci|circleci)/i.test(path),
   "DECISIONS (ADRS)": (path) => /(^|\/)(adrs?|decisions)\//i.test(path) && /\.(md|adoc)$/i.test(path),
   HOOKS: (path) => /(^|\/)\.(githooks|husky)\//i.test(path) || /(^|\/)hooks\/[^/]+$/i.test(path),
   SERVICES: (path) => /(^|\/)(services|apps|packages)\/[^/]+\/(package\.json|Cargo\.toml|go\.mod|pyproject\.toml)$/i.test(path),
-  "CHECK SCRIPTS": (path) => /(^|\/)(checks|gates)\/[^/]+\.(ts|js|sh|py)$/i.test(path),
-  "SHELL SCRIPTS": (path) => /(^|\/)scripts\/[^/]+\.(sh|bash)$/i.test(path),
+  "CHECK SCRIPTS": (path) => /(^|\/)(checks|gates)\/[^/]+\.(ts|js|sh|py)$/i.test(path), // say:allow: machine, the label the pack template prints
+  "SHELL SCRIPTS": (path) => /(^|\/)scripts\/[^/]+\.(sh|bash)$/i.test(path), // say:allow: machine, the label the pack template prints
   SKILLS: (path) => /(^|\/)skills\/[^/]+/i.test(path),
-  "MOBILE SCREENS": (path) => /(^|\/)(screens|views)\/[^/]+\.(tsx|jsx|swift|kt|dart)$/i.test(path),
+  "MOBILE SCREENS": (path) => /(^|\/)(screens|views)\/[^/]+\.(tsx|jsx|swift|kt|dart)$/i.test(path), // say:allow: machine, the label the pack template prints
 };
 
 // Declared dependencies, read from every manifest in the tree, since a repository of several apps and
@@ -191,7 +191,7 @@ function inventory(where) {
   // Terraform are different claims and a zero cannot tell them apart.
   const counts = {
     FILES: held.files,
-    "LINES OF CODE": held.lines,
+    "LINES OF CODE": held.lines, // say:allow: machine, the label the pack template prints
     // The same set the split is over, so the count beside the bar and the bar agree. Counting data
     // and prose here says six against a bar showing three.
     LANGUAGES: written.length,

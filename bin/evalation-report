@@ -246,6 +246,7 @@ function entry(answer, asked, pack, scan) {
 
   const because = answer.from === "authored" && !answer.raised?.length ? authoredBecause(answer, clause) : answer.because;
   const body = [
+    clause?.obligation === "optional" && clause.note ? `<p class="scope-note">${escaped(clause.note)}</p>` : "",
     clause?.intent ? `<p class="asked">${escaped(clause.intent)}</p>` : "",
     because ? `<p class="because">${escaped(because)}</p>` : "",
     raisedList(answer),
@@ -255,8 +256,6 @@ function entry(answer, asked, pack, scan) {
     closing(answer, clause),
   ].join("");
 
-  // Whether the standard assesses this one in every audit or only where a level was elected. One
-  // word, because what the word means is said once on the opening page.
   const marker = clause?.obligation
     ? `<span class="grade ${escaped(clause.obligation)}">${escaped(clause.obligation)}</span>`
     : "";
@@ -377,23 +376,30 @@ function dated(at) {
   return String(at ?? "").slice(0, 10);
 }
 
+function standardsOf(answers, packs) {
+  const held = new Set(answers.map((one) => one.pack));
+  return (packs ?? []).filter((one) => held.has(one.pack) && (one.title ?? "").trim().length > 0);
+}
+
+const packNames = (standards) => standards.map((one) => nameOf(one, one.pack)).join(", ");
+
 function facts(document, answers, packs) {
   // The standard and the edition it was assessed against. Without the edition a reader cannot tell
   // which document the clause numbers resolve to, and the numbering moves between editions.
   // Only the packs this document answers: a run can also read a concern set, whose findings go in the
   // findings detail and never here.
-  const held = new Set(answers.map((one) => one.pack));
-  const standards = (packs ?? []).filter((one) => held.has(one.pack) && (one.title ?? "").trim().length > 0);
+  const standards = standardsOf(answers, packs);
   const said = [
     ["Assessed", dated(document.at)],
-    ["Against", standards.map((one) => nameOf(one, one.pack)).join(", ")],
     ["Edition", standards.map((one) => one.version).filter(Boolean).join(", ")],
     [nounAcross(packs).many.replace(/^./, (one) => one.toUpperCase()), answers.length],
     [line("report.fact-version"), document.revision],
     ["Run", document.run],
   ].filter(([, value]) => value !== undefined && value !== null && String(value) !== "");
 
-  return `<ul class="facts">${said
+  const name = packNames(standards);
+  const pack = name ? `<li class="pack-name">${escaped(line("report.fact-pack"))}<b>${escaped(name)}</b></li>` : "";
+  return `<ul class="facts">${pack}${said
     .map(([label, value]) => `<li>${escaped(label)}<b>${escaped(value)}</b></li>`).join("")}</ul>`;
 }
 
@@ -415,28 +421,8 @@ function tally(answers) {
   return `<ul class="tally">${cells}</ul>${bar}`;
 }
 
-/**
- * What the grades on the entries mean, each said once. The reason a requirement is optional is the
- * same reason for every requirement of that grade, so printing it on each card would be one
- * sentence a hundred times and a reader would stop seeing it.
- */
-function grades(asked) {
-  const held = new Map();
-  for (const one of asked.values()) {
-    if (!one.obligation || !one.note) continue;
-    held.set(`${one.obligation}/${one.note}`, [one.obligation, one.note]);
-  }
-  // What is always assessed leads, since a reader takes that as the baseline and reads the rest
-  // against it. Inside a word the order is the order the standard put them in.
-  return [...held.values()].sort((one, two) =>
-    Number(two[0] === "mandatory") - Number(one[0] === "mandatory"));
-}
-
-// The opening page: what was assessed, what it came to, and how to read one of the standard's parts.
-function opening(document, answers, packs, asked) {
-  const read = answers.filter((one) => one.from !== "authored").length;
+function readingKey(document, packs, asked) {
   const noun = nounAcross(packs);
-  const marks = grades(asked);
   const several = document.target?.kind === "solution";
   const source = line(several ? "shared.word-repositories" : "shared.word-repository");
   const parts = [
@@ -449,8 +435,21 @@ function opening(document, answers, packs, asked) {
     [line("report.label-checked"), line("report.key-checked", { source })],
     [line("cards.todo-label"), line("report.key-todo", { noun: called(noun.one) })],
   ];
-  if (marks.length > 0) parts.push([line("report.label-scope"), line("report.key-scope", { noun: noun.one })]);
+  if ([...asked.values()].some((one) => one.obligation)) parts.push([line("report.label-scope"), line("report.key-scope", { noun: noun.one })]);
 
+  return `<div class="block last">
+<h2>${escaped(line("report.key-title", { noun: called(noun.one) }))}</h2>
+<p class="lede">${escaped(line("report.key-lede", { noun: noun.one }))}</p>
+<dl class="key wide">${parts
+  .map(([name, meaning]) => `<dt>${escaped(name)}</dt><dd>${escaped(meaning)
+    .replace(/\b(verified|asserted)\b/g, (word) => `<span style="color:${STANDING[word]}">${word}</span>`)}</dd>`).join("")}</dl>
+</div>`;
+}
+
+function opening(document, answers, packs, left) {
+  const read = answers.filter((one) => one.from !== "authored").length;
+  const noun = nounAcross(packs);
+  const several = document.target?.kind === "solution";
   const held = (document.target?.repositories ?? []).filter((one) => one.vcs === "git").length;
   const whole = several ? line("shared.whole-several", { count: String(held) }) : line("shared.whole-one");
   const others = answers.length - read;
@@ -467,15 +466,7 @@ ${readBlock(document.target)}
     line("report.work-untouched")].join(" "))}</p>
 ${namesPeople(answers) ? `<p class="intro">${escaped(line("ev-run.names-people-page"))}</p>` : ""}
 ${published ? `<p class="intro">${escaped(line("report.work-over-time"))}</p>` : ""}
-</div>
-<div class="block last">
-<h2>${escaped(line("report.key-title", { noun: called(noun.one) }))}</h2>
-<p class="lede">${escaped(line("report.key-lede", { noun: noun.one }))}</p>
-<dl class="key wide">${parts
-  .map(([name, meaning]) => `<dt>${escaped(name)}</dt><dd>${escaped(meaning)
-    .replace(/\b(verified|asserted)\b/g, (word) => `<span style="color:${STANDING[word]}">${word}</span>`)}</dd>`).join("")}</dl>
-${marks.length === 0 ? "" : `<dl class="key wide grades">${marks
-  .map(([word, meaning]) => `<dt>${escaped(word)}</dt><dd>${escaped(meaning)}</dd>`).join("")}</dl>`}
+${left ? `<p class="intro">${escaped(line("report.left-out", { counts: left }))}</p>` : ""}
 </div>`;
 }
 
@@ -510,7 +501,7 @@ function scanFindings(document, packs, asked) {
   });
 }
 
-function executive(document, answers, asked, left) {
+function executive(document, answers, asked) {
   const pack = (document.packs ?? []).find((one) => answers.some((each) => each.pack === one.pack));
   const noun = nounOf(pack);
   const held = counted(answers);
@@ -525,7 +516,6 @@ function executive(document, answers, asked, left) {
       line("report.summary-shows", { total: String(answers.length), nouns: noun.many, covered: String(held.covered),
         partial: String(held["partial-gap"]), gap: String(held["total-gap"]) }),
       rest > 0 ? line("report.summary-rest", { count: String(rest) }) : "",
-      left ? line("report.left-out", { counts: left }) : "",
     ],
     columns: STATUSES.filter(([status]) => held[status] > 0).map(([status, , colour]) => ({ key: status, label: named(status), colour })),
     rows: sectionsOf(pack, answers, asked).map(([part, list]) => ({ title: part.title || nameOf(pack, pack?.pack), counts: counted(list) })),
@@ -553,7 +543,7 @@ function page(document, answers, asked, leave = false) {
   // What moved since the last run of this repository kept on this machine, where there is one.
   const since = changes(document, earlierFor(document, HOME));
   const left = leave ? leftOut(answers, nounAcross(packs)) : "";
-  const blocks = executive(document, answers, asked, left) + opening(document, answers, packs, asked) +
+  const blocks = opening(document, answers, packs, left) + executive(document, answers, asked) + readingKey(document, packs, asked) +
     [...byPack.keys()].map((pack) => changesSection(since, pack)).join("") + [...byPack.entries()].map(([pack, held]) => {
     const one = packs.find((each) => each.pack === pack);
     const noun = nounOf(one);
@@ -571,11 +561,12 @@ function page(document, answers, asked, leave = false) {
   const title = line("report.title");
   const several = document.target?.kind === "solution";
   const subtitle = line("report.subtitle", { kind: line(several ? "shared.word-product" : "shared.word-repository"),
-    label: line(several ? "shared.label-product" : "shared.label-repository"), name: repository || document.target?.name || line("shared.unnamed") });
+    name: repository || document.target?.name || line("shared.unnamed") });
+  const packName = packNames(standardsOf(answers, packs)) || title;
   const date = dated(document.at);
   const revision = String(document.revision ?? "");
-  const foot = !revision ? line("report.foot-bare", { title })
-    : date ? line("report.foot", { title, date, revision }) : line("report.foot-undated", { title, revision });
+  const foot = !revision ? line("report.foot-bare", { title: packName })
+    : date ? line("report.foot", { title: packName, date, revision }) : line("report.foot-undated", { title: packName, revision });
 
   return `<!doctype html><meta charset="utf-8"><title>${escaped(title)}</title>
 <style>
@@ -591,6 +582,7 @@ h2 .obligation.optional{background:${CHROME.rule};color:${CHROME.muted}}
   text-transform:uppercase;padding:1px 6px;flex:none;color:${CHROME.faint};
   border:1px solid ${CHROME.rule}}
 .entry .grade.mandatory{color:${CHROME.muted}}
+.entry .scope-note{font-size:7pt;line-height:9.5pt;color:${CHROME.faint};margin:0 0 0.04in}
 </style>
 <div id="source">${blocks}</div>
 ${paginator({ title, subtitle, foot })}`;
@@ -654,7 +646,7 @@ function main() {
       const out = join(folder, `${reviewName(document, pack)} Evidence Pack.pdf`);
       let done;
       try {
-        done = print(page(alone, own, asked, leave), `${out.replace(/\.pdf$/, "")}.html`, out, { run: document.run },
+        done = print(page(alone, own, asked, leave), `${out.replace(/\.pdf$/, "")}.html`, out, { run: document.run, packs: [pack], report: "evidence-pack" },
           readingOf(document));
       } catch (thrown) {
         if (!thrown?.file) throw thrown;

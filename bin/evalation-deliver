@@ -297,12 +297,12 @@ function deliver(source, named, target) {
   const pack = join(into, `${name} Pack.pdf`);
   const findings = join(into, `${name} Detail.pdf`);
 
-  const seal = { run: document.run };
+  const seal = { run: document.run, packs: concerns };
   const theirs = readingOf(document);
-  const one = deck(shaped, pack, { seal, theirs });
+  const one = deck(shaped, pack, { seal: { ...seal, report: "review-pack" }, theirs });
   let two;
   try {
-    two = detail(shaped, findings, seal, theirs);
+    two = detail(shaped, findings, { ...seal, report: "review-detail" }, theirs);
   } catch (thrown) {
     throw Object.assign(thrown instanceof Error ? thrown : raised(String(thrown), null), { written: [one.printed ? pack : one.page] });
   }

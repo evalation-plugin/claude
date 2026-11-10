@@ -6,6 +6,12 @@ const { repository } = require("./fixture.js");
 const { scan } = require("../bin/evalation-scan");
 const { settled } = require("../lib/scans.js");
 
+test("a caught error with no message still gives a reason, and one of several lines gives its first", () => {
+  const { reasonOf } = require("../bin/evalation-scan");
+  assert.strictEqual(reasonOf(new Error("")), "no reason recorded");
+  assert.strictEqual(reasonOf(new Error("first\nsecond")), "first");
+});
+
 test("an item naming a rule no measure produces is not checked, never found", () => {
   const held = scan(repository(), ["history"]).document;
   const nonesuch = settled({ proof: "scan", phase: "history", rule: "history:nonesuch", at_least: "low" }, held);
