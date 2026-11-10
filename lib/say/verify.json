@@ -37,5 +37,9 @@
   "verify.no-reason": { "say": "<id>: withdrawn with no reason" },
   "verify.no-stand-reason": { "say": "<id>: said to stand with no reason" },
   "verify.keeps": { "say": "<id>: a correction keeps its pack and its <field>" },
-  "verify.not-addressed": { "say": "<id>: in this group and not addressed" }
+  "verify.not-addressed": { "say": "<id>: in this group and not addressed" },
+  "verify.verifier-handed": { "say": "Batch <batch> is handed in." },
+  "verify.corrector-handed": { "say": "Group <group> is handed in." },
+  "verify.unconfirmed": { "say": "<id> stays marked asserted: <why>" },
+  "verify.unconfirmed-bare": { "say": "<id> stays marked asserted." }
 }

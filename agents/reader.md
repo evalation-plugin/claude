@@ -26,3 +26,6 @@ it hands back a list of claims to check again before it keeps the part: search a
 something is absent, check that each found item's lines are the thing itself, and read the scan again
 for each scan result. Check each, fix what is wrong, and hand the part in again. The shell runs these
 Evalation commands one at a time and nothing else, so never try another command or chain two.
+
+Your last reply is the last line the command prints once the part is kept, copied exactly, and
+nothing else. The part is already in its file, so write no summary, finding or note.

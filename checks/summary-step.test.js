@@ -40,10 +40,12 @@ test("state names each pack's summary as missing, unchecked or checked, so print
   const file = findingsFile();
   const packs = JSON.parse(readFileSync(file, "utf8")).packs.map((one) => one.pack);
   assert.deepStrictEqual(state(file), Object.fromEntries(packs.map((one) => [one, "missing"])));
-  write(file, "soc2", JSON.stringify(GOOD));
+  const { entries, say } = require("../lib/say.js");
+  assert.strictEqual(write(file, "soc2", JSON.stringify(GOOD)).said, say(entries(), "summary-step.writer-handed", { pack: "soc2" }));
   assert.strictEqual(state(file).soc2, "unchecked");
   assert.match(grid(file, "soc2"), /SENTENCE 1/);
-  record(file, "soc2", "SENTENCE 1: CONFIRMED | holds\nSENTENCE 2: CONFIRMED | holds");
+  assert.strictEqual(record(file, "soc2", "SENTENCE 1: CONFIRMED | holds\nSENTENCE 2: CONFIRMED | holds").said,
+    say(entries(), "summary-step.checker-handed", { pack: "soc2" }));
   assert.strictEqual(state(file).soc2, "checked");
 });
 
