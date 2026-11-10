@@ -85,6 +85,15 @@ test("the facts open on the pack's name, on a line of its own above the rest", (
   assert.doesNotMatch(first, />Against</);
 });
 
+test("an entry's note prints small on its own card, and the key holds no row for it", () => {
+  const document = standard(2, 0, 0);
+  document.packs[0].entries_asked[0].obligation = "optional";
+  document.packs[0].entries_asked[0].note = "Applies only to systems handling SECRET information.";
+  const pages = reportPages(document).join("");
+  assert.match(pages, /<article class="entry"[\s\S]*?<p class="scope-note">Applies only to systems handling SECRET information\.<\/p>/);
+  assert.doesNotMatch(pages, /<dl class="key wide grades">/);
+});
+
 test("every page's footer names the pack and the version, and no longer the report's type or the questions", () => {
   for (const sheet of reportPages(standard(30, 3))) {
     assert.match(footOf(sheet)[2], /^SOC 2 Trust Services Criteria\. Assessed on [^.]+ against version [\d.]+\.$/);
