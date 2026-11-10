@@ -404,5 +404,5 @@ if (require.main === module) {
   const count = everyFinding(document).length;
   process.stdout.write(done.printed
     ? `${said("detail.wrote", { count: String(count), disciplines: String((document.categories ?? []).length) })}\n`
-    : `${said("detail.no-browser", { page: done.page })}\n`);
+    : `${said("detail.no-engine", { page: done.page })}\n`);
 }

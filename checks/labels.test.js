@@ -5,13 +5,14 @@ const assert = require("node:assert");
 const { mkdtempSync } = require("node:fs");
 const { tmpdir } = require("node:os");
 const { join } = require("node:path");
-const { repository, run, scanned } = require("./fixture.js");
+const { engine, repository, run, scanned } = require("./fixture.js");
 const { page } = require("../bin/evalation-report");
 const { print } = require("../lib/print.js");
 const { readingOf } = require("../lib/prose.js");
 
 const tree = repository();
 scanned(tree, []);
+engine();
 
 const RESULTS = ["found", "missing", "does-not-apply", "not-checked", "no-evidence"];
 const STATUSES = ["total-gap", "partial-gap", "covered", "no-evidence", "org-level", "not-applicable"];

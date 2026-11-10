@@ -6,13 +6,14 @@ const { execFileSync } = require("node:child_process");
 const { existsSync, mkdtempSync, readFileSync } = require("node:fs");
 const { tmpdir } = require("node:os");
 const { join } = require("node:path");
-const { repository, run, scanned } = require("./fixture.js");
+const { engine, repository, run, scanned } = require("./fixture.js");
 const { citing, page } = require("../bin/evalation-report");
 const { print } = require("../lib/print.js");
 const { readingOf } = require("../lib/prose.js");
 
 const tree = repository();
 scanned(tree, []);
+engine();
 
 const printedFrom = (document) => {
   const asked = new Map();
@@ -71,12 +72,12 @@ test("a quote and a remedy each longer than a page carry on line by line and wor
 
 const laidOut = (document) => {
   const { writeFileSync } = require("node:fs");
-  const { browser, settled } = require("../lib/print.js");
+  const { settled } = require("../lib/print.js");
   const asked = new Map();
   for (const pack of document.packs) for (const one of pack.entries_asked ?? []) asked.set(`${pack.pack}/${one.identifier}`, one);
   const file = join(mkdtempSync(join(tmpdir(), "evalation-flow-")), "pack.html");
   writeFileSync(file, page(document, document.answers.filter((one) => one.pack === "soc2"), asked));
-  return settled(browser(), file).split('<div class="sheet">').slice(1);
+  return settled(engine(), file).split('<div class="sheet">').slice(1);
 };
 
 const many = (document, cards) => {
@@ -187,7 +188,7 @@ test("any other print failure gives one plain line naming the file, and names th
   assert.strictEqual(built[0], "The reports weren't written, because building them stopped.");
   assert.strictEqual(readFileSync(built.at(-1), "utf8").trim(), "boom");
   assert.match(unwritten(Object.assign(new Error("spawnSync chrome ETIMEDOUT"), { code: "ETIMEDOUT", file: "/r/C Pack.pdf" })),
-    /^C Pack\.pdf wasn't written, because the browser took longer than two minutes to print it\.\n/);
+    /^C Pack\.pdf wasn't written, because the print engine took longer than two minutes to print it\.\n/);
 });
 
 test("a cited file whose name is spelled the US way prints, since the name is the repository's own", () => {
@@ -238,11 +239,11 @@ test("a page is laid out only once its fonts have loaded, and says so, since a l
   const document = run(tree);
   const asked = new Map();
   for (const pack of document.packs) for (const one of pack.entries_asked ?? []) asked.set(`${pack.pack}/${one.identifier}`, one);
-  const { browser, settled } = require("../lib/print.js");
+  const { settled } = require("../lib/print.js");
   const { writeFileSync } = require("node:fs");
   const file = join(mkdtempSync(join(tmpdir(), "evalation-fonts-")), "pack.html");
   writeFileSync(file, page(document, document.answers.filter((one) => one.pack === "soc2"), asked));
-  assert.match(settled(browser(), file), /<body[^>]*data-fonts="ready"/);
+  assert.match(settled(engine(), file), /<body[^>]*data-fonts="ready"/);
   const { into, done } = printedFrom(document);
   done();
   const text = execFileSync("pdftotext", [into, "-"], { encoding: "utf8" });

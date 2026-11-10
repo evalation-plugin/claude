@@ -103,6 +103,19 @@ locally, and what crosses the wire is the request for the methodology and the re
 happened. The packs are served to your installation for each run. The plugin's own error reports
 leave too, holding only the fields listed under Error reports.
 
+## The print engine
+
+Reports are printed to PDF with one engine, so a report prints the same on every machine, and the
+plugin never uses a browser you already have. The first time it prints, the plugin asks once whether
+to download the engine, and says how big the download is. The download is Google's headless Chrome
+build for testing, at one version pinned in the plugin, fetched from Google's download server at
+`storage.googleapis.com`. It is the only call to that server, it sends nothing of yours, and it is
+made only when you say yes. The plugin checks the file against a SHA-256 fingerprint pinned beside
+the version, throws it away if it does not match, and keeps the engine in its own folder under
+`~/.evalation-plugin/print-engine`. It unpacks the download with `unzip` on macOS and Linux and with
+PowerShell on Windows. If you say no, or the download fails, your reports come as web pages to print
+to PDF yourself and are not signed, and `/ev-run print` offers the download again at no pack credit.
+
 ## Error reports
 
 When something in the plugin goes wrong, it tells Evalation, so we can fix it without waiting for

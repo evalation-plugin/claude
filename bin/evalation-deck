@@ -1065,5 +1065,5 @@ if (require.main === module) {
   }
   process.stdout.write(done.printed
     ? `wrote ${done.slides} slides carrying ${done.findings} findings\n`
-    : `${said("detail.no-browser", { page: done.page })}\n`);
+    : `${said("detail.no-engine", { page: done.page })}\n`);
 }

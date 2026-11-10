@@ -5,10 +5,10 @@ const assert = require("node:assert");
 const { mkdtempSync, writeFileSync } = require("node:fs");
 const { tmpdir } = require("node:os");
 const { join } = require("node:path");
-const { repository, run, scanned } = require("./fixture.js");
+const { engine, repository, run, scanned } = require("./fixture.js");
 const { page } = require("../bin/evalation-report");
 const { reviewFindings } = require("../bin/evalation-deliver");
-const { browser, settled } = require("../lib/print.js");
+const { settled } = require("../lib/print.js");
 const { skeletonOf } = require("../bin/evalation-findings");
 
 const tree = repository();
@@ -26,7 +26,7 @@ const askedOf = (document) => {
 const sheetsOf = (html) => {
   const file = join(mkdtempSync(join(tmpdir(), "evalation-summary-")), "page.html");
   writeFileSync(file, html);
-  return settled(browser(), file).split('<div class="sheet">').slice(1);
+  return settled(engine(), file).split('<div class="sheet">').slice(1);
 };
 
 const standard = (gaps, partials = 0, covered = 6) => {
