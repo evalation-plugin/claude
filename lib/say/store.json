@@ -1,0 +1,11 @@
+{
+  "store.mode-open": { "say": "<path> is mode <mode>, so somebody other than you can read it. Run: chmod 600 <path>" },
+  "store.already-holds": { "say": "<store> already holds a key under <service>/<account>, and that key belongs to an installation on this machine. Writing over it would destroy the only proof that installation is itself, and nothing can restore it." },
+  "store.nothing-at": { "say": "nothing at <path>" },
+  "store.read-back": { "say": "wrote a value to <store> and read back something else" },
+  "store.no-key-store": { "say": "no-key-store: <reason>\nThis machine has nowhere to keep a private key. Set EVALATION_KEY_STORE=file to keep it in a file only you can read, under ~/.evalation-plugin/keys." },
+  "store.keychain": { "say": "the macOS keychain" },
+  "store.credential-manager": { "say": "Windows Credential Manager" },
+  "store.keyring": { "say": "the desktop keyring" },
+  "store.file": { "say": "a file only you can read" }
+}

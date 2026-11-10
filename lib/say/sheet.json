@@ -1,0 +1,12 @@
+{
+  "sheet.why-pnpm": { "say": "pnpm why <name>" },
+  "sheet.why-npm": { "say": "npm ls <name>" },
+  "sheet.why-yarn": { "say": "yarn why <name>" },
+  "sheet.another-package": { "say": "another package" },
+  "sheet.own-override": { "say": "your package manager's override for it" },
+  "sheet.package-using": { "say": "the package that uses it" },
+  "sheet.fixes-some": { "say": "<fixed> of the <many>" },
+  "sheet.versions-listed": { "say": "versions <list> and <last>" },
+  "sheet.advisories-in": { "count": "count", "say": { "one": "<count> advisory in <versions>", "many": "<count> advisories in <versions>" } },
+  "sheet.places": { "count": "count", "say": { "one": "<count> place", "many": "<count> places" } }
+}

@@ -17,6 +17,7 @@ require("../lib/errors.js");
 
 const { readFileSync, writeFileSync } = require("node:fs");
 const { resolve } = require("node:path");
+const { line } = require("../lib/run-say.js");
 
 function fail(reason) {
   process.stderr.write(reason + "\n");
@@ -66,7 +67,7 @@ function main() {
   if (!source || !rubricAt) {
     process.stderr.write(
       "usage: evalation-score <findings.json> <rubric.json>\n" +
-        "The rubric is what the run was served. It is never stored: pass what came back from the run.\n",
+        `${line("score.rubric-served")}\n`,
     );
     process.exit(2);
   }
@@ -84,7 +85,7 @@ function main() {
     fail(`unreadable-rubric: ${thrown.message}`);
   }
   if (rubric.id !== "evalation.rubric.v1") {
-    fail(`not-a-rubric: it says it is ${rubric.id ?? "nothing"}`);
+    fail(line("score.not-a-rubric", { id: rubric.id ?? "nothing" }));
   }
 
   // A map that has to hold numbers is checked to hold numbers, because the failure otherwise is
@@ -99,27 +100,18 @@ function main() {
   ]) {
     for (const [name, value] of Object.entries(held ?? {})) {
       if (typeof value !== "number" || !Number.isFinite(value)) {
-        wrong.push(`${what}.${name} is ${JSON.stringify(value)} rather than a number`);
+        wrong.push(line("score.not-a-number", { what, name, value: String(JSON.stringify(value)) }));
       }
     }
   }
   if (wrong.length > 0) {
-    fail(
-      "unusable-rubric: this rubric holds something that is not a number where one is needed:\n  " +
-        wrong.join("\n  ") +
-        "\nNothing was scored. A score computed from a rubric nothing checked is a number nobody " +
-        "should act on.",
-    );
+    fail(line("score.unusable", { problems: wrong.join("\n  ") }));
   }
 
   const scoring = (document.findings ?? []).filter((one) => one.pack === rubric.pack);
   const read = (document.accounted ?? []).filter((one) => one.pack === rubric.pack);
   if (scoring.length === 0 && read.length === 0) {
-    fail(
-      `nothing-to-score: this run neither read nor found anything from ${rubric.pack}, which is what ` +
-        "this rubric scores. A run that read nothing is not a run that scored well: say what it read " +
-        "rather than giving it a number it did not earn.",
-    );
+    fail(line("score.nothing", { pack: String(rubric.pack) }));
   }
 
   const { score: overall, grade, bars } = hardness(document, rubric);

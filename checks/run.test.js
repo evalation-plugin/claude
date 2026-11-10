@@ -129,13 +129,13 @@ function verify(written, tree) {
       assert.strictEqual(partly.missing.length, ids.length - 1);
     }
     const recorded = JSON.parse(sh("evalation-verify", ["record", written, String(at + 1)], lines.join("\n")));
-    assert.strictEqual(recorded.said, handed("ev-run.verifier-handed", { batch: String(at + 1) }));
+    assert.strictEqual(recorded.said, handed("verify.verifier-handed", { batch: String(at + 1) }));
   });
   sh("evalation-verify", ["apply", written, "Opus 5.5"]);
   const unconfirmed = sh("evalation-verify", ["unconfirmed", written]).trim().split("\n");
   assert.strictEqual(unconfirmed.length, doubted.size);
   for (const id of doubted) {
-    assert.ok(unconfirmed.includes(handed("ev-run.unconfirmed", { id, why: DOUBT })), id);
+    assert.ok(unconfirmed.includes(handed("verify.unconfirmed", { id, why: DOUBT })), id);
   }
   sh("evalation-verify", ["corrections", written, tree]);
   const groups = JSON.parse(readFileSync(`${written}.correct/plan.json`, "utf8")).groups;
@@ -149,7 +149,7 @@ function verify(written, tree) {
       answer[list].push({ id, stands: "Read again against the lines cited, and it holds." });
     }
     const corrected = JSON.parse(sh("evalation-verify", ["correct", written, String(at + 1), "-"], JSON.stringify(answer)));
-    assert.strictEqual(corrected.said, handed("ev-run.corrector-handed", { group: String(at + 1) }));
+    assert.strictEqual(corrected.said, handed("verify.corrector-handed", { group: String(at + 1) }));
   });
   sh("evalation-verify", ["corrected", written]);
 }

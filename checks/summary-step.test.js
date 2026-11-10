@@ -32,7 +32,7 @@ const sheetsOf = (document) => {
   for (const pack of document.packs) for (const one of pack.entries_asked ?? []) asked.set(`${pack.pack}/${one.identifier}`, one);
   const file = join(mkdtempSync(join(tmpdir(), "evalation-summary-step-")), "page.html");
   writeFileSync(file, page(document, document.answers.filter((one) => one.pack === "soc2"), asked));
-  return settled(browser(), file).split('<div class="sheet">').slice(1);
+  return settled(browser(), file).split('<div class="sheet">').filter((one) => one.includes('data-part="'));
 };
 
 test("state names each pack's summary as missing, unchecked or checked, so printing again can finish what a run left", () => {
@@ -161,7 +161,7 @@ test("the findings detail prints the reading's summary of its concern set the sa
   document.summaries = { hardening: { paragraph: [{ say, rests_on: ["SEC-01"] }], weigh: [], state: "verified" } };
   const file = join(mkdtempSync(join(tmpdir(), "evalation-summary-step-")), "detail.html");
   writeFileSync(file, detailPage(synthesise(reviewFindings(document))));
-  assert.ok(settled(browser(), file).split('<div class="sheet">')[1].includes(say));
+  assert.ok(settled(browser(), file).split('<div class="sheet">')[2].includes(say));
 });
 
 test("only the summary writer writes a summary and only the summary checker records its verdict", () => {
