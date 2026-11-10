@@ -1,6 +1,16 @@
 {
   "releases": [
     {
+      "version": "0.78.0",
+      "date": "2026-11-10",
+      "notes": [
+        "Each report opens on a title page naming the pack, and the executive summary follows it.",
+        "Reports print with the plugin's own print engine, so your machine needs no browser.",
+        "You can leave the clauses for your organisation and those that don't apply out of an evidence pack.",
+        "A run settles once the facts a pack depends on, so an entry that can't apply is answered without a reading."
+      ]
+    },
+    {
       "version": "0.77.0",
       "date": "2026-10-07",
       "notes": [
