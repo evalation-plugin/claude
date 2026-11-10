@@ -271,7 +271,6 @@ function scanned(document) {
 function opening(document) {
   const meta = document.meta ?? {};
   const hardness = document.hardness ?? {};
-  const legend = document.legend ?? {};
 
   // The one number a reader takes away, beside the split it is a summary of. It sits in the flow
   // rather than pinned to the foot of the page: pinned, it lands on top of whatever the page was
@@ -282,9 +281,21 @@ function opening(document) {
 <span class="chip-score">${escaped(hardness.score)}</span><span class="chip-of">/100</span>
 ${hardness.grade ? `<span class="chip-grade"> &middot; ${escaped(said("detail.chip-grade", { grade: String(hardness.grade) }))}</span>` : ""}</div></div>`;
 
-  // Each part of a finding, named where a reader meets it. It is a key, so it says what the part is
-  // for and not what any one finding says. The three standing words are set here in the colours they
-  // carry on every bar, so a reader learns the colour once and never comes back for it.
+  return `<div class="block">
+${facts(document)}
+${tally(document)}
+${score}
+</div>
+${readBlock(document.solution)}
+<div class="block">
+<h2>${escaped(said("report.work-title"))}</h2>
+<p class="intro">${escaped(meta.intro ?? "")}</p>
+</div>
+${scanned(document)}`;
+}
+
+function readingKey(document) {
+  const legend = document.legend ?? {};
   const standings = escaped(legend.result ?? said("detail.key-standing"))
     .replace(/\b(scanned|verified|asserted)\b/gi,
       (word) => `<span style="color:${standing(word)}">${word}</span>`);
@@ -300,18 +311,7 @@ ${hardness.grade ? `<span class="chip-grade"> &middot; ${escaped(said("detail.ch
     [said("cards.todo-label"), escaped(said("detail.key-todo"))],
   ];
 
-  return `<div class="block">
-${facts(document)}
-${tally(document)}
-${score}
-</div>
-${readBlock(document.solution)}
-<div class="block">
-<h2>${escaped(said("report.work-title"))}</h2>
-<p class="intro">${escaped(meta.intro ?? "")}</p>
-</div>
-${scanned(document)}
-<div class="block last">
+  return `<div class="block last">
 <h2>${escaped(said("detail.key-title"))}</h2>
 <p class="lede">${escaped(said("detail.key-lede"))}</p>
 <dl class="key">${parts
@@ -344,7 +344,7 @@ function page(document) {
   const foot = said("detail.foot", { title: document.title ?? said("detail.title") });
 
   const reported = document.scan?.reported ?? {};
-  const blocks = executive(document) + opening(document) + changesSection(document.changes ?? null, document.changes_pack ?? "") +
+  const blocks = opening(document) + executive(document) + readingKey(document) + changesSection(document.changes ?? null, document.changes_pack ?? "") +
     (document.categories ?? []).map(section).join("") +
     // Every scanner result, so the cards stay with the concerns the pack asks about and the tools'
     // output is read here in one place. A result a card cites names that card.

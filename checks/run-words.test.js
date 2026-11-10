@@ -131,8 +131,8 @@ test("the evidence pack names the repository in full and the question revision, 
   const document = run(repository());
   const asked = new Map(document.packs[0].entries_asked.map((one) => [`soc2/${one.identifier}`, one]));
   const html = page(document, document.answers.filter((one) => one.pack === "soc2"), asked);
-  assert.match(html, /Evidence from this repository · Repository: acme\/app/);
-  assert.match(html, /Assessed on [^.]+ against version 1\.80 of the questions\./);
+  assert.match(html, /Evidence for repository: acme\/app/);
+  assert.match(html, /Assessed on [^.]+ against version 1\.80\./);
   assert.doesNotMatch(html, /governance revision|Repo:/);
 });
 

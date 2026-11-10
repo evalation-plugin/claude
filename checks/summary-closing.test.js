@@ -21,7 +21,7 @@ const summaryOf = (name) => {
   for (const pack of document.packs) for (const one of pack.entries_asked ?? []) asked.set(`${pack.pack}/${one.identifier}`, one);
   const file = join(mkdtempSync(join(tmpdir(), "evalation-closing-")), "page.html");
   writeFileSync(file, page(document, document.answers.filter((one) => one.pack === name), asked));
-  return settled(engine(), file).split('<div class="sheet">')[1];
+  return settled(engine(), file).split('<div class="sheet">')[2];
 };
 
 test("the investment pack's summary closes on the line saying it is not advice on whether to invest", () => {

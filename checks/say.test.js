@@ -128,21 +128,8 @@ function sentencesWritten(file) {
   return [...sentences, ...fragments, ...plurals];
 }
 
-const STILL_TO_MOVE = {
-  reason: "the plugin's agents' instructions, the fault remedies sent to Evalation and the machine-only strings move into the catalogue or carry a machine marker in the second pull request of ADR-0092",
-  granted_by: "the session building ADR-0092, landing the text a person reads first",
-  granted_on: "2026-10-02",
-  expires_on: "2026-10-09",
-  files: ["bin/evalation-findings", "lib/questions.js", "bin/evalation-verify", "lib/say.js", "bin/evalation-read", "lib/prose.js",
-    "bin/evalation-store", "bin/evalation-questions", "bin/evalation-activate", "lib/home.js", "bin/evalation-deck", "bin/evalation-chain",
-    "lib/sheet.js", "bin/evalation-score", "lib/run-say.js", "bin/evalation-scan", "bin/evalation-gate", "bin/evalation-ask", "lib/remove.js",
-    "lib/print.js", "lib/pptx.js", "bin/evalation-open", "bin/evalation-news", "bin/evalation-hostnames", "bin/evalation-inventory",
-    "bin/evalation-loopback", "bin/evalation-rotate", "lib/assure.js", "lib/sign.js", "lib/slides.js"],
-};
-
 test("no file of the plugin writes a sentence of its own, so every sentence comes from the catalogue", () => {
-  const excused = new Date().toISOString().slice(0, 10) <= STILL_TO_MOVE.expires_on ? new Set(STILL_TO_MOVE.files) : new Set();
-  assert.deepStrictEqual(CODE.filter((file) => !excused.has(file)).flatMap((file) => sentencesWritten(file).map((one) => `${file}: ${one.slice(0, 90)}`)), []);
+  assert.deepStrictEqual(CODE.flatMap((file) => sentencesWritten(file).map((one) => `${file}: ${one.slice(0, 90)}`)), []);
 });
 
 test("no catalogue file holds a name twice, since the second would silently replace the first", () => {

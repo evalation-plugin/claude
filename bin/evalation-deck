@@ -111,11 +111,10 @@ function labelled(document) {
   const all = document.solution.repositories ?? [];
   const held = all.filter((one) => one.vcs === "git").map((one) => one.repository);
   const plain = all.filter((one) => one.vcs !== "git").map((one) => one.folder);
-  const listed = `${name} · ${held.join(", ")}${plain.length === 0 ? "" : ` · other folders: ${plain.join(", ")}`}`;
+  const listed = `${name} · ${held.join(", ")}${plain.length === 0 ? "" : ` · ${said("deck.folders-named", { folders: plain.join(", ") })}`}`;
   if (listed.length <= 105) return listed;
-  const counted = (count, one, many) => (count === 1 ? `one ${one}` : `${count} ${many}`);
   const repositories = held.length === 1 ? "1 repository" : `${held.length} repositories`;
-  return `${name} · ${repositories}${plain.length === 0 ? "" : ` and ${counted(plain.length, "other folder", "other folders")}`}`;
+  return `${name} · ${repositories}${plain.length === 0 ? "" : ` and ${said("deck.folders-counted", { count: plain.length })}`}`;
 }
 
 function model(document) {
@@ -446,8 +445,7 @@ function align(slide, marker) {
 
     if (!/<a:bodyPr[^>]*anchor="ctr"/.test(beside.body) || Math.abs(says - middle) > 40_000) {
       throw raised(
-        `${JSON.stringify(box.text.trim())} and the text beside it are ` +
-        `${Math.round(Math.abs(says - middle) / 914.4) / 100}in apart, so they are not aligned`,
+        said("deck.misaligned", { text: JSON.stringify(box.text.trim()), gap: `${Math.round(Math.abs(says - middle) / 914.4) / 100}in` }),
         null,
       );
     }
@@ -779,8 +777,8 @@ function deck(document, into, options = {}) {
 
   if (since) {
     since.xml = retitled(pptx.fill(since.xml, type), {
-      "What we think of how it's built": said("changes.title", { date: dated(held.changes.since) }),
-      COMMENTARY: "SINCE LAST RUN",
+      "What we think of how it's built": said("changes.title", { date: dated(held.changes.since) }), // say:allow: machine, the template's own heading the deck replaces
+      COMMENTARY: said("deck.label-since").toUpperCase(),
     });
     const notes = changeNotes(held.changes, held.changesPack);
     fillInOrder(since, "{{ Strength or risk headline }}", notes.map((one) => one.headline));
@@ -792,7 +790,7 @@ function deck(document, into, options = {}) {
   readSlides(held.solution).forEach((page, at) => {
     const read = pptx.duplicateSlide(file, untouched, 1 + at);
     read.xml = retitled(pptx.fill(read.xml, type), {
-      "What we think of how it's built": page.continued ? `${page.title}, continued` : page.title,
+      "What we think of how it's built": page.continued ? `${page.title}, continued` : page.title, // say:allow: machine, the template's own heading the deck replaces
       COMMENTARY: page.label,
     });
     fillInOrder(read, "{{ Strength or risk headline }}", page.blocks.map((one) => one.headline));
@@ -974,15 +972,15 @@ function deck(document, into, options = {}) {
   // Every slide part, not only the ones the template opened with, since repeating the findings slide
   // added parts that carry the same notes and the same empty slots.
   const headings = {
-    ...Object.fromEntries([["HOW WELL IT IS BUILT", "deck.label-build"], ["WHERE THE RISK IS", "deck.label-risk"],
-      ["WHAT IT TAKES TO CLOSE", "deck.label-close"], ["THE BOTTOM LINE", "deck.label-bottom"], ["PRESERVE AS INVARIANTS", "deck.label-keep"],
-      ["REMEDIATION ROADMAP", "deck.label-roadmap"], ["DECISIONS (ADRS)", "deck.label-decisions"], ["IAC (TERRAFORM)", "deck.label-iac"]]
+    ...Object.fromEntries([["HOW WELL IT IS BUILT", "deck.label-build"], ["WHERE THE RISK IS", "deck.label-risk"], // say:allow: machine, the template's own heading the deck replaces
+      ["WHAT IT TAKES TO CLOSE", "deck.label-close"], ["THE BOTTOM LINE", "deck.label-bottom"], ["PRESERVE AS INVARIANTS", "deck.label-keep"], // say:allow: machine, the template's own heading the deck replaces
+      ["REMEDIATION ROADMAP", "deck.label-roadmap"], ["DECISIONS (ADRS)", "deck.label-decisions"], ["IAC (TERRAFORM)", "deck.label-iac"]] // say:allow: machine, the template's own heading the deck replaces
       .map(([from, name]) => [from, said(name).toUpperCase()])),
-    "What we think of how it's built": said("deck.heading-build"),
+    "What we think of how it's built": said("deck.heading-build"), // say:allow: machine, the template's own heading the deck replaces
     "How this audit was produced": said("deck.heading-method"), // say:allow: machine, the template's own heading the deck replaces
     "The one risk path that matters": said("deck.heading-path"), // say:allow: machine, the template's own heading the deck replaces
     "Health / hardness score": said("deck.heading-score"),
-    "Convergent themes": said("deck.heading-themes"),
+    "Convergent themes": said("deck.heading-themes"), // say:allow: machine, the template's own heading the deck replaces
     "Strengths to preserve  ·  and the roadmap": said("deck.heading-strengths"), // say:allow: machine, the template's own heading the deck replaces
   };
   const parts = file.entries.filter((one) => /^ppt\/slides\/slide\d+\.xml$/.test(one.name));
