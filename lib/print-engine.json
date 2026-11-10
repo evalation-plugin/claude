@@ -1,0 +1,11 @@
+{
+  "version": "155.0.8059.79",
+  "source": "https://storage.googleapis.com/chrome-for-testing-public",
+  "platforms": {
+    "mac-arm64": { "sha256": "5f51504ead3d41815111cd73e79c4979df3a4e6aedc7cf6fe2b042ae037363b5", "bytes": 102390341 },
+    "mac-x64": { "sha256": "36a1da728fc936770a0edc52989b74d8d3a194e8747f490e372a210853ad831c", "bytes": 108042306 },
+    "win64": { "sha256": "c4cc49fa7908cf018600b04c95918d336565d90f9c72241fd83dacd9ec41855c", "bytes": 125212001 },
+    "linux64": { "sha256": "4cea4c32b501aa43cc2b81eb45734af991a6a82feded48380d6dfaf96642a1c1", "bytes": 124406717 },
+    "linux-arm64": { "sha256": "72d938cabad9674610939c72ef2d3faf20214a4418c3b4e94c1cebca683e767b", "bytes": 124715442 }
+  }
+}

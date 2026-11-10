@@ -1,0 +1,51 @@
+#!/usr/bin/env node
+"use strict";
+const errors = require("../lib/errors.js");
+
+const { answered } = require("../lib/answer.js");
+const engine = require("../lib/engine.js");
+const { entries, say } = require("../lib/say.js");
+const { fault, line } = require("../lib/run-say.js");
+
+const out = (value) => process.stdout.write(`${JSON.stringify(value, null, 2)}\n`);
+
+function show() {
+  if (!engine.platform()) {
+    return out({ ready: false, asks: null, said: line("ev-run.engine-stopped", { lead: line("ev-run.engine-lead-unsupported"), then: line("ev-run.engine-then-unsupported") }) });
+  }
+  if (engine.ready()) return out({ ready: true, asks: null, said: null });
+  return out({ ready: false, said: null, asks: JSON.parse(say(entries(), "ev-run.engine", { size: String(engine.mb()) })) });
+}
+
+async function install() {
+  answered([]);
+  try {
+    await engine.install();
+  } catch (thrown) {
+    if (!thrown.said) throw thrown;
+    return out({ ready: false, said: thrown.said });
+  }
+  return out({ ready: true, said: line("ev-run.engine-ready") });
+}
+
+async function main() {
+  const [verb] = process.argv.slice(2);
+  switch (verb) {
+    case "show":
+      return show();
+    case "install":
+      return install();
+    case "decline":
+      engine.decline();
+      return out({ declined: true });
+    default:
+      process.stderr.write("usage: evalation-print-engine show | install | decline\n");
+      return process.exit(2);
+  }
+}
+
+main().catch((thrown) => {
+  errors.report("unexpected-error", thrown);
+  process.stderr.write(`${fault(line("ev-run.fault-engine"), thrown?.stack ?? thrown)}\n`);
+  process.exit(1);
+});
