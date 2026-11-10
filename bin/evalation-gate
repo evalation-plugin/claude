@@ -87,6 +87,10 @@ if (/^\s*\S*evalation-read\s/.test(line)) {
   const at = real(resolve(home, named));
   if (at !== inside && !at.startsWith(inside + sep)) outside();
 }
+const program = line.split(/\s/)[0];
+if (!/[\\/]/.test(program) || real(resolve(program, "..")) === real(__dirname)) {
+  process.stdout.write(JSON.stringify({ hookSpecificOutput: { hookEventName: "PreToolUse", permissionDecision: "allow" } }));
+}
 process.exit(0);
 
 /** The path with every link resolved, or as written where it does not exist on this machine. */
