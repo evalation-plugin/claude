@@ -8,13 +8,15 @@ const { createServer } = require("node:http");
 const { mkdirSync, mkdtempSync, writeFileSync } = require("node:fs");
 const { tmpdir } = require("node:os");
 const { join } = require("node:path");
-const { repository, run, scanned } = require("./fixture.js");
+const { engine, repository, run, scanned } = require("./fixture.js");
 
 const tree = repository();
 scanned(tree, []);
+engine();
 
 function machine() {
   const home = mkdtempSync(join(tmpdir(), "evalation-delivery-"));
+  engine(home);
   mkdirSync(join(home, "keys"), { recursive: true });
   for (const one of ["installation-key", "receiving-key"]) {
     writeFileSync(join(home, "keys", `evalation-plugin.box.${one}`), randomBytes(32).toString("base64"), { mode: 0o600 });

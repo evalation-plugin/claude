@@ -11,13 +11,13 @@ process.env.EVALATION_SPELLING = process.env.EVALATION_SPELLING || "commonwealth
 
 const git = (cwd, ...args) => execFileSync("git", args, { cwd, stdio: "ignore" });
 
-function engine() {
+function engine(at = home) {
   const printer = require("../lib/engine.js");
   const shared = join(tmpdir(), "evalation-checks-print-engine");
   const lock = join(shared, "installing");
   mkdirSync(join(shared, "print-engine"), { recursive: true });
   try {
-    symlinkSync(join(shared, "print-engine"), join(home, "print-engine"), "junction");
+    symlinkSync(join(shared, "print-engine"), join(at, "print-engine"), "junction");
   } catch (thrown) {
     if (thrown.code !== "EEXIST") throw thrown;
   }
