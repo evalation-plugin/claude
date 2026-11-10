@@ -21,6 +21,11 @@ evalation-findings part <run.json> <n> - <repository> <<'EOF'
 EOF
 ```
 
+Where your task says it is a group of facts, print it with `evalation-findings fact-group <run.json> <n>`
+and hand in its rows with `evalation-findings fact-part <run.json> <n> - <repository>`, in the format the
+methodology gives for a fact. Settle each fact from the code alone, and answer cannot-tell for a property
+the code does not show either way.
+
 Fix everything it names and hand it in again until it says the part holds. The first time it holds,
 it hands back a list of claims to check again before it keeps the part: search again where you said
 something is absent, check that each found item's lines are the thing itself, and read the scan again
