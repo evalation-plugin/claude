@@ -1,6 +1,13 @@
 {
   "releases": [
     {
+      "version": "0.78.1",
+      "date": "2026-11-10",
+      "notes": [
+        "A report that says what changed since your last run now prints, where an item's new result stopped it before."
+      ]
+    },
+    {
       "version": "0.78.0",
       "date": "2026-11-10",
       "notes": [

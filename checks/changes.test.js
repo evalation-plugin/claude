@@ -6,7 +6,7 @@ const { mkdirSync, mkdtempSync, writeFileSync } = require("node:fs");
 const { tmpdir } = require("node:os");
 const { join } = require("node:path");
 require("./fixture.js");
-const { changes, changesSection, earlierFor } = require("../lib/changes.js");
+const { changeNotes, changes, changesSection, earlierFor } = require("../lib/changes.js");
 
 const run = (at, over = {}) => ({
   run: `run-${at}`, at, revision: "1.81", target: { repository: "acme/app" },
@@ -53,6 +53,26 @@ test("answers that moved read as improved or worsened, with the items that moved
     ["CC7.1", "covered", "total-gap", "worsened"],
   ]);
   assert.deepStrictEqual(said.answers[0].items, [{ at: 2, find: "A tenant check", from: "missing", to: "found" }]);
+});
+
+test("an item that moved is named in words in every line that says so, and never by its result code", () => {
+  const now = later();
+  now.answers[0] = { ...now.answers[0], status: "covered", looked_for: [{ result: "found" }, { result: "does-not-apply" }] };
+  const entryLines = changesSection(changes(now, run("2026-09-23T00:00:00.000Z")), "soc2");
+  assert.match(entryLines, /item 2 is now does not apply/);
+  const concern = (at, results) => ({
+    ...run(at),
+    packs: [{ pack: "hardening", kind: "concern-set", entries_asked: [{ identifier: "SEC01", title: "Untrusted input",
+      looks_for: [{ find: "Parameterised queries" }, { find: "An input test" }] }] }],
+    answers: [],
+    accounted: [{ pack: "hardening", concern: "SEC01", looked_for: results.map((result) => ({ result })) }],
+  });
+  const said = changes(concern("2026-09-25T00:00:00.000Z", ["found", "no-evidence"]), concern("2026-09-23T00:00:00.000Z", ["found", "found"]));
+  const concernLines = changesSection(said, "hardening");
+  assert.match(concernLines, /item 2, An input test, is now environment/);
+  const notes = JSON.stringify(changeNotes(said, "hardening"));
+  assert.match(notes, /An input test is now environment/);
+  assert.doesNotMatch(entryLines + concernLines + notes, /does-not-apply|no-evidence/);
 });
 
 test("scanner results that arrived and went are named, and so is the score", () => {
