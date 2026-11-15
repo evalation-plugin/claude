@@ -88,16 +88,13 @@ const homeFor = () => mkdtempSync(join(tmpdir(), "evalation-refusal-"));
 test("a refusal longer than the kept text still reports its first line as the subject and its last required line as the remedy", () => {
   const offences = Array.from({ length: 400 }, (_, at) => `  file ${at} names a host nothing declared`).join("\n");
   const held = refused(`observed: this plugin names a host nothing declared\n${offences}\nrequired: declare each host or take it out, then run the check again\n`, homeFor());
-  assert.strictEqual(held.length, 1, JSON.stringify(held));
-  assert.strictEqual(held[0].subject, "observed: this plugin names a host nothing declared");
-  assert.strictEqual(held[0].remedy, "declare each host or take it out, then run the check again");
+  assert.deepStrictEqual(held.map((one) => [one.subject, one.remedy]), [["observed: this plugin names a host nothing declared", "declare each host or take it out, then run the check again"]]);
 });
 
 test("a refusal of two sentences reports the second as its remedy and a refusal of one reports none", () => {
   const two = refused("The path /srv/acme/app.js is a file, so the run did not start. Run /ev-run from inside the repository.\n", homeFor());
-  assert.strictEqual(two[0].remedy, "Run <path> from inside the repository.");
   const one = refused("The run did not start because the folder is empty\n", homeFor());
-  assert.strictEqual(one[0].remedy, null);
+  assert.deepStrictEqual([two[0].remedy, one[0].remedy], ["Run <path> from inside the repository.", null]);
 });
 
 test("a fault /ev-run stops on reports the remedy its refusal gives", () => {
@@ -110,7 +107,6 @@ test("a fault /ev-run stops on reports the remedy its refusal gives", () => {
 test("a reported remedy never holds a path and never passes 300 characters", () => {
   const long = Array.from({ length: 80 }, () => "again").join(" ");
   const held = refused(`observed: it broke\nrequired: open /srv/acme/app.js and ${long}\n`, homeFor());
-  assert.ok(held[0].remedy.startsWith("open <path> and again"), held[0].remedy);
-  assert.ok(held[0].remedy.length <= 300 && !held[0].remedy.endsWith(" "), String(held[0].remedy.length));
-  assert.ok(!held[0].remedy.includes("/"));
+  const { remedy } = held[0];
+  assert.deepStrictEqual([remedy.startsWith("open <path> and again"), remedy.length <= 300, remedy.endsWith(" "), remedy.includes("/")], [true, true, false, false]);
 });
