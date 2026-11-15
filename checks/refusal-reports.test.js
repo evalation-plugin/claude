@@ -78,3 +78,34 @@ test("a report's text is held to its form, and a report held before text existed
   const long = textOf(Array.from({ length: 600 }, () => "word").join(" "), new Set());
   assert.ok(long.length <= 2000 && !long.endsWith(" "), String(long.length));
 });
+
+const refused = (stderr, home) => {
+  ran(`require(${JSON.stringify(ERRORS)}); process.stderr.write(${JSON.stringify(stderr)}); process.exit(1);`, home);
+  return heldIn(home);
+};
+const homeFor = () => mkdtempSync(join(tmpdir(), "evalation-refusal-"));
+
+test("a refusal longer than the kept text still reports its first line as the subject and its last required line as the remedy", () => {
+  const offences = Array.from({ length: 400 }, (_, at) => `  file ${at} names a host nothing declared`).join("\n");
+  const held = refused(`observed: this plugin names a host nothing declared\n${offences}\nrequired: declare each host or take it out, then run the check again\n`, homeFor());
+  assert.deepStrictEqual(held.map((one) => [one.subject, one.remedy]), [["observed: this plugin names a host nothing declared", "declare each host or take it out, then run the check again"]]);
+});
+
+test("a refusal of two sentences reports the second as its remedy and a refusal of one reports none", () => {
+  const two = refused("The path /srv/acme/app.js is a file, so the run did not start. Run /ev-run from inside the repository.\n", homeFor());
+  const one = refused("The run did not start because the folder is empty\n", homeFor());
+  assert.deepStrictEqual([two[0].remedy, one[0].remedy], ["Run <path> from inside the repository.", null]);
+});
+
+test("a fault /ev-run stops on reports the remedy its refusal gives", () => {
+  const home = homeFor();
+  const detail = "The question set needs fixing, so the run did not start. Run /ev-questions to fix it.";
+  ran(`require(${JSON.stringify(ERRORS)}); require(${JSON.stringify(RUN_SAY)}).fault("stopped", ${JSON.stringify(detail)});`, home);
+  assert.deepStrictEqual(heldIn(home).map((one) => [one.failure, one.remedy]), [["run-stopped", "Run <path> to fix it."]]);
+});
+
+test("a reported remedy never holds a path and never passes 300 characters", () => {
+  const pathed = refused("observed: it broke\nrequired: open /srv/acme/app.js and again\n", homeFor());
+  const long = refused("observed: it broke\nrequired: remedy remedy remedy remedy remedy remedy remedy remedy remedy remedy remedy remedy remedy remedy remedy remedy remedy remedy remedy remedy remedy remedy remedy remedy remedy remedy remedy remedy remedy remedy remedy remedy remedy remedy remedy remedy remedy remedy remedy remedy remedy remedy remedy remedy remedy remedy remedy remedy\n", homeFor());
+  assert.deepStrictEqual([pathed[0].remedy, long[0].remedy.length, long[0].remedy.endsWith(" ")], ["open <path> and again", 300, false]);
+});
