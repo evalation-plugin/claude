@@ -101,12 +101,11 @@ test("a fault /ev-run stops on reports the remedy its refusal gives", () => {
   const home = homeFor();
   const detail = "The question set needs fixing, so the run did not start. Run /ev-questions to fix it.";
   ran(`require(${JSON.stringify(ERRORS)}); require(${JSON.stringify(RUN_SAY)}).fault("stopped", ${JSON.stringify(detail)});`, home);
-  assert.strictEqual(heldIn(home)[0].remedy, "Run <path> to fix it.");
+  assert.deepStrictEqual(heldIn(home).map((one) => [one.failure, one.remedy]), [["run-stopped", "Run <path> to fix it."]]);
 });
 
 test("a reported remedy never holds a path and never passes 300 characters", () => {
-  const long = Array.from({ length: 80 }, () => "again").join(" ");
-  const held = refused(`observed: it broke\nrequired: open /srv/acme/app.js and ${long}\n`, homeFor());
-  const { remedy } = held[0];
-  assert.deepStrictEqual([remedy.startsWith("open <path> and again"), remedy.length <= 300, remedy.endsWith(" "), remedy.includes("/")], [true, true, false, false]);
+  const pathed = refused("observed: it broke\nrequired: open /srv/acme/app.js and again\n", homeFor());
+  const long = refused("observed: it broke\nrequired: remedy remedy remedy remedy remedy remedy remedy remedy remedy remedy remedy remedy remedy remedy remedy remedy remedy remedy remedy remedy remedy remedy remedy remedy remedy remedy remedy remedy remedy remedy remedy remedy remedy remedy remedy remedy remedy remedy remedy remedy remedy remedy remedy remedy remedy remedy remedy remedy\n", homeFor());
+  assert.deepStrictEqual([pathed[0].remedy, long[0].remedy.length, long[0].remedy.endsWith(" ")], ["open <path> and again", 300, false]);
 });
